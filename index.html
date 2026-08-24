@@ -716,6 +716,179 @@ html,body{overflow-x:clip;max-width:100vw}
  .pgt{font-size:19px}
  .fpe{flex-direction:column-reverse}
 }
+
+/* ═══════════════════════════════════════════════════════════════════
+   PERSONALIZAÇÃO
+   Os valores abaixo são reescritos por aplicarPersonalizacao() no <html>.
+   Ficam por último para vencer as regras originais por ordem de origem.
+   ═══════════════════════════════════════════════════════════════════ */
+:root{--esc:1;--fbase:14px;--r:9px;--rg:14px}
+body{font-size:var(--fbase)}
+.wrap{padding:calc(22px*var(--esc)) calc(24px*var(--esc)) 60px}
+.pn{padding:calc(18px*var(--esc)) calc(19px*var(--esc));border-radius:var(--rg);
+ margin-bottom:calc(14px*var(--esc))}
+.kpi{padding:calc(16px*var(--esc)) calc(17px*var(--esc))}
+.kpis{gap:calc(12px*var(--esc));margin-bottom:calc(16px*var(--esc))}
+.g2,.g3,.g21{gap:calc(14px*var(--esc))}
+.card{border-radius:var(--rg)}
+.inp,.b1,.b2,.md,.tag,.chip,.bfg{border-radius:var(--r)}
+.md{border-radius:calc(var(--rg) + 3px)}
+.pg{margin-bottom:calc(20px*var(--esc))}
+.ni{border-radius:var(--r)}
+.agw-wrap,.sec-d{border-radius:var(--rg)}
+.agt,.chk-i,.fil-t{border-radius:var(--r)}
+/* Quem desliga animação quer a tela pronta, não a transição */
+.sem-anim *,.sem-anim *::before,.sem-anim *::after{
+ animation:none!important;transition:none!important}
+
+/* ═══ FILA DE PROGRAMAÇÃO ═══ */
+.fil-pn{border-left:3px solid var(--rx)}
+.fil-pn.vazia{border-left-color:var(--bd2)}
+.fil-pn.alvo{border-color:var(--rx);box-shadow:0 0 0 3px color-mix(in srgb,var(--rx) 18%,transparent)}
+.fil-pt{width:9px;height:9px;border-radius:50%;display:inline-block;flex-shrink:0}
+.fil-n{background:var(--rx);color:#fff;font-size:10.5px;font-weight:800;border-radius:9px;
+ padding:1px 7px;margin-left:2px}
+.fil-lista{display:flex;gap:9px;overflow-x:auto;padding:2px 2px 8px}
+.fil-t{flex:0 0 216px;background:var(--s2);border:1px solid var(--bd);border-left-width:3px;
+ padding:9px 11px;cursor:pointer;transition:.14s;display:flex;flex-direction:column;gap:2px}
+.fil-t:hover{border-color:var(--bd2);transform:translateY(-2px);box-shadow:var(--sh)}
+.fil-t.mov{opacity:.4}
+.fil-top{display:flex;align-items:center;justify-content:space-between;gap:6px;margin-bottom:3px}
+.fil-t b{font-size:12px;font-weight:800;letter-spacing:.2px}
+.fil-tt{font-size:11.5px;line-height:1.35;color:var(--t2);display:-webkit-box;
+ -webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;min-height:31px}
+.fil-pe{display:flex;align-items:center;justify-content:space-between;gap:6px;margin-top:6px;
+ padding-top:6px;border-top:1px solid var(--bd)}
+.fil-pe .agt-chk{margin-left:0}
+.fil-go{background:none;border:1px solid var(--bd);color:var(--t2);border-radius:6px;
+ padding:3px 8px;font-size:10px;font-weight:700;cursor:pointer;font-family:inherit;
+ display:inline-flex;align-items:center;gap:4px;transition:.14s;white-space:nowrap}
+.fil-go:hover{border-color:var(--ac);color:var(--ac);background:var(--acs)}
+.fil-go svg{width:10px;height:10px}
+.fil-vazio{font-size:12.5px;color:var(--t3);display:flex;align-items:center;gap:9px;
+ padding:14px 2px;line-height:1.55}
+.fil-vazio svg{color:var(--ok);flex-shrink:0}
+
+/* ═══ FOLGAS NA GRADE ═══ */
+.agh.folga{background:color-mix(in srgb,var(--t3) 10%,var(--s2))}
+.agh.folga b{color:var(--t3)}
+.agh-fg{display:block;font-size:8.5px;font-weight:700;color:var(--wr);text-transform:none;
+ letter-spacing:0;margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+/* Listra diagonal discreta: lê-se "aqui não se trabalha" sem gritar */
+.agc.folga{background:repeating-linear-gradient(135deg,
+ transparent 0 7px,color-mix(in srgb,var(--t3) 7%,transparent) 7px 14px),var(--s1)}
+.agc.folga .agadd{opacity:0}
+.agc.folga:hover .agadd{opacity:.55}
+.agfer{display:flex;align-items:center;gap:9px;font-size:11.5px;color:var(--t2);
+ background:color-mix(in srgb,var(--wr) 8%,transparent);
+ border:1px solid color-mix(in srgb,var(--wr) 26%,transparent);
+ border-radius:var(--r);padding:8px 12px;margin-bottom:11px}
+.agfer svg{color:var(--wr);flex-shrink:0}
+.agfer b{color:var(--t1)}
+.tf-folga{display:none;align-items:center;gap:8px;font-size:11px;color:var(--wr);
+ background:color-mix(in srgb,var(--wr) 9%,transparent);border-radius:var(--r);
+ padding:7px 10px;margin-top:9px;line-height:1.45}
+.tf-folga svg{flex-shrink:0}
+/* Alternador "com data" / "em programação" no formulário */
+.tf-modo{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px}
+.tf-md{display:flex;align-items:center;gap:9px;background:var(--s3);border:1px solid var(--bd);
+ border-radius:var(--r);padding:10px 12px;cursor:pointer;font-family:inherit;color:var(--t2);
+ text-align:left;transition:.14s}
+.tf-md span{display:flex;flex-direction:column;min-width:0}
+.tf-md b{font-size:12px;font-weight:700;color:var(--t1)}
+.tf-md span span,.tf-md span{font-size:10px;color:var(--t3)}
+.tf-md:hover{border-color:var(--bd2)}
+.tf-md.on{background:var(--acs);border-color:var(--ac);color:var(--ac)}
+.tf-md.on b{color:var(--ac)}
+
+/* ═══ DIAGNÓSTICO VISUAL DENTRO DA FROTA ═══ */
+.vst-resumo{display:flex;gap:6px;flex-wrap:wrap}
+.vst-r{font-size:10.5px;font-weight:700;border-radius:var(--r);padding:4px 9px;white-space:nowrap}
+.vst-r b{font-size:12px}
+.vst-nota{font-size:11px;color:var(--t3);margin-top:10px;line-height:1.55}
+
+/* ═══ TELA PERSONALIZAR ═══ */
+.pz-cores{display:grid;grid-template-columns:repeat(auto-fit,minmax(96px,1fr));gap:8px}
+.pz-cor{background:var(--s3);border:1.5px solid var(--bd);border-radius:var(--r);padding:10px 6px;
+ cursor:pointer;font-family:inherit;display:flex;flex-direction:column;align-items:center;gap:6px;
+ transition:.14s;color:var(--t2)}
+.pz-cor i{width:26px;height:26px;border-radius:50%;background:var(--pc);display:block;
+ box-shadow:inset 0 0 0 1px rgba(255,255,255,.18)}
+.pz-cor span{font-size:10.5px;font-weight:600}
+.pz-cor:hover{border-color:var(--bd2);transform:translateY(-1px)}
+.pz-cor.on{border-color:var(--pc);background:color-mix(in srgb,var(--pc) 12%,transparent);color:var(--t1)}
+.pz-cor.on i{box-shadow:0 0 0 3px color-mix(in srgb,var(--pc) 30%,transparent)}
+.pz-op{display:flex;gap:8px;flex-wrap:wrap}
+.pz-op.col{flex-direction:column}
+.pz-b{flex:1;min-width:110px;background:var(--s3);border:1.5px solid var(--bd);border-radius:var(--r);
+ padding:11px 13px;cursor:pointer;font-family:inherit;color:var(--t2);transition:.14s;
+ display:flex;align-items:center;gap:9px;text-align:left}
+.pz-b b{font-size:12.5px;font-weight:700;color:var(--t1)}
+.pz-b span{font-size:10.5px;color:var(--t3);margin-left:auto}
+.pz-b:hover{border-color:var(--bd2)}
+.pz-b.on{border-color:var(--ac);background:var(--acs);color:var(--ac)}
+.pz-b.on b{color:var(--ac)}
+.pz-raio{width:20px;height:20px;border:2px solid currentColor;flex-shrink:0;display:block}
+.pz-rot{font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.6px;
+ color:var(--t2);margin:14px 0 8px}
+.pz-menu{display:flex;gap:7px;flex-wrap:wrap}
+.pz-chk{display:inline-flex;align-items:center;gap:7px;background:var(--s3);border:1px solid var(--bd);
+ border-radius:var(--r);padding:7px 12px;font-size:12px;font-weight:600;cursor:pointer;
+ font-family:inherit;color:var(--t3);transition:.14s}
+.pz-chk i{width:15px;height:15px;border-radius:5px;border:1.5px solid var(--bd2);display:flex;
+ align-items:center;justify-content:center;flex-shrink:0}
+.pz-chk i svg{width:9px;height:9px}
+.pz-chk.on{color:var(--t1);border-color:color-mix(in srgb,var(--ac) 40%,transparent)}
+.pz-chk.on i{background:var(--ac);border-color:var(--ac);color:#fff}
+.pz-chk:hover{border-color:var(--bd2)}
+.pz-fer{display:grid;grid-template-columns:repeat(auto-fill,minmax(238px,1fr));gap:7px;margin-top:4px}
+.pz-f{display:flex;align-items:center;gap:9px;background:var(--s3);border:1px solid var(--bd);
+ border-radius:var(--r);padding:8px 11px;font-size:12px}
+.pz-f.off{opacity:.45}
+.pz-f.off span{text-decoration:line-through}
+.pz-f b{font-family:ui-monospace,monospace;font-size:11.5px;color:var(--ac);flex-shrink:0}
+.pz-f span{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.pz-tag{font-size:8.5px;font-weight:800;text-transform:uppercase;letter-spacing:.4px;
+ color:var(--t3);background:var(--s1);border-radius:4px;padding:2px 5px;font-style:normal;flex-shrink:0}
+.pz-tag.prop{color:var(--ac);background:var(--acs)}
+.pz-f button{background:none;border:none;color:var(--t3);cursor:pointer;padding:3px;
+ display:flex;border-radius:5px;transition:.14s;flex-shrink:0}
+.pz-f button:hover{color:var(--cr);background:var(--s1)}
+.pz-f.off button:hover{color:var(--ok)}
+@media(max-width:620px){.tf-modo{grid-template-columns:1fr}.pz-op{flex-direction:column}}
+
+/* ═══ AJUSTES VISUAIS FINAIS ═══ */
+/* A grade de KPIs deixava um cartão órfão sempre que a contagem não batia
+   com o número de colunas (5 em 4, 6 em 5…). Em flex a última linha estica
+   e ocupa a largura toda, para qualquer quantidade. */
+.kpis{display:flex;flex-wrap:wrap}
+.kpis>.kpi{flex:1 1 196px;min-width:196px}
+.kpis:has(> .kpi:nth-child(5):last-child) > .kpi:nth-child(5),
+.kpis:has(> .kpi:nth-child(7):last-child) > .kpi:nth-child(7){grid-column:auto}
+@media(max-width:900px){.kpis>.kpi{flex:1 1 152px;min-width:152px}}
+@media(max-width:520px){.kpis>.kpi{flex:1 1 calc(50% - 7px);min-width:0}}
+/* Barra de ferramentas dos painéis: no tema claro o cinza secundário sumia */
+:root[data-theme="light"] .bfg{background:#fff;border-color:var(--bd2);color:var(--t1)}
+:root[data-theme="light"] .bfg.on{background:var(--acs);border-color:var(--ac);color:var(--ac)}
+:root[data-theme="light"] .agnav button{background:#fff;border-color:var(--bd2)}
+/* A listra da folga precisa de mais peso sobre fundo branco */
+:root[data-theme="light"] .agc.folga{background:repeating-linear-gradient(135deg,
+ transparent 0 7px,color-mix(in srgb,var(--t3) 15%,transparent) 7px 14px),#fff}
+:root[data-theme="light"] .agh.folga{background:color-mix(in srgb,var(--t3) 16%,var(--s3))}
+:root[data-theme="light"] .fil-t{background:#fff}
+:root[data-theme="light"] .pz-cor,:root[data-theme="light"] .pz-b,
+:root[data-theme="light"] .pz-chk,:root[data-theme="light"] .pz-f{background:#fff;border-color:var(--bd2)}
+.fil-sp{font-size:10px;color:var(--t3);white-space:nowrap}
+/* Prévia dos cantos */
+.pz-prev{display:flex;flex-direction:column;gap:10px}
+.pz-prev-c{background:var(--s3);border:1px solid var(--bd);border-radius:var(--rg);padding:12px 14px}
+.pz-prev-k{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--t2);display:block}
+.pz-prev-c b{font-size:22px;font-weight:800;letter-spacing:-.7px;display:block;margin:3px 0 8px}
+.pz-prev-b{height:5px;border-radius:3px;background:var(--bd);overflow:hidden}
+.pz-prev-b i{display:block;height:100%;border-radius:3px;background:var(--ac)}
+.pz-prev-l{display:flex;gap:9px;align-items:center}
+.pz-prev-l .inp{flex:1}
+:root[data-theme="light"] .pz-prev-c{background:var(--s3)}
 </style>
 </head>
 <body><div id="app"></div>
@@ -1481,8 +1654,79 @@ function semaforo(v,bom,atencao){
 const TIPO_SERV={preventiva:{l:"Preventiva",c:"var(--ok)"},corretiva:{l:"Corretiva",c:"var(--cr)"},
  preditiva:{l:"Preditiva",c:"var(--in)"},inspecao:{l:"Inspeção",c:"var(--cy)"},
  melhoria:{l:"Melhoria",c:"var(--rx)"},socorro:{l:"Socorro",c:"var(--or)"}};
-const ST_TAREFA={programada:{l:"Programada",c:"var(--in)"},em_execucao:{l:"Em execução",c:"var(--wr)"},
+/* "Em programação" é a fila de planejamento: a tarefa já existe e tem escopo,
+   mas ainda não foi comprometida com um dia nem com um executante. */
+const ST_TAREFA={em_programacao:{l:"Em programação",c:"var(--rx)",fila:true},
+ programada:{l:"Programada",c:"var(--in)"},em_execucao:{l:"Em execução",c:"var(--wr)"},
  pausada:{l:"Pausada",c:"var(--or)"},concluida:{l:"Concluída",c:"var(--ok)"},cancelada:{l:"Cancelada",c:"var(--t3)"}};
+/* A tarefa está na fila de planejamento, fora da grade da semana? */
+function naFila(t){return t&&t.status==="em_programacao";}
+
+/* ═══════════ CALENDÁRIO DE TRABALHO ═══════════
+   A oficina não trabalha aos domingos nem em feriado. Isso muda a capacidade
+   da semana e é sinalizado na grade, para ninguém programar serviço num dia
+   em que não há ninguém para executar. */
+
+/* Domingo de Páscoa pelo algoritmo de Meeus/Jones/Butcher — dele saem
+   Carnaval, Sexta-feira Santa e Corpus Christi. */
+function domingoDePascoa(ano){
+ const a=ano%19,b=Math.floor(ano/100),c=ano%100;
+ const d=Math.floor(b/4),e=b%4,f=Math.floor((b+8)/25),g=Math.floor((b-f+1)/3);
+ const h=(19*a+b-d-g+15)%30,i=Math.floor(c/4),k=c%4;
+ const l=(32+2*e+2*i-h-k)%7,m=Math.floor((a+11*h+22*l)/451);
+ const mes=Math.floor((h+l-7*m+114)/31),dia=((h+l-7*m+114)%31)+1;
+ return new Date(ano,mes-1,dia,12,0,0,0);
+}
+/* Feriados nacionais do ano, em {"AAAA-MM-DD":"Nome"} */
+const _cacheFeriados={};
+function feriadosNacionais(ano){
+ if(_cacheFeriados[ano])return _cacheFeriados[ano];
+ const m={};
+ const põe=function(d,nome){m[isoDia(d.getTime())]=nome;};
+ [[0,1,"Confraternização Universal"],[3,21,"Tiradentes"],[4,1,"Dia do Trabalho"],
+  [8,7,"Independência"],[9,12,"Nossa Senhora Aparecida"],[10,2,"Finados"],
+  [10,15,"Proclamação da República"],[10,20,"Consciência Negra"],[11,25,"Natal"]]
+  .forEach(function(x){põe(new Date(ano,x[0],x[1],12,0,0,0),x[2]);});
+ const pa=domingoDePascoa(ano);
+ const rel=function(n){const d=new Date(pa);d.setDate(d.getDate()+n);return d;};
+ põe(rel(-48),"Carnaval");
+ põe(rel(-47),"Carnaval");
+ põe(rel(-2),"Sexta-feira Santa");
+ põe(rel(60),"Corpus Christi");
+ _cacheFeriados[ano]=m;
+ return m;
+}
+/* Feriados que o usuário acrescentou ou removeu, na configuração */
+function feriadosDoUsuario(){
+ const c=DB.cfg();
+ return{extras:c.feriadosExtras||{},removidos:c.feriadosRemovidos||[]};
+}
+/* Nome do feriado nesta data, ou "" se for dia comum */
+function feriadoEm(ms){
+ const iso=isoDia(ms),u=feriadosDoUsuario();
+ if(u.removidos.indexOf(iso)>=0)return "";
+ if(u.extras[iso])return u.extras[iso];
+ const c=DB.cfg();
+ if(c.feriadosNacionais===false)return "";
+ return feriadosNacionais(new Date(ms).getFullYear())[iso]||"";
+}
+/* Este dia é folga? Devolve "" quando é dia útil. */
+function motivoFolga(ms){
+ const c=DB.cfg();
+ const dias=c.diasFolga||[0];              // 0 = domingo, por padrão
+ const d=new Date(ms).getDay();
+ if(dias.indexOf(d)>=0)return ["Domingo","Segunda","Terça","Quarta","Quinta","Sexta","Sábado"][d];
+ return feriadoEm(ms);
+}
+function ehFolga(ms){return !!motivoFolga(ms);}
+/* Dias úteis entre duas datas, inclusive nas duas pontas */
+function diasUteis(iniMs,fimMs){
+ let n=0,d=iniDoDia(iniMs);
+ const lim=iniDoDia(fimMs);
+ let guarda=0;
+ while(d<=lim&&guarda++<400){if(!ehFolga(d))n++;d+=DIA;}
+ return n;
+}
 const FUNCOES=["Mecânico","Eletricista","Soldador","Borracheiro","Lubrificador","Auxiliar","Supervisor","Terceirizado"];
 const TURNOS=["Comercial","Manhã","Tarde","Noite"];
 const PRIOR_SOL={baixa:{l:"Baixa",c:"var(--t2)"},media:{l:"Média",c:"var(--wr)"},alta:{l:"Alta",c:"var(--cr)"}};
@@ -1507,7 +1751,7 @@ const COMP_CATALOGO=[
  ["Eixos","Transmissão"],["Quinta roda","Transmissão"],["Cardan","Transmissão"],["Escapamento","Motor"]];
 const DIA=864e5;
 const SISTEMA_NOME="Gestão de Análise de Falhas MKT";
-const VERSAO="5.1";
+const VERSAO="5.2";
 /* Identidade visual oficial da Makro — logotipo fornecido pela empresa (item 41) */
 const LOGO_MARCA="data:image/png;base64,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";
 const LOGO_WORDMARK="data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAQDAwQDAwQEBAQFBQQFBwsHBwYGBw4KCggLEA4RERAOEA8SFBoWEhMYEw8QFh8XGBsbHR0dERYgIh8cIhocHRz/2wBDAQUFBQcGBw0HBw0cEhASHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBz/wAARCADsAaQDASIAAhEBAxEB/8QAHQABAAEEAwEAAAAAAAAAAAAAAAMBBggJAgUHBP/EAE4QAAIBAwIEBAQDAggFFQAAAAABAgMEBQYRBxIhMQgyQVETFGFxIkKBUpEJFRYjM2Jy0SR0krGzJSg1NzhDU2NkZnV2gpWhsrTBw9Lw/8QAGwEBAAIDAQEAAAAAAAAAAAAAAAEEAgMFBgf/xAAxEQEAAQQABAQEBgEFAAAAAAAAAQIDBBEFITFBEhNRYQZxobEUFTIzQvDRImKRwfH/2gAMAwEAAhEDEQA/AMNQAetVQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAR1PMBU8wAkAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAR1PMBU8wAkAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAR1PMBU8wAkAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAR1PMBU8wAkAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAR1PMBU8wAkAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAR1PMBU8wAkAAAAAAAAAAAAAAAAOcIOak1GT5Vu9lvsjh6ly6La+euVLZ81LZQf5vxL9/Tcr5d6cezVd1vTp8H4fHEc23hzV4fHOt9dcplbTBded0s6fPc2Md4rrOiu6+q+n0LWUeq9d3029THFy7WTR47c/P2Z8X4NlcJyPw+TT8p7THrE/f07uPpv+hVxlHzRcX32a2Zd+C0uouFzfw3aacaL7L6y/uOu1e4vLpJp8tKKaXp9DTb4jbvZHkW+eo5y6OV8L5OHwv8AMcr/AEzMxEU99TvnPp7R19dOgAHReq/V7HQ08wAeifo13AABtRTbeyKJ7pNNNb+gFQPsUbS/NHf79gKgLZrdNNe6Y/zAAceeH7cf39TkEgKNqOzbS37bsKcZPZSW/tuNIVBRtLput/uOeK7yj+9AVBSMlJ7Jp/RMqAAHRJN9E+z9wAC6rdPdfQBIAAgAAAAAAAAAAAAAR1PMBU8wAkAAAAAAAAAAAAAAABcmmZY+4crS7tqUq7e9Ocl5vofdnsB8vGN5jYOlOl1lCn32XqvqWdGTg1JNpp7pruj0HT+cWToKlVkld00+Zftr3R5/iVu/jXPxVqZmnvHb/j0fSfhbJwOK408IzKYoufwriIirlzjn18UdufOPfr8+C1JC+5aFy4wufSfaM/7n9DtVibOneu7VvFXEum/199vctXU2C+UlK9to8tCT/HCP5Je/2f8A4HwT1HkKlkrV1eiXK6i87Xtv/wDmVvy+MmIvYVXhirlMen99HWp+Jq+F1Tg8fteZXb50VaifF6Tz6T/u+cTG453DnNTK2craykpV+0qi6qP292Uw+nacqTucjT+LXrdeSo9+VfX3Z8elsH8bkv7mmuRdaUH+Z+/2R2OpM9Gwp/L2897mqusv2F7/AHMK6fBVGDhdf5Vf3tDdj3Jv2p+IOP8A6I/bt9uffU9ZntvtznUa10eo6mPpVY21nbU4zpt/EnBbbP2+plV4F9Daa1nY66eoMBjMtK1uLONF3ttGs6SlTqt8rkum+y/cYbPu/wDOzOn+Dve1jxEf/KbH/R1TtXrPkYk0RMzrvPzfLOIZ34/LqyPBFMT0iIiIiO3T6z3ef+Lzw6Q4eZB6z0vZfC0xf1Nru1oU1yY+s+zSXalP026Rl07SW2K3rts2+20erf0X1N22bwuP1Lir3E5S1pXWOvaUqFe3qx3jUhJbNMxV4ReDSy0LxSyeezFzTyWFxdZTwVCp+JtvqqlZftU/LFerXMasfPim3MXOsdPdSqo58nLwz+FHE4PS/wDHnEDBWmRzuVgpwsL6jGrCwovqo8r6fEl3l7dF7mNvjD03h9KcZ6mOweLs8ZYRxttNW9nSVOmpPn3fKvV7G0mC29d0ayvHH/t81/8Aoq0/+Qxwr1d3ImqqU1REUsdLe3rXlxRtrak6tzXnGlSpxW7nOTSjFfdtI2tcPPDloPTGicFictpPCZLKWtrCF3eXVnTq1Ktbbebcmt2uZvb6bGFHgy4drW/F+3yt1Rc8Zpmn8/NuP4ZV2+WhH77809v6hm7xn444/hHmtC4+6dFrUGTVC5lN/wBBa7csqv6TlTX23M8+5VXXFq2iiOW5YW+M7hRZcO+INhlMJjaVjgc7bbwo21NQpUriltGcVFdFvHll+sjGqpJqnNx78re/sbVvFdw3nxG4M5mFpSVXLYhLJ2XKt5SlTTc4r+1Tcl9ehqoqSUqE5LtKDa/cWsC75lqInrHJFcaltDwvCLQVTgRZZSejMDLIy01G4lcuxpuq6nyvNz822++/Xc1e2salaNvCnCVWtVUIxhFOTnJ9EkvVttL9Tbtg/wDc62H/AFUj/wCkMc/Bn4cIW1jjeJOqbeM7mpTjVwtnUXMqMeXb5iS7c7XkX5V17tbU8bJi1TXVXPfl9WUxvS6/Dj4UMPpXTLzGv8NZ5PUOUpxl8jf0Y1aePpd1DZ9PiPo5P08q7NvHPxUa80RfZqppPh/pzBWGPxU5/OZOxsqcJ3NeO65ITS3+HF77teZ/RdfevGD4jv5LWdxw+0reL+PLum45O9oz2dlSf+9xa7VJp9f2U/dmvup0o1Euyg9l+jN+JbruVefdnr0hjVMRyhtb4V8HOHmS4aaPvLzRGnq93c4m1q1atXH05TqTlSi222t22y748DuGseq0Fpr/ALspf/U6jS1SVLw64mcZOEoaVhJSi9mmrXun6GpynqvLfDp76hyO/Kt/9Uant/bKdixXkVVaq1qWc1aiG2nUHh64X5/FV8dc6Iw1GlXXL8WztY29WD9HGpBJpmujxC8C77gfqulaK4qXuAyUZVMdezSU5KO3NTnt0547r7p8y7NHceFXV2rZcbtM2uLymSvbW8qyp5GhK5qVafyvK+aU020uV7NPp1+5lJ49LW1q8Gcfc1IQd5b5m3+WbXXeUaikvs49/sbrfmY1+LU1biUTqqNsUvD54cstxwyNe6q3EsbpWxqfDub+MeapUn3dKkn0ctmt5PdR37PsZ2YHw38HdCY6nGvpnEVdklK8zMo16lR+7lU6b/ZI7LA2mL4CcCKM1RjG107iHdV4Lo6tZQ55tv3lUb6/U1da84h6i4mZ24zWpMhWu7mtJyhRlN/CtovtTpw7Riui6Ld7dSYm7mVzNNWqYRyphsh1j4UeE2v8bOdhhrbEXc+lLIYOSp7P6xW8Jr6NfuNffGXg3neC2qf4my+1e0rxdSxyFOLjTuqafXo2+WS9Y79N/Y+vgjxpz3B7Vlne2V3XqYOtVhDIY2dWTo1qTaTkovpGcU2017bGevi80baa04GZnIKEZ3mDUMrZ1dluuXzrf2lTk9/09iaaruLdporndMkxFUbhq7A6enVegOq1AAAAAAAAAAAAACOp5gKnmAEgAAAAAAAAAAAAAAAKruXxpjBOxgryvFu4mtoxf5E+36s6rSuMt6lR3t3Vp7UpbQhKSW792dvqDOxtKPy9pNSuavTmi9+VPp+9nn+J5Ny/c/BWO/Wf79X0r4V4Zi8Nxp47xGY5Ruinv7Tr1n+Mdus9pj4dVZvnjOxt5Jp/0s/T+yv/AHLdeLu1aK7dCXy7/Nt1++3sXNg9LqLjdX6bl3jRl6P+t7lzfM0p3Erf4tN11Hd091ul9vYr/mNvCiLOLHi1+qf793Tn4ZyuP11cQ4vc8qa+VunvHeNxP26zzmdLb0tm/iwhYXD/ABwX81P9pe33XoV1RhHcRnfW0G6iW9WC/Mktt19kiHNaXlTcrrHKSknzOjH8v1idhgc9DI0HTuJxhdQ8272Ul7/3o13KooqjPwun8o9N/wCVjGt1XrM/DnHeVUft19p101M94+scp1PObBM6P4PD/Y/iJ/jNj/o6phtqbG0LSqri2qU3SrP8VOMlvGXul7GX38H9lrDF2HED56+tbV1LmycFXrRp821OrvtzNbnavX6cjDm5R3194fLOIcOu8Oy6sW9qZp7x0mO0x819am8SUuFviVzelNSV5PR19Rs3Cu1v/F1aVJfjf/Fy/N7PZ+++RGsdc4LQulrvU2bvqVviban8R1k1L4jfljD9qUt+iXc1s+Ma8tr/AI95y4tLmjc0KlnZ7VKM1OL2pbNbp7e54bVvbqvShRq3VxUoQ25KVStOUI7dtot7LY104FN2iiveuUbUpr1ybJPC7xozPGzWXETLZBStsZaqzpY7HKW8bWk/ivq/Wctk5P6bLojGTxytR47XEpdIrFWrb+n84eifwf2WsMVU1/8AP3tta8/ySj8xVjT5tlV323a37o67jrpnHcUPF5g8T8/ZvD1rO0q3tz8eHw40KbnKoubfbdpKO39YW4ptZVWo5RH/AFBM7pZBeD/hxLQHB+wubujKjl9Qy/jO4U1+KMJLajB/amov7yZ0/HHwn1+OGs/5Q3et6uPt6drCzt7KOPVVUYLdy/F8Rbtyk329vYuzj1xpxXC/hdkcjg8nYVMzUjGyxlGhVhV5asukZcqb/DCKcuvTovcwWXi94yxSS1f/AJWPt9//ACGixav3a5vUTqff/wAZTMRyls30rhrvBaWxOIyOQeTurG1hbVbyVNQdxyRUeZx3ezaXXqan/EFw8fDDilqfAwg42Eqkryx6dHb1d5xS/svmj/2TInw2+LDVOc4k22C1/nKNzi8rRlSt7ipQp0I29xHeUd3FJcsknHr67e53fjw03idRaYw+scVf2Nxf4ubsruFG4hKcrep5Xsnu+Wol/lG3GprxsjwV90VamNwyJwa/1u1iv+ake/8Aih4l4MvEDa6n07juH2cnToZ7F2sYY+p0jG9t4x8u3/CQXRr80Vuuu56xg9S4WPh8sLd5fHqutLRh8P5mnzKXym222++/0NU2FyV5hrjH3+Puqtpf2jp1qFxRltOlUjttJP3TRjjY8Xqa6Z9eX1Jq1pm74x/Do6vzvEvS1q+ZJ1M3ZU4tua6f4TBL1S869tpejMGarTo1WnunCWz9+htL8P3iIw3F3RnLm7qzsNS4+MaORt6040qdbdNKrBSezhPruvR7r2MPfFVwTxmgM3W1HpG7sbjS2WqSU7a3uITlj68t3yJJ7/Dk93H2229ixhXq6Z8i71jp/fsiuN84bA+FLoR4P6Nlc/D+XWDtXU+Jty8vwY7779Nti3/5b8D+iWa0F9viWpDo7UeGp8BsJbTy+OjXWmqcHTldU1JS+W22237mpijTj8KmnCPlXRxRUx8Xzqq9zrUspq1puwx+Hw2Kpu7xWNsaHxIc3xLOhCLqR7pJxX4k/T3Nafin4/XPF/UFLEWFjc4/A4GtUVKheR5K9W58rqVIfk22aUX1W7b69D13wdeI+FvTt+HWrb6FOjCO2HvrieySXV205P2Sbg36bx9EfR4v+DWD1JTr8Q9J3+MlmKEU8rZ0rqnvdU4r+mik+tSKXVLzR+qM8e3FjI8N2N+kkzunkyNvKNnxy4Dzt7O4gqOp8KoU6qe6p1JQXfb9ma2f2NUGodO5PSWbvMHnLSdjlrKo6Va3qrlaafdb94vupLo11PffDL4nJ8H3U0/qClcXmjrmo6sZUFzVbCo+8oR/NCXdxXVPqu7RnEshwj40462vKtXS+oqKj/Nu5VOVWmvZqW0o/Z7GVNVeFVNM07plHKuGsHhXw3y/FjWeP0/h6EqiqVIyu7hJuna0E05znL0/Dul6ts2OeKrUtnozgDqShzctTI28cRZ02+tSdTaO36QUn+h3OY4h8JuB2Dq0lf4HD0F+JY/Fxg61WS7bUqf4pS+/7zXv4gePWS43akpVVSqWOm8dzRx9hJ7yW+29So13m0ttl0iui9WTE15d2mrWqaUcqYePtJdF2XYoAddqAAAAAAAAAAAAAEdTzAVPMAJAAAAAAAAAAAAAAAAH19EXHo6lCrka0p01OVOlzRclvs90t/3FuEtG5rW/P8GpKHPFxk16or5dmq/YqtUzqZdPg2dbwM61l3afFTRO9evLl9V4Z3U8bfmt7KSlX7Tq91H7e7LOjcVYVPixqSVVPmU9+u/uRg14mDaxaPBRG/WfVZ418QZfF8jz71Woj9MR0p+Xv79V84LUsL7ltrpqN12jJ+Wp/czo9XUYUsu+Smo89OMpJLu+vU6Lrvuns/clr3FW5kp1qkqk1FR5pPfouyNFnhtOPk+fanUTHOP8Ojn/ABVd4jwuMDMp8VdMxMVe0b6+/vHWOvPrEunbpuUlGMvNGL+6Kg6byRsl2SXr0AAFHGMu8U/uhyx7cq29tuhUBKijGL3UUn9EVAAbL2KKMY+WKX2RUAU5Ip7qKT90ioAQpKKltzJPb3HLFdopfYqAlxcIN78kd39DkAEGyfdJ/c48kE91CKfukcgA9dyjhFycmk5Pu/UqAKKKjJySSk+7S6v9Su2wAAAAAAAAAAAAAAAAAEdTzAVPMAJAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAEdTzAVPMAJAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAEdTzAVPMAJAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAEdTzAVPMAJAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAEdTzAVPMAJAAAAAAAAAAAAAAAAAAEgABoAANAABoAANAABoAANAABoAANAABoAANAABoAANAABoAANAABoAANAABoAANAABpHU8wFTzAjaH/9k=";
@@ -1516,7 +1760,7 @@ async function hashSenha(txt){
  return Array.from(new Uint8Array(buf)).map(b=>b.toString(16).padStart(2,"0")).join("");
 }
 const S={sessao:null,view:"executivo",menu:true,tema:"dark",frotaAtiva:null,abaFrota:"todas",
- motoristaAtivo:null,compAtivo:null,vistaFrota:null,
+ motoristaAtivo:null,compAtivo:null,
  F:{q:"",periodo:"todos",dataDe:"",dataAte:"",frota:"",placa:"",motorista:"",oficina:"",fornecedor:"",sistema:"",componente:"",status:"",
     modelo:"",fabricante:"",cidade:"",filial:"",criticidade:"",severidade:""},
  FS:{q:"",periodo:"todos",dataDe:"",dataAte:"",frota:"",motorista:"",prioridade:"",status:"",filial:""},
@@ -2161,7 +2405,7 @@ function render(){
  document.documentElement.setAttribute("data-theme",S.tema);
  const navScrollTop=(document.querySelector(".anav")||{}).scrollTop||0;
  const P=PERFIS[S.sessao.perfil]||PERFIS.visualizacao;
- const nav=[["_g","PAINÉIS"],["executivo","◈","Executivo"],["operacional","▤","Operacional"],["vista","◉","Vista Superior"],
+ const nav=[["_g","PAINÉIS"],["executivo","◈","Executivo"],["operacional","▤","Operacional"],
   ["_g","GESTÃO"],["frotas",mi("truck"),"Frotas"],["falhas","▦","Falhas"],["inteligencia","◎","Inteligência"],["alertas",mi("bell"),"Alertas"],
   ["_g","SOLICITAÇÕES"]];
  if(P.p.aprovar)nav.push(["aprovacao",mi("check"),"Central de Solicitações"]);
@@ -2174,18 +2418,27 @@ function render(){
  nav.push(["_g","SISTEMA"]);
  if(P.p.usuarios)nav.push(["usuarios",mi("users"),"Usuários"]);
  nav.push(["auditoria",mi("menu"),"Auditoria"]);
+ nav.push(["personalizar",mi("sun"),"Personalizar"]);
  if(P.p.config)nav.push(["parametros",mi("gear"),"Configurações"]);
  if(P.p.config)nav.push(["dados",mi("database"),"Dados & Backup"]);
  // Solicitante tem um menu enxuto — só o que ele pode fazer
  if(S.sessao.perfil==="solicitante"){
   nav.length=0;nav.push(["_g","SOLICITAÇÕES"],["minhas",mi("chat"),"Minhas Solicitações"]);
  }
+ /* Itens que o usuário escondeu em Personalizar sumem do menu — menos a
+    tela aberta agora, senão ela ficaria sem indicação de onde está. */
+ const _oc=cfgVal("ocultos")||[];
+ const navVis=nav.filter(function(x){return x[0]==="_g"||_oc.indexOf(x[0])<0||x[0]===S.view;});
+ /* Um grupo que ficou sem nenhum item vira só um título solto */
+ const navFinal=navVis.filter(function(x,i){
+  if(x[0]!=="_g")return true;
+  const prox=navVis[i+1];
+  return !!prox&&prox[0]!=="_g";});
  const nAl=alertas(filtrar(DB.falhas())).length;
  const nPend=DB.solicitacoes().map(normSol).filter(function(s){return stSol(s.status).aberta;}).length;
  const conteudo=
   S.view==="executivo"?vExec():
   S.view==="operacional"?vOper():
-  S.view==="vista"?vVista():
   S.view==="frotas"?(S.frotaAtiva?vFrotaDetalhe(S.frotaAtiva):vFrotas()):
   S.view==="falhas"?vFalhas():
   S.view==="inteligencia"?vIntel():
@@ -2202,14 +2455,15 @@ function render(){
   S.view==="componentes"?(S.compAtivo?vComponenteDetalhe(S.compAtivo):vComponentes()):
   S.view==="usuarios"?vUsuarios():
   S.view==="auditoria"?vAuditoria():
+  S.view==="personalizar"?vPersonalizar():
   S.view==="parametros"?(P.p.config?vParametros():""):
   S.view==="dados"?vDados():"";
  document.getElementById("app").innerHTML=
  '<div class="app"><aside class="'+(S.menu?"":"col")+'">'+
   '<div class="abr"><div class="alg" style="background:none;box-shadow:none">'+logoSVG(34)+'</div><div class="nlb" style="overflow:hidden">'+
-   '<div style="font-size:13.5px;font-weight:800;letter-spacing:-.3px;white-space:nowrap">Gestão <span style="color:var(--ac)">MKT</span></div>'+
+   '<div style="font-size:13.5px;font-weight:800;letter-spacing:-.3px;white-space:nowrap">'+nomeSistemaHTML()+'</div>'+
    '<div style="font-size:9px;color:var(--t3);white-space:nowrap">MAKRO · v'+VERSAO+'</div></div></div>'+
-  '<div class="anav">'+nav.map(function(x){
+  '<div class="anav">'+navFinal.map(function(x){
    if(x[0]==="_g")return '<div class="ngr">'+x[1]+'</div>';
    return '<button class="ni '+(S.view===x[0]?"on":"")+'" onclick="ir(\''+x[0]+'\')" title="'+x[2]+'">'+
     '<span class="nic">'+icoNav(x[0])+'</span><span class="nlb">'+x[2]+'</span>'+
@@ -2234,6 +2488,7 @@ function render(){
 }
 function ir(v){
  if(v==="caminhoes")v="frotas";   // tela unificada
+ if(v==="vista")v="frotas";       // o diagnóstico visual agora vive dentro da frota
  S.view=v;
  try{sessionStorage.setItem("sgfpro:view",v);}catch(e){}   // volta aqui ao recarregar
  if(v!=="frotas"&&v!=="caminhoes")S.frotaAtiva=null;
@@ -2241,16 +2496,71 @@ function ir(v){
 /* Ao recarregar, volta para a tela onde a pessoa estava — não para o painel inicial */
 function restaurarView(){
  try{
-  const v=sessionStorage.getItem("sgfpro:view");
+  let v=sessionStorage.getItem("sgfpro:view");
   if(!v)return;
+  if(v==="vista"||v==="caminhoes")v="frotas";   // telas que deixaram de existir
   const P=PERFIS[S.sessao&&S.sessao.perfil]||PERFIS.visualizacao;
   const restrito={usuarios:P.p.usuarios,parametros:P.p.config,aprovacao:P.p.aprovar};
   if(v in restrito&&!restrito[v])return;      // sem permissão: fica no padrão
   S.view=v;
  }catch(e){}
 }
+/* ═══════════ PERSONALIZAÇÃO ═══════════
+   Tudo o que o usuário pode ajustar na cara do sistema vive na configuração
+   local e é aplicado como variável CSS no <html>. Nada aqui depende da nuvem:
+   é preferência de quem está usando a máquina. */
+const ACENTOS={
+ azul:{l:"Azul",d:"#3B82F6",c:"#60A5FA",lt:"#1749C4"},
+ indigo:{l:"Índigo",d:"#6366F1",c:"#818CF8",lt:"#4338CA"},
+ violeta:{l:"Violeta",d:"#8B5CF6",c:"#A78BFA",lt:"#6D28D9"},
+ turquesa:{l:"Turquesa",d:"#14B8A6",c:"#2DD4BF",lt:"#0F766E"},
+ verde:{l:"Verde",d:"#22C55E",c:"#4ADE80",lt:"#15803D"},
+ ambar:{l:"Âmbar",d:"#F59E0B",c:"#FBBF24",lt:"#B45309"},
+ laranja:{l:"Laranja",d:"#F97316",c:"#FB923C",lt:"#C2410C"},
+ rosa:{l:"Rosa",d:"#EC4899",c:"#F472B6",lt:"#BE185D"},
+ vermelho:{l:"Vermelho",d:"#EF4444",c:"#F87171",lt:"#B91C1C"},
+ grafite:{l:"Grafite",d:"#64748B",c:"#94A3B8",lt:"#334155"}
+};
+const DENSIDADES={
+ compacto:{l:"Compacto",s:"cabe mais na tela",e:.84,f:13},
+ normal:{l:"Normal",s:"o padrão",e:1,f:14},
+ confortavel:{l:"Confortável",s:"mais respiro",e:1.18,f:15}
+};
+const RAIOS={reto:{l:"Reto",v:4},suave:{l:"Suave",v:9},redondo:{l:"Redondo",v:14}};
+const CFG_PADRAO={tema:"dark",menu:true,acento:"azul",densidade:"normal",raio:"suave",
+ inicio:"executivo",nomeSistema:"Gestão MKT",ocultos:[],diasFolga:[0],
+ feriadosNacionais:true,feriadosExtras:{},feriadosRemovidos:[],animacoes:true};
+function cfgVal(k){const c=DB.cfg();return c[k]===undefined?CFG_PADRAO[k]:c[k];}
+/* A última palavra do nome sai colorida, como era o "MKT" de origem */
+function nomeSistemaHTML(){
+ const p=String(cfgVal("nomeSistema")||"Gestão MKT").trim().split(/\s+/);
+ if(p.length===1)return esc(p[0]);
+ const fim=p.pop();
+ return esc(p.join(" "))+' <span style="color:var(--ac)">'+esc(fim)+'</span>';
+}
+function setCfgVal(k,v){const c=DB.cfg();c[k]=v;DB.setCfg(c);aplicarPersonalizacao();render();}
+/* Escreve as preferências como variáveis CSS — o resto da folha de estilo
+   já lê tudo de variável, então a mudança é instantânea e global. */
+function aplicarPersonalizacao(){
+ const r=document.documentElement;
+ const ac=ACENTOS[cfgVal("acento")]||ACENTOS.azul;
+ const claro=(cfgVal("tema")==="light");
+ const base=claro?ac.lt:ac.d;
+ r.style.setProperty("--ac",base);
+ r.style.setProperty("--ac2",claro?ac.d:ac.c);
+ r.style.setProperty("--acs",base+(claro?"1F":"20"));
+ r.style.setProperty("--glow","0 0 0 1px "+base+"2A");
+ const d=DENSIDADES[cfgVal("densidade")]||DENSIDADES.normal;
+ r.style.setProperty("--esc",d.e);
+ r.style.setProperty("--fbase",d.f+"px");
+ const ra=RAIOS[cfgVal("raio")]||RAIOS.suave;
+ r.style.setProperty("--r",ra.v+"px");
+ r.style.setProperty("--rg",(ra.v+5)+"px");
+ r.classList.toggle("sem-anim",cfgVal("animacoes")===false);
+}
 function toggleMenu(){S.menu=!S.menu;const c=DB.cfg();c.menu=S.menu;DB.setCfg(c);render();}
-function toggleTema(){S.tema=S.tema==="dark"?"light":"dark";const c=DB.cfg();c.tema=S.tema;DB.setCfg(c);render();}
+function toggleTema(){S.tema=S.tema==="dark"?"light":"dark";const c=DB.cfg();c.tema=S.tema;DB.setCfg(c);
+ document.documentElement.setAttribute("data-theme",S.tema);aplicarPersonalizacao();render();}
 
 /* ═══ FILTROS ═══ */
 /* Filtros em gaveta: a barra fica discreta e o painel entra pela direita.
@@ -3009,10 +3319,7 @@ function vFrotaDetalhe(frota){
   qa("falhas","Ver todas as falhas","S.F.frota='"+esc(frota)+"';S.frotaAtiva=null;ir('falhas')")+
  '</div></div>'+
  cardsKPI(K)+
- '<div class="pn fu"><div class="ph"><div><div class="pt">◉ Diagnóstico visual — vista superior</div>'+
-  '<div class="ps">Condição de cada sistema deste veículo · clique em um indicador para abrir o histórico</div></div>'+
-  '<button class="b2" onclick="S.vistaFrota=\''+esc(frota)+'\';ir(\'vista\')">Tela cheia '+mi('arrowRight')+'</button></div>'+
-  '<div class="tvwrap">'+desenhoTopo(frota,true)+'</div>'+legendaCond()+'</div>'+
+ vistaDaFrota(frota)+
  '<div class="g21"><div class="pn fu"><div class="ph"><div><div class="pt">'+mi('truck')+' Dados do veículo</div>'+
    '<div class="ps">Cadastro técnico e situação</div></div></div>'+
    '<div style="display:grid;grid-template-columns:1fr 1fr;gap:1px;background:var(--bd);border-radius:11px;overflow:hidden;border:1px solid var(--bd)">'+
@@ -3590,17 +3897,24 @@ function filtrarTarefas(lista){
    Uma faixa por executante, com a coluna de nomes fixa na rolagem. Em
    toda célula existe um "+" que já abre a tarefa naquele profissional e
    naquele dia — programar não pode depender de achar espaço vazio. */
+/* ── Agenda semanal ───────────────────────────────────────────────────
+   Duas áreas: a FILA ("Em programação"), com o que já tem escopo mas ainda
+   não tem dia nem executante, e a GRADE da semana, uma faixa por pessoa.
+   Arrastar da fila para a grade programa; arrastar de volta devolve à fila.
+   Domingo e feriado são folga: aparecem fechados e não contam capacidade. */
 function vProgramacao(){
  const ini=inicioSemana(S.sem),fim=new Date(ini);fim.setDate(fim.getDate()+7);
  const todas=DB.tarefas(),equipe=DB.maoDeObra().filter(function(m){return m.ativo;});
- const daSemana=filtrarTarefas(todas).filter(function(t){
-  return t.ini<fim.getTime()&&t.fim>=ini.getTime();});
+ const filtradas=filtrarTarefas(todas);
+ const fila=filtradas.filter(naFila);
+ const daSemana=filtradas.filter(function(t){
+  return !naFila(t)&&t.ini<fim.getTime()&&t.fim>=ini.getTime();});
  const hoje=iniDoDia(Date.now());
  const dias=[];for(let i=0;i<7;i++){const d=new Date(ini);d.setDate(d.getDate()+i);dias.push(d);}
  const DIAS=["Seg","Ter","Qua","Qui","Sex","Sáb","Dom"];
  const editavel=pode("editar");
+ const uteis=dias.filter(function(d){return !ehFolga(d.getTime());}).length;
 
- /* tarefas de um profissional num dia ("_sem" = ninguém alocado) */
  const doDia=function(mid,d){
   const d0=iniDoDia(d.getTime()),d1=d0+DIA;
   return daSemana.filter(function(t){
@@ -3609,27 +3923,27 @@ function vProgramacao(){
    return t.ini<d1&&t.fim>=d0;});
  };
 
+ const arrastavel=function(t){
+  return editavel?' draggable="true" ondragstart="arrastarIni(event,'+qid(t.id)+')" ondragend="arrastarFim()"'+
+   ' ontouchstart="toqueIni(event,'+qid(t.id)+')" ontouchmove="toqueMove(event)" ontouchend="toqueFim(event)"':"";};
+
  const cartao=function(t,diaMs){
   const st=ST_TAREFA[t.status]||ST_TAREFA.programada;
   const nd=diasTarefa(t);
-  const cont=nd>1&&iniDoDia(t.ini)<iniDoDia(diaMs);      // continuação de tarefa longa
+  const cont=nd>1&&iniDoDia(t.ini)<iniDoDia(diaMs);
   const nCh=chkTotal(t),nAb=chkAbertas(t);
   const atrasada=t.status!=="concluida"&&t.status!=="cancelada"&&t.fim<Date.now();
   return '<div class="agt'+(t.status==="concluida"?" feito":"")+(cont?" cont":"")+
-   (atrasada?" atrasada":"")+'" style="border-left-color:'+corTarefa(t)+'" '+
-   'data-id="'+esc(t.id)+'"'+
-   (editavel?' draggable="true" ondragstart="arrastarIni(event,'+qid(t.id)+')" ondragend="arrastarFim()"'+
-    ' ontouchstart="toqueIni(event,'+qid(t.id)+')" ontouchmove="toqueMove(event)" ontouchend="toqueFim(event)"':"")+
+   (atrasada?" atrasada":"")+'" style="border-left-color:'+corTarefa(t)+'" data-id="'+esc(t.id)+'"'+
+   arrastavel(t)+
    ' onclick="event.stopPropagation();drawerTarefa('+qid(t.id)+')" '+
    'title="OS '+esc(t.os)+' — '+esc(t.titulo)+' ('+esc(t.frota)+')">'+
    '<div class="agt-top">'+
     '<span class="agt-os">'+mi("file")+esc(t.os)+'</span>'+
-    (nd>1?'<span class="agt-multi" title="Tarefa de '+nd+' dias">'+
-      (cont?"↳ ":"")+nd+'d</span>':"")+
+    (nd>1?'<span class="agt-multi" title="Tarefa de '+nd+' dias">'+(cont?"↳ ":"")+nd+'d</span>':"")+
     (t.origem==="plano"?'<span class="agt-plano" title="Gerada por plano preventivo">PLANO</span>':"")+
    '</div>'+
-   '<b>'+esc(t.frota)+'</b>'+
-   '<span class="agt-tt">'+esc(t.titulo)+'</span>'+
+   '<b>'+esc(t.frota)+'</b><span class="agt-tt">'+esc(t.titulo)+'</span>'+
    '<div class="agt-pe">'+
     (editavel
      ? '<button class="agt-st" style="color:'+st.c+';border-color:'+mix(st.c,35)+'" '+
@@ -3647,34 +3961,37 @@ function vProgramacao(){
    'ondragleave="this.classList.remove(\'alvo\')" '+
    'ondrop="soltarTarefa(event,'+dia+','+(mid?qid(mid):"null")+')"':"");};
 
- /* Uma célula: as tarefas do dia mais o "+" sempre disponível */
  const celula=function(mid,d){
   const ms=iniDoDia(d.getTime());
+  const folga=motivoFolga(ms);
   const ts=doDia(mid==="_sem"?"_sem":mid,d);
-  return '<div class="agc'+(ms===hoje?" hoje":"")+(ts.length?"":" livre")+'"'+solta(ms,mid==="_sem"?null:mid)+'>'+
+  return '<div class="agc'+(ms===hoje?" hoje":"")+(ts.length?"":" livre")+(folga?" folga":"")+'"'+
+   solta(ms,mid==="_sem"?null:mid)+
+   (folga?' title="'+esc(folga)+' — dia sem expediente"':"")+'>'+
    ts.map(function(t){return cartao(t,ms);}).join("")+
    (editavel&&pode("criar")
-    ?'<button class="agadd" title="Programar serviço neste dia" '+
+    ?'<button class="agadd" title="'+(folga?esc(folga)+" — programar mesmo assim":"Programar serviço neste dia")+'" '+
      'onclick="event.stopPropagation();modalTarefa(null,'+ms+','+(mid==="_sem"?"null":qid(mid))+')">'+
-     mi("plus")+'<span>'+(ts.length?"":"Programar")+'</span></button>':"")+
+     mi("plus")+'<span>'+(ts.length?"":(folga?"":"Programar"))+'</span></button>':"")+
    '</div>';
  };
 
- /* Faixa de um executante: cabeçalho fixo + 7 células */
  const faixa=function(m){
   const ts=daSemana.filter(function(t){return (t.equipe||[]).indexOf(m.id)>=0;});
-  const dOcup=ts.reduce(function(s,t){
-   /* conta só os dias que caem dentro da semana mostrada */
-   let n=0;dias.forEach(function(d){const d0=iniDoDia(d.getTime());
-    if(t.ini<d0+DIA&&t.fim>=d0)n++;});return s+n;},0);
-  const pct=Math.min(100,Math.round(dOcup/6*100));
-  const cor=dOcup>6?"var(--cr)":dOcup>=5?"var(--wr)":"var(--ok)";
+  /* ocupação conta só dias úteis: domingo e feriado não são capacidade */
+  const dOcup=dias.filter(function(d){
+   const d0=iniDoDia(d.getTime());
+   if(ehFolga(d0))return false;
+   return ts.some(function(t){return t.ini<d0+DIA&&t.fim>=d0;});}).length;
+  const pct=uteis?Math.min(100,Math.round(dOcup/uteis*100)):0;
+  const cor=dOcup>uteis?"var(--cr)":(uteis&&dOcup>=uteis-1)?"var(--wr)":"var(--ok)";
   const abertas=ts.filter(function(t){return t.status!=="concluida"&&t.status!=="cancelada";}).length;
   return '<div class="agr">'+
     '<div class="agr-id"><b title="'+esc(m.nome)+'">'+esc(m.nome)+'</b>'+
      '<span>'+esc(m.funcao||"—")+(m.turno?" · "+esc(m.turno):"")+'</span></div>'+
     '<div class="agr-num"><b style="color:'+cor+'">'+dOcup+'</b>'+
-     '<span>de 6 dias'+(abertas?" · "+abertas+" aberta"+(abertas>1?"s":""):"")+'</span></div>'+
+     '<span>de '+uteis+(uteis===1?" dia útil":" dias úteis")+
+     (abertas?" · "+abertas+" aberta"+(abertas>1?"s":""):"")+'</span></div>'+
     '<div class="carga"><i style="width:'+pct+'%;background:'+cor+'"></i></div>'+
     (pode("criar")?'<button class="agr-add" onclick="modalTarefa(null,'+
       (S.sem===0?hoje:iniDoDia(ini.getTime()))+','+qid(m.id)+')" '+
@@ -3694,18 +4011,55 @@ function vProgramacao(){
 
  const grade='<div class="agw-wrap"><div class="agw">'+
   '<div class="agh agh-id">Executante</div>'+
-  dias.map(function(d,i){const ms=iniDoDia(d.getTime());
-   return '<div class="agh'+(ms===hoje?" hoje":"")+(i>4?" fds":"")+'">'+DIAS[i]+
-    '<b>'+d.getDate()+'/'+String(d.getMonth()+1).padStart(2,"0")+'</b></div>';}).join("")+
+  dias.map(function(d,i){const ms=iniDoDia(d.getTime());const fg=motivoFolga(ms);
+   return '<div class="agh'+(ms===hoje?" hoje":"")+(fg?" folga":"")+'"'+
+    (fg?' title="'+esc(fg)+'"':"")+'>'+DIAS[i]+
+    '<b>'+d.getDate()+'/'+String(d.getMonth()+1).padStart(2,"0")+'</b>'+
+    (fg?'<i class="agh-fg">'+esc(fg.length>11?"Folga":fg)+'</i>':"")+'</div>';}).join("")+
   faixaSem+linhas.map(faixa).join("")+
   '</div></div>';
 
- const ad=aderencia(filtrarTarefas(todas),ini.getTime(),fim.getTime());
+ /* ── Fila de programação ── */
+ const cartaoFila=function(t){
+  const tp=TIPO_SERV[t.tipo]||TIPO_SERV.corretiva;
+  const nCh=chkTotal(t),nAb=chkAbertas(t);
+  return '<div class="fil-t" style="border-left-color:'+tp.c+'" data-id="'+esc(t.id)+'"'+arrastavel(t)+
+   ' onclick="drawerTarefa('+qid(t.id)+')" title="'+esc(t.titulo)+'">'+
+   '<div class="fil-top"><span class="agt-os">'+mi("file")+esc(t.os)+'</span>'+
+    '<span class="tag" style="background:'+mix(tp.c,14)+';color:'+tp.c+'">'+tp.l+'</span></div>'+
+   '<b>'+esc(t.frota)+'</b><span class="fil-tt">'+esc(t.titulo)+'</span>'+
+   '<div class="fil-pe">'+
+    (nCh?'<span class="agt-chk'+(nAb?"":" ok")+'">'+mi("check")+(nCh-nAb)+'/'+nCh+'</span>':
+      '<span class="fil-sp">sem pendências</span>')+
+    (pode("editar")?'<button class="fil-go" onclick="event.stopPropagation();modalTarefa('+qid(t.id)+')" '+
+      'title="Definir dia e executante">'+mi("clock")+' Programar</button>':"")+
+   '</div></div>';
+ };
+ const painelFila='<div class="pn fu fil-pn'+(fila.length?"":" vazia")+'"'+
+  (editavel?' ondragover="event.preventDefault();this.classList.add(\'alvo\')" '+
+   'ondragleave="this.classList.remove(\'alvo\')" ondrop="soltarNaFila(event)"':"")+'>'+
+  '<div class="ph" style="margin-bottom:11px"><div>'+
+   '<div class="pt"><span class="fil-pt" style="background:'+ST_TAREFA.em_programacao.c+'"></span>'+
+    'Em programação'+(fila.length?' <span class="fil-n">'+fila.length+'</span>':"")+'</div>'+
+   '<div class="ps">Serviços já definidos que ainda não têm dia nem executante · '+
+    'arraste para a grade abaixo para programar</div></div>'+
+   (pode("criar")?'<button class="b2" onclick="modalTarefa(null,null,null,true)">'+
+     mi("plus")+' Adicionar à fila</button>':"")+'</div>'+
+  (fila.length
+   ?'<div class="fil-lista">'+fila.map(cartaoFila).join("")+'</div>'
+   :'<div class="fil-vazio">'+mi("check")+' Nada na fila. '+
+    (pode("criar")?'Use <b>Adicionar à fila</b> para registrar um serviço que ainda vai ser encaixado.':
+     'Nenhum serviço aguardando programação.')+'</div>')+
+  '</div>';
+
+ const ad=aderencia(filtradas.filter(function(t){return !naFila(t);}),ini.getTime(),fim.getTime());
  const corA=ad.aderencia==null?"var(--t2)":(ad.aderencia>=85?"var(--ok)":ad.aderencia>=60?"var(--wr)":"var(--cr)");
  const K=[
   {i:mi("clock"),c:"var(--in)",v:daSemana.length,l:"Tarefas na semana",
-   s:semResp.length?semResp.length+" sem responsável":ad.dPrev+" dia(s) de serviço",
+   s:semResp.length?semResp.length+" sem responsável":uteis+(uteis===1?" dia útil":" dias úteis")+" na semana",
    p:semResp.length>0,aj:"prog_total"},
+  {i:mi("refresh"),c:ST_TAREFA.em_programacao.c,v:fila.length,l:"Em programação",
+   s:"aguardando encaixe",aj:"prog_fila"},
   {i:mi("check"),c:corA,v:ad.aderencia==null?"—":ad.aderencia+"%",l:"Aderência",
    s:ad.concluidas+" de "+ad.total+" concluídas",aj:"prog_aderencia"},
   {i:mi("warning"),c:"var(--cr)",v:ad.vencidas,l:"Vencidas",s:"passaram do prazo",
@@ -3715,6 +4069,9 @@ function vProgramacao(){
  ];
  const fim2=new Date(ini);fim2.setDate(fim2.getDate()+6);
  const rotulo=ini.getDate()+"/"+(ini.getMonth()+1)+" a "+fim2.getDate()+"/"+(fim2.getMonth()+1)+"/"+fim2.getFullYear();
+ /* feriados desta semana, para avisar antes de alguém programar em cima */
+ const fer=dias.map(function(d){const f=feriadoEm(d.getTime());
+   return f?{d:d,f:f}:null;}).filter(Boolean);
 
  if(SUPA.ativo&&(SUPA.faltamScripts||[]).indexOf("15_programacao")>=0)
   return '<div class="pg fu"><div><div class="pgt">Agenda de Serviços</div>'+
@@ -3727,12 +4084,13 @@ function vProgramacao(){
    'Rode o script no SQL Editor e recarregue a página — o módulo aparece automaticamente.</div></div></div>';
 
  return '<div class="pg fu"><div><div class="pgt">Agenda de Serviços</div>'+
-  '<div class="pgs">Programação semanal por executante · clique no <b>+</b> de qualquer dia para abrir uma tarefa</div></div>'+
+  '<div class="pgs">Fila de programação e grade semanal por executante · clique no <b>+</b> de qualquer dia para abrir uma tarefa</div></div>'+
   '<div style="display:flex;gap:8px;flex-wrap:wrap">'+
    (pode("editar")?'<button class="b2" onclick="ir(\'equipe\')">'+mi("person")+' Mão de obra</button>':"")+
    (pode("criar")?'<button class="b1" onclick="modalTarefa()">'+mi("plus")+' Nova tarefa</button>':"")+
   '</div></div>'+
   cardsKPI(K)+
+  painelFila+
   '<div class="pn fu"><div class="ph" style="align-items:center">'+
    '<div class="agnav">'+
     '<button onclick="S.sem--;render()" title="Semana anterior">'+mi("arrowLeft")+'</button>'+
@@ -3744,13 +4102,17 @@ function vProgramacao(){
    '<button class="bfg" onclick="imprimirProgramacao()" title="Imprimir ou salvar em PDF">'+mi("printer")+'Imprimir</button>'+
    '<button class="bfg" onclick="exportarProgramacao(\'xlsx\')" title="Baixar em Excel">'+mi("download")+'Excel</button>'+
    '<button class="bfg" onclick="modoTV()" title="Tela cheia para apresentação">'+mi("play")+'Apresentar</button>'+
+   '<button class="bfg" onclick="ir(\'personalizar\')" title="Domingos, feriados e aparência">'+mi("gear")+'Calendário</button>'+
    '<button class="bfg'+(contarFP()?" on":"")+'" onclick="abrirFiltroProg()">'+mi("gear")+
     (contarFP()?contarFP()+" filtro"+(contarFP()>1?"s":""):"Filtrar")+'</button></div></div>'+
    chipsFP()+
+   (fer.length?'<div class="agfer">'+mi("warning")+'<span>'+
+     fer.map(function(x){return '<b>'+x.d.getDate()+'/'+(x.d.getMonth()+1)+'</b> '+esc(x.f);}).join(" · ")+
+     ' — sem expediente nesta semana</span></div>':"")+
    (equipe.length?grade+
     '<div class="aglg">'+Object.keys(TIPO_SERV).map(function(k){
      return '<span><i style="background:'+TIPO_SERV[k].c+'"></i>'+TIPO_SERV[k].l+'</span>';}).join("")+
-    '<span style="margin-left:auto;color:var(--t3)">Arraste um cartão para mudar de dia ou de executante</span></div>'
+    '<span style="margin-left:auto;color:var(--t3)">Arraste um cartão para mudar de dia, de executante ou devolver à fila</span></div>'
     :'<div style="text-align:center;padding:40px;color:var(--t2)">'+
      'Nenhum profissional cadastrado ainda.<br><button class="b1" style="margin-top:13px" onclick="ir(\'equipe\')">'+
      mi("plus")+' Cadastrar mão de obra</button></div>')+
@@ -3863,11 +4225,12 @@ function excluirMdo(id){
    vista — frota, OS, o que fazer, quando, quem executa e as pendências —
    e o resto vive atrás de "Mais opções". Não existe horário nem duração
    em horas: a agenda inteira é medida em dias. */
-function modalTarefa(id,diaPre,mdoPre){
+function modalTarefa(id,diaPre,mdoPre,filaPre){
  if(!pode("criar")&&!id)return;
  const t=id?DB.tarefas().find(function(x){return String(x.id)===String(id);}):null;
  const dIni=isoDia(t?t.ini:(diaPre||Date.now()));
  const dFim=isoDia(t?(t.fim||t.ini):(diaPre||Date.now()));
+ const naFilaAgora=t?naFila(t):!!filaPre;
  const eq=t?(t.equipe||[]):(mdoPre?[mdoPre]:[]);
  const equipe=DB.maoDeObra().filter(function(m){return m.ativo;});
  const veic=DB.veiculos();
@@ -3924,22 +4287,32 @@ function modalTarefa(id,diaPre,mdoPre){
      .slice(0,80).map(function(x){return '<option value="'+esc(x)+'">';}).join("")+'</datalist></label>'+
 
   sec("Quando")+
-  '<div class="tf-atalhos">'+
-   [["Hoje",0],["Amanhã",1],["Depois de amanhã",2],["Próxima segunda",-1]].map(function(a){
-    return '<button type="button" class="bfg" onclick="tfDia('+a[1]+')">'+a[0]+'</button>';}).join("")+
+  /* Ou a tarefa tem dia marcado, ou fica na fila esperando encaixe */
+  '<div class="tf-modo" id="t-modo">'+
+   '<button type="button" class="tf-md'+(naFilaAgora?"":" on")+'" data-fila="0" onclick="tfModo(0)">'+
+    mi("clock")+'<span><b>Com data</b>vai direto para a grade</span></button>'+
+   '<button type="button" class="tf-md'+(naFilaAgora?" on":"")+'" data-fila="1" onclick="tfModo(1)">'+
+    mi("refresh")+'<span><b>Em programação</b>fica na fila, sem dia</span></button>'+
+   '<input type="hidden" id="t-fila" value="'+(naFilaAgora?"1":"0")+'"></div>'+
+  '<div id="t-quando"'+(naFilaAgora?' style="display:none"':"")+'>'+
+   '<div class="tf-atalhos">'+
+    [["Hoje",0],["Amanhã",1],["Depois de amanhã",2],["Próxima segunda",-1]].map(function(a){
+     return '<button type="button" class="bfg" onclick="tfDia('+a[1]+')">'+a[0]+'</button>';}).join("")+
+   '</div>'+
+   '<div class="tf-g2">'+
+    '<label class="cp"><span>Começa em</span>'+
+     '<input class="inp" id="t-dia" type="date" value="'+dIni+'" onchange="tfDuracao()"></label>'+
+    '<label class="cp"><span>Termina em</span>'+
+     '<input class="inp" id="t-diafim" type="date" value="'+dFim+'" onchange="tfDuracao()"></label>'+
+   '</div>'+
+   '<div class="tf-atalhos" style="margin-top:8px">'+
+    '<span class="tf-dica">Duração:</span>'+
+    [1,2,3,5,10].map(function(n){
+     return '<button type="button" class="bfg" data-dur="'+n+'" onclick="tfDuracaoDias('+n+')">'+
+      n+(n===1?" dia":" dias")+'</button>';}).join("")+
+    '<span id="t-dias-av" class="tf-dica"></span></div>'+
+   '<div id="t-folga-av" class="tf-folga"></div>'+
   '</div>'+
-  '<div class="tf-g2">'+
-   '<label class="cp"><span>Começa em</span>'+
-    '<input class="inp" id="t-dia" type="date" value="'+dIni+'" onchange="tfDuracao()"></label>'+
-   '<label class="cp"><span>Termina em</span>'+
-    '<input class="inp" id="t-diafim" type="date" value="'+dFim+'" onchange="tfDuracao()"></label>'+
-  '</div>'+
-  '<div class="tf-atalhos" style="margin-top:8px">'+
-   '<span class="tf-dica">Duração:</span>'+
-   [1,2,3,5,10].map(function(n){
-    return '<button type="button" class="bfg" data-dur="'+n+'" onclick="tfDuracaoDias('+n+')">'+
-     n+(n===1?" dia":" dias")+'</button>';}).join("")+
-   '<span id="t-dias-av" class="tf-dica"></span></div>'+
 
   sec("Quem executa")+
   '<div class="tf-eq" id="t-equipe">'+
@@ -3981,8 +4354,8 @@ function modalTarefa(id,diaPre,mdoPre){
      'onclick="excluirTarefa('+qid(t.id)+')">'+mi("trash")+' Excluir</button>':"")+
    '<span class="tf-dica tf-atalho-txt">Ctrl+Enter salva</span>'+
    '<button class="b2" onclick="fechar()">Cancelar</button>'+
-   '<button class="b1" onclick="salvarTarefa('+(t?qid(t.id):"null")+')">'+mi("check")+' '+
-    (t?"Salvar":"Programar")+'</button></div>'+
+   '<button class="b1" id="t-salvar" onclick="salvarTarefa('+(t?qid(t.id):"null")+')">'+mi("check")+
+    '<span>'+(t?"Salvar":(naFilaAgora?"Adicionar à fila":"Programar"))+'</span></button></div>'+
   '</div>');
 
  /* Ctrl+Enter salva de qualquer campo, inclusive das áreas de texto */
@@ -4039,6 +4412,30 @@ function tfDuracao(){
  [].slice.call(document.querySelectorAll("[data-dur]")).forEach(function(x){
   x.classList.toggle("on",Number(x.getAttribute("data-dur"))===n);});
  if(av){av.innerHTML=n>1?'<b style="color:var(--ac)">'+n+' dias na agenda</b>':"ocupa um dia";}
+ /* Domingo e feriado não têm expediente — avisa sem impedir */
+ const fa=document.getElementById("t-folga-av");
+ if(fa){
+  const folgas=[];
+  let d=iniDoDia(new Date(a.value+"T12:00").getTime());
+  const lim=iniDoDia(new Date(b.value+"T12:00").getTime());
+  let g=0;
+  while(d<=lim&&g++<400){const m=motivoFolga(d);if(m)folgas.push(dOnly(d)+" ("+m+")");d+=DIA;}
+  fa.innerHTML=folgas.length
+   ? mi("warning")+'<span>Sem expediente em '+folgas.map(esc).join(", ")+'. Dá para programar assim mesmo.</span>'
+   : "";
+  fa.style.display=folgas.length?"flex":"none";
+ }
+}
+/* Alterna entre "com data" e "em programação" */
+function tfModo(fila){
+ const h=document.getElementById("t-fila");if(h)h.value=fila?"1":"0";
+ [].slice.call(document.querySelectorAll("#t-modo .tf-md")).forEach(function(b){
+  b.classList.toggle("on",b.getAttribute("data-fila")===(fila?"1":"0"));});
+ const q=document.getElementById("t-quando");
+ if(q)q.style.display=fila?"none":"block";
+ /* O rótulo do botão precisa dizer o que vai acontecer */
+ const bt=document.querySelector("#t-salvar span");
+ if(bt&&bt.textContent!=="Salvar")bt.textContent=fila?"Adicionar à fila":"Programar";
 }
 /* Conta as linhas digitadas na caixa de pendências */
 function tfContarPend(){
@@ -4163,17 +4560,44 @@ function soltarTarefa(ev,diaMs,mdoId){
  const t=tars[i];
  const nd=diasTarefa(t);                 // preserva tarefas de vários dias
  const novo=iniDoDia(diaMs);
+ const vinhaDaFila=naFila(t);
  const mesmoDia=iniDoDia(t.ini)===novo;
  const equipeAtual=(t.equipe||[]);
  const mesmaEquipe=mdoId?equipeAtual.length===1&&equipeAtual[0]===mdoId:!equipeAtual.length;
- if(mesmoDia&&mesmaEquipe)return;        // nada mudou
- tars[i]=Object.assign({},t,{ini:novo,fim:fimDoDia(novo+(nd-1)*DIA),
-  equipe:mdoId?[mdoId]:[]});
+ if(!vinhaDaFila&&mesmoDia&&mesmaEquipe)return;        // nada mudou
+ /* Soltar num domingo ou feriado é permitido, mas nunca por acidente. */
+ const folga=motivoFolga(novo);
+ if(folga&&!confirm(folga+" — não há expediente neste dia.\n\nProgramar "+t.titulo+" mesmo assim?"))return;
+ const dados={ini:novo,fim:fimDoDia(novo+(nd-1)*DIA),equipe:mdoId?[mdoId]:[]};
+ /* Sair da fila para a grade é o ato de programar */
+ if(vinhaDaFila)dados.status="programada";
+ tars[i]=Object.assign({},t,dados);
  DB.setTarefas(tars);
  const nome=mdoId?(DB.maoDeObra().find(function(m){return m.id===mdoId;})||{}).nome:"sem responsável";
- DB.log("editar","tarefa",t.frota,t.titulo+" reprogramada para "+dOnly(novo)+" · "+nome);
+ DB.log("editar","tarefa",t.frota,
+  (vinhaDaFila?t.titulo+" programada para ":t.titulo+" reprogramada para ")+dOnly(novo)+" · "+nome);
  render();
- toast("Tarefa reprogramada",t.titulo+" → "+dOnly(novo)+" · "+nome,"ok");
+ toast(vinhaDaFila?"Serviço programado":"Tarefa reprogramada",
+  t.titulo+" → "+dOnly(novo)+" · "+nome,"ok");
+}
+/* Devolver à fila: tira o dia da mesa sem perder nada do que já foi escrito */
+function soltarNaFila(ev){
+ ev.preventDefault();
+ if(ev.currentTarget&&ev.currentTarget.classList)ev.currentTarget.classList.remove("alvo");
+ let id=_arrastando;
+ try{id=id||ev.dataTransfer.getData("text/plain");}catch(e){}
+ if(!id)return;
+ const tars=DB.tarefas();
+ const i=tars.findIndex(function(x){return String(x.id)===String(id);});
+ if(i<0)return;
+ const t=tars[i];
+ if(naFila(t))return;
+ if(t.status==="concluida"&&!confirm('"'+t.titulo+'" está concluída. Devolver para a fila de programação?'))return;
+ tars[i]=Object.assign({},t,{status:"em_programacao",iniciadaEm:null,concluidaEm:null});
+ DB.setTarefas(tars);
+ DB.log("status","tarefa",t.frota,t.titulo+" devolvida à fila de programação");
+ render();
+ toast("Voltou para a fila",t.titulo+" aguardando novo encaixe","aviso");
 }
 /* ── Seleção manual da situação ── */
 /* ── Checklist: pendências dentro da tarefa ── */
@@ -4338,6 +4762,12 @@ function definirStatus(id,st){
   return;
  }
  const n=Object.assign({},t,{status:st});
+ /* Sair da fila pelo seletor de status também é programar: a tarefa
+    precisa cair num dia, senão some da grade sem explicação. */
+ if(t.status==="em_programacao"&&st!=="em_programacao"&&st!=="cancelada"&&t.ini<iniDoDia(Date.now())){
+  const hoje=iniDoDia(Date.now()),nd=diasTarefa(t);
+  n.ini=hoje;n.fim=fimDoDia(hoje+(nd-1)*DIA);
+ }
  if(st==="em_execucao"&&!t.iniciadaEm)n.iniciadaEm=Date.now();
  if(st==="concluida")n.concluidaEm=Date.now();
  if(st==="programada"){n.iniciadaEm=null;n.concluidaEm=null;}
@@ -4360,9 +4790,11 @@ function salvarTarefa(id){
  }
  frota=rf.frota;
  if(!titulo)return avisoCampo("t-titulo","Descreva o que será feito.");
- const dia=g("t-dia");if(!dia)return avisoCampo("t-dia","Informe o dia de início.");
+ const naFilaAgora=g("t-fila")==="1";
+ const dia=g("t-dia")||isoDia(Date.now());
+ if(!naFilaAgora&&!g("t-dia"))return avisoCampo("t-dia","Informe o dia de início.");
  const diaFim=g("t-diafim")||dia;
- if(diaFim<dia)return avisoCampo("t-diafim","O término não pode ser antes do início.");
+ if(!naFilaAgora&&diaFim<dia)return avisoCampo("t-diafim","O término não pode ser antes do início.");
  /* Dias inteiros: começa na virada do dia, termina no fim do último dia */
  const ini=iniDoDia(new Date(dia+"T12:00").getTime());
  const fim=fimDoDia(new Date(diaFim+"T12:00").getTime());
@@ -4376,7 +4808,9 @@ function salvarTarefa(id){
  const dados={os:os,frota:frota,titulo:titulo,descricao:g("t-desc"),tipo:g("t-tipo")||"corretiva",
   sistema:g("t-sis"),oficina:g("t-ofic"),local:g("t-local"),
   ini:ini,fim:fim,
-  status:g("t-status")||"programada",prioridade:g("t-prio")||"media",
+  /* Na fila o status manda; fora dela, o que estiver em "Mais opções" */
+  status:naFilaAgora?"em_programacao":((g("t-status")==="em_programacao"?"programada":g("t-status"))||"programada"),
+  prioridade:g("t-prio")||"media",
   obs:g("t-obs"),equipe:equipe};
  let alvo=id;
  if(id){
@@ -4395,9 +4829,9 @@ function salvarTarefa(id){
  }
  DB.setTarefas(tars);
  /* Avisa se alguém ficou com dois serviços no mesmo dia */
- const choque=equipe.filter(function(mid){
+ const choque=naFilaAgora?[]:equipe.filter(function(mid){
   return tars.some(function(x){
-   return String(x.id)!==String(alvo)&&(x.equipe||[]).indexOf(mid)>=0&&
+   return String(x.id)!==String(alvo)&&(x.equipe||[]).indexOf(mid)>=0&&!naFila(x)&&
     x.status!=="concluida"&&x.status!=="cancelada"&&x.ini<=fim&&ini<=x.fim;});});
  fechar();render();
  const dias=diasTarefa({ini:ini,fim:fim});
@@ -4405,8 +4839,8 @@ function salvarTarefa(id){
   const nomes=choque.map(function(mid){
    const m=DB.maoDeObra().find(function(y){return y.id===mid;});return m?m.nome:mid;});
   toast("Agenda cheia",nomes.join(", ")+" já tem outro serviço neste dia.","aviso");
- }else toast(id?"Tarefa atualizada":"Serviço programado",
-  frota+" · OS "+os+(dias>1?" · "+dias+" dias":"")+
+ }else toast(id?"Tarefa atualizada":(naFilaAgora?"Adicionada à fila":"Serviço programado"),
+  frota+" · OS "+os+(naFilaAgora?" · aguardando encaixe":(dias>1?" · "+dias+" dias":""))+
   (novasPend.length?" · "+novasPend.length+" pendência(s)":""),"ok");
 }
 /* Erro no formulário sem alert(): destaca o campo e explica ao lado */
@@ -5250,6 +5684,206 @@ function blocoLista(titulo,chave,icone,desc){
   '<div style="display:flex;gap:8px"><input class="inp" id="'+inputId+'" placeholder="Adicionar novo item…" onkeydown="if(event.key===\'Enter\'){adicionarItemLista(\''+chave+'\',\''+inputId+'\');}">'+
   '<button class="b2" onclick="adicionarItemLista(\''+chave+'\',\''+inputId+'\')">'+mi("plus")+' Adicionar</button></div></div>';
 }
+/* ═══ VIEW: PERSONALIZAR ═══
+   Aparência e calendário de trabalho num lugar só. É preferência de quem
+   usa a máquina: fica no navegador, não vai para a nuvem. */
+function vPersonalizar(){
+ const c=DB.cfg();
+ const opt=function(campo,mapa,atual,render){
+  return Object.keys(mapa).map(function(k){
+   return render(k,mapa[k],atual===k,campo);}).join("");
+ };
+ const telas=[["executivo","Painel Executivo"],["operacional","Painel Operacional"],
+  ["programacao","Agenda de Serviços"],["frotas","Frotas"],["falhas","Falhas"],
+  ["alertas","Alertas"],["planos","Planos Preventivos"],["mapa52","Mapa 52 Semanas"]];
+ const ocultaveis=[["operacional","Painel Operacional"],["inteligencia","Inteligência"],
+  ["alertas","Alertas"],["historico","Histórico"],["mapa52","Mapa 52 Semanas"],
+  ["planos","Planos Preventivos"],["motoristas","Motoristas"],["componentes","Componentes"],
+  ["auditoria","Auditoria"]];
+ const ocultos=cfgVal("ocultos")||[];
+ const folga=cfgVal("diasFolga")||[0];
+ const DIASSEM=["Domingo","Segunda","Terça","Quarta","Quinta","Sexta","Sábado"];
+ const ano=new Date().getFullYear();
+ const nac=feriadosNacionais(ano);
+ const removidos=cfgVal("feriadosRemovidos")||[];
+ const extras=cfgVal("feriadosExtras")||{};
+ const listaFeriados=Object.keys(nac).map(function(iso){
+   return{iso:iso,nome:nac[iso],nacional:true,off:removidos.indexOf(iso)>=0};})
+  .concat(Object.keys(extras).map(function(iso){
+   return{iso:iso,nome:extras[iso],nacional:false,off:false};}))
+  .sort(function(a,b){return a.iso<b.iso?-1:1;});
+
+ return '<div class="pg fu"><div><div class="pgt">Personalizar</div>'+
+  '<div class="pgs">Aparência do sistema e calendário de trabalho · vale para este navegador</div></div>'+
+  '<button class="b2" onclick="restaurarPadrao()">'+mi("refresh")+' Restaurar padrão</button></div>'+
+
+ '<div class="g2">'+
+  /* ── Cor de destaque ── */
+  '<div class="pn fu"><div class="ph"><div><div class="pt">'+mi("bolt")+' Cor de destaque</div>'+
+   '<div class="ps">Usada em botões, seleção, links e gráficos</div></div></div>'+
+   '<div class="pz-cores">'+Object.keys(ACENTOS).map(function(k){
+    const a=ACENTOS[k],on=cfgVal("acento")===k;
+    return '<button class="pz-cor'+(on?" on":"")+'" title="'+a.l+'" '+
+     'style="--pc:'+(cfgVal("tema")==="light"?a.lt:a.d)+'" '+
+     'onclick="setCfgVal(\'acento\',\''+k+'\')"><i></i><span>'+a.l+'</span></button>';}).join("")+
+   '</div></div>'+
+
+  /* ── Tema ── */
+  '<div class="pn fu d1"><div class="ph"><div><div class="pt">'+mi("sun")+' Tema</div>'+
+   '<div class="ps">Claro para o escritório, escuro para o painel de parede</div></div></div>'+
+   '<div class="pz-op">'+[["dark","Escuro","moon"],["light","Claro","sun"]].map(function(x){
+    const on=cfgVal("tema")===x[0];
+    return '<button class="pz-b'+(on?" on":"")+'" onclick="setTema(\''+x[0]+'\')">'+
+     mi(x[2])+'<b>'+x[1]+'</b></button>';}).join("")+'</div>'+
+   '<div class="pz-rot">Animações</div>'+
+   '<div class="pz-op">'+[[true,"Ligadas","play"],[false,"Desligadas","close"]].map(function(x){
+    const on=(cfgVal("animacoes")!==false)===x[0];
+    return '<button class="pz-b'+(on?" on":"")+'" onclick="setCfgVal(\'animacoes\','+x[0]+')">'+
+     mi(x[2])+'<b>'+x[1]+'</b></button>';}).join("")+'</div>'+
+   '<div class="tf-dica" style="margin-top:7px">Desligar deixa a navegação instantânea — útil em máquina antiga.</div>'+
+   '</div></div>'+
+
+ '<div class="g2">'+
+  /* ── Densidade ── */
+  '<div class="pn fu"><div class="ph"><div><div class="pt">'+mi("menu")+' Densidade</div>'+
+   '<div class="ps">Quanto cabe na tela de uma vez</div></div></div>'+
+   '<div class="pz-op col">'+Object.keys(DENSIDADES).map(function(k){
+    const d=DENSIDADES[k],on=cfgVal("densidade")===k;
+    return '<button class="pz-b'+(on?" on":"")+'" onclick="setCfgVal(\'densidade\',\''+k+'\')">'+
+     '<b>'+d.l+'</b><span>'+d.s+'</span></button>';}).join("")+'</div></div>'+
+
+  /* ── Cantos ── */
+  '<div class="pn fu d1"><div class="ph"><div><div class="pt">'+mi("componentes")+' Cantos</div>'+
+   '<div class="ps">Arredondamento de cartões, campos e botões</div></div></div>'+
+   '<div class="pz-op">'+Object.keys(RAIOS).map(function(k){
+    const r=RAIOS[k],on=cfgVal("raio")===k;
+    return '<button class="pz-b'+(on?" on":"")+'" onclick="setCfgVal(\'raio\',\''+k+'\')">'+
+     '<i class="pz-raio" style="border-radius:'+r.v+'px"></i><b>'+r.l+'</b></button>';}).join("")+
+   '</div>'+
+   '<div class="pz-rot">Prévia</div>'+
+   '<div class="pz-prev"><div class="pz-prev-c">'+
+     '<span class="pz-prev-k">Disponibilidade</span><b>92%</b>'+
+     '<div class="pz-prev-b"><i style="width:92%"></i></div></div>'+
+    '<div class="pz-prev-l"><button class="b1">'+mi("check")+' Botão</button>'+
+     '<input class="inp" value="Campo de texto" readonly></div></div>'+
+   '</div></div>'+
+
+ '<div class="g2">'+
+  /* ── Tela inicial ── */
+  '<div class="pn fu"><div class="ph"><div><div class="pt">'+mi("executivo")+' Tela inicial</div>'+
+   '<div class="ps">Onde o sistema abre quando você entra</div></div></div>'+
+   '<select class="inp" onchange="setCfgVal(\'inicio\',this.value)">'+
+   telas.map(function(x){return '<option value="'+x[0]+'" '+(cfgVal("inicio")===x[0]?"selected":"")+'>'+x[1]+'</option>';}).join("")+
+   '</select></div>'+
+
+  /* ── Identificação ── */
+  '<div class="pn fu d1"><div class="ph"><div><div class="pt">'+mi("truck")+' Nome do sistema</div>'+
+   '<div class="ps">Aparece no menu, no login e nos relatórios impressos</div></div></div>'+
+   '<input class="inp" id="pz-nome" value="'+esc(cfgVal("nomeSistema"))+'" '+
+    'placeholder="Gestão MKT" onchange="setCfgVal(\'nomeSistema\',this.value.trim()||\'Gestão MKT\')">'+
+   '</div></div>'+
+
+ /* ── Menu ── */
+ '<div class="pn fu"><div class="ph"><div><div class="pt">'+mi("menu")+' Itens do menu</div>'+
+  '<div class="ps">Desmarque o que você não usa — some do menu lateral, sem apagar dado nenhum</div></div>'+
+  '<span class="tag" style="background:var(--s3);color:var(--t2)">'+
+   (ocultaveis.length-ocultos.length)+' de '+ocultaveis.length+' visíveis</span></div>'+
+  '<div class="pz-menu">'+ocultaveis.map(function(x){
+   const on=ocultos.indexOf(x[0])<0;
+   return '<button class="pz-chk'+(on?" on":"")+'" onclick="alternarItemMenu(\''+x[0]+'\')">'+
+    '<i>'+(on?mi("check"):"")+'</i>'+x[1]+'</button>';}).join("")+
+  '</div></div>'+
+
+ /* ── Calendário de trabalho ── */
+ '<div class="pn fu"><div class="ph"><div><div class="pt">'+mi("clock")+' Calendário de trabalho</div>'+
+  '<div class="ps">Dias sem expediente. A agenda marca esses dias e tira eles da capacidade da equipe.</div></div></div>'+
+  '<div class="pz-rot">Dias de folga na semana</div>'+
+  '<div class="pz-menu">'+DIASSEM.map(function(nome,i){
+   const on=folga.indexOf(i)>=0;
+   return '<button class="pz-chk'+(on?" on":"")+'" onclick="alternarDiaFolga('+i+')">'+
+    '<i>'+(on?mi("check"):"")+'</i>'+nome+'</button>';}).join("")+
+  '</div>'+
+  '<div class="pz-rot" style="margin-top:16px;display:flex;align-items:center;gap:10px;flex-wrap:wrap">'+
+   'Feriados de '+ano+
+   '<button class="bfg'+(cfgVal("feriadosNacionais")===false?"":" on")+'" '+
+    'onclick="setCfgVal(\'feriadosNacionais\','+(cfgVal("feriadosNacionais")===false)+')">'+
+    (cfgVal("feriadosNacionais")===false?"Nacionais desligados":"Nacionais ligados")+'</button>'+
+   '<button class="bfg" onclick="modalFeriado()">'+mi("plus")+' Acrescentar</button></div>'+
+  '<div class="pz-fer">'+listaFeriados.map(function(f){
+   const d=new Date(f.iso+"T12:00");
+   return '<div class="pz-f'+(f.off?" off":"")+'">'+
+    '<b>'+String(d.getDate()).padStart(2,"0")+'/'+String(d.getMonth()+1).padStart(2,"0")+'</b>'+
+    '<span>'+esc(f.nome)+'</span>'+
+    (f.nacional?'<i class="pz-tag">nacional</i>':'<i class="pz-tag prop">seu</i>')+
+    '<button onclick="alternarFeriado(\''+f.iso+'\','+(f.nacional?"true":"false")+')" '+
+     'title="'+(f.off?"Voltar a considerar":"Ignorar este feriado")+'">'+
+     (f.off?mi("refresh"):mi("close"))+'</button></div>';}).join("")+
+   (listaFeriados.length?"":'<div class="tf-dica">Nenhum feriado configurado.</div>')+
+  '</div></div>';
+}
+function setTema(t){
+ S.tema=t;const c=DB.cfg();c.tema=t;DB.setCfg(c);
+ document.documentElement.setAttribute("data-theme",t);
+ aplicarPersonalizacao();render();
+}
+function alternarItemMenu(k){
+ const o=(cfgVal("ocultos")||[]).slice();
+ const i=o.indexOf(k);
+ if(i>=0)o.splice(i,1);else o.push(k);
+ setCfgVal("ocultos",o);
+}
+function alternarDiaFolga(d){
+ const f=(cfgVal("diasFolga")||[]).slice();
+ const i=f.indexOf(d);
+ if(i>=0)f.splice(i,1);else f.push(d);
+ setCfgVal("diasFolga",f.sort());
+}
+function alternarFeriado(iso,nacional){
+ if(nacional){
+  const r=(cfgVal("feriadosRemovidos")||[]).slice();
+  const i=r.indexOf(iso);
+  if(i>=0)r.splice(i,1);else r.push(iso);
+  setCfgVal("feriadosRemovidos",r);
+ }else{
+  const e=Object.assign({},cfgVal("feriadosExtras")||{});
+  delete e[iso];
+  setCfgVal("feriadosExtras",e);
+ }
+}
+function modalFeriado(){
+ abrir('<div class="md" style="max-width:420px"><div class="ph"><div>'+
+  '<div class="pt">'+mi("plus")+' Novo feriado</div>'+
+  '<div class="ps">Ponto facultativo, feriado municipal, parada programada…</div></div>'+
+  '<button class="b3" onclick="fechar()">'+mi("close")+'</button></div>'+
+  '<label class="cp"><span>Data</span><input class="inp" id="fe-dia" type="date" value="'+isoDia(Date.now())+'"></label>'+
+  '<label class="cp" style="margin-top:11px"><span>Nome</span>'+
+   '<input class="inp" id="fe-nome" placeholder="Ex: Aniversário da cidade" '+
+   'onkeydown="if(event.key===\'Enter\'){event.preventDefault();salvarFeriado();}"></label>'+
+  '<div style="display:flex;gap:9px;margin-top:16px;justify-content:flex-end">'+
+  '<button class="b2" onclick="fechar()">Cancelar</button>'+
+  '<button class="b1" onclick="salvarFeriado()">'+mi("check")+' Adicionar</button></div></div>');
+ setTimeout(function(){const n=document.getElementById("fe-nome");if(n)n.focus();},60);
+}
+function salvarFeriado(){
+ const g=function(i){const e=document.getElementById(i);return e?e.value.trim():"";};
+ const dia=g("fe-dia"),nome=g("fe-nome");
+ if(!dia)return avisoCampo("fe-dia","Escolha a data.");
+ if(!nome)return avisoCampo("fe-nome","Dê um nome ao feriado.");
+ const e=Object.assign({},cfgVal("feriadosExtras")||{});
+ e[dia]=nome;
+ fechar();
+ setCfgVal("feriadosExtras",e);
+ toast("Feriado adicionado",nome+" · "+dOnly(new Date(dia+"T12:00").getTime()),"ok");
+}
+function restaurarPadrao(){
+ if(!confirm("Voltar aparência e calendário ao padrão?\n\nNenhum dado de frota, falha ou tarefa é afetado."))return;
+ const c=DB.cfg();
+ ["acento","densidade","raio","inicio","nomeSistema","ocultos","diasFolga",
+  "feriadosNacionais","feriadosExtras","feriadosRemovidos","animacoes"]
+  .forEach(function(k){delete c[k];});
+ DB.setCfg(c);aplicarPersonalizacao();render();
+ toast("Padrão restaurado","Aparência e calendário voltaram ao original","ok");
+}
 function vParametros(){
  return '<div class="pg fu"><div><div class="pgt">Configurações</div>'+
   '<div class="pgs">Conexão com a nuvem e listas usadas em todo o sistema</div></div></div>'+
@@ -6015,41 +6649,36 @@ function tipPareto(ev,rot,val,total,cum){
 }
 
 /* tela: vista superior */
-function vVista(){
- const veic=DB.veiculos();
- if(!S.vistaFrota&&veic.length)S.vistaFrota=veic[0].frota;
- const frota=S.vistaFrota;
- const v=veic.find(function(x){return x.frota===frota;});
- if(!v)return '<div class="pn"><div style="text-align:center;padding:40px;color:var(--t2)">Nenhum caminhão cadastrado.</div></div>';
+/* ── Diagnóstico visual de UMA frota ──────────────────────────────────
+   Era um painel global onde se escolhia o caminhão num combo. Faz mais
+   sentido morando dentro da página do próprio veículo: quem abre a frota
+   já está perguntando sobre ela. Traz junto a tabela por sistema, que
+   antes só existia na tela global. */
+function vistaDaFrota(frota){
+ const v=DB.veiculos().find(function(x){return x.frota===frota;});
+ if(!v)return "";
  const conds=TOPVIEW.map(function(pt){return {pt:pt,c:condicaoPonto(frota,pt)};});
  const nc=function(k){return conds.filter(function(x){return x.c===k;}).length;};
- const rs=DB.falhas().filter(function(r){return r.frota===frota;});
- const abertas=rs.filter(function(r){return ST[r.status].g==="aberta";}).length;
- const sv=STVEIC[v.statusVeic||"operando"]||STVEIC.operando;
- const K=[
-  {i:"●",c:"var(--ok)",v:nc("normal"),l:"Sistemas normais",s:"sem ocorrência"},
-  {i:"▲",c:"var(--wr)",v:nc("atencao"),l:"Em atenção",s:"monitorar"},
-  {i:"◷",c:"var(--or)",v:nc("preventiva"),l:"Preventiva",s:"programar parada"},
-  {i:"!",c:"var(--cr)",v:nc("critica"),l:"Falha crítica",s:"ação imediata",p:nc("critica")>0}
- ];
- return '<div class="pg fu"><div><div class="pgt">Vista Superior — Diagnóstico Visual</div>'+
-  '<div class="pgs">Esquema técnico do veículo · cada indicador reflete a condição real do sistema. Clique para abrir o histórico.</div></div>'+
-  '<div style="display:flex;gap:9px;align-items:flex-end">'+
-   '<label class="cp"><span>Caminhão</span><select class="inp" style="min-width:210px" onchange="S.vistaFrota=this.value;render()">'+
-    veic.map(function(x){return '<option value="'+esc(x.frota)+'" '+(x.frota===frota?"selected":"")+'>'+esc(x.frota)+' — '+esc(x.placa)+'</option>';}).join("")+
-   '</select></label>'+
-   '<button class="b2" onclick="abrirFrota(\''+esc(frota)+'\')">Ver página completa '+mi('arrowRight')+'</button></div></div>'+
-  cardsKPI(K)+
-  '<div class="pn fu"><div class="ph"><div><div class="pt">'+mi('truck')+' '+esc(v.frota)+(v.placa?' · '+esc(v.placa):"")+'</div>'+
-   '<div class="ps">'+esc((v.marca||v.fabricante||"")+" "+(v.modelo||""))+' · '+(v.ano||"—")+' · '+esc(v.tipo||"—")+
-   ' · '+(v.km||0).toLocaleString("pt-BR")+' km</div></div>'+
-   '<span class="tag" style="background:'+mix(sv.c,14)+';color:'+sv.c+';font-size:11px;padding:5px 11px">'+sv.i+' '+sv.l+'</span></div>'+
-   '<div class="tvwrap">'+desenhoTopo(frota,true)+'</div>'+legendaCond()+
-   '<div style="font-size:11px;color:var(--t3);margin-top:10px">Condição calculada a partir do histórico: falha crítica em aberto '+mi('arrowRight')+' vermelho · componente reincidente ou preventiva vencida '+mi('arrowRight')+' laranja · ocorrências recentes '+mi('arrowRight')+' amarelo.</div>'+
-  '</div>'+
-  '<div class="pn fu d1"><div class="ph"><div><div class="pt">'+mi('clipboard')+' Situação por sistema</div>'+
-   '<div class="ps">'+abertas+' falha(s) em aberto neste veículo</div></div></div>'+
-   '<div class="tw"><table><thead><tr><th>Sistema</th><th>Condição</th><th>Ocorrências</th><th>Em aberto</th><th>Última</th><th>Custo</th></tr></thead><tbody>'+
+ const abertas=DB.falhas().filter(function(r){
+  return r.frota===frota&&ST[r.status].g==="aberta";}).length;
+ const resumo=[["critica","Crítico"],["preventiva","Preventiva"],["atencao","Atenção"],["normal","Normal"]]
+  .map(function(x){const n=nc(x[0]),c=COND[x[0]];
+   return n?'<span class="vst-r" style="color:'+c.c+';background:'+mix(c.c,12)+'">'+
+    c.i+' <b>'+n+'</b> '+x[1]+'</span>':"";}).join("");
+ const aberto=!!S.aberto["vista_"+frota];
+ return '<div class="pn fu"><div class="ph"><div>'+
+  '<div class="pt">'+mi("vista")+' Diagnóstico visual</div>'+
+  '<div class="ps">Condição de cada sistema deste veículo · clique num indicador para abrir o histórico</div></div>'+
+  '<div class="vst-resumo">'+resumo+'</div></div>'+
+  '<div class="tvwrap">'+desenhoTopo(frota,true)+'</div>'+legendaCond()+
+  '<div class="vst-nota">Condição calculada a partir do histórico: falha crítica em aberto '+mi("arrowRight")+
+   ' vermelho · componente reincidente ou preventiva vencida '+mi("arrowRight")+
+   ' laranja · ocorrências recentes '+mi("arrowRight")+' amarelo.</div>'+
+  '<button type="button" class="tf-mais'+(aberto?" on":"")+'" onclick="abrirSecao('+qid("vista_"+frota)+')">'+
+   mi("arrowDown")+' Situação por sistema'+
+   '<span class="tf-dica">'+conds.length+' sistemas · '+abertas+' falha(s) em aberto</span></button>'+
+  (aberto?'<div class="tw" style="margin-top:12px"><table><thead><tr><th>Sistema</th><th>Condição</th>'+
+   '<th>Ocorrências</th><th>Em aberto</th><th>Última</th><th>Custo</th></tr></thead><tbody>'+
    conds.map(function(x){
     const f=falhasDoPonto(frota,x.pt),c=COND[x.c];
     const ab=f.filter(function(r){return ST[r.status].g==="aberta";}).length;
@@ -6059,7 +6688,8 @@ function vVista(){
      '<td><span class="tag" style="background:'+mix(c.c,14)+';color:'+c.c+'">'+c.i+' '+c.l+'</span></td>'+
      '<td>'+f.length+'</td><td>'+(ab?'<b style="color:var(--wr)">'+ab+'</b>':'<span style="color:var(--t3)">0</span>')+'</td>'+
      '<td style="color:var(--t2)">'+dOnly(ult)+'</td><td style="color:var(--t2)">'+R$(cst)+'</td></tr>';}).join("")+
-   '</tbody></table></div></div>';
+   '</tbody></table></div>':"")+
+  '</div>';
 }
 /* modal do componente clicado */
 function abrirPonto(frota,id){
@@ -6149,6 +6779,8 @@ const EXPLICA={
   i:"É estimativa informada no RF, não o valor faturado — serve para dimensionar, não para fechar contas."},
  prog_total:{t:"Tarefas na semana",c:"Tarefas programadas cuja janela cruza a semana exibida, respeitando os filtros. Abaixo, quantos dias de serviço elas somam — ou quantas ainda estão sem responsável.",
   i:"Inclui tarefas de vários dias que começaram antes."},
+ prog_fila:{t:"Em programação",c:"Serviços já definidos — com OS, frota e escopo — que ainda não foram encaixados num dia nem atribuídos a alguém.",
+  i:"É a fila de planejamento do PCM. Fila crescendo semana após semana significa que entra mais serviço do que a equipe consegue absorver."},
  prog_aderencia:{t:"Aderência à programação",c:"Tarefas concluídas ÷ total programado na semana × 100. Canceladas ficam de fora.",
   i:"Acima de <b>85%</b> indica planejamento realista. Abaixo de 60% costuma significar programação otimista demais ou interrupções frequentes."},
  prog_pontualidade:{t:"Pontualidade",c:"Das tarefas concluídas, quantas terminaram <b>dentro do prazo programado</b> ÷ total de concluídas × 100.",
@@ -7251,6 +7883,7 @@ function splash(){
  favicon();
  const c=DB.cfg();S.tema=c.tema||"dark";S.menu=c.menu!==false;
  document.documentElement.setAttribute("data-theme",S.tema);
+ aplicarPersonalizacao();
  splash();
 
  // A base local SEMPRE é preparada, mesmo com a nuvem configurada.
@@ -7271,7 +7904,7 @@ function splash(){
  }
 
  try{const s=localStorage.getItem("sgfpro:sessao")||sessionStorage.getItem("sgfpro:sessao");if(s)S.sessao=JSON.parse(s);}catch(e){}
- if(S.sessao){restaurarView();DB.backupAuto();}
+ if(S.sessao){S.view=cfgVal("inicio")||"executivo";restaurarView();DB.backupAuto();}
  render();
 })();
 </script>
