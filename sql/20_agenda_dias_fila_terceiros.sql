@@ -6,6 +6,7 @@
 --    2. Colunas de hora deixam de ser obrigatórias  ← corrige a falha ao salvar
 --    3. Status "em_programacao" passa a ser aceito  (fila de programação)
 --    4. Colunas de serviço terceirizado
+--    5. Tempo real — para a alteração aparecer para os outros usuários
 --
 --  Onde rodar: Supabase → SQL Editor → New query → colar → Run.
 --  Pode rodar mais de uma vez: tudo aqui é idempotente.
@@ -152,7 +153,38 @@ create index if not exists tarefas_terceirizada_idx
 
 
 -- ─────────────────────────────────────────────────────────────────────────
--- 5. RECARREGA O CACHE DA API
+-- 5. TEMPO REAL  ← é isto que faz a alteração aparecer para os OUTROS
+--
+--    O Supabase só envia aviso de mudança das tabelas que estão na publicação
+--    supabase_realtime. Sem isso, quem mexe numa tarefa não avisa ninguém e a
+--    alteração só aparece para os colegas quando eles recarregam a página.
+-- ─────────────────────────────────────────────────────────────────────────
+do $$
+declare
+  t text;
+begin
+  foreach t in array array['tarefas','tarefa_equipe','mao_de_obra',
+                           'planos_manutencao','componentes','config_listas',
+                           'registros_falha','solicitacoes','veiculos','motoristas']
+  loop
+    if not exists (select 1 from information_schema.tables
+                    where table_schema='public' and table_name=t) then
+      raise notice 'tabela % nao existe — ignorada', t;
+    elsif exists (select 1 from pg_publication_tables
+                   where pubname='supabase_realtime' and schemaname='public' and tablename=t) then
+      raise notice 'tabela % ja publicada', t;
+    else
+      execute format('alter publication supabase_realtime add table public.%I', t);
+      raise notice 'tabela % publicada no tempo real', t;
+    end if;
+  end loop;
+exception when undefined_object then
+  raise notice 'publicacao supabase_realtime nao encontrada — ative Realtime no painel do Supabase';
+end $$;
+
+
+-- ─────────────────────────────────────────────────────────────────────────
+-- 6. RECARREGA O CACHE DA API
 --
 --    O PostgREST (a API REST do Supabase) mantém o schema em cache. Sem
 --    este aviso, as colunas recém-criadas podem demorar a aparecer para o
@@ -162,7 +194,7 @@ notify pgrst, 'reload schema';
 
 
 -- ─────────────────────────────────────────────────────────────────────────
--- 6. CONFERÊNCIA
+-- 7. CONFERÊNCIA
 --    Depois de rodar, estas duas linhas devem devolver resultado sem erro.
 -- ─────────────────────────────────────────────────────────────────────────
 select 'colunas de terceiro' as teste, count(*) as ok
