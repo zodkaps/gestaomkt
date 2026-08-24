@@ -9,6 +9,12 @@
 --
 --  Onde rodar: Supabase → SQL Editor → New query → colar → Run.
 --  Pode rodar mais de uma vez: tudo aqui é idempotente.
+--
+--  NOTA: a tabela public.apontamentos (relógio de horas) deixou de ser usada
+--  pelo app na v5.1, mas NAO e apagada aqui. Se quiser remover, faca isso
+--  conscientemente depois de conferir que nao ha nada la que voce queira:
+--      select count(*) from public.apontamentos;
+--      -- drop table public.apontamentos;
 -- ═══════════════════════════════════════════════════════════════════════════
 
 
@@ -146,7 +152,17 @@ create index if not exists tarefas_terceirizada_idx
 
 
 -- ─────────────────────────────────────────────────────────────────────────
--- 5. CONFERÊNCIA
+-- 5. RECARREGA O CACHE DA API
+--
+--    O PostgREST (a API REST do Supabase) mantém o schema em cache. Sem
+--    este aviso, as colunas recém-criadas podem demorar a aparecer para o
+--    app, que continuaria reclamando de coluna inexistente.
+-- ─────────────────────────────────────────────────────────────────────────
+notify pgrst, 'reload schema';
+
+
+-- ─────────────────────────────────────────────────────────────────────────
+-- 6. CONFERÊNCIA
 --    Depois de rodar, estas duas linhas devem devolver resultado sem erro.
 -- ─────────────────────────────────────────────────────────────────────────
 select 'colunas de terceiro' as teste, count(*) as ok

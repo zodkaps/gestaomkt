@@ -1530,9 +1530,11 @@ async function sincronizar(tabela,chaveCache,novaLista,paraDB){
      em vez de deixar a alteração só no navegador. */
   if(!SUPA.semStatusFila&&erroDeStatusFila(e)){
    SUPA.semStatusFila=true;
-   SUPA.pendentes--;
    toast("Fila ainda não existe no banco",
     "As tarefas foram gravadas como Programada. Rode o script da fila em Personalizar para ativar o status.","aviso");
+   /* O finally abaixo devolve o contador; a nova chamada abre o seu próprio.
+      Decrementar aqui também deixaria SUPA.pendentes negativo e travaria o
+      selo de "Sincronizando…". */
    return sincronizar(tabela,chaveCache,novaLista,paraDB);
   }
   if(typeof toast==="function")
