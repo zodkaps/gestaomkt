@@ -937,6 +937,29 @@ body{font-size:var(--fbase)}
 :root[data-theme="light"] .abas{background:var(--s3)}
 :root[data-theme="light"] .aba:hover{background:#fff}
 @media(max-width:620px){.aba{min-width:0;padding:9px 10px;font-size:12px}.aba svg{display:none}}
+
+/* Modal de exportação */
+.ex-dica{font-size:9.5px;color:var(--t3);margin-left:5px;font-weight:600}
+.ex-resumo{margin-top:16px;padding:11px 13px;background:var(--s3);border:1px solid var(--bd);
+ border-radius:var(--r);font-size:12.5px;color:var(--t2);line-height:1.55;
+ display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.ex-resumo b{color:var(--t1)}
+.ex-resumo>svg{flex-shrink:0;color:var(--ok)}
+:root[data-theme="light"] .ex-resumo{background:#fff;border-color:var(--bd2)}
+
+/* ═══ ESTADO VAZIO ═══
+   Aparece quando não há o que mostrar; o papel dele é dizer o próximo passo. */
+.nada{display:flex;flex-direction:column;align-items:center;justify-content:center;
+ text-align:center;padding:44px 24px;gap:4px}
+.nada-i{width:52px;height:52px;border-radius:16px;background:var(--s3);border:1px solid var(--bd);
+ display:flex;align-items:center;justify-content:center;color:var(--t3);margin-bottom:10px}
+.nada-i svg{width:22px;height:22px}
+.nada-t{font-size:14.5px;font-weight:700;color:var(--t1)}
+.nada-s{font-size:12.5px;color:var(--t2);line-height:1.6;max-width:400px;margin-bottom:6px}
+.nada .b1,.nada .b2{margin-top:10px}
+tr.tr-vazio:hover{background:none!important}
+tr.tr-vazio td{padding:0!important;border:none}
+:root[data-theme="light"] .nada-i{background:#fff;border-color:var(--bd2)}
 </style>
 </head>
 <body><div id="app"></div>
@@ -1943,7 +1966,7 @@ const COMP_CATALOGO=[
  ["Eixos","Transmissão"],["Quinta roda","Transmissão"],["Cardan","Transmissão"],["Escapamento","Motor"]];
 const DIA=864e5;
 const SISTEMA_NOME="Gestão de Análise de Falhas MKT";
-const VERSAO="5.8";
+const VERSAO="5.9";
 /* Identidade visual oficial da Makro — logotipo fornecido pela empresa (item 41) */
 const LOGO_MARCA="data:image/png;base64,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";
 const LOGO_WORDMARK="data:image/jpeg;base64,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";
@@ -1964,7 +1987,9 @@ const S={sessao:null,view:"executivo",menu:true,tema:"dark",frotaAtiva:null,abaF
  FP:{frota:"",tipo:"",status:"",oficina:"",mdo:"",sistema:""},   // filtros da programação
  FT:{q:"",forn:"",situacao:"abertas"},   // filtros dos serviços terceirizados
  aberto:{},               // seções de análise recolhíveis que o usuário abriu
- abas:{}};                // aba escolhida em cada tela agrupada
+ abas:{},                 // aba escolhida em cada tela agrupada
+ EX:{de:"",ate:"",mdo:"",frota:"",tipo:"",status:"",
+     fila:true,terceiros:true,concluidas:true,canceladas:false}};   // exportação
 
 /* ═══ UTILIDADES ═══ */
 const esc=s=>(s==null?"":String(s)).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -2272,6 +2297,18 @@ function compFabricante(base){
 
 /* ═══ GRÁFICOS SVG ═══ */
 function gVazio(){return '<div style="text-align:center;padding:34px;color:var(--t2);font-size:12.5px">Sem dados para os filtros atuais.</div>';}
+/* Tela vazia é oportunidade de ensinar o próximo passo, não de dar notícia
+   ruim. Todo estado vazio do sistema passa por aqui. */
+function nada(ico,titulo,texto,acao){
+ return '<div class="nada">'+
+  '<span class="nada-i">'+mi(ico)+'</span>'+
+  '<div class="nada-t">'+titulo+'</div>'+
+  (texto?'<div class="nada-s">'+texto+'</div>':"")+
+  (acao||"")+'</div>';
+}
+function nadaLinha(cols,ico,titulo,texto,acao){
+ return '<tr class="tr-vazio"><td colspan="'+cols+'">'+nada(ico,titulo,texto,acao)+'</td></tr>';
+}
 function gBarH(dados,cor,click,fmt){
  if(!dados.length)return gVazio();
  const mx=dados[0].v||1;
@@ -2602,13 +2639,16 @@ function render(){
  /* Telas irmãs foram agrupadas em abas — o menu tinha 18 entradas para 14
     assuntos, e grupos de um item só. O que sobrou é o dia a dia no topo,
     o trabalho no meio e os ajustes no fim. */
- const nav=[["paineis","◈","Visão Geral"],["solicitacoes",mi("chat"),"Solicitações"],
-  ["_g","GESTÃO"],["frotas",mi("truck"),"Frotas"],["falhas","▦","Falhas"],
-  ["inteligencia","◎","Inteligência"],["alertas",mi("bell"),"Alertas"]];
- nav.push(["_g","PROGRAMAÇÃO"],["programacao",mi("clock"),"Agenda de Serviços"],
+ /* A programação abre o menu porque é onde o PCM passa o dia. O que era
+    "painel" desceu para acompanhamento, que é o que ele de fato é. */
+ const nav=[["_g","PROGRAMAÇÃO"],["programacao",mi("clock"),"Agenda de Serviços"],
   ["terceiros",mi("factory"),"Terceirizados"],
   ["planos",mi("refresh"),"Planos Preventivos"],["mapa52",mi("operacional"),"Mapa 52 Semanas"],
-  ["equipe",mi("person"),"Mão de Obra"]);
+  ["equipe",mi("person"),"Mão de Obra"]];
+ nav.push(["_g","ACOMPANHAMENTO"],["paineis","◈","Visão Geral"],
+  ["solicitacoes",mi("chat"),"Solicitações"],["alertas",mi("bell"),"Alertas"]);
+ nav.push(["_g","GESTÃO"],["frotas",mi("truck"),"Frotas"],["falhas","▦","Falhas"],
+  ["inteligencia","◎","Inteligência"]);
  nav.push(["_g","CADASTROS"],["motoristas",mi("motoristas"),"Motoristas"],
   ["componentes",mi("componentes"),"Componentes"]);
  nav.push(["_g","SISTEMA"]);
@@ -2732,7 +2772,7 @@ const DENSIDADES={
 };
 const RAIOS={reto:{l:"Reto",v:4},suave:{l:"Suave",v:9},redondo:{l:"Redondo",v:14}};
 const CFG_PADRAO={tema:"dark",menu:true,acento:"azul",densidade:"normal",raio:"suave",
- inicio:"executivo",nomeSistema:"Gestão MKT",ocultos:[],diasFolga:[0],
+ inicio:"programacao",nomeSistema:"Gestão MKT",ocultos:[],diasFolga:[0],
  feriadosNacionais:true,feriadosExtras:{},feriadosRemovidos:[],animacoes:true};
 function cfgVal(k){const c=DB.cfg();return c[k]===undefined?CFG_PADRAO[k]:c[k];}
 /* A última palavra do nome sai colorida, como era o "MKT" de origem */
@@ -3443,7 +3483,11 @@ function vFrotas(){
     '<td class="sec"><div style="display:flex;align-items:center;gap:7px">'+
      '<div class="bbg" style="width:46px"><div class="bfl" style="width:'+v.score+'%;background:'+nc+'"></div></div>'+
      '<span style="font-size:11px;color:'+nc+';font-weight:700">'+v.score+'</span></div></td></tr>';}).join("")
-   :'<tr><td colspan="10" style="text-align:center;padding:36px;color:var(--t2)">Nenhum caminhão nesta visão.</td></tr>')+
+   :nadaLinha(10,"truck","Nenhum caminhão nesta visão",
+     contarF()?"Os filtros atuais não deixaram nada de fora? Experimente limpá-los.":
+     "Cadastre o primeiro caminhão para começar a registrar falhas e programar serviços.",
+     contarF()?'<button class="b2" onclick="limparF()">Limpar filtros</button>':
+     (pode("criar")?'<button class="b1" onclick="modalVeiculo()">'+mi("plus")+' Cadastrar caminhão</button>':"")))+
   '</tbody></table></div>'+barraPag("frotas",pgV)+'</div>'+
  '<div class="pn fu d1"><div class="ph"><div><div class="pt">'+mi("clock")+' Histórico de liberações</div>'+
   '<div class="ps">Últimas frotas liberadas após manutenção</div></div></div><div class="tw"><table>'+
@@ -3637,7 +3681,9 @@ function vFalhas(){
     '<td style="color:var(--t2);white-space:nowrap">'+R$(r.custo)+'</td>'+
     '<td style="white-space:nowrap;color:'+(!r.liberacao&&(Date.now()-r.registro)>2*DIA?"var(--cr)":"var(--t2)")+'">'+
      (r.liberacao?dur(r.liberacao-r.registro):dur(Date.now()-r.registro))+'</td></tr>';}).join("")
-  :'<tr><td colspan="11" style="text-align:center;padding:38px;color:var(--t2)">Nenhuma falha encontrada com os filtros atuais.</td></tr>')+
+  :nadaLinha(11,"falhas","Nenhuma falha encontrada",
+    contarF()?"Nenhum registro bate com os filtros aplicados.":"Nada registrado ainda — o que é uma boa notícia.",
+    contarF()?'<button class="b2" onclick="limparF()">Limpar filtros</button>':""))+
   '</tbody></table></div>'+barraPag("falhas",pgF)+'</div>';
 }
 /* ═══════════ MÓDULO: INTEGRAÇÃO WHATSAPP + SOLICITAÇÕES ═══════════ */
@@ -4311,7 +4357,8 @@ function vProgramacao(){
    '</div>'+
    '<div style="display:flex;gap:7px;align-items:center;flex-wrap:wrap">'+
    '<button class="bfg" onclick="imprimirProgramacao()" title="Imprimir ou salvar em PDF">'+mi("printer")+'Imprimir</button>'+
-   '<button class="bfg" onclick="exportarProgramacao(\'xlsx\')" title="Baixar em Excel">'+mi("download")+'Excel</button>'+
+   '<button class="bfg" onclick="abrirExportacao()" title="Exportar um período à sua escolha">'+
+    mi("download")+'Exportar</button>'+
    '<button class="bfg" onclick="modoTV()" title="Tela cheia para apresentação">'+mi("play")+'Apresentar</button>'+
    '<button class="bfg" onclick="ir(\'personalizar\')" title="Domingos, feriados e aparência">'+mi("gear")+'Calendário</button>'+
    '<button class="bfg'+(contarFP()?" on":"")+'" onclick="abrirFiltroProg()">'+mi("gear")+
@@ -4324,9 +4371,9 @@ function vProgramacao(){
     '<div class="aglg">'+Object.keys(TIPO_SERV).map(function(k){
      return '<span><i style="background:'+TIPO_SERV[k].c+'"></i>'+TIPO_SERV[k].l+'</span>';}).join("")+
     '<span style="margin-left:auto;color:var(--t3)">Arraste um cartão para mudar de dia, de executante ou devolver à fila</span></div>'
-    :'<div style="text-align:center;padding:40px;color:var(--t2)">'+
-     'Nenhum profissional cadastrado ainda.<br><button class="b1" style="margin-top:13px" onclick="ir(\'equipe\')">'+
-     mi("plus")+' Cadastrar mão de obra</button></div>')+
+    :nada("person","A agenda ainda não tem executantes",
+      "Cadastre quem executa os serviços e cada pessoa vira uma faixa na grade da semana.",
+      '<button class="b1" onclick="ir(\'equipe\')">'+mi("plus")+' Cadastrar mão de obra</button>'))+
   '</div>';
 }
 /* ═══ VIEW: SERVIÇOS TERCEIRIZADOS ═══
@@ -4437,10 +4484,12 @@ function vTerceiros(){
    '<th class="sec">Empresa</th><th>Saída</th><th>Prazo</th><th class="sec">Pendências</th>'+
    '<th>Situação</th></tr></thead><tbody>'+
    (lista.length?lista.map(linha).join("")
-    :'<tr><td colspan="9" style="text-align:center;padding:38px;color:var(--t2)">'+
-     (todas.length?"Nenhum serviço com esse filtro."
-      :"Nenhum serviço terceirizado registrado. Marque <b>Empresa terceirizada</b> ao abrir uma tarefa.")+
-     '</td></tr>')+
+    :nadaLinha(9,"factory",
+      todas.length?"Nenhum serviço com esse filtro":"Nenhum serviço terceirizado ainda",
+      todas.length?"Ajuste a busca ou a situação para ver os demais."
+       :"Ao abrir uma tarefa, escolha <b>Empresa terceirizada</b> em \"Quem executa\" e ela passa a ser acompanhada aqui.",
+      todas.length?'<button class="b2" onclick="S.FT={q:\'\',forn:\'\',situacao:\'\'};render()">Ver todos</button>'
+       :(pode("criar")?'<button class="b1" onclick="modalTarefaTerceiro()">'+mi("plus")+' Novo serviço externo</button>':"")))+
    '</tbody></table></div></div>';
 }
 function setFT(k,v){S.FT[k]=(S.FT[k]===v?"":v);render();}
@@ -4490,7 +4539,9 @@ function vEquipe(){
       (m.ativo?"Ativo":"Inativo")+'</span></td>'+
      (pode("editar")?'<td><button class="b2" style="padding:5px 9px;font-size:11px" onclick="modalMdo('+qid(m.id)+')">'+mi("edit")+'</button></td>':"")+
      '</tr>';}).join("")
-    :'<tr><td colspan="8" style="text-align:center;padding:36px;color:var(--t2)">Nenhum profissional cadastrado.</td></tr>')+
+    :nadaLinha(8,"person","Nenhum profissional cadastrado",
+      "A agenda precisa de gente para distribuir serviço. Cadastre a equipe da manutenção.",
+      pode("editar")?'<button class="b1" onclick="modalMdo()">'+mi("plus")+' Novo profissional</button>':""))+
    '</tbody></table></div></div>';
 }
 function modalMdo(id){
@@ -6139,7 +6190,7 @@ function vPersonalizar(){
   return Object.keys(mapa).map(function(k){
    return render(k,mapa[k],atual===k,campo);}).join("");
  };
- const telas=[["paineis","Visão Geral"],["programacao","Agenda de Serviços"],
+ const telas=[["programacao","Agenda de Serviços"],["paineis","Visão Geral"],
   ["terceiros","Terceirizados"],["frotas","Frotas"],["falhas","Falhas"],
   ["solicitacoes","Solicitações"],["alertas","Alertas"],["planos","Planos Preventivos"],
   ["mapa52","Mapa 52 Semanas"]];
@@ -8170,31 +8221,234 @@ function dadosProgramacao(){
  return{ini:ini,fim:f2,tarefas:tarefas,nomes:nomes,
   rotulo:dOnly(ini.getTime())+" a "+dOnly(f2.getTime())};
 }
-function exportarProgramacao(tipo){
- const d=dadosProgramacao();
- if(!d.tarefas.length)return alert("Não há tarefas nesta semana para exportar.");
- const hoje=new Date().toISOString().slice(0,10);
- const CAB=["Início","Término","Dias","Frota","OS Protheus","Tarefa","Tipo","Sistema","Responsáveis",
-  "Situação","Pendências","Itens em aberto","Oficina","Observações"];
- const linhas=d.tarefas.map(function(t){
-  const abertas=(t.checklist||[]).filter(function(i){return !i.feito;});
-  return [dOnly(t.ini),dOnly(t.fim),diasTarefa(t),t.frota,t.os,t.titulo,
-   (TIPO_SERV[t.tipo]||{l:t.tipo}).l,t.sistema||"",d.nomes(t),
-   (ST_TAREFA[t.status]||{l:t.status}).l,
-   chkTotal(t)?(chkTotal(t)-chkAbertas(t))+"/"+chkTotal(t):"—",
-   abertas.map(function(i){return i.texto;}).join(" · ")||"—",
-   t.oficina||"",t.obs||""];});
- if(tipo==="xlsx"&&typeof XLSX!=="undefined"){
-  const ws=XLSX.utils.aoa_to_sheet([["Programação da semana — "+d.rotulo],[],CAB].concat(linhas));
-  ws["!cols"]=[{wch:11},{wch:11},{wch:6},{wch:9},{wch:15},{wch:34},{wch:12},{wch:13},{wch:24},
-   {wch:13},{wch:11},{wch:40},{wch:16},{wch:30}];
-  const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,"Programação");
-  XLSX.writeFile(wb,"programacao_"+hoje+".xlsx");
-  DB.log("exportar","programacao","",d.tarefas.length+" tarefas em XLSX");return;}
- const csv="\uFEFF"+CAB.join(";")+"\n"+linhas.map(function(l){
-  return l.map(function(v){return '"'+String(v==null?"":v).replace(/"/g,'""')+'"';}).join(";");}).join("\n");
- baixar(new Blob([csv],{type:"text/csv;charset=utf-8"}),"programacao_"+hoje+".csv");
- DB.log("exportar","programacao","",d.tarefas.length+" tarefas em CSV");
+/* ═══════════ EXPORTAÇÃO DA PROGRAMAÇÃO ═══════════
+   A semana da tela serve para a folha da oficina. Para relatório, reunião e
+   fechamento de mês o período é outro — então aqui ele é escolhido livremente,
+   com os mesmos filtros da agenda. */
+function abrirExportacao(){
+ const hoje=new Date();
+ const ini=S.EX.de||isoDia(inicioSemana(S.sem).getTime());
+ const f=new Date(inicioSemana(S.sem));f.setDate(f.getDate()+6);
+ const fim=S.EX.ate||isoDia(f.getTime());
+ const chk=function(k,rot,dica){
+  return '<button type="button" class="pz-chk'+(S.EX[k]?" on":"")+'" onclick="exAlterna('+qid(k)+')">'+
+   '<i>'+(S.EX[k]?mi("check"):"")+'</i>'+rot+(dica?'<span class="ex-dica">'+dica+'</span>':"")+'</button>';};
+ const om=function(ob,v){return Object.keys(ob).map(function(k){
+  return '<option value="'+k+'" '+(v===k?"selected":"")+'>'+ob[k].l+'</option>';}).join("");};
+ abrir('<div class="md" style="max-width:600px"><div class="ph"><div>'+
+  '<div class="pt">'+mi("download")+' Exportar programação</div>'+
+  '<div class="ps">Escolha o período e o que entra na planilha</div></div>'+
+  '<button class="b3" onclick="fechar()">'+mi("close")+'</button></div>'+
+
+  '<div class="tf-sec" style="margin-top:0;padding-top:0;border:none">Período</div>'+
+  '<div class="tf-atalhos">'+
+   [["Esta semana","semana"],["Próxima semana","prox"],["Este mês","mes"],
+    ["Mês passado","mespassado"],["Últimos 30 dias","30d"],["Este ano","ano"]]
+   .map(function(a){return '<button type="button" class="bfg" onclick="exPeriodo('+qid(a[1])+')">'+a[0]+'</button>';}).join("")+
+  '</div>'+
+  '<div class="tf-g2" style="margin-top:9px">'+
+   '<label class="cp"><span>De</span><input class="inp" id="ex-de" type="date" value="'+ini+'" '+
+    'onchange="S.EX.de=this.value;exResumo()"></label>'+
+   '<label class="cp"><span>Até</span><input class="inp" id="ex-ate" type="date" value="'+fim+'" '+
+    'onchange="S.EX.ate=this.value;exResumo()"></label>'+
+  '</div>'+
+
+  '<div class="tf-sec">O que entra</div>'+
+  '<div class="pz-menu">'+
+   chk("fila","Fila de programação","sem data firme")+
+   chk("terceiros","Serviços terceirizados")+
+   chk("concluidas","Concluídas")+
+   chk("canceladas","Canceladas")+
+  '</div>'+
+
+  '<div class="tf-sec">Filtrar</div>'+
+  '<div class="tf-g2">'+
+   '<label class="cp"><span>Executante</span><select class="inp" id="ex-mdo">'+
+    '<option value="">Todos</option>'+DB.maoDeObra().map(function(m){
+     return '<option value="'+esc(m.id)+'" '+(S.EX.mdo===m.id?"selected":"")+'>'+esc(m.nome)+'</option>';}).join("")+
+    '</select></label>'+
+   '<label class="cp"><span>Frota</span><input class="inp" id="ex-frota" list="dl-exfrotas" '+
+    'value="'+esc(S.EX.frota||"")+'" placeholder="Todas" oninput="this.value=this.value.toUpperCase()">'+
+    '<datalist id="dl-exfrotas">'+uniq(DB.tarefas().map(function(t){return t.frota;}))
+      .map(function(x){return '<option value="'+esc(x)+'">';}).join("")+'</datalist></label>'+
+   '<label class="cp"><span>Tipo de serviço</span><select class="inp" id="ex-tipo">'+
+    '<option value="">Todos</option>'+om(TIPO_SERV,S.EX.tipo)+'</select></label>'+
+   '<label class="cp"><span>Situação</span><select class="inp" id="ex-status">'+
+    '<option value="">Todas</option>'+om(ST_TAREFA,S.EX.status)+'</select></label>'+
+  '</div>'+
+
+  '<div class="ex-resumo" id="ex-resumo"></div>'+
+  '<div style="display:flex;gap:9px;margin-top:16px;justify-content:flex-end;flex-wrap:wrap">'+
+  '<button class="b2" onclick="fechar()">Cancelar</button>'+
+  '<button class="b2" onclick="exportarPeriodo(\'csv\')">'+mi("file")+' CSV</button>'+
+  '<button class="b1" onclick="exportarPeriodo(\'xlsx\')">'+mi("download")+' Baixar Excel</button></div></div>');
+ exResumo();
+}
+function exAlterna(k){S.EX[k]=!S.EX[k];abrirExportacao();}
+/* Atalhos de período */
+function exPeriodo(k){
+ const h=new Date();h.setHours(12,0,0,0);
+ let de,ate;
+ if(k==="semana"){de=inicioSemana(0);ate=new Date(de);ate.setDate(ate.getDate()+6);}
+ else if(k==="prox"){de=inicioSemana(1);ate=new Date(de);ate.setDate(ate.getDate()+6);}
+ else if(k==="mes"){de=new Date(h.getFullYear(),h.getMonth(),1);ate=new Date(h.getFullYear(),h.getMonth()+1,0);}
+ else if(k==="mespassado"){de=new Date(h.getFullYear(),h.getMonth()-1,1);ate=new Date(h.getFullYear(),h.getMonth(),0);}
+ else if(k==="30d"){ate=new Date(h);de=new Date(h);de.setDate(de.getDate()-29);}
+ else{de=new Date(h.getFullYear(),0,1);ate=new Date(h.getFullYear(),11,31);}
+ S.EX.de=isoDia(de.getTime());S.EX.ate=isoDia(ate.getTime());
+ const a=document.getElementById("ex-de"),b=document.getElementById("ex-ate");
+ if(a)a.value=S.EX.de;if(b)b.value=S.EX.ate;
+ exResumo();
+}
+/* Lê os campos e devolve as tarefas do período com os filtros aplicados */
+function tarefasDoPeriodo(){
+ const g=function(i){const e=document.getElementById(i);return e?e.value.trim():"";};
+ const de=g("ex-de")||S.EX.de,ate=g("ex-ate")||S.EX.ate;
+ S.EX.de=de;S.EX.ate=ate;
+ S.EX.mdo=g("ex-mdo");S.EX.frota=g("ex-frota");
+ S.EX.tipo=g("ex-tipo");S.EX.status=g("ex-status");
+ if(!de||!ate)return{erro:"Informe as duas datas.",tarefas:[]};
+ if(ate<de)return{erro:"A data final não pode ser anterior à inicial.",tarefas:[]};
+ const d0=iniDoDia(new Date(de+"T12:00").getTime());
+ const d1=fimDoDia(new Date(ate+"T12:00").getTime());
+ const tarefas=DB.tarefas().filter(function(t){
+  if(naFila(t)){if(!S.EX.fila)return false;}
+  else if(t.ini>d1||t.fim<d0)return false;          // fora do período
+  if(t.terceirizada&&!S.EX.terceiros)return false;
+  if(t.status==="concluida"&&!S.EX.concluidas)return false;
+  if(t.status==="cancelada"&&!S.EX.canceladas)return false;
+  if(S.EX.mdo&&(t.equipe||[]).indexOf(S.EX.mdo)<0)return false;
+  if(S.EX.frota&&t.frota!==S.EX.frota)return false;
+  if(S.EX.tipo&&t.tipo!==S.EX.tipo)return false;
+  if(S.EX.status&&t.status!==S.EX.status)return false;
+  return true;})
+  .sort(function(a,b){return a.ini-b.ini||String(a.frota).localeCompare(String(b.frota));});
+ return{tarefas:tarefas,d0:d0,d1:d1,
+  rotulo:dOnly(d0)+" a "+dOnly(d1),
+  arquivo:de+"_a_"+ate};
+}
+/* Prévia: quantas tarefas o filtro atual pegou */
+function exResumo(){
+ const el=document.getElementById("ex-resumo");
+ if(!el)return;
+ const d=tarefasDoPeriodo();
+ if(d.erro)return el.innerHTML='<span style="color:var(--cr)">'+mi("warning")+" "+esc(d.erro)+'</span>';
+ const n=d.tarefas.length;
+ if(!n)return el.innerHTML='<span style="color:var(--wr)">'+mi("warning")+
+  ' Nenhuma tarefa neste período com esses filtros.</span>';
+ const frotas=uniq(d.tarefas.map(function(t){return t.frota;})).length;
+ const pend=d.tarefas.reduce(function(s,t){return s+chkAbertas(t);},0);
+ el.innerHTML=mi("check")+' <b>'+n+'</b> tarefa'+(n>1?"s":"")+' · <b>'+frotas+'</b> frota'+
+  (frotas>1?"s":"")+(pend?' · <b>'+pend+'</b> pendência'+(pend>1?"s":"")+' em aberto':"")+
+  ' <span style="color:var(--t3)">— '+esc(d.rotulo)+'</span>';
+}
+function nomesEquipe(t){
+ return (t.equipe||[]).map(function(mid){
+  const m=DB.maoDeObra().find(function(x){return x.id===mid;});return m?m.nome:null;})
+  .filter(Boolean).join(", ");
+}
+/* Como cada tarefa aparece na planilha */
+const EX_CAB=["Início","Término","Dias","Frota","OS Protheus","Tarefa","Tipo","Sistema",
+ "Executante","Terceirizada","Empresa","Situação","Prioridade","Pendências",
+ "Itens em aberto","Oficina","Local","Concluída em","Observações"];
+function exLinha(t){
+ const abertas=(t.checklist||[]).filter(function(i){return !i.feito;});
+ return [naFila(t)?"— fila —":dOnly(t.ini), naFila(t)?"":dOnly(t.fim),
+  naFila(t)?"":diasTarefa(t), t.frota, t.os, t.titulo,
+  (TIPO_SERV[t.tipo]||{l:t.tipo}).l, t.sistema||"",
+  nomesEquipe(t)||(t.terceirizada?"":"— sem responsável —"),
+  t.terceirizada?"Sim":"Não", t.fornecedor||"",
+  (ST_TAREFA[t.status]||{l:t.status}).l, (CRI[t.prioridade]||{l:t.prioridade||""}).l,
+  chkTotal(t)?(chkTotal(t)-chkAbertas(t))+"/"+chkTotal(t):"—",
+  abertas.map(function(i){return i.texto;}).join(" · ")||"—",
+  t.oficina||"", t.local||"", t.concluidaEm?dOnly(t.concluidaEm):"", t.obs||""];
+}
+const EX_LARG=[11,11,6,10,15,36,12,14,24,12,20,14,10,11,42,16,16,12,30];
+function exportarPeriodo(tipo){
+ const d=tarefasDoPeriodo();
+ if(d.erro)return toast("Período inválido",d.erro,"aviso");
+ if(!d.tarefas.length)return toast("Nada para exportar",
+  "Nenhuma tarefa no período com esses filtros.","aviso");
+ const linhas=d.tarefas.map(exLinha);
+
+ if(tipo==="csv"||typeof XLSX==="undefined"){
+  const csv="﻿"+EX_CAB.join(";")+"\n"+linhas.map(function(l){
+   return l.map(function(v){return '"'+String(v==null?"":v).replace(/"/g,'""')+'"';}).join(";");}).join("\n");
+  baixar(new Blob([csv],{type:"text/csv;charset=utf-8"}),"programacao_"+d.arquivo+".csv");
+  DB.log("exportar","programacao",d.rotulo,d.tarefas.length+" tarefas em CSV");
+  fechar();return toast("CSV gerado",d.tarefas.length+" tarefas","ok");
+ }
+
+ const wb=XLSX.utils.book_new();
+ const aba=function(nome,titulo,cab,dados,larg){
+  const ws=XLSX.utils.aoa_to_sheet([[titulo],["Período: "+d.rotulo+"  ·  gerado em "+dt(Date.now())],[],cab].concat(dados));
+  ws["!cols"]=larg.map(function(w){return{wch:w};});
+  ws["!autofilter"]={ref:XLSX.utils.encode_range({s:{r:3,c:0},e:{r:3+dados.length,c:cab.length-1}})};
+  ws["!freeze"]={xSplit:0,ySplit:4};
+  XLSX.utils.book_append_sheet(wb,ws,nome);
+ };
+ /* 1. a lista completa */
+ aba("Tarefas","Programação de serviços",EX_CAB,linhas,EX_LARG);
+
+ /* 2. carga por executante — é o que se leva para a reunião */
+ const porExec={};
+ d.tarefas.forEach(function(t){
+  const alvo=t.terceirizada?["» "+(t.fornecedor||"Terceiro")]
+   :((t.equipe||[]).map(function(mid){
+      const m=DB.maoDeObra().find(function(x){return x.id===mid;});return m?m.nome:mid;}));
+  (alvo.length?alvo:["— sem responsável —"]).forEach(function(n){
+   if(!porExec[n])porExec[n]={n:n,tot:0,conc:0,venc:0,dias:0,pend:0};
+   const o=porExec[n];o.tot++;
+   if(t.status==="concluida")o.conc++;
+   if(t.status!=="concluida"&&t.status!=="cancelada"&&!naFila(t)&&t.fim<Date.now())o.venc++;
+   if(!naFila(t))o.dias+=diasTarefa(t);
+   o.pend+=chkAbertas(t);});
+ });
+ aba("Por executante","Carga por executante",
+  ["Executante","Tarefas","Concluídas","Vencidas","% concluído","Dias de serviço","Pendências abertas"],
+  Object.keys(porExec).sort().map(function(k){const o=porExec[k];
+   return [o.n,o.tot,o.conc,o.venc,o.tot?Math.round(o.conc/o.tot*100)+"%":"—",o.dias,o.pend];}),
+  [28,10,12,10,12,16,18]);
+
+ /* 3. pendências em aberto, item a item */
+ const pend=[];
+ d.tarefas.forEach(function(t){
+  (t.checklist||[]).forEach(function(i){
+   if(i.feito)return;
+   pend.push([naFila(t)?"— fila —":dOnly(t.ini),t.frota,t.os,t.titulo,
+    nomesEquipe(t)||(t.fornecedor||"—"),i.texto,
+    (ST_TAREFA[t.status]||{l:t.status}).l]);});});
+ aba("Pendências","Pendências em aberto",
+  ["Data","Frota","OS","Tarefa","Responsável","Pendência","Situação"],
+  pend.length?pend:[["—","—","—","Nenhuma pendência em aberto","—","—","—"]],
+  [11,10,15,34,24,44,14]);
+
+ /* 4. resumo para abrir o relatório */
+ const naGrade=d.tarefas.filter(function(t){return !naFila(t);});
+ const conc=naGrade.filter(function(t){return t.status==="concluida";});
+ const venc=naGrade.filter(function(t){return t.status!=="concluida"&&t.status!=="cancelada"&&t.fim<Date.now();});
+ const porTipo=Object.keys(TIPO_SERV).map(function(k){
+  return [TIPO_SERV[k].l,d.tarefas.filter(function(t){return t.tipo===k;}).length];})
+  .filter(function(l){return l[1];});
+ aba("Resumo","Resumo do período",["Indicador","Valor"],[
+   ["Período",d.rotulo],
+   ["Tarefas no período",d.tarefas.length],
+   ["Na fila de programação",d.tarefas.filter(naFila).length],
+   ["Programadas na grade",naGrade.length],
+   ["Concluídas",conc.length],
+   ["Aderência",naGrade.length?Math.round(conc.length/naGrade.length*100)+"%":"—"],
+   ["Vencidas",venc.length],
+   ["Terceirizadas",d.tarefas.filter(function(t){return t.terceirizada;}).length],
+   ["Frotas atendidas",uniq(d.tarefas.map(function(t){return t.frota;})).length],
+   ["Dias de serviço",naGrade.reduce(function(s,t){return s+diasTarefa(t);},0)],
+   ["Pendências em aberto",d.tarefas.reduce(function(s,t){return s+chkAbertas(t);},0)],
+   ["",""],["Por tipo de serviço",""]].concat(porTipo),
+  [30,26]);
+
+ XLSX.writeFile(wb,"programacao_"+d.arquivo+".xlsx");
+ DB.log("exportar","programacao",d.rotulo,d.tarefas.length+" tarefas em XLSX");
+ fechar();
+ toast("Excel gerado",d.tarefas.length+" tarefas · 4 abas","ok");
 }
 /* Impressão: página própria, agrupada por responsável, com as pendências */
 function imprimirProgramacao(){
