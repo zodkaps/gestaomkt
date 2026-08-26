@@ -402,6 +402,10 @@ tbody tr:hover{box-shadow:inset 3px 0 0 var(--ac)}
  padding:5px 8px;font-size:10.5px;font-weight:700;cursor:pointer;font-family:inherit;
  display:inline-flex;align-items:center;justify-content:center;gap:5px;transition:.14s}
 .agr-add:hover{border-color:var(--ac);color:var(--ac);background:var(--acs);border-style:solid}
+/* O "+ Tarefa" da faixa usa o mesmo desenho de sinal do "+" dos dias, mas
+   sem herdar a opacidade e o posicionamento em grade daqueles. */
+.agr-add.agadd{grid-row:auto;margin:0;opacity:1;min-height:0;z-index:auto}
+.agrow:hover .agr-add.agadd{opacity:1}
 .agr-add svg{width:11px;height:11px}
 /* ── Célula de um dia ── */
 .agc{background:var(--s1);padding:5px;min-height:78px;display:flex;flex-direction:column;gap:4px;
@@ -414,6 +418,9 @@ tbody tr:hover{box-shadow:inset 3px 0 0 var(--ac)}
  border-radius:7px;padding:5px 6px;font-size:10.5px;font-weight:700;cursor:pointer;
  font-family:inherit;display:flex;align-items:center;justify-content:center;gap:5px;
  opacity:0;transition:.14s}
+/* O "+" é desenhado aqui, não repetido como SVG em cada um dos botões */
+.agadd::before{content:"+";font-size:15px;font-weight:700;line-height:1;
+ display:inline-block;transform:translateY(-.5px)}
 .agadd svg{width:12px;height:12px}
 .agc.livre .agadd{opacity:.5;min-height:34px}
 .agc:hover .agadd,.agadd:focus-visible{opacity:1;border-color:var(--ac);color:var(--ac);
@@ -866,6 +873,36 @@ body{font-size:var(--fbase)}
 .cart-l .agt-chk{margin-left:0;min-width:42px;justify-content:flex-end}
 .fil-sp{font-size:10px;color:var(--t3);min-width:42px;text-align:right}
 .fil-cont{font-size:11px;color:var(--t3);padding-top:9px}
+/* ── Carteira: escolha de executantes em chips ── */
+.cs-exec{flex:2 1 260px}
+.cs-chips{display:flex;gap:5px;flex-wrap:wrap;max-height:76px;overflow-y:auto;
+ overscroll-behavior:contain;padding:1px}
+.cs-ch{background:var(--s1);border:1px solid var(--bd);color:var(--t2);border-radius:20px;
+ padding:5px 11px;font-size:11px;font-weight:700;font-family:inherit;cursor:pointer;
+ display:inline-flex;align-items:center;gap:5px;white-space:nowrap;transition:.13s}
+.cs-ch svg{width:10px;height:10px}
+.cs-ch:hover{border-color:var(--bd2);color:var(--t1)}
+.cs-ch.on{background:var(--ac);border-color:var(--ac);color:#fff}
+.cs-vazio{font-size:11.5px;color:var(--t3);padding:6px 2px}
+.cs-campos label>span b{color:var(--ac)}
+/* ── Página da tarefa: colunas que se ajustam ── */
+.tar-cols{display:grid;grid-template-columns:repeat(auto-fit,minmax(330px,1fr));gap:14px;
+ align-items:start}
+.tar-cols .pn{margin-bottom:0}
+.tar-cols textarea.inp{resize:vertical;min-height:64px;font-family:inherit;line-height:1.5}
+@media(max-width:900px){.tar-cols{grid-template-columns:1fr}}
+/* ── A sobra da tarefa ── */
+.sp-lista{display:flex;flex-direction:column;gap:1px;background:var(--bd);border:1px solid var(--bd);
+ border-radius:var(--r);overflow:hidden;margin:10px 0 4px;max-height:200px;overflow-y:auto;
+ overscroll-behavior:contain}
+.sp-i{display:flex;align-items:center;gap:9px;background:var(--s1);padding:8px 11px;font-size:12px}
+.sp-i svg{width:12px;height:12px;color:var(--wr);flex-shrink:0}
+.sp-i span{flex:1;min-width:0;color:var(--t2)}
+.sp-i i{font-style:normal;font-size:10px;font-weight:700;color:var(--ac);
+ background:var(--acs);border-radius:20px;padding:2px 8px;white-space:nowrap}
+/* Pendência que virou outra tarefa: não foi feita, foi transferida */
+.chk-i.transf .chk-b{background:var(--rx)!important;border-color:var(--rx)!important}
+.chk-i.transf .chk-t{text-decoration:none;color:var(--t2)}
 /* ── Carteira: barra do que está marcado ── */
 .cart-sel{display:flex;align-items:flex-end;gap:12px;flex-wrap:wrap;margin-top:12px;
  padding:12px 14px;border-radius:var(--r);border:1px solid var(--ac);
@@ -940,6 +977,17 @@ body{font-size:var(--fbase)}
  .chk-b,.chk-x{min-width:30px;min-height:30px}
  .chk-ex{padding:5px 11px 5px 9px;font-size:11px}
 }
+
+/* Aviso de serviço externo na agenda interna */
+.agter{display:flex;align-items:center;gap:10px;font-size:11.5px;color:var(--t2);
+ background:color-mix(in srgb,var(--cy) 8%,transparent);
+ border:1px solid color-mix(in srgb,var(--cy) 26%,transparent);
+ border-radius:var(--r);padding:8px 12px;margin-bottom:11px;flex-wrap:wrap}
+.agter svg{color:var(--cy);flex-shrink:0}
+.agter b{color:var(--t1)}
+.agter span{flex:1;min-width:180px;line-height:1.5}
+.agter .bfg{white-space:nowrap}
+.agr.ter{border-left-color:var(--cy)}
 
 /* ═══ REGISTRO DA PROGRAMAÇÃO ═══ */
 .rg-nums{display:grid;grid-template-columns:repeat(auto-fit,minmax(112px,1fr));gap:8px;margin-bottom:4px}
@@ -1060,9 +1108,9 @@ body.arrastando *{cursor:grabbing!important}
    cada uma na sua trilha, e duas que se cruzam descem de linha sozinhas. */
 .agrow{grid-column:2/-1;display:grid;grid-template-columns:repeat(7,minmax(132px,1fr));
  column-gap:1px;row-gap:4px;background:var(--bd)}
-.agrow>.agc{min-height:78px;padding:0;display:block}
+.agrow>.agc{grid-row:1/-1;min-height:78px;padding:0;display:block}
 .agrow>.agt{margin:0 5px;align-self:start;z-index:2;min-width:0}
-.agrow>.agadd{margin:0 5px;z-index:1;position:relative;opacity:.2;min-height:26px}
+.agrow>.agadd{grid-row:-3/-2;margin:0 5px;z-index:1;position:relative;opacity:.2;min-height:26px}
 .agrow:hover>.agadd{opacity:.5}
 .agrow>.agadd.livre{opacity:.45}
 .agrow>.agadd.folga{opacity:.1}
@@ -1074,7 +1122,7 @@ body.arrastando *{cursor:grabbing!important}
    Quem cede espaço numa barra estreita é o título. */
 .agt.wide>b{margin:0;white-space:nowrap;flex:0 0 auto}
 .agt.wide .agt-os{flex:0 2 auto;overflow:hidden}
-.agt.wide .agt-tt{-webkit-line-clamp:1;flex:1 1 28px;min-width:0;line-height:1.3}
+.agt.wide .agt-tt{display:block;white-space:nowrap;text-overflow:ellipsis;overflow:hidden;flex:1 1 28px;min-width:0;line-height:1.3}
 .agt.wide .agt-pe{margin:0;flex:0 0 auto;flex-wrap:nowrap}
 .agt.wide .agt-chk{margin-left:0}
 .agt-span{font-size:9px;font-weight:800;color:var(--ac);background:var(--acs);
@@ -2226,8 +2274,12 @@ const ST_TAREFA={em_programacao:{l:"Em programação",c:"var(--rx)",fila:true},
    (a empresa), e tarefa já iniciada ou encerrada fica onde está. */
 function naFila(t){
  if(!t)return false;
+ /* Serviço externo nunca entra na carteira interna: ele não espera
+    executante nem dia da oficina, e nesta tela não teria para onde ser
+    arrastado — a grade agora é só da casa. Ele vive em Terceirizados. */
+ if(t.terceirizada)return false;
  if(t.status==="em_programacao")return true;
- return t.status==="programada"&&!t.terceirizada&&!(t.equipe||[]).length;
+ return t.status==="programada"&&!(t.equipe||[]).length;
 }
 /* Normaliza o status de quem não tem responsável, para o banco refletir o
    que a tela mostra em vez de divergir dela. */
@@ -2329,7 +2381,7 @@ const COMP_CATALOGO=[
  ["Eixos","Transmissão"],["Quinta roda","Transmissão"],["Cardan","Transmissão"],["Escapamento","Motor"]];
 const DIA=864e5;
 const SISTEMA_NOME="Gestão de Análise de Falhas MKT";
-const VERSAO="7.1";
+const VERSAO="7.2";
 /* Identidade visual oficial da Makro — logotipo fornecido pela empresa (item 41) */
 const LOGO_MARCA="data:image/png;base64,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";
 const LOGO_WORDMARK="data:image/jpeg;base64,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";
@@ -2347,6 +2399,7 @@ const S={sessao:null,view:"executivo",menu:true,tema:"dark",frotaAtiva:null,abaF
  pag:{},                   // página atual de cada tabela
  ano52:new Date().getFullYear(),
  sem:0,                    // semana mostrada na agenda (0 = atual)
+ semTer:0,                 // semana da agenda de terceirizados
  FP:{frota:"",tipo:"",status:"",oficina:"",mdo:"",sistema:""},   // filtros da programação
  FT:{q:"",forn:"",situacao:"abertas"},   // filtros dos serviços terceirizados
  aberto:{},               // seções de análise recolhíveis que o usuário abriu
@@ -2357,7 +2410,7 @@ const S={sessao:null,view:"executivo",menu:true,tema:"dark",frotaAtiva:null,abaF
  IMP:{de:"",ate:"",agrupar:"mdo",mdo:"",frota:"",tipo:"",
       pend:true,desc:true,assinatura:true,fila:false,concluidas:true,
       canceladas:false,resumo:true,compacto:false,terceiros:true,
-      zebra:true},   // folha de impressão
+      zebra:true,mudancas:true,indicadores:false},   // folha de impressão
  BK:null};                // planilha de backlog em importação
 
 /* ═══ UTILIDADES ═══ */
@@ -3369,7 +3422,13 @@ const DENSIDADES={
 const RAIOS={reto:{l:"Reto",v:4},suave:{l:"Suave",v:9},redondo:{l:"Redondo",v:14}};
 const CFG_PADRAO={tema:"dark",menu:true,acento:"azul",densidade:"normal",raio:"suave",
  inicio:"programacao",nomeSistema:"Gestão MKT",ocultos:[],diasFolga:[0],
- feriadosNacionais:true,feriadosExtras:{},feriadosRemovidos:[],animacoes:true};
+ feriadosNacionais:true,feriadosExtras:{},feriadosRemovidos:[],animacoes:true,
+ /* O que fazer quando a tarefa fecha com pendência em aberto:
+      nova     — o que sobrou vira uma tarefa nova na carteira (padrão)
+      bloquear — não deixa concluir enquanto houver item aberto
+      permitir — conclui e deixa as pendências como estão */
+ sobraPend:"nova",
+ sobraPendPergunta:true};   // confirma antes de criar a tarefa da sobra
 function cfgVal(k){const c=DB.cfg();return c[k]===undefined?CFG_PADRAO[k]:c[k];}
 /* A última palavra do nome sai colorida, como era o "MKT" de origem */
 function nomeSistemaHTML(){
@@ -4763,43 +4822,213 @@ function vTarefaPagina(id){
  const eq=(t.equipe||[]).map(function(mid){
   const m=DB.maoDeObra().find(function(x){return x.id===mid;});return m?m.nome:null;}).filter(Boolean);
  const nd=diasTarefa(t);
+ const ed=pode("editar");
+ const equipe=DB.maoDeObra().filter(function(m){return m.ativo||(t.equipe||[]).indexOf(m.id)>=0;});
+ const atrasada=t.status!=="concluida"&&t.status!=="cancelada"&&t.fim<Date.now();
+
+ /* ── Campo que se edita no lugar ──
+    A janela separada existe para trabalhar a tarefa inteira sem pular para
+    um formulário e voltar. Cada campo grava sozinho ao sair dele: não há
+    botão "salvar" para esquecer de apertar, e a agenda atrás já reflete. */
+ const campo=function(rot,ch,valor,tipo,opcoes,dica){
+  const idc="tp-"+ch;
+  let controle;
+  if(tipo==="select"){
+   controle='<select class="inp" id="'+idc+'"'+(ed?"":" disabled")+
+    ' onchange="salvarCampoTarefa('+qid(id)+','+qid(ch)+',this.value)">'+
+    opcoes.map(function(o){
+     return '<option value="'+esc(o[0])+'"'+(String(valor)===String(o[0])?" selected":"")+'>'+
+      esc(o[1])+'</option>';}).join("")+'</select>';
+  }else if(tipo==="area"){
+   controle='<textarea class="inp" id="'+idc+'" rows="3"'+(ed?"":" disabled")+
+    ' onchange="salvarCampoTarefa('+qid(id)+','+qid(ch)+',this.value)">'+esc(valor||"")+'</textarea>';
+  }else{
+   controle='<input class="inp" id="'+idc+'" type="'+(tipo||"text")+'" value="'+esc(valor||"")+'"'+
+    (ed?"":" disabled")+(opcoes?' list="'+esc(opcoes)+'"':"")+
+    ' onchange="salvarCampoTarefa('+qid(id)+','+qid(ch)+',this.value)">';
+  }
+  return '<label class="cp"><span>'+rot+'</span>'+controle+
+   (dica?'<span class="tf-dica">'+dica+'</span>':"")+'</label>';
+ };
+ const om=function(ob){return Object.keys(ob).map(function(k){return [k,ob[k].l];});};
+ const listaFrotas='<datalist id="dl-tpfrotas">'+
+  uniq(DB.veiculos().map(function(v){return v.frota;}).concat(
+   DB.tarefas().map(function(x){return x.frota;})))
+  .filter(Boolean).map(function(x){return '<option value="'+esc(x)+'">';}).join("")+'</datalist>';
+
  return '<div class="pg fu"><div>'+
   '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:5px">'+
    '<span class="tag" style="background:var(--acs);color:var(--ac);font-family:ui-monospace,monospace;'+
     'font-weight:800">'+esc(rotuloOS(t.os))+'</span>'+
    '<span class="tag" style="background:'+mix(tp.c,14)+';color:'+tp.c+'">'+tp.l+'</span>'+
-   '<span class="tag" style="background:'+mix(st.c,14)+';color:'+st.c+'">'+st.l+'</span></div>'+
+   (ed?'<button class="tag td-st" style="background:'+mix(st.c,14)+';color:'+st.c+
+     ';border:1px solid '+mix(st.c,32)+'" onclick="menuStatus(event,'+qid(id)+')">'+
+     st.l+' '+mi("arrowDown")+'</button>'
+    :'<span class="tag" style="background:'+mix(st.c,14)+';color:'+st.c+'">'+st.l+'</span>')+
+   (t.terceirizada?'<span class="tag" style="background:'+mix("var(--cy)",14)+';color:var(--cy)">'+
+     mi("factory")+' '+esc(t.fornecedor||"externo")+'</span>':"")+
+   (atrasada?'<span class="tag" style="background:'+mix("var(--cr)",14)+';color:var(--cr)">'+
+     mi("warning")+' Fora do prazo</span>':"")+
+   (t.origemTarefa?'<span class="tag" style="background:'+mix("var(--rx)",14)+';color:var(--rx)">'+
+     mi("cornerDownRight")+' veio de sobra</span>':"")+'</div>'+
   '<div class="pgt">'+esc(t.frota)+' — '+esc(t.titulo)+'</div>'+
   '<div class="pgs">'+(nd>1?dOnly(t.ini)+" a "+dOnly(t.fim)+" · "+nd+" dias":dOnly(t.ini))+
-   (eq.length?" · "+esc(eq.join(", ")):" · sem executante")+'</div></div>'+
+   (eq.length?" · "+esc(eq.join(", ")):" · sem executante")+
+   ' · <span style="color:var(--t3)">as alterações gravam sozinhas</span></div></div>'+
   '<div style="display:flex;gap:8px;flex-wrap:wrap">'+
    '<button class="b2" onclick="ir(\'programacao\')">'+mi("arrowLeft")+' Agenda</button>'+
-   (pode("editar")?'<button class="b1" onclick="drawerTarefa('+qid(t.id)+')">'+
-     mi("edit")+' Trabalhar nesta tarefa</button>':"")+
+   (ed?'<button class="b2" onclick="reprogramarTarefa('+qid(id)+')">'+mi("clock")+' Reprogramar</button>':"")+
+   (ed&&t.status!=="concluida"?'<button class="b1" onclick="definirStatus('+qid(id)+',\'concluida\')">'+
+     mi("check")+' Concluir</button>':"")+
   '</div></div>'+
+
   '<div class="pn fu">'+painelPendencias(t,true)+'</div>'+
-  '<div class="g2"><div class="pn">'+
-   '<div class="ph"><div><div class="pt">'+mi("clipboard")+' Dados do serviço</div></div></div>'+
-   '<div style="display:flex;flex-direction:column;gap:1px;background:var(--bd);border-radius:11px;'+
-    'overflow:hidden;border:1px solid var(--bd)">'+
-    ['Frota',t.frota,'Sistema',t.sistema,'Componente',t.componente,'Oficina',t.oficina,
-     'Equipe',eq.join(", "),'Duração',nd+(nd>1?" dias":" dia"),
-     'Programada originalmente',dOnly(t.criadaPara||t.ini),
-     'Reprogramações',String((t.remarcacoes||[]).length)]
-     .reduce(function(a,v,i,arr){
-      if(i%2)return a;
-      return a+(arr[i+1]?'<div class="ln"><span>'+arr[i]+'</span><span>'+esc(arr[i+1])+'</span></div>':"");},"")+
+
+  '<div class="tar-cols">'+
+   '<div class="pn"><div class="ph"><div><div class="pt">'+mi("clipboard")+' Identificação</div>'+
+    '<div class="ps">Tudo aqui pode ser alterado nesta janela</div></div></div>'+
+    listaFrotas+
+    '<div class="tf-g2">'+
+     campo("OS do Protheus","os",t.os)+
+     campo("Frota","frota",t.frota,"text","dl-tpfrotas")+
+     campo("O que será feito","titulo",t.titulo)+
+     campo("Tipo de serviço","tipo",t.tipo,"select",om(TIPO_SERV))+
+     campo("Prioridade","prioridade",t.prioridade,"select",om(PRIOR_SOL))+
+     campo("Sistema","sistema",t.sistema)+
+     campo("Componente","componente",t.componente)+
+     campo("Oficina","oficina",t.oficina)+
+     campo("Local","local",t.local)+
+    '</div></div>'+
+
+   '<div class="pn"><div class="ph"><div><div class="pt">'+mi("clock")+' Quando e quem</div>'+
+    '<div class="ps">Mudar a data aqui grava a reprogramação no histórico</div></div></div>'+
+    '<div class="tf-g2">'+
+     campo("Início","ini",isoDia(t.ini),"date")+
+     campo("Término","fim",isoDia(t.fim),"date",null,nd+(nd>1?" dias":" dia"))+
+    '</div>'+
+    '<div class="tf-sec">Quem executa</div>'+
+    (t.terceirizada
+     ?'<div class="tf-g2">'+campo("Empresa","fornecedor",t.fornecedor)+'</div>'+
+      (ed?'<button class="tf-mais" onclick="salvarCampoTarefa('+qid(id)+',\'terceirizada\',\'0\')">'+
+       mi("swap")+' Passar para a equipe própria</button>':"")
+     :'<div class="tf-ps" id="tp-equipe">'+
+      (equipe.length?equipe.map(function(m){
+       const on=(t.equipe||[]).indexOf(m.id)>=0;
+       return '<button type="button" class="tf-p'+(on?" on":"")+'" data-id="'+esc(m.id)+'"'+
+        (ed?' onclick="alternarExecTarefa('+qid(id)+','+qid(m.id)+')"':" disabled")+'>'+
+        (on?mi("check"):"")+esc(m.nome)+'</button>';}).join("")
+       :'<div class="cs-vazio">Nenhum executante cadastrado</div>')+'</div>'+
+      (ed?'<button class="tf-mais" onclick="salvarCampoTarefa('+qid(id)+',\'terceirizada\',\'1\')">'+
+       mi("factory")+' Passar para empresa terceirizada</button>':""))+
    '</div>'+
-   (t.descricao?'<div style="margin-top:12px"><div class="tar-rot">Descrição</div>'+
-    '<div class="tar-box">'+esc(t.descricao)+'</div></div>':"")+'</div>'+
+
+   '<div class="pn"><div class="ph"><div><div class="pt">'+mi("edit")+' Descrição e observações</div></div></div>'+
+    campo("Descrição do serviço","descricao",t.descricao,"area")+
+    campo("Observações","obs",t.obs,"area")+
+   '</div>'+
+
    '<div class="pn"><div class="ph"><div><div class="pt">'+mi("historico")+' Histórico</div>'+
     '<div class="ps">De quando para quando esta tarefa andou</div></div></div>'+
+    '<div class="ln" style="border-radius:10px;border:1px solid var(--bd)">'+
+     '<span>Programada originalmente para</span><span>'+dOnly(t.criadaPara||t.ini)+'</span></div>'+
     ((t.remarcacoes||[]).length
      ?'<div class="hist-l">'+(t.remarcacoes||[]).map(function(r){
        return '<div class="hist-i"><b>'+dOnly(r.de)+'</b>'+mi("arrowRight")+'<b>'+dOnly(r.para)+
-        '</b><span>'+esc(r.quem||"")+' · '+dt(r.ts)+'</span></div>';}).join("")+'</div>'
-     :'<div class="fil-vazio">'+mi("check")+' Nunca foi reprogramada.</div>')+
-   '</div></div>';
+        '</b><span>'+esc(r.quem||"")+' · '+dt(r.ts)+
+        (r.motivo?' · '+esc(r.motivo):"")+'</span></div>';}).join("")+'</div>'
+     :'<div class="fil-vazio" style="padding:12px 2px">'+mi("check")+' Nunca foi reprogramada.</div>')+
+    (t.origemTarefa?'<div class="pend-orig">'+mi("cornerDownRight")+
+     ' Veio de <button class="lnk" onclick="abrirTarefaNovaAba('+qid(t.origemTarefa)+')">'+
+     esc(rotuloOS(t.origemOS||""))+'</button></div>':"")+
+    ((t.geradas||[]).length?'<div class="pend-orig">'+mi("swap")+' Gerou <b>'+t.geradas.length+
+     '</b> tarefa(s): '+t.geradas.map(function(g){
+      const x=DB.tarefas().find(function(z){return String(z.id)===String(g);});
+      return x?'<button class="lnk" onclick="abrirTarefaNovaAba('+qid(g)+')">'+esc(x.frota)+'</button>':"";})
+      .filter(Boolean).join(", ")+'</div>':"")+
+   '</div>'+
+
+   '<div class="pn" style="grid-column:1/-1"><div class="ph"><div>'+
+    '<div class="pt">'+mi("chat")+' Comunicação</div>'+
+    '<div class="ps">Impedimento, falta de peça, orientação — fica registrado</div></div></div>'+
+    '<div class="msg-lista">'+
+    ((t.mensagens||[]).length?(t.mensagens||[]).map(function(m){
+      return '<div class="msg-i"><div class="msg-h"><b>'+esc(m.quem)+'</b><span>'+dt(m.ts)+'</span></div>'+
+       '<div class="msg-t">'+esc(m.texto)+'</div></div>';}).join("")
+     :'<div class="msg-vazio">Sem mensagens.</div>')+
+    '</div>'+
+    (ed?'<div class="chk-add"><input class="inp" id="msg-nova" placeholder="Escrever mensagem…" '+
+     'onkeydown="if(event.key===&quot;Enter&quot;){event.preventDefault();enviarMensagem('+qid(id)+');}">'+
+     '<button class="b2" onclick="enviarMensagem('+qid(id)+')">'+mi("check")+'</button></div>':"")+
+   '</div>'+
+  '</div>';
+}
+/* ── Gravação campo a campo ──
+   Mudar a data por aqui passa pelo mesmo caminho do arraste, para que a
+   reprogramação entre no histórico e conte na aderência. */
+function salvarCampoTarefa(id,campo,valor){
+ if(!pode("editar"))return;
+ const tars=DB.tarefas(),i=tars.findIndex(function(x){return String(x.id)===String(id);});
+ if(i<0)return;
+ const t=tars[i];
+ const v=String(valor==null?"":valor).trim();
+ if(campo==="ini"||campo==="fim"){
+  if(!v)return;
+  const ms=campo==="ini"?iniDoDia(new Date(v+"T12:00").getTime())
+                       :fimDoDia(new Date(v+"T12:00").getTime());
+  if(campo==="ini"){
+   const nd=diasTarefa(t);
+   guardarDesfazer(t,t.titulo+" para "+dOnly(ms));
+   const dados={ini:ms,fim:fimDoDia(ms+(nd-1)*DIA)};
+   if(!t.criadaPara)dados.criadaPara=t.ini;
+   if(iniDoDia(t.ini)!==ms&&!naFila(t))
+    dados.remarcacoes=(t.remarcacoes||[]).concat([{de:t.ini,para:ms,ts:Date.now(),
+     quem:S.sessao?S.sessao.nome:""}]);
+   tars[i]=Object.assign({},t,dados);
+  }else{
+   if(ms<t.ini)return toast("Data inválida","O término não pode ser antes do início.","aviso");
+   tars[i]=Object.assign({},t,{fim:ms});
+  }
+ }else if(campo==="frota"){
+  const rf=resolverFrota(v.toUpperCase());
+  if(!rf.ok)return toast("Frota não encontrada",
+   rf.motivo==="ambigua"?"Mais de uma frota com esse número.":'A frota "'+v+'" não está cadastrada.',"aviso");
+  tars[i]=Object.assign({},t,{frota:rf.frota});
+ }else if(campo==="terceirizada"){
+  const on=v==="1";
+  tars[i]=Object.assign({},t,{terceirizada:on,equipe:on?[]:(t.equipe||[]),
+   fornecedor:on?(t.fornecedor||""):"" ,
+   status:on?(t.status==="em_programacao"?"programada":t.status):t.status});
+ }else if(campo==="os"&&!v){
+  return toast("OS obrigatória","A tarefa precisa do número da OS.","aviso");
+ }else if(campo==="titulo"&&!v){
+  return toast("Sem descrição","Diga o que será feito.","aviso");
+ }else{
+  tars[i]=Object.assign({},t,(function(){const o={};o[campo]=v;return o;})());
+ }
+ DB.setTarefas(tars);
+ DB.log("editar","tarefa",tars[i].frota,tars[i].titulo+" · "+campo+" alterado");
+ render();
+ toast("Alterado",rotuloCampo(campo)+" gravado","ok");
+}
+function rotuloCampo(c){
+ const R={os:"OS",frota:"Frota",titulo:"Descrição",tipo:"Tipo",prioridade:"Prioridade",
+  sistema:"Sistema",componente:"Componente",oficina:"Oficina",local:"Local",
+  ini:"Data de início",fim:"Data de término",fornecedor:"Empresa",
+  descricao:"Descrição",obs:"Observações",terceirizada:"Quem executa"};
+ return R[c]||c;
+}
+function alternarExecTarefa(id,mid){
+ if(!pode("editar"))return;
+ const tars=DB.tarefas(),i=tars.findIndex(function(x){return String(x.id)===String(id);});
+ if(i<0)return;
+ const eq=(tars[i].equipe||[]).slice();
+ const k=eq.indexOf(mid);
+ if(k<0)eq.push(mid);else eq.splice(k,1);
+ guardarDesfazer(tars[i],"Executante de "+tars[i].titulo);
+ tars[i]=Object.assign({},tars[i],{equipe:eq,
+  status:eq.length?(naFila(tars[i])?"programada":tars[i].status):"em_programacao"});
+ DB.setTarefas(tars);
+ render();
 }
 function vProgramacao(){
  const ini=inicioSemana(S.sem),fim=new Date(ini);fim.setDate(fim.getDate()+7);
@@ -4808,6 +5037,8 @@ function vProgramacao(){
  const fila=filtradas.filter(naFila);
  const daSemana=filtradas.filter(function(t){
   return !naFila(t)&&t.ini<fim.getTime()&&t.fim>=ini.getTime();});
+ /* A grade é só da casa: o que está fora não consome mão de obra própria */
+ const daCasa=daSemana.filter(function(t){return !t.terceirizada;});
  const hoje=iniDoDia(Date.now());
  const dias=[];for(let i=0;i<7;i++){const d=new Date(ini);d.setDate(d.getDate()+i);dias.push(d);}
  const DIAS=["Seg","Ter","Qua","Qui","Sex","Sáb","Dom"];
@@ -4816,11 +5047,7 @@ function vProgramacao(){
 
  /* Todas as tarefas da semana que caem nesta faixa (pessoa ou terceiros) */
  const daFaixa=function(mid){
-  return daSemana.filter(function(t){
-   if(mid==="_ter")return !!t.terceirizada;
-   /* Serviço externo tem faixa própria: não entra em ninguém da casa. */
-   if(t.terceirizada)return false;
-   return (t.equipe||[]).indexOf(mid)>=0;});
+  return daCasa.filter(function(t){return (t.equipe||[]).indexOf(mid)>=0;});
  };
  const semIni=iniDoDia(ini.getTime());
  const posDia=function(ms){return Math.round((iniDoDia(ms)-semIni)/DIA);};
@@ -4891,23 +5118,23 @@ function vProgramacao(){
  const fundo=function(mid,d,i,ocupado){
   const ms=iniDoDia(d.getTime());
   const folga=motivoFolga(ms);
-  return '<div class="agc'+(ms===hoje?" hoje":"")+(ocupado?"":" livre")+(folga?" folga":"")+'"'+
-   ' style="grid-column:'+(i+1)+';grid-row:1/-1" data-dia="'+ms+'"'+
-   (mid?' data-mdo="'+esc(mid)+'"':"")+
-   (folga?' title="'+esc(folga)+' — dia sem expediente"':"")+'></div>';
+  return '<div class="agc'+(ms===hoje?" hoje":"")+(ocupado?"":" livre")+(folga?" folga":"")+
+   '" style="grid-column:'+(i+1)+'" data-dia="'+ms+'"'+
+   (folga?' title="'+esc(folga)+'"':"")+'></div>';
  };
- /* O "+" de cada dia mora na última linha, sempre no pé da faixa */
+ /* O "+" de cada dia mora na última linha, sempre no pé da faixa.
+    Com sessenta executantes são 420 destes botões. Cada um carregava um SVG
+    inteiro e um onclick escrito por extenso: 186 KB dos 363 KB da tela, mais
+    da metade do que o navegador tinha que reprocessar a cada atualização.
+    Agora o sinal de mais é desenhado pelo CSS e o clique é atendido por um
+    ouvinte só, que lê o dia do botão e o executante da faixa. */
  const btAdd=function(mid,d,i,ocupado){
   if(!(editavel&&pode("criar")))return "";
   const ms=iniDoDia(d.getTime());
   const folga=motivoFolga(ms);
-  return '<button class="agadd'+(ocupado?"":" livre")+(folga?" folga":"")+'"'+
-   ' style="grid-column:'+(i+1)+';grid-row:-3/-2"'+
-   ' title="'+(folga?esc(folga)+" — programar mesmo assim":"Programar serviço neste dia")+'"'+
-   ' onclick="event.stopPropagation();'+(mid==="_ter"
-     ?'modalTarefaTerceiroEm('+ms+')'
-     :'modalTarefa(null,'+ms+','+qid(mid)+')')+'">'+
-   mi("plus")+'<span>'+(ocupado||folga?"":"Programar")+'</span></button>';
+  return '<button class="agadd'+(ocupado?"":" livre")+(folga?" folga":"")+
+   '" style="grid-column:'+(i+1)+'" data-d="'+ms+'">'+
+   (ocupado||folga?"":'<span>Programar</span>')+'</button>';
  };
 
  const faixaDias=function(mid){
@@ -4915,13 +5142,11 @@ function vProgramacao(){
   const g=trilhar(ts);
   const ocup=dias.map(function(d){const d0=iniDoDia(d.getTime());
    return ts.some(function(t){return t.ini<d0+DIA&&t.fim>=d0;});});
-  const interno=mid!=="_ter";
   /* A última trilha é elástica: assim as células cobrem a faixa inteira
      mesmo quando a coluna do executante é mais alta que as barras. */
   return '<div class="agrow" style="grid-template-rows:1px repeat('+g.n+',auto) auto minmax(2px,1fr)"'+
-   (interno?' data-mdo="'+esc(mid)+'"':"")+
-   '>'+
-   dias.map(function(d,i){return fundo(interno?mid:null,d,i,ocup[i]);}).join("")+
+   ' data-mdo="'+esc(mid)+'">'+
+   dias.map(function(d,i){return fundo(mid,d,i,ocup[i]);}).join("")+
    g.bs.map(barra).join("")+
    dias.map(function(d,i){return btAdd(mid,d,i,ocup[i]);}).join("")+
    '</div>';
@@ -4944,24 +5169,18 @@ function vProgramacao(){
      '<span>de '+uteis+(uteis===1?" dia útil":" dias úteis")+
      (abertas?" · "+abertas+" aberta"+(abertas>1?"s":""):"")+'</span></div>'+
     '<div class="carga"><i style="width:'+pct+'%;background:'+cor+'"></i></div>'+
-    (pode("criar")?'<button class="agr-add" onclick="modalTarefa(null,'+
-      (S.sem===0?hoje:iniDoDia(ini.getTime()))+','+qid(m.id)+')" '+
-      'title="Nova tarefa para '+esc(m.nome)+'">'+mi("plus")+' Tarefa</button>':"")+
+    (pode("criar")?'<button class="agr-add agadd" data-d="'+
+      (S.sem===0?hoje:iniDoDia(ini.getTime()))+'" data-mdo="'+esc(m.id)+'" '+
+      'title="Nova tarefa para '+esc(m.nome)+'"><span>Tarefa</span></button>':"")+
    '</div>'+faixaDias(m.id);
  };
 
  const linhas=equipe.filter(function(m){return !S.FP.mdo||m.id===S.FP.mdo;});
+ /* Serviço externo saiu da grade. Ele tem prazo, cobrança e fornecedor —
+    nada disso é capacidade da oficina, e misturado aqui empurrava as faixas
+    dos mecânicos para baixo e falseava a ocupação da semana. Agora vive na
+    tela de Terceirizados, com agenda própria. */
  const terceiros=daSemana.filter(function(t){return !!t.terceirizada;});
- const faixaTer=(!terceiros.length||S.FP.mdo)?"":(function(){
-  const emp=uniq(terceiros.map(function(t){return t.fornecedor||"—";}));
-  return '<div class="agr ter">'+
-    '<div class="agr-id"><b style="color:var(--cy)">'+mi("factory")+' Terceirizados</b>'+
-     '<span>'+(emp.length?esc(emp.slice(0,2).join(", "))+(emp.length>2?" +"+(emp.length-2):""):"executado fora")+'</span></div>'+
-    '<div class="agr-num"><b style="color:var(--cy)">'+terceiros.length+'</b><span>serviço(s) fora</span></div>'+
-    (pode("criar")?'<button class="agr-add" onclick="modalTarefaTerceiroEm('+iniDoDia(ini.getTime())+')" '+
-      'title="Novo serviço externo">'+mi("plus")+' Externo</button>':"")+
-   '</div>'+faixaDias("_ter");})();
-
  const grade='<div class="agw-wrap"><div class="agw">'+
   '<div class="agh agh-id">Executante</div>'+
   dias.map(function(d,i){const ms=iniDoDia(d.getTime());const fg=motivoFolga(ms);
@@ -4969,7 +5188,7 @@ function vProgramacao(){
     (fg?' title="'+esc(fg)+'"':"")+'>'+DIAS[i]+
     '<b>'+d.getDate()+'/'+String(d.getMonth()+1).padStart(2,"0")+'</b>'+
     (fg?'<i class="agh-fg">'+esc(fg.length>11?"Folga":fg)+'</i>':"")+'</div>';}).join("")+
-  faixaTer+linhas.map(faixa).join("")+
+  linhas.map(faixa).join("")+
   '</div></div>';
 
 
@@ -5095,10 +5314,14 @@ function vProgramacao(){
    ?'<div class="fil-cont">'+filaV.length+' de '+fila.length+' na carteira</div>':"")+
   '</div>';
 
- const ad=aderencia(filtradas.filter(function(t){return !naFila(t);}),ini.getTime(),fim.getTime());
+ /* Os números do topo são da oficina. Somar o que está em empresa externa
+    aqui inflava "tarefas na semana" e misturava a aderência de quem executa
+    com a de quem só cobra prazo — a mesma sobreposição que tirou a faixa
+    de terceiros da grade. */
+ const ad=aderencia(daCasa,ini.getTime(),fim.getTime());
  const corA=ad.aderencia==null?"var(--t2)":(ad.aderencia>=85?"var(--ok)":ad.aderencia>=60?"var(--wr)":"var(--cr)");
  const K=[
-  {i:mi("clock"),c:"var(--in)",v:daSemana.length,l:"Tarefas na semana",
+  {i:mi("clock"),c:"var(--in)",v:daCasa.length,l:"Tarefas na semana",
    s:uteis+(uteis===1?" dia útil":" dias úteis")+" na semana",aj:"prog_total"},
   {i:mi("refresh"),c:ST_TAREFA.em_programacao.c,v:fila.length,l:"Em programação",
    s:"aguardando encaixe",aj:"prog_fila"},
@@ -5130,7 +5353,8 @@ function vProgramacao(){
    'Rode o script no SQL Editor e recarregue a página — o módulo aparece automaticamente.</div></div></div>';
 
  return '<div class="pg fu"><div><div class="pgt">Agenda de Serviços</div>'+
-  '<div class="pgs">Fila de programação e grade semanal por executante · clique no <b>+</b> de qualquer dia para abrir uma tarefa</div></div>'+
+  '<div class="pgs">Carteira e grade semanal da oficina · clique no <b>+</b> de qualquer dia '+
+  'para abrir uma tarefa · serviço externo fica em <b>Terceirizados</b></div></div>'+
   '<div style="display:flex;gap:8px;flex-wrap:wrap">'+
    (pode("editar")?'<button class="b2" onclick="ir(\'equipe\')">'+mi("person")+' Mão de obra</button>':"")+
    (pode("criar")?'<button class="b1" onclick="modalTarefa()">'+mi("plus")+' Nova tarefa</button>':"")+
@@ -5161,6 +5385,10 @@ function vProgramacao(){
    '<button class="bfg'+(contarFP()?" on":"")+'" onclick="abrirFiltroProg()">'+mi("gear")+
     (contarFP()?contarFP()+" filtro"+(contarFP()>1?"s":""):"Filtrar")+'</button></div></div>'+
    chipsFP()+
+   (terceiros.length?'<div class="agter">'+mi("factory")+
+     '<span><b>'+terceiros.length+'</b> serviço(s) desta semana estão em empresa externa — '+
+     'eles não ocupam a oficina e por isso não aparecem nesta grade.</span>'+
+     '<button class="bfg" onclick="ir(\'terceiros\')">Ver terceirizados</button></div>':"")+
    (fer.length?'<div class="agfer">'+mi("warning")+'<span>'+
      fer.map(function(x){return '<b>'+x.d.getDate()+'/'+(x.d.getMonth()+1)+'</b> '+esc(x.f);}).join(" · ")+
      ' — sem expediente nesta semana</span></div>':"")+
@@ -5179,7 +5407,122 @@ function vProgramacao(){
    responsabilidade do PCM: alguém precisa cobrar prazo e receber de volta.
    Esta tela é a lista de cobrança, agrupada por empresa. */
 function vTerceiros(){
+ const grupo="ter";
+ const aba=abaDe(grupo,"agenda");
  const todas=DB.tarefas().filter(function(t){return t.terceirizada;});
+ const abertas=todas.filter(function(t){return t.status!=="concluida"&&t.status!=="cancelada";});
+ const atrasadas=abertas.filter(function(t){return t.fim<Date.now();});
+ const mesIni=new Date(new Date().getFullYear(),new Date().getMonth(),1).getTime();
+ const concMes=todas.filter(function(t){return t.status==="concluida"&&(t.concluidaEm||t.fim)>=mesIni;});
+ const forns=uniq(todas.map(function(t){return t.fornecedor||"—";}));
+ const K=[
+  {i:mi("factory"),c:"var(--cy)",v:abertas.length,l:"Fora da oficina",
+   s:"em empresa externa agora",aj:"terc_andamento"},
+  {i:mi("warning"),c:"var(--cr)",v:atrasadas.length,l:"Atrasados",
+   s:"passaram do prazo combinado",p:atrasadas.length>0,aj:"terc_atraso"},
+  {i:mi("check"),c:"var(--ok)",v:concMes.length,l:"Devolvidos no mês",s:"concluídos"},
+  {i:mi("truck"),c:"var(--in)",v:uniq(abertas.map(function(t){return t.frota;})).length,
+   l:"Frotas fora",s:"caminhões em terceiro"},
+  {i:mi("person"),c:"var(--rx)",v:forns.length,l:"Empresas",s:"fornecedores usados"}
+ ];
+ const conteudo=aba==="agenda"?agendaTerceiros(todas):listaTerceiros(todas,forns);
+ return '<div class="pg fu"><div><div class="pgt">Serviços Terceirizados</div>'+
+  '<div class="pgs">Painel próprio: o que está fora da oficina tem prazo e cobrança, '+
+  'não capacidade — por isso não divide grade com a programação interna</div></div>'+
+  '<div style="display:flex;gap:8px;flex-wrap:wrap">'+
+   '<button class="b2" onclick="ir(\'programacao\')">'+mi("clock")+' Agenda interna</button>'+
+   (pode("criar")?'<button class="b1" onclick="modalTarefaTerceiro()">'+
+     mi("plus")+' Novo serviço externo</button>':"")+
+  '</div></div>'+
+  cardsKPI(K)+
+  barraAbas(grupo,[["agenda","Agenda externa","clock"],
+   ["lista","Cobrança","clipboard",String(abertas.length||"")]])+
+  conteudo;
+}
+/* ── Agenda dos terceiros: uma faixa por empresa ──
+   A grade interna mede a oficina em dias úteis. Aqui a régua é outra: o que
+   importa é quando o caminhão saiu, quando prometeram devolver e há quantos
+   dias ele está fora. Por isso a faixa é por empresa, e não por pessoa. */
+function agendaTerceiros(todas){
+ const ini=inicioSemana(S.semTer||0),fim=new Date(ini);fim.setDate(fim.getDate()+7);
+ const dias=[];for(let i=0;i<7;i++){const d=new Date(ini);d.setDate(d.getDate()+i);dias.push(d);}
+ const DIAS=["Seg","Ter","Qua","Qui","Sex","Sáb","Dom"];
+ const hoje=iniDoDia(Date.now());
+ const semana=todas.filter(function(t){return t.ini<fim.getTime()&&t.fim>=ini.getTime();});
+ const emp=uniq(semana.map(function(t){return t.fornecedor||"—";})).sort();
+ const semIni=iniDoDia(ini.getTime());
+ const pos=function(ms){return Math.round((iniDoDia(ms)-semIni)/DIA);};
+ const editavel=pode("editar");
+
+ const barraT=function(b){
+  const t=b.t,n=b.e-b.s+1,nd=diasTarefa(t);
+  const st=ST_TAREFA[t.status]||ST_TAREFA.programada;
+  const atras=t.status!=="concluida"&&t.status!=="cancelada"&&t.fim<Date.now();
+  const dias=atras?Math.round((Date.now()-t.fim)/DIA):0;
+  return '<div class="agt wide'+(t.status==="concluida"?" feito":"")+(atras?" atrasada":"")+
+   (b.antes?" antes":"")+(b.depois?" depois":"")+
+   '" style="grid-column:'+(b.s+1)+'/span '+n+';grid-row:'+(b.l+2)+
+   ';border-left-color:'+(atras?"var(--cr)":"var(--cy)")+'" data-id="'+esc(t.id)+'"'+
+   (editavel?' data-arr="1"':"")+
+   ' onclick="event.stopPropagation();drawerTarefa('+qid(t.id)+')" '+
+   'title="'+esc(t.frota)+' — '+esc(t.titulo)+' · saída '+dOnly(t.ini)+
+   ' · prazo '+dOnly(t.fim)+'">'+
+   '<b>'+esc(t.frota)+'</b><span class="agt-tt">'+esc(t.titulo)+'</span>'+
+   (atras?'<span class="agt-span" style="color:var(--cr);background:'+mix("var(--cr)",14)+'">'+
+     dias+'d atraso</span>'
+    :'<span class="agt-span">'+nd+'d</span>')+
+   '<div class="agt-pe"><span class="agt-st" style="color:'+st.c+'">'+st.l+'</span></div></div>';
+ };
+ const faixaEmp=function(e){
+  const ts=semana.filter(function(t){return (t.fornecedor||"—")===e;});
+  const bs=ts.slice().sort(function(a,b){return a.ini-b.ini;}).map(function(t){
+   const p0=pos(t.ini),p1=pos(t.fim);
+   const s0=Math.max(0,Math.min(6,p0)),s1=Math.min(6,Math.max(0,p1));
+   return {t:t,s:s0,e:Math.max(s0,s1),antes:p0<0,depois:p1>6};});
+  const ocupado=[];
+  bs.forEach(function(b){let l=0;while(ocupado[l]!==undefined&&ocupado[l]>=b.s)l++;
+   ocupado[l]=b.e;b.l=l;});
+  const n=Math.max(1,ocupado.length);
+  const atr=ts.filter(function(t){return t.status!=="concluida"&&t.fim<Date.now();}).length;
+  return '<div class="agr ter">'+
+   '<div class="agr-id"><b style="color:var(--cy)">'+mi("factory")+' '+esc(e)+'</b>'+
+    '<span>'+ts.length+' serviço(s) na semana</span></div>'+
+   (atr?'<div class="agr-num"><b style="color:var(--cr)">'+atr+'</b><span>atrasado(s)</span></div>':"")+
+   (pode("criar")?'<button class="agr-add" onclick="modalTarefaTerceiroEm('+iniDoDia(ini.getTime())+')" '+
+     'title="Novo serviço nesta empresa">'+mi("plus")+' Serviço</button>':"")+
+   '</div>'+
+   '<div class="agrow" style="grid-template-rows:1px repeat('+n+',auto) auto minmax(2px,1fr)">'+
+   dias.map(function(d,i){const ms=iniDoDia(d.getTime());
+    return '<div class="agc'+(ms===hoje?" hoje":"")+'" style="grid-column:'+(i+1)+
+     ';grid-row:1/-1" data-dia="'+ms+'"></div>';}).join("")+
+   bs.map(barraT).join("")+'</div>';
+ };
+ const f2=new Date(ini);f2.setDate(f2.getDate()+6);
+ const rotulo=ini.getDate()+"/"+(ini.getMonth()+1)+" a "+f2.getDate()+"/"+(f2.getMonth()+1)+"/"+f2.getFullYear();
+ return '<div class="pn fu"><div class="ph" style="align-items:center">'+
+  '<div class="agnav">'+
+   '<button onclick="S.semTer=(S.semTer||0)-1;render()" title="Semana anterior">'+mi("arrowLeft")+'</button>'+
+   '<span class="agsem">'+rotulo+((S.semTer||0)===0?' <span style="color:var(--ac);font-size:11px">(atual)</span>':"")+'</span>'+
+   '<button onclick="S.semTer=(S.semTer||0)+1;render()" title="Próxima semana">'+mi("arrowRight")+'</button>'+
+   ((S.semTer||0)!==0?'<button onclick="S.semTer=0;render()">Hoje</button>':"")+
+  '</div></div>'+
+  (emp.length
+   ?'<div class="agw-wrap"><div class="agw">'+
+    '<div class="agh agh-id">Empresa</div>'+
+    dias.map(function(d,i){const ms=iniDoDia(d.getTime());
+     return '<div class="agh'+(ms===hoje?" hoje":"")+'">'+DIAS[i]+
+      '<b>'+d.getDate()+'/'+String(d.getMonth()+1).padStart(2,"0")+'</b></div>';}).join("")+
+    emp.map(faixaEmp).join("")+'</div></div>'+
+    '<div class="aglg"><span><i style="background:var(--cy)"></i>No prazo</span>'+
+    '<span><i style="background:var(--cr)"></i>Passou do prazo</span>'+
+    '<span style="margin-left:auto;color:var(--t3)">A barra vai da saída até o prazo de devolução</span></div>'
+   :nada("factory","Nenhum serviço externo nesta semana",
+     "Ao abrir uma tarefa, escolha <b>Empresa terceirizada</b> em \"Quem executa\" e ela passa a ser acompanhada aqui.",
+     (pode("criar")?'<button class="b1" onclick="modalTarefaTerceiro()">'+mi("plus")+' Novo serviço externo</button>':"")))+
+  '</div>';
+}
+/* ── Cobrança: a lista de quem está com o quê e há quanto tempo ── */
+function listaTerceiros(todas,forns){
  const q=(S.FT.q||"").trim().toLowerCase();
  let lista=todas.filter(function(t){
   if(S.FT.forn&&(t.fornecedor||"—")!==S.FT.forn)return false;
@@ -5189,24 +5532,6 @@ function vTerceiros(){
   if(q&&[t.os,t.frota,t.titulo,t.fornecedor,t.sistema].join(" ").toLowerCase().indexOf(q)<0)return false;
   return true;});
  lista.sort(function(a,b){return a.fim-b.fim;});
-
- const abertas=todas.filter(function(t){return t.status!=="concluida"&&t.status!=="cancelada";});
- const atrasadas=abertas.filter(function(t){return t.fim<Date.now();});
- const mesIni=new Date(new Date().getFullYear(),new Date().getMonth(),1).getTime();
- const concMes=todas.filter(function(t){return t.status==="concluida"&&(t.concluidaEm||t.fim)>=mesIni;});
- const forns=uniq(todas.map(function(t){return t.fornecedor||"—";}));
- const K=[
-  {i:mi("factory"),c:"var(--cy)",v:abertas.length,l:"Em andamento",
-   s:"fora da oficina agora",aj:"terc_andamento"},
-  {i:mi("warning"),c:"var(--cr)",v:atrasadas.length,l:"Atrasados",
-   s:"passaram do prazo combinado",p:atrasadas.length>0,aj:"terc_atraso"},
-  {i:mi("check"),c:"var(--ok)",v:concMes.length,l:"Devolvidos no mês",s:"concluídos"},
-  {i:mi("truck"),c:"var(--in)",v:uniq(abertas.map(function(t){return t.frota;})).length,
-   l:"Frotas fora",s:"caminhões em terceiro"},
-  {i:mi("person"),c:"var(--rx)",v:forns.length,l:"Empresas",s:"fornecedores usados"}
- ];
-
- /* Ranking por empresa: quem tem mais serviço parado e quem atrasa */
  const porForn={};
  todas.forEach(function(t){
   const k=t.fornecedor||"—";
@@ -5219,7 +5544,6 @@ function vTerceiros(){
  const rank=Object.keys(porForn).map(function(k){
   const o=porForn[k];o.media=o.nConc?Math.round(o.dias/o.nConc):null;return o;})
   .sort(function(a,b){return b.ab-a.ab||b.atr-a.atr;});
-
  const linha=function(t){
   const st=ST_TAREFA[t.status]||ST_TAREFA.programada;
   const tp=TIPO_SERV[t.tipo]||TIPO_SERV.corretiva;
@@ -5242,30 +5566,20 @@ function vTerceiros(){
    '<td><span class="tag" style="background:'+mix(st.c,14)+';color:'+st.c+'">'+st.l+'</span></td>'+
    '</tr>';
  };
-
  const chip=function(k,v,rot){
   return '<button class="bfg'+(S.FT[k]===v?" on":"")+'" onclick="setFT('+qid(k)+','+qid(v)+')">'+rot+'</button>';};
-
- return '<div class="pg fu"><div><div class="pgt">Serviços Terceirizados</div>'+
-  '<div class="pgs">O que está sendo executado fora · o PCM continua dono do prazo</div></div>'+
-  '<div style="display:flex;gap:8px;flex-wrap:wrap">'+
-   '<button class="b2" onclick="ir(\'programacao\')">'+mi("clock")+' Ver agenda</button>'+
-   (pode("criar")?'<button class="b1" onclick="modalTarefaTerceiro()">'+mi("plus")+' Novo serviço externo</button>':"")+
-  '</div></div>'+
-  cardsKPI(K)+
-  '<div class="pn fu" style="padding:12px 15px"><div style="display:flex;gap:9px;align-items:center;flex-wrap:wrap">'+
+ return '<div class="pn fu" style="padding:12px 15px"><div style="display:flex;gap:9px;align-items:center;flex-wrap:wrap">'+
    '<input class="inp" style="flex:1;min-width:180px" placeholder="Buscar OS, frota, serviço ou empresa…" '+
     'value="'+esc(S.FT.q||"")+'" oninput="S.FT.q=this.value;clearTimeout(window._ft);'+
     'window._ft=setTimeout(render,220)">'+
    '<div style="display:flex;gap:6px;flex-wrap:wrap">'+
-    chip("situacao","","Todas")+chip("situacao","abertas","Em andamento")+
-    chip("situacao","atrasadas","Atrasados")+chip("situacao","concluidas","Concluídos")+
+    chip("situacao","","Todas")+chip("situacao","abertas","Fora agora")+
+    chip("situacao","atrasadas","Atrasados")+chip("situacao","concluidas","Devolvidos")+
    '</div>'+
    '<select class="inp" style="width:auto;min-width:150px" onchange="setFT(\'forn\',this.value)">'+
     '<option value="">Todas as empresas</option>'+
     forns.map(function(f){return '<option value="'+esc(f)+'" '+(S.FT.forn===f?"selected":"")+'>'+esc(f)+'</option>';}).join("")+
    '</select></div></div>'+
-
   (rank.length?'<div class="pn fu"><div class="ph"><div><div class="pt">'+mi("factory")+' Por empresa</div>'+
    '<div class="ps">Quem está com serviço parado e quanto tempo costuma levar</div></div></div>'+
    '<div class="trc-emp">'+rank.map(function(o){
@@ -5275,7 +5589,6 @@ function vTerceiros(){
       (o.atr?'<span class="atr"><i>'+o.atr+'</i>atrasado'+(o.atr>1?"s":"")+'</span>':"")+
       (o.media!=null?'<span><i>'+o.media+'d</i>média</span>':"")+'</div></button>';}).join("")+
    '</div></div>':"")+
-
   '<div class="pn fu"><div class="ph"><div><div class="pt">'+mi("clipboard")+' Serviços</div>'+
    '<div class="ps">'+lista.length+' registro(s) · ordenados pelo prazo de devolução</div></div></div>'+
    '<div class="tw"><table><thead><tr><th>OS</th><th>Frota</th><th>Serviço</th><th>Tipo</th>'+
@@ -5285,11 +5598,12 @@ function vTerceiros(){
     :nadaLinha(9,"factory",
       todas.length?"Nenhum serviço com esse filtro":"Nenhum serviço terceirizado ainda",
       todas.length?"Ajuste a busca ou a situação para ver os demais."
-       :"Ao abrir uma tarefa, escolha <b>Empresa terceirizada</b> em \"Quem executa\" e ela passa a ser acompanhada aqui.",
+       :"Ao abrir uma tarefa, escolha <b>Empresa terceirizada</b> em \"Quem executa\".",
       todas.length?'<button class="b2" onclick="S.FT={q:\'\',forn:\'\',situacao:\'\'};render()">Ver todos</button>'
        :(pode("criar")?'<button class="b1" onclick="modalTarefaTerceiro()">'+mi("plus")+' Novo serviço externo</button>':"")))+
    '</tbody></table></div></div>';
 }
+
 function setFT(k,v){S.FT[k]=(S.FT[k]===v?"":v);render();}
 /* Abre o formulário já no modo terceiro */
 function modalTarefaTerceiro(){return modalTarefaTerceiroEm(null);}
@@ -5826,7 +6140,10 @@ function arrAlvoEm(x,y){
  if(!linha)return null;
  const cel=celulaDaFaixa(linha,x)||_celulaMaisProxima(linha,x);
  if(!cel||!cel.dataset||!cel.dataset.dia)return null;
- return {cel:cel,dia:Number(cel.dataset.dia),mdo:cel.dataset.mdo||null};
+ /* O executante é da faixa: repetir o atributo em cada célula custava
+    quarenta e seis mil caracteres numa grade de sessenta pessoas. */
+ return {cel:cel,dia:Number(cel.dataset.dia),
+  mdo:(linha.dataset&&linha.dataset.mdo)||null};
 }
 function _faixaMaisProxima(y){
  let melhor=null,d=1e9;
@@ -5930,6 +6247,17 @@ function arrCliqueFantasma(e){
  document.removeEventListener("click",arrCliqueFantasma,true);
  e.stopPropagation();e.preventDefault();
 }
+/* Clique no "+" de um dia: o dia vem do botão, o executante da faixa.
+   Delegado porque são centenas destes botões e prender um onclick em cada um
+   custava mais bytes do que a grade inteira. */
+document.addEventListener("click",function(ev){
+ const bt=ev.target.closest?ev.target.closest(".agadd"):null;
+ if(!bt||!bt.dataset.d)return;
+ ev.stopPropagation();
+ const linha=bt.closest(".agrow");
+ const mdo=bt.dataset.mdo||(linha&&linha.dataset&&linha.dataset.mdo)||null;
+ modalTarefa(null,Number(bt.dataset.d),mdo);
+});
 /* Um único ouvinte para toda a tela — os cartões são recriados a cada render()
    e prender ouvinte em cada um deles era vazamento garantido. */
 document.addEventListener("pointerdown",arrPointerDown,true);
@@ -5988,6 +6316,23 @@ function soltarTarefa(ev,diaMs,mdoId){
     continua com as duas pessoas. Só muda de gente quando o cartão é
     largado numa faixa diferente da que ele saiu — e, mesmo aí, entra no
     lugar de quem soltou, sem derrubar os outros. */
+ /* Serviço externo é arrastado na agenda dele, onde não há faixa de
+    executante. Ali o arraste muda o prazo, não a alocação: sem esta saída
+    ele perderia o fornecedor e cairia na carteira interna. */
+ if(t.terceirizada){
+  if(mesmoDia)return;
+  guardarDesfazer(t,t.titulo+" para "+dOnly(novo));
+  const dadosT={ini:novo,fim:fimDoDia(novo+(nd-1)*DIA)};
+  if(!t.criadaPara)dadosT.criadaPara=t.ini;
+  dadosT.remarcacoes=(t.remarcacoes||[]).concat([{de:t.ini,para:novo,
+   ts:Date.now(),quem:S.sessao?S.sessao.nome:""}]);
+  tars[i]=Object.assign({},t,dadosT);
+  DB.setTarefas(tars);
+  DB.log("editar","tarefa",t.frota,t.titulo+" (externo) reprogramado para "+dOnly(novo));
+  render();
+  return toastDesfazer("Serviço externo reprogramado",
+   t.titulo+" → "+dOnly(novo)+" · "+(t.fornecedor||"empresa externa"));
+ }
  let equipeNova=equipeAtual;
  if(!mdoId){
   /* sem destino: a tarefa perde o executante e volta para a fila */
@@ -6078,6 +6423,14 @@ function selecionarFrota(frota){
  else ids.forEach(function(id){if(S.FIL.sel.indexOf(id)<0)S.FIL.sel.push(id);});
  pintarSelFila();
 }
+function alternarExecLote(id){
+ if(!S.LOTE.mdos)S.LOTE.mdos=[];
+ const i=S.LOTE.mdos.indexOf(id);
+ if(i<0)S.LOTE.mdos.push(id);
+ else if(S.LOTE.mdos.length>1)S.LOTE.mdos.splice(i,1);
+ else return;   // sempre pelo menos um
+ pintarSelFila();
+}
 function limparSelFila(){S.FIL.sel=[];pintarSelFila();}
 function dobrarGrupoFila(k){S.FIL.fechados[k]=!S.FIL.fechados[k];render();}
 function setFilaTipo(k){S.FIL.tipo=(S.FIL.tipo===k?"":k);render();}
@@ -6094,28 +6447,43 @@ function montarBarraSel(sel,fila){
  const equipe=DB.maoDeObra().filter(function(m){return m.ativo;});
  if(!S.LOTE)S.LOTE={};
  if(!S.LOTE.dia)S.LOTE.dia=isoDia(proximoUtil(Date.now()));
- if(!S.LOTE.mdo||!equipe.some(function(m){return m.id===S.LOTE.mdo;}))
-  S.LOTE.mdo=equipe.length?equipe[0].id:"";
+ /* Vários executantes: dá para mandar a mesma tarefa para dois (serviço a
+    quatro mãos) ou dividir a lista entre eles. Antes só cabia um nome. */
+ if(!S.LOTE.mdos)S.LOTE.mdos=[];
+ S.LOTE.mdos=S.LOTE.mdos.filter(function(id){
+  return equipe.some(function(m){return m.id===id;});});
+ if(!S.LOTE.mdos.length&&equipe.length)S.LOTE.mdos=[equipe[0].id];
  return '<div class="cart-sel" id="cart-sel">'+
   '<div class="cs-n"><b>'+ids.length+'</b><span>marcada'+(ids.length>1?"s":"")+
    ' · '+frotas.length+' frota'+(frotas.length>1?"s":"")+
    (pend?' · '+pend+' pendência'+(pend>1?"s":""):"")+'</span></div>'+
   '<div class="cs-campos">'+
-   '<label><span>Executante</span><select class="inp" id="cs-mdo" onchange="S.LOTE.mdo=this.value">'+
-    (equipe.length?equipe.map(function(m){
-     return '<option value="'+esc(m.id)+'"'+(S.LOTE.mdo===m.id?" selected":"")+'>'+
-      esc(m.nome)+'</option>';}).join("")
-     :'<option value="">— sem mão de obra cadastrada —</option>')+
-   '</select></label>'+
+   '<label class="cs-exec"><span>Executantes'+
+    (S.LOTE.mdos.length>1?' · <b>'+S.LOTE.mdos.length+' escolhidos</b>':"")+'</span>'+
+    (equipe.length
+     ?'<div class="cs-chips">'+equipe.map(function(m){
+       const on=S.LOTE.mdos.indexOf(m.id)>=0;
+       return '<button type="button" class="cs-ch'+(on?" on":"")+'" data-mdo="'+esc(m.id)+'" '+
+        'onclick="alternarExecLote('+qid(m.id)+')" title="'+esc(m.funcao||"")+'">'+
+        (on?mi("check"):"")+esc(primeiroNome(m.nome))+'</button>';}).join("")+'</div>'
+     :'<div class="cs-vazio">Sem mão de obra cadastrada</div>')+
+   '</label>'+
    '<label><span>A partir de</span>'+
     '<input class="inp" id="cs-dia" type="date" value="'+esc(S.LOTE.dia)+'" '+
     'onchange="S.LOTE.dia=this.value"></label>'+
-   '<label class="cs-mod"><span>Distribuição</span>'+
+   '<label class="cs-mod"><span>Nos dias</span>'+
     '<select class="inp" id="cs-modo" onchange="S.LOTE.modo=this.value">'+
     [["mesmo","Tudo no mesmo dia"],["seq","Um por dia útil"],["dois","Dois por dia útil"]]
      .map(function(o){return '<option value="'+o[0]+'"'+
       ((S.LOTE.modo||"mesmo")===o[0]?" selected":"")+'>'+o[1]+'</option>';}).join("")+
     '</select></label>'+
+   (S.LOTE.mdos.length>1
+    ?'<label class="cs-mod"><span>Entre eles</span>'+
+     '<select class="inp" id="cs-rep" onchange="S.LOTE.rep=this.value">'+
+     [["dividir","Dividir os serviços"],["juntos","Todos na mesma tarefa"]]
+      .map(function(o){return '<option value="'+o[0]+'"'+
+       ((S.LOTE.rep||"dividir")===o[0]?" selected":"")+'>'+o[1]+'</option>';}).join("")+
+     '</select></label>':"")+
   '</div>'+
   '<div class="cs-acoes">'+
    '<button class="b3" onclick="limparSelFila()" title="Desmarcar tudo">'+mi("close")+'</button>'+
@@ -6132,10 +6500,11 @@ function proximoUtil(ms){
 function programarSelecionadas(){
  if(!pode("editar"))return;
  const g=function(i){const e=document.getElementById(i);return e?e.value:"";};
- S.LOTE.mdo=g("cs-mdo")||S.LOTE.mdo;
  S.LOTE.dia=g("cs-dia")||S.LOTE.dia;
  S.LOTE.modo=g("cs-modo")||S.LOTE.modo||"mesmo";
- if(!S.LOTE.mdo)return toast("Sem executante","Cadastre a mão de obra antes de programar.","aviso");
+ S.LOTE.rep=g("cs-rep")||S.LOTE.rep||"dividir";
+ const mdos=(S.LOTE.mdos||[]).slice();
+ if(!mdos.length)return toast("Sem executante","Escolha pelo menos um executante.","aviso");
  if(!S.LOTE.dia)return toast("Sem data","Escolha o dia de partida.","aviso");
  const tars=DB.tarefas();
  const ids=S.FIL.sel.slice();
@@ -6147,25 +6516,31 @@ function programarSelecionadas(){
  let dia=proximoUtil(new Date(S.LOTE.dia+"T12:00").getTime());
  let noDia=0,n=0,dias=1;
  const antes=alvo.map(function(t){return JSON.parse(JSON.stringify(t));});
- alvo.forEach(function(t){
+ const juntos=S.LOTE.rep==="juntos"||mdos.length===1;
+ alvo.forEach(function(t,ix){
   if(noDia>=porDia){dia=proximoUtil(dia+DIA);noDia=0;dias++;}
   const i=tars.findIndex(function(x){return String(x.id)===String(t.id);});
   const nd=diasTarefa(tars[i]);
+  /* Juntos: todo mundo na mesma tarefa. Dividir: cada serviço para o
+     próximo da roda, de modo que a carga fique parelha. */
+  const equipe=juntos?mdos.slice():[mdos[ix%mdos.length]];
   tars[i]=Object.assign({},tars[i],{ini:dia,fim:fimDoDia(dia+(nd-1)*DIA),
-   equipe:[S.LOTE.mdo],status:"programada",
+   equipe:equipe,status:"programada",
    criadaPara:tars[i].criadaPara||dia});
   noDia++;n++;
  });
  _desfazerLote={antes:antes,rotulo:n+" serviço(s) do lote"};
  _desfazer=null;
  DB.setTarefas(tars);
- const m=DB.maoDeObra().find(function(x){return x.id===S.LOTE.mdo;});
- DB.log("editar","tarefa","",n+" serviço(s) programados em lote para "+
-  (m?m.nome:"—")+" a partir de "+dOnly(dia));
+ const nomes=mdos.map(function(id){
+  const m=DB.maoDeObra().find(function(x){return x.id===id;});
+  return m?primeiroNome(m.nome):id;}).join(", ");
+ DB.log("editar","tarefa","",n+" serviço(s) programados em lote para "+nomes+
+  (juntos||mdos.length===1?"":" (divididos)")+" a partir de "+dOnly(dia));
  S.FIL.sel=[];
  render();
  toastDesfazerLote("Programado em lote",
-  n+" serviço(s) para "+(m?m.nome:"—")+(dias>1?" em "+dias+" dias":" em "+dOnly(dia)));
+  n+" serviço(s) · "+nomes+(dias>1?" · "+dias+" dias":" · "+dOnly(dia)));
 }
 /* Desfazer de um lote inteiro, não de uma tarefa só */
 let _desfazerLote=null;
@@ -6274,7 +6649,8 @@ function painelPendencias(t,completo){
    '%;background:'+(abertas?"var(--wr)":"var(--ok)")+'"></i></div>'+
   '<div class="chk-lista"'+(completo?' style="max-height:none"':"")+'>'+
   (itens.length?itens.map(function(it){
-   return '<div class="chk-i'+(it.feito?" feito":"")+'" data-cid="'+esc(it.id)+'">'+
+   return '<div class="chk-i'+(it.feito?" feito":"")+(it.transferida?" transf":"")+
+    '" data-cid="'+esc(it.id)+'">'+
     (ed?'<button class="chk-b'+(it.feito?" on":"")+'" onclick="alternarItem('+qid(id)+','+qid(it.id)+')" '+
       'title="'+(it.feito?"Reabrir":"Marcar como feito")+'">'+(it.feito?mi("check"):"")+'</button>'
       :'<span class="chk-b'+(it.feito?" on":"")+'">'+(it.feito?mi("check"):"")+'</span>')+
@@ -6363,6 +6739,105 @@ function definirExecPend(id,itemId,mid){
    designado, ou uma só agrupando tudo. Em qualquer caso elas entram em
    "Em programação" — a carteira — e o vínculo com a tarefa de origem fica
    registrado nos dois lados. */
+/* ═══════════ A SOBRA DA TAREFA ═══════════
+   Chamado quando alguém conclui um serviço que ainda tem pendência aberta.
+   Mostra o que ficou, deixa escolher como isso continua e fecha a original
+   com o que foi feito — sem perder o rastro de nada. */
+function abrirSobraPend(id){
+ const t=DB.tarefas().find(function(x){return String(x.id)===String(id);});
+ if(!t)return;
+ const abertas=(t.checklist||[]).filter(function(i){return !i.feito;});
+ if(!abertas.length)return;
+ if(!S.SP)S.SP={modo:"uma",lembrar:false};
+ const nomeDe=function(k){if(!k)return "";
+  const m=DB.maoDeObra().find(function(x){return x.id===k;});return m?m.nome:"";};
+ const op=function(v,titulo,sub){
+  return '<button type="button" class="imp-a'+(S.SP.modo===v?" on":"")+'" '+
+   'onclick="S.SP.modo='+qid(v)+';abrirSobraPend('+qid(id)+')">'+
+   '<b>'+titulo+'</b><span>'+sub+'</span></button>';};
+ const porExec={};abertas.forEach(function(i){
+  const k=i.exec||"";(porExec[k]=porExec[k]||[]).push(i);});
+ abrir('<div class="md" style="max-width:580px"><div class="ph"><div>'+
+  '<div class="pt">'+mi("check")+' Concluir com pendência em aberto</div>'+
+  '<div class="ps">'+esc(t.frota)+' · '+esc(t.titulo)+'</div></div>'+
+  '<button class="b3" onclick="fechar()">'+mi("close")+'</button></div>'+
+  '<div class="lt-av">'+mi("warning")+'<span><b>'+abertas.length+'</b> pendência(s) não foram '+
+   'resolvidas. A tarefa fecha com o que foi feito, e o que sobrou continua vivo na '+
+   '<b>carteira</b>, ligado a esta.</span></div>'+
+  '<div class="sp-lista">'+abertas.map(function(i){
+   const q=nomeDe(i.exec);
+   return '<div class="sp-i">'+mi("cornerDownRight")+'<span>'+esc(i.texto)+'</span>'+
+    (q?'<i>'+esc(primeiroNome(q))+'</i>':"")+'</div>';}).join("")+'</div>'+
+  '<div class="tf-sec">Como a sobra continua</div>'+
+  '<div class="imp-ag">'+
+   op("uma","Uma tarefa com tudo","as "+abertas.length+" pendências juntas num serviço só")+
+   op("porexec","Uma por executante",
+    "separa pelo que já foi designado: "+Object.keys(porExec).length+" tarefa(s)")+
+   op("cada","Uma por pendência",abertas.length+" serviços, um para cada item")+
+   op("nenhuma","Fechar sem gerar nada","as pendências ficam abertas dentro desta tarefa")+
+  '</div>'+
+  '<label class="pz-chk'+(S.SP.lembrar?" on":"")+'" style="margin-top:11px;width:100%" '+
+   'onclick="S.SP.lembrar=!S.SP.lembrar;abrirSobraPend('+qid(id)+')">'+
+   '<i>'+(S.SP.lembrar?mi("check"):"")+'</i>Não perguntar mais'+
+   '<span class="ex-dica">usa esta escolha sempre; dá para mudar em Configurações</span></label>'+
+  '<div class="md-ac"><button class="b2" onclick="fechar()">Cancelar</button>'+
+  '<button class="b1" onclick="concluirComSobra('+qid(id)+')">'+mi("check")+
+   ' Concluir tarefa</button></div></div>');
+}
+function concluirComSobra(id,forcar){
+ const opc=forcar||S.SP||{modo:"uma"};
+ const tars=DB.tarefas(),i=tars.findIndex(function(x){return String(x.id)===String(id);});
+ if(i<0)return;
+ const t=tars[i];
+ const abertas=(t.checklist||[]).filter(function(z){return !z.feito;});
+ const base=function(titulo,exec,itens){
+  const agora=Date.now()+Math.floor(Math.random()*9999);
+  return{id:"T"+agora,os:t.os,frota:t.frota,titulo:titulo,
+   tipo:t.tipo||"corretiva",sistema:t.sistema||"",componente:t.componente||"",
+   oficina:t.oficina||"",local:t.local||"",prioridade:t.prioridade||"media",
+   ini:iniDoDia(Date.now()),fim:fimDoDia(Date.now()),
+   status:"em_programacao",equipe:exec?[exec]:[],
+   terceirizada:false,fornecedor:"",descricao:"",
+   obs:"Sobra da tarefa "+rotuloOS(t.os)+" concluída em "+dOnly(Date.now()),
+   origem:"sobra",origemTarefa:t.id,origemOS:t.os,
+   checklist:itens.map(function(z,ix){
+    return{id:"C"+agora+ix,texto:z.texto,feito:false,quem:"",em:null,exec:z.exec||""};})};
+ };
+ let novas=[];
+ if(abertas.length&&opc.modo!=="nenhuma"){
+  if(opc.modo==="cada")
+   novas=abertas.map(function(z){return base(t.frota+" — "+z.texto,z.exec||"",[z]);});
+  else if(opc.modo==="porexec"){
+   const g={};abertas.forEach(function(z){const k=z.exec||"";(g[k]=g[k]||[]).push(z);});
+   novas=Object.keys(g).map(function(k){
+    const m=k?DB.maoDeObra().find(function(x){return x.id===k;}):null;
+    return base(t.frota+" — sobra de "+t.titulo+(m?" ("+primeiroNome(m.nome)+")":""),k,g[k]);});
+  }else novas=[base(t.frota+" — sobra de "+t.titulo,"",abertas)];
+ }
+ /* Na original, o que virou tarefa nova fica marcado com o motivo: não foi
+    "feito", foi "transferido" — e a folha impressa mostra isso. */
+ const marca=novas.length?" · foi para outra tarefa":"";
+ tars[i]=Object.assign({},t,{
+  status:"concluida",concluidaEm:Date.now(),
+  geradas:(t.geradas||[]).concat(novas.map(function(n){return n.id;})),
+  sobra:novas.length?abertas.length:0,
+  checklist:(t.checklist||[]).map(function(z){
+   if(z.feito)return z;
+   return novas.length
+    ?Object.assign({},z,{feito:true,transferida:true,
+      quem:(S.sessao?S.sessao.nome:"")+marca,em:Date.now()})
+    :z;})});
+ DB.setTarefas(tars.concat(novas));
+ DB.log("status","tarefa",t.frota,t.titulo+" concluída"+
+  (novas.length?" · "+abertas.length+" pendência(s) foram para "+novas.length+" tarefa(s) nova(s)":""));
+ if(S.SP&&S.SP.lembrar){
+  const c=DB.cfg();c.sobraPendPergunta=false;c.sobraPendModo=opc.modo;DB.setCfg(c);
+ }
+ fechar();render();
+ if(novas.length)toast("Concluída, sobra na carteira",
+  abertas.length+" pendência(s) viraram "+novas.length+" tarefa(s) em programação","ok");
+ else toast("Tarefa concluída",t.titulo,"ok");
+}
 function abrirGerarPendencias(id){
  const t=DB.tarefas().find(function(x){return String(x.id)===String(id);});
  if(!t||!pode("criar"))return;
@@ -6552,14 +7027,28 @@ function definirStatus(id,st){
  if(i<0)return;
  const t=tars[i];
  if(t.status===st)return;
- // Regra do PCM: tarefa com pendência aberta não fecha — reprograma.
+ /* ── O que sobrou de pendência ──
+    O serviço acabou, mas três itens ficaram: faltou peça, faltou tempo, o
+    caminhão precisou sair. Fechar escondendo isso apaga trabalho real;
+    proibir de fechar obriga a mentir no apontamento. O caminho certo é o
+    terceiro: a tarefa fecha com o que foi feito, e o que sobrou nasce como
+    tarefa nova na carteira, ligada à de origem. O comportamento é
+    escolhido em Configurações. */
  if(st==="concluida"&&!podeConcluir(t)){
-  fecharMenuStatus();
-  const n=chkAbertas(t);
-  if(confirm("Esta tarefa tem "+n+" pendência(s) em aberto e não pode ser concluída.\n\n"+
-    "Deseja reprogramá-la para outro dia?"))reprogramarTarefa(id);
-  else modalTarefaDetalhe(id);
-  return;
+  const modo=cfgVal("sobraPend")||"nova";
+  if(modo==="bloquear"){
+   const n=chkAbertas(t);
+   if(confirm("Esta tarefa tem "+n+" pendência(s) em aberto e não pode ser concluída.\n\n"+
+     "Deseja reprogramá-la para outro dia?"))reprogramarTarefa(id);
+   else modalTarefaDetalhe(id);
+   return;
+  }
+  if(modo==="nova"){
+   if(cfgVal("sobraPendPergunta"))return abrirSobraPend(id);
+   concluirComSobra(id,{modo:"uma"});
+   return;
+  }
+  /* permitir: segue o fluxo normal e as pendências ficam como estão */
  }
  const n=Object.assign({},t,{status:st});
  /* Sair da fila pelo seletor de status também é programar: a tarefa
@@ -6718,7 +7207,8 @@ function modalTarefaDetalhe(id){
     (abertas?"var(--wr)":"var(--ok)")+'"></i></div>'+
    '<div class="chk-lista">'+
    (itens.length?itens.map(function(it){
-    return '<div class="chk-i'+(it.feito?" feito":"")+'" data-cid="'+esc(it.id)+'">'+
+    return '<div class="chk-i'+(it.feito?" feito":"")+(it.transferida?" transf":"")+
+    '" data-cid="'+esc(it.id)+'">'+
      (ed?'<button class="chk-b'+(it.feito?" on":"")+'" onclick="alternarItem('+qid(id)+','+qid(it.id)+')" '+
        'title="'+(it.feito?"Reabrir":"Marcar como feito")+'">'+(it.feito?mi("check"):"")+'</button>'
        :'<span class="chk-b'+(it.feito?" on":"")+'">'+(it.feito?mi("check"):"")+'</span>')+
@@ -7178,7 +7668,7 @@ function movimentosDoPeriodo(ini,fim){
 function abrirRegistro(){
  const ini=inicioSemana(S.sem),fim=new Date(ini);fim.setDate(fim.getDate()+7);
  const lista=DB.tarefas().filter(function(t){
-  return !naFila(t)&&t.ini<fim.getTime()&&t.fim>=ini.getTime();});
+  return !naFila(t)&&!t.terceirizada&&t.ini<fim.getTime()&&t.fim>=ini.getTime();});
  const a=aderencia(lista,ini.getTime(),fim.getTime());
  /* Movimentos gravados na semana inteira, mesmo os de tarefa que já saiu */
  const mov=movimentosDoPeriodo(ini.getTime()-30*DIA,Date.now());
@@ -7768,6 +8258,31 @@ function vPersonalizar(){
    return '<button class="pz-chk'+(on?" on":"")+'" onclick="alternarItemMenu(\''+x[0]+'\')">'+
     '<i>'+(on?mi("check"):"")+'</i>'+x[1]+'</button>';}).join("")+
   '</div></div>'+
+
+ /* ── Regras da programação ── */
+ '<div class="pn fu"><div class="ph"><div><div class="pt">'+mi("clipboard")+' Regras da programação</div>'+
+  '<div class="ps">Como o sistema se comporta quando a tarefa fecha sem estar tudo resolvido</div></div></div>'+
+  '<div class="tf-sec" style="margin-top:0;padding-top:0;border:none">Tarefa concluída com pendência em aberto</div>'+
+  '<div class="imp-ag">'+
+   [["nova","O que sobrou vira tarefa nova",
+     "a original fecha com o que foi feito e a sobra volta para a carteira, ligada a ela"],
+    ["bloquear","Não deixar concluir",
+     "obriga a resolver ou reprogramar antes de fechar"],
+    ["permitir","Concluir assim mesmo",
+     "fecha a tarefa e deixa as pendências abertas dentro dela"]]
+   .map(function(o){
+    const on=(cfgVal("sobraPend")||"nova")===o[0];
+    return '<button type="button" class="imp-a'+(on?" on":"")+'" '+
+     'onclick="setCfgVal(\'sobraPend\','+qid(o[0])+')">'+
+     '<b>'+o[1]+'</b><span>'+o[2]+'</span></button>';}).join("")+
+  '</div>'+
+  ((cfgVal("sobraPend")||"nova")==="nova"
+   ?'<button type="button" class="pz-chk'+(cfgVal("sobraPendPergunta")?" on":"")+'" '+
+    'style="margin-top:10px;width:100%" '+
+    'onclick="setCfgVal(\'sobraPendPergunta\','+(cfgVal("sobraPendPergunta")?"false":"true")+')">'+
+    '<i>'+(cfgVal("sobraPendPergunta")?mi("check"):"")+'</i>Perguntar como agrupar a sobra'+
+    '<span class="ex-dica">desligado, usa sempre "uma tarefa com tudo"</span></button>':"")+
+ '</div>'+
 
  /* ── Calendário de trabalho ── */
  '<div class="pn fu"><div class="ph"><div><div class="pt">'+mi("clock")+' Calendário de trabalho</div>'+
@@ -10273,7 +10788,43 @@ function exportarPeriodo(tipo){
   pend.length?pend:[["—","—","—","Nenhuma pendência em aberto","—","—","—"]],
   [11,10,15,34,24,44,14]);
 
- /* 4. resumo para abrir o relatório */
+ /* 4. o que mudou de data no período — o relatório precisa contar por que
+       a semana combinada virou outra, senão a aderência fica sem defesa */
+ const movs=[];
+ d.tarefas.forEach(function(t){
+  (t.remarcacoes||[]).forEach(function(r){
+   movs.push([dt(r.ts),t.frota,t.os,t.titulo,dOnly(r.de),dOnly(r.para),
+    Math.round((iniDoDia(r.para)-iniDoDia(r.de))/DIA),
+    r.motivo||"— não informado —",r.quem||"—"]);});});
+ movs.sort(function(a,b){return a[0]<b[0]?1:-1;});
+ aba("Reprogramações","Mudanças de data no período",
+  ["Quando","Frota","OS","Tarefa","De","Para","Dias","Motivo","Quem"],
+  movs.length?movs:[["—","—","—","Nenhuma reprogramação no período","—","—","—","—","—"]],
+  [17,10,15,32,11,11,7,26,18]);
+
+ /* 5. indicadores do período, do jeito que a reunião pergunta */
+ const ind=aderencia(d.tarefas.filter(function(t){return !naFila(t);}),d.d0,d.d1);
+ const semMotivo=movs.filter(function(m){return m[7]==="— não informado —";}).length;
+ aba("Indicadores","Indicadores da programação",
+  ["Indicador","Valor","Como é medido"],
+  [["Serviços programados",ind.total,"tarefas com dia no período"],
+   ["Concluídos",ind.concluidas,"situação concluída"],
+   ["Aderência",(ind.aderencia==null?"—":ind.aderencia+"%"),"concluídos ÷ programados, pela data atual"],
+   ["Aderência ao plano original",(ind.firme==null?"—":ind.firme+"%"),
+    "concluídos até a data da PRIMEIRA programação — não melhora com remarcação"],
+   ["Pontualidade",(ind.pontualidade==null?"—":ind.pontualidade+"%"),"concluídos dentro do próprio prazo"],
+   ["Vencidos",ind.vencidas,"passaram do prazo sem conclusão"],
+   ["Tarefas reprogramadas",ind.reprogramadas,"tiveram ao menos uma mudança de data"],
+   ["Mudanças de data",ind.remarcacoes,"total de remarcações"],
+   ["Mudanças sem motivo",semMotivo,"remarcações sem justificativa anotada"],
+   ["Deslize médio",(ind.deslizeMedio?"+"+ind.deslizeMedio+" dias":"—"),
+    "quanto o serviço andou para frente, em média"],
+   ["Dias de serviço previstos",ind.dPrev,"soma da duração das tarefas"],
+   ["Pendências abertas",ind.pAbertas+" de "+ind.pTotal,"itens de checklist não marcados"],
+   ["Pendências resolvidas",(ind.pConcluidas==null?"—":ind.pConcluidas+"%"),"itens marcados ÷ total"]],
+  [32,16,62]);
+
+ /* 6. resumo para abrir o relatório */
  const naGrade=d.tarefas.filter(function(t){return !naFila(t);});
  const conc=naGrade.filter(function(t){return t.status==="concluida";});
  const venc=naGrade.filter(function(t){return t.status!=="concluida"&&t.status!=="cancelada"&&t.fim<Date.now();});
@@ -10365,6 +10916,8 @@ function abrirImpressao(){
    chk("fila","Carteira","o que ainda não tem dia")+
    chk("compacto","Modo compacto","mais serviços por página")+
    chk("zebra","Linhas alternadas","facilita seguir a linha na bancada")+
+   chk("mudancas","Anexo de reprogramações","o que mudou de data e por quê")+
+   chk("indicadores","Indicadores do período","aderência, deslize e pendências")+
   '</div>'+
 
   '<div class="tf-sec">Filtrar</div>'+
@@ -10572,6 +11125,46 @@ function gerarFolha(){
     '<span>'+esc(t.titulo)+'</span><i>'+(nAb?nAb+" pend.":(TIPO_SERV[t.tipo]||{l:""}).l)+'</i></div>';}).join("")+
   '</div></div>':"";
 
+ /* ── Anexo: o que mudou de data ──
+    A folha da semana some na bancada; o anexo é o que sobra para a reunião
+    explicar por que o combinado virou outro. */
+ const movs=[];
+ d.tarefas.forEach(function(t){
+  (t.remarcacoes||[]).forEach(function(r){
+   movs.push({t:t,r:r,dias:Math.round((iniDoDia(r.para)-iniDoDia(r.de))/DIA)});});});
+ movs.sort(function(a,b){return b.r.ts-a.r.ts;});
+ const anexoMud=(o.mudancas&&movs.length)
+  ?'<div class="pr-resp pr-anexo"><div class="pr-resp-h">'+
+   '<b>Reprogramações do período</b><span>'+movs.length+' mudança(s) de data</span></div>'+
+   '<table class="pr-tb"><thead><tr><th>Frota</th><th>Serviço</th><th>De</th><th>Para</th>'+
+   '<th>Dias</th><th>Motivo</th><th>Quem</th></tr></thead><tbody>'+
+   movs.map(function(m){
+    return '<tr><td><b>'+esc(m.t.frota)+'</b></td><td>'+esc(m.t.titulo)+'</td>'+
+     '<td>'+dOnly(m.r.de)+'</td><td>'+dOnly(m.r.para)+'</td>'+
+     '<td class="num">'+(m.dias>0?"+":"")+m.dias+'</td>'+
+     '<td>'+esc(m.r.motivo||"— não informado —")+'</td>'+
+     '<td>'+esc(m.r.quem||"—")+'</td></tr>';}).join("")+
+   '</tbody></table></div>':"";
+ /* ── Anexo: indicadores ── */
+ const ind=aderencia(d.tarefas,d.d0,d.d1);
+ const semMotivo=movs.filter(function(m){return !m.r.motivo;}).length;
+ const anexoInd=o.indicadores
+  ?'<div class="pr-resp pr-anexo"><div class="pr-resp-h">'+
+   '<b>Indicadores do período</b><span>'+esc(d.rotulo)+'</span></div>'+
+   '<table class="pr-tb"><tbody>'+
+   [["Serviços programados",ind.total],
+    ["Concluídos",ind.concluidas],
+    ["Aderência",(ind.aderencia==null?"—":ind.aderencia+"%")],
+    ["Aderência ao plano original",(ind.firme==null?"—":ind.firme+"%")],
+    ["Pontualidade",(ind.pontualidade==null?"—":ind.pontualidade+"%")],
+    ["Vencidos",ind.vencidas],
+    ["Tarefas reprogramadas",ind.reprogramadas],
+    ["Mudanças de data",ind.remarcacoes+(semMotivo?" ("+semMotivo+" sem motivo)":"")],
+    ["Deslize médio",(ind.deslizeMedio?"+"+ind.deslizeMedio+" dias":"—")],
+    ["Pendências abertas",ind.pAbertas+" de "+ind.pTotal]]
+   .map(function(l){return '<tr><td>'+l[0]+'</td><td class="num"><b>'+l[1]+'</b></td></tr>';}).join("")+
+   '</tbody></table></div>':"";
+
  const filtros=[S.IMP.mdo?"Executante: "+((DB.maoDeObra().find(function(m){return m.id===S.IMP.mdo;})||{}).nome||""):"",
   S.IMP.frota?"Frota: "+S.IMP.frota:"",
   S.IMP.tipo?"Tipo: "+(TIPO_SERV[S.IMP.tipo]||{l:""}).l:""].filter(Boolean).join(" · ");
@@ -10639,6 +11232,13 @@ function gerarFolha(){
   '.pr-fli+.pr-fli{border-top:1px dotted #ddd}'+
   '.pr-fli b{min-width:64px}.pr-fli span{flex:1}'+
   '.pr-fli i{font-style:normal;color:#777;font-size:9.5px;white-space:nowrap}'+
+  '.pr-anexo{margin-top:14px;page-break-inside:auto}'+
+  '.pr-tb{width:100%;border-collapse:collapse;border:1px solid #ccc;border-top:none;font-size:10px}'+
+  '.pr-tb th{background:#eef2f8;text-align:left;padding:4px 7px;border-bottom:1px solid #ccc;'+
+   'font-size:9px;text-transform:uppercase;letter-spacing:.4px;color:#555}'+
+  '.pr-tb td{padding:4px 7px;border-bottom:1px solid #e6e6e6}'+
+  '.pr-tb td.num{text-align:right;white-space:nowrap}'+
+  '.pr-tb tr:last-child td{border-bottom:none}'+
   '.pr-fecho{display:flex;gap:20px;justify-content:space-between;margin-top:18px;'+
    'padding-top:12px;border-top:1px solid #999;font-size:10px;color:#444;break-inside:avoid}'+
   '.pr-rod{margin-top:10px;padding-top:6px;border-top:1px solid #ccc;font-size:9px;color:#888;'+
@@ -10654,7 +11254,7 @@ function gerarFolha(){
    (!o.terceiros?'<div class="sub">Sem serviços terceirizados</div>':"")+'</div>'+
    '<div class="dir">Makro Transportes<br>Emitido em '+dt(Date.now())+
    '<br>'+d.tarefas.length+' serviço(s)</div></div>'+
-  resumo+corpo+filaBloco+
+  resumo+corpo+filaBloco+anexoMud+anexoInd+
   '<div class="pr-fecho"><span>Programado por: ____________________________</span>'+
    '<span>Conferido por: ____________________________</span>'+
    '<span>Data: ____/____/________</span></div>'+
