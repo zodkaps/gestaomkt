@@ -64,11 +64,15 @@
 .kpi:hover{transform:translateY(-1px);box-shadow:var(--sh2)}
 .pn{border-radius:15px}
 .b1:active,.b2:active,.bfg:active{transform:translateY(1px)}
-/* Entrada suave das telas, sem piscar */
-.wrap>*{animation:sobe .3s var(--ease) both}
-.wrap>*:nth-child(2){animation-delay:.02s}
-.wrap>*:nth-child(3){animation-delay:.04s}
-.wrap>*:nth-child(4){animation-delay:.06s}
+/* Entrada suave das telas, sem piscar.
+   Só na TROCA de tela: reproduzir isto a cada render fazia toda a página
+   desaparecer e reaparecer a cada tarefa movida — que é a sensação de
+   "carregou de novo". Dentro da mesma tela, a atualização é silenciosa. */
+.wrap.entrando>*{animation:sobe .3s var(--ease) both}
+.wrap.entrando>*:nth-child(2){animation-delay:.02s}
+.wrap.entrando>*:nth-child(3){animation-delay:.04s}
+.wrap.entrando>*:nth-child(4){animation-delay:.06s}
+.wrap:not(.entrando) .fu{animation:none}
 @keyframes sobe{from{opacity:0;transform:translateY(7px)}to{opacity:1;transform:none}}
 /* Rolagem mais discreta */
 *::-webkit-scrollbar{width:9px;height:9px}
@@ -784,7 +788,7 @@ body{font-size:var(--fbase)}
 .pg{margin-bottom:calc(20px*var(--esc))}
 .ni{border-radius:var(--r)}
 .agw-wrap,.sec-d{border-radius:var(--rg)}
-.agt,.chk-i,.fil-t{border-radius:var(--r)}
+.agt,.chk-i,.cart-g{border-radius:var(--r)}
 /* Quem desliga animação quer a tela pronta, não a transição */
 .sem-anim *,.sem-anim *::before,.sem-anim *::after{
  animation:none!important;transition:none!important}
@@ -796,68 +800,93 @@ body{font-size:var(--fbase)}
 .fil-pt{width:9px;height:9px;border-radius:50%;display:inline-block;flex-shrink:0}
 .fil-n{background:var(--rx);color:#fff;font-size:10.5px;font-weight:800;border-radius:9px;
  padding:1px 7px;margin-left:2px}
-.fil-lista{display:flex;gap:9px;overflow-x:auto;overscroll-behavior-x:contain;padding:2px 2px 8px}
-.fil-t{flex:0 0 216px;background:var(--s2);border:1px solid var(--bd);border-left-width:3px;
- padding:9px 11px;cursor:pointer;transition:.14s;display:flex;flex-direction:column;gap:2px}
-.fil-t:hover{border-color:var(--bd2);transform:translateY(-2px);box-shadow:var(--sh)}
-.fil-t.mov{opacity:.4}
-.fil-top{display:flex;align-items:center;justify-content:space-between;gap:6px;margin-bottom:3px}
-.fil-t b{font-size:12px;font-weight:800;letter-spacing:.2px}
-.fil-tt{font-size:11.5px;line-height:1.35;color:var(--t2);display:-webkit-box;
- -webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;min-height:31px}
-.fil-pe{display:flex;align-items:center;justify-content:space-between;gap:6px;margin-top:6px;
- padding-top:6px;border-top:1px solid var(--bd)}
-.fil-pe .agt-chk{margin-left:0}
-.fil-go{background:none;border:1px solid var(--bd);color:var(--t2);border-radius:6px;
- padding:3px 8px;font-size:10px;font-weight:700;cursor:pointer;font-family:inherit;
- display:inline-flex;align-items:center;gap:4px;transition:.14s;white-space:nowrap}
-.fil-go:hover{border-color:var(--ac);color:var(--ac);background:var(--acs)}
-.fil-go svg{width:10px;height:10px}
 .fil-vazio{font-size:12.5px;color:var(--t3);display:flex;align-items:center;gap:9px;
  padding:14px 2px;line-height:1.55}
 .fil-vazio svg{color:var(--ok);flex-shrink:0}
+/* Botão de ação da linha da carteira e dos vazios */
+.fil-go{background:none;border:1px solid var(--bd);color:var(--t3);border-radius:7px;
+ padding:5px 8px;font-size:10.5px;font-weight:700;cursor:pointer;font-family:inherit;
+ display:inline-flex;align-items:center;justify-content:center;gap:5px;transition:.14s;
+ white-space:nowrap;min-width:28px}
+.fil-go svg{width:11px;height:11px}
+.fil-go:hover{border-color:var(--ac);color:var(--ac);background:var(--acs)}
+.cart-l .fil-go{opacity:.5}
+.cart-l:hover .fil-go,.cart-l.on .fil-go{opacity:1}
 .fil-vazio .fil-go{margin-left:4px}
-/* ── Barra de controle da fila ── */
-.fil-bar{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:10px}
+/* ── Carteira: barra de controle ── */
+.cart-bar{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:11px}
 .fil-bq{flex:1;min-width:190px;position:relative;display:flex;align-items:center}
 .fil-bq svg{position:absolute;left:10px;color:var(--t3);pointer-events:none}
 .fil-bq .inp{padding-left:31px}
-.fil-bo{width:auto;min-width:170px}
+.fil-bo{width:auto;min-width:150px}
+.cart-chips{display:flex;gap:5px;flex-wrap:wrap}
 .fil-vw{display:flex;border:1px solid var(--bd);border-radius:var(--r);overflow:hidden}
 .fil-vw button{background:none;border:none;color:var(--t3);padding:7px 10px;cursor:pointer;
  display:flex;align-items:center;font-family:inherit;transition:.14s}
 .fil-vw button+button{border-left:1px solid var(--bd)}
 .fil-vw button:hover{color:var(--t1);background:var(--s3)}
 .fil-vw button.on{background:var(--acs);color:var(--ac)}
-.fil-lote{white-space:nowrap}
-/* ── Fila em lista: dezenas de itens legíveis de cima a baixo ── */
-.fil-tab{display:flex;flex-direction:column;gap:1px;background:var(--bd);
- border:1px solid var(--bd);border-radius:var(--r);overflow:hidden;max-height:392px;
- overflow-y:auto;overscroll-behavior:contain}
-.fil-l{display:grid;grid-template-columns:4px 92px minmax(0,1fr) auto auto auto auto;
- align-items:center;gap:10px;background:var(--s1);padding:8px 11px 8px 0;
- cursor:pointer;transition:background .12s}
-.fil-l:hover{background:var(--s3)}
-.fil-l.mov{opacity:.4}
-.fil-c{align-self:stretch;border-radius:0 3px 3px 0}
-.fil-fr{font-size:12px;font-weight:800;letter-spacing:.2px;overflow:hidden;
- text-overflow:ellipsis;white-space:nowrap}
-.fil-tx{font-size:12px;color:var(--t2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.fil-l:hover .fil-tx{color:var(--t1)}
-.fil-tp{white-space:nowrap}
-.fil-l .agt-chk{margin-left:0;min-width:44px;justify-content:flex-end}
-.fil-sp{font-size:10px;color:var(--t3);min-width:44px;text-align:right}
-.fil-cont{font-size:11px;color:var(--t3);padding-top:8px}
-/* Em telas estreitas a linha perde as colunas acessórias, nunca o essencial */
-@media(max-width:820px){
- /* Some o acessório, ficam a frota, o serviço, o contador e o botão —
-    e são exatamente quatro colunas, senão o botão cai para outra linha */
- .fil-l{grid-template-columns:4px 74px minmax(0,1fr) auto auto;gap:8px;padding-right:9px}
- .fil-l .fil-tp,.fil-l .agt-os,.fil-l .fil-sp{display:none}
- .fil-l .agt-chk{min-width:0}
- .fil-l .fil-go{padding:3px 7px}
- .fil-bar>*{flex:1 1 auto}
- .fil-bq{flex:1 1 100%}
+/* ── Carteira: a lista agrupada ── */
+.cart-lista{display:flex;flex-direction:column;gap:9px;max-height:min(52vh,470px);
+ overflow-y:auto;overscroll-behavior:contain;padding-right:3px}
+/* flex-shrink:0 é obrigatório: dentro de uma coluna flex com altura máxima,
+   os grupos encolhiam para caber e as linhas ficavam cortadas pela metade. */
+.cart-g{flex:0 0 auto;border:1px solid var(--bd);border-radius:var(--r);
+ overflow:hidden;background:var(--s2)}
+.cart-gh{display:flex;align-items:center;gap:8px;padding:2px 8px 2px 2px}
+.cart-gt{flex:1;display:flex;align-items:center;gap:8px;background:none;border:none;
+ color:var(--t1);font-family:inherit;cursor:pointer;padding:9px 10px;text-align:left;min-width:0}
+.cart-gt svg{width:12px;height:12px;color:var(--t3);transition:transform .18s var(--ease)}
+.cart-g.off .cart-gt svg{transform:rotate(-90deg)}
+.cart-gt b{font-size:12.5px;font-weight:800;letter-spacing:.2px;white-space:nowrap}
+.cart-gt span{font-size:10.5px;color:var(--t3);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.cart-gs{background:none;border:1px solid var(--bd);color:var(--t3);border-radius:7px;
+ padding:4px 9px;font-size:10.5px;font-weight:700;font-family:inherit;cursor:pointer;
+ display:inline-flex;align-items:center;gap:5px;white-space:nowrap;transition:.13s}
+.cart-gs svg{width:10px;height:10px}
+.cart-gs:hover{border-color:var(--ac);color:var(--ac)}
+.cart-gs.on{border-color:var(--ac);color:var(--ac);background:var(--acs)}
+.cart-gb{display:flex;flex-direction:column;gap:1px;background:var(--bd);border-top:1px solid var(--bd)}
+/* ── Carteira: a linha ── */
+.cart-l{display:grid;grid-template-columns:18px 4px minmax(0,1fr) auto auto auto auto;
+ align-items:center;gap:10px;background:var(--s1);padding:9px 11px 9px 10px;
+ cursor:pointer;transition:background .12s,box-shadow .12s}
+.cart-l:hover{background:var(--s3)}
+.cart-l.on{background:var(--acs);box-shadow:inset 3px 0 0 var(--ac)}
+.cart-l.mov{opacity:.4}
+.cart-ck{width:17px;height:17px;border:1.6px solid var(--bd2);border-radius:5px;flex-shrink:0;
+ display:flex;align-items:center;justify-content:center;color:#fff;transition:.13s}
+.cart-ck svg{width:11px;height:11px}
+.cart-l:hover .cart-ck{border-color:var(--ac)}
+.cart-ck.on{background:var(--ac);border-color:var(--ac)}
+.cart-c{align-self:stretch;border-radius:3px;min-height:17px}
+.cart-tx{font-size:12px;color:var(--t2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.cart-l:hover .cart-tx,.cart-l.on .cart-tx{color:var(--t1)}
+.cart-tp{white-space:nowrap}
+.cart-l .agt-chk{margin-left:0;min-width:42px;justify-content:flex-end}
+.fil-sp{font-size:10px;color:var(--t3);min-width:42px;text-align:right}
+.fil-cont{font-size:11px;color:var(--t3);padding-top:9px}
+/* ── Carteira: barra do que está marcado ── */
+.cart-sel{display:flex;align-items:flex-end;gap:12px;flex-wrap:wrap;margin-top:12px;
+ padding:12px 14px;border-radius:var(--r);border:1px solid var(--ac);
+ background:color-mix(in srgb,var(--ac) 8%,var(--s1));animation:sobe .18s var(--ease) both}
+.cs-n{display:flex;align-items:baseline;gap:7px;min-width:150px}
+.cs-n b{font-size:22px;font-weight:800;color:var(--ac);line-height:1}
+.cs-n span{font-size:11px;color:var(--t2);line-height:1.4}
+.cs-campos{display:flex;gap:9px;flex-wrap:wrap;flex:1;min-width:280px}
+.cs-campos label{display:flex;flex-direction:column;gap:4px;min-width:132px;flex:1}
+.cs-campos label>span{font-size:10px;text-transform:uppercase;letter-spacing:.5px;color:var(--t3);font-weight:700}
+.cs-campos .inp{padding:7px 9px;font-size:12px}
+.cs-acoes{display:flex;gap:7px;align-items:center}
+.cs-acoes .b1{white-space:nowrap}
+@media(max-width:900px){
+ .cart-l{grid-template-columns:20px 4px minmax(0,1fr) auto auto;gap:9px;padding:12px 10px}
+ .cart-l .cart-tp,.cart-l .agt-os{display:none}
+ .cart-ck{width:20px;height:20px}
+ .cart-sel{position:sticky;bottom:0;z-index:5}
+ .cs-campos{min-width:100%}
+ .cs-acoes{width:100%}
+ .cs-acoes .b1{flex:1;justify-content:center;min-height:44px}
 }
 /* ── Programar em lote ── */
 .lt-prev{background:var(--s1);border:1px solid var(--bd);border-radius:var(--r);
@@ -910,6 +939,41 @@ body{font-size:var(--fbase)}
  .chk-i{padding:11px 10px}
  .chk-b,.chk-x{min-width:30px;min-height:30px}
  .chk-ex{padding:5px 11px 5px 9px;font-size:11px}
+}
+
+/* ═══ REGISTRO DA PROGRAMAÇÃO ═══ */
+.rg-nums{display:grid;grid-template-columns:repeat(auto-fit,minmax(112px,1fr));gap:8px;margin-bottom:4px}
+.rg-n{border:1px solid var(--bd);border-left-width:3px;border-radius:var(--r);padding:9px 11px;
+ background:var(--s1)}
+.rg-n b{display:block;font-size:19px;font-weight:800;line-height:1.1;color:var(--t1)}
+.rg-n span{display:block;font-size:10.5px;color:var(--t2);margin-top:2px}
+.rg-n i{display:block;font-style:normal;font-size:9.5px;color:var(--t3);margin-top:1px}
+.rg-lista{display:flex;flex-direction:column;gap:1px;background:var(--bd);border:1px solid var(--bd);
+ border-radius:var(--r);overflow:hidden;max-height:320px;overflow-y:auto;overscroll-behavior:contain;
+ margin-top:8px}
+.rg-i{display:grid;grid-template-columns:minmax(0,1fr) auto auto;gap:10px;align-items:center;
+ background:var(--s1);padding:9px 12px}
+.rg-t{min-width:0;display:flex;flex-direction:column;gap:1px}
+.rg-t b{font-size:12px;font-weight:800}
+.rg-t span{font-size:11px;color:var(--t3);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.rg-d{display:flex;align-items:center;gap:6px;font-size:11px;color:var(--t2);white-space:nowrap}
+.rg-d svg{width:11px;height:11px;color:var(--t3)}
+.rg-d i{font-style:normal;font-weight:800;font-size:10.5px;border-radius:5px;padding:1px 6px}
+.rg-d i.atr{color:var(--wr);background:color-mix(in srgb,var(--wr) 13%,transparent)}
+.rg-d i.ant{color:var(--ok);background:color-mix(in srgb,var(--ok) 13%,transparent)}
+.rg-q{font-size:10.5px;color:var(--t3);text-align:right;white-space:nowrap;line-height:1.4}
+.rg-q span{display:block;font-size:9.5px}
+.rg-m{grid-column:1/-1;font-size:11px;color:var(--t2);background:var(--s2);border-radius:7px;
+ padding:5px 9px;margin-top:2px}
+.rg-add{grid-column:1/-1;justify-self:start;background:none;border:1px dashed var(--bd2);
+ color:var(--t3);border-radius:7px;padding:4px 9px;font-size:10.5px;font-weight:700;
+ font-family:inherit;cursor:pointer;display:inline-flex;align-items:center;gap:5px;
+ margin-top:3px;transition:.13s}
+.rg-add svg{width:10px;height:10px}
+.rg-add:hover{border-color:var(--ac);color:var(--ac);border-style:solid}
+@media(max-width:900px){
+ .rg-i{grid-template-columns:minmax(0,1fr) auto}
+ .rg-q{grid-column:1/-1;text-align:left}
 }
 
 /* ═══ MENU DE CONTEXTO ═══ */
@@ -1132,7 +1196,6 @@ body.arrastando *{cursor:grabbing!important}
 :root[data-theme="light"] .agc.folga{background:repeating-linear-gradient(135deg,
  transparent 0 7px,color-mix(in srgb,var(--t3) 15%,transparent) 7px 14px),#fff}
 :root[data-theme="light"] .agh.folga{background:color-mix(in srgb,var(--t3) 16%,var(--s3))}
-:root[data-theme="light"] .fil-t{background:#fff}
 :root[data-theme="light"] .pz-cor,:root[data-theme="light"] .pz-b,
 :root[data-theme="light"] .pz-chk,:root[data-theme="light"] .pz-f{background:#fff;border-color:var(--bd2)}
 .fil-sp{font-size:10px;color:var(--t3);white-space:nowrap}
@@ -2266,7 +2329,7 @@ const COMP_CATALOGO=[
  ["Eixos","Transmissão"],["Quinta roda","Transmissão"],["Cardan","Transmissão"],["Escapamento","Motor"]];
 const DIA=864e5;
 const SISTEMA_NOME="Gestão de Análise de Falhas MKT";
-const VERSAO="7.0";
+const VERSAO="7.1";
 /* Identidade visual oficial da Makro — logotipo fornecido pela empresa (item 41) */
 const LOGO_MARCA="data:image/png;base64,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";
 const LOGO_WORDMARK="data:image/jpeg;base64,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";
@@ -2290,10 +2353,11 @@ const S={sessao:null,view:"executivo",menu:true,tema:"dark",frotaAtiva:null,abaF
  abas:{},                 // aba escolhida em cada tela agrupada
  EX:{de:"",ate:"",mdo:"",frota:"",tipo:"",status:"",
      fila:true,terceiros:true,concluidas:true,canceladas:false},   // exportação
- FIL:{q:"",ord:"frota",modo:"lista",abrir:false},   // fila "Em programação"
+ FIL:{q:"",tipo:"",ord:"frota",grupo:"frota",sel:[],fechados:{}},   // carteira
  IMP:{de:"",ate:"",agrupar:"mdo",mdo:"",frota:"",tipo:"",
       pend:true,desc:true,assinatura:true,fila:false,concluidas:true,
-      canceladas:false,resumo:true,compacto:false},   // folha de impressão
+      canceladas:false,resumo:true,compacto:false,terceiros:true,
+      zebra:true},   // folha de impressão
  BK:null};                // planilha de backlog em importação
 
 /* ═══ UTILIDADES ═══ */
@@ -3093,7 +3157,7 @@ function badgeConexao(){
    cada tarefa movida — no meio de uma sessão de programação isso é o suficiente
    para a pessoa perder o lugar. Aqui as posições são anotadas antes e devolvidas
    depois, incluindo a da própria página. */
-const ROL_MEM=[".anav",".agw-wrap",".fil-tab",".chk-lista",".gsr",".tw"];
+const ROL_MEM=[".anav",".agw-wrap",".cart-lista",".chk-lista",".gsr",".tw"];
 function guardarRolagem(){
  const m={pagina:window.scrollY||document.documentElement.scrollTop||0,caixas:[]};
  ROL_MEM.forEach(function(sel){
@@ -3108,6 +3172,10 @@ function devolverRolagem(m){
  m.caixas.forEach(function(c){
   const el=document.querySelectorAll(c.sel)[c.i];
   if(!el)return;
+  /* Ler scrollHeight força o navegador a calcular o layout da caixa recém
+     criada. Sem isso ela ainda não tem altura e atribuir scrollTop é
+     silenciosamente descartado — a grade voltava para o topo. */
+  void el.scrollHeight;
   el.scrollTop=c.t;el.scrollLeft=c.l;
  });
  /* A página só volta ao lugar se ainda houver página para rolar: trocar de tela
@@ -3116,6 +3184,18 @@ function devolverRolagem(m){
   const max=document.documentElement.scrollHeight-window.innerHeight;
   if(max>8)window.scrollTo({top:Math.min(m.pagina,max),left:0,behavior:"instant"});
  }
+}
+let _cascoAtual=null;
+/* O que vive fora do miolo e ainda assim muda sozinho */
+function atualizarCasco(){
+ const lt=document.getElementById("lote");
+ if(lt)lt.outerHTML=barraLote();
+ const bc=document.getElementById("badge-con");
+ if(bc)bc.innerHTML=badgeConexao();
+ /* o item do menu marcado como ativo */
+ [].slice.call(document.querySelectorAll("aside .ni")).forEach(function(b){
+  const on=(b.getAttribute("onclick")||"").indexOf("'"+S.view+"'")>=0;
+  b.classList.toggle("on",on);});
 }
 function render(){
  refreshListas();
@@ -3178,6 +3258,22 @@ function render(){
   S.view==="usuarios"?vUsuarios():
   S.view==="auditoria"?vAuditoria():
   "";
+ /* ── Atualização silenciosa ──
+    Reescrever o #app inteiro a cada ação custa caro e, pior, destrói e
+    recria a grade: a rolagem some, o sticky recalcula e a tela pisca. Se
+    nada do casco mudou — tela, menu, tema, perfil — só o miolo é trocado,
+    e a grade, o cabeçalho e a barra lateral continuam onde estavam. */
+ const casco=[S.view,S.menu?1:0,S.tema,S.sessao.perfil,S.sessao.nome||""].join("|");
+ const trocouTela=casco!==_cascoAtual;
+ _cascoAtual=casco;
+ const wrapEl=document.querySelector(".wrap");
+ if(!trocouTela&&wrapEl){
+  wrapEl.classList.remove("entrando");
+  wrapEl.innerHTML=conteudo;
+  atualizarCasco();
+  devolverRolagem(memoria);
+  return;
+ }
  document.getElementById("app").innerHTML=
  '<div class="app"><aside class="'+(S.menu?"":"col")+'">'+
   '<div class="abr"><div class="alg" style="background:none;box-shadow:none">'+logoSVG(34)+'</div><div class="nlb" style="overflow:hidden">'+
@@ -3200,10 +3296,11 @@ function render(){
     '<span style="flex:1;font-size:12.5px;color:var(--t3)">Buscar frota, placa, motorista, componente…</span>'+
     '<span class="kbd">Ctrl K</span></div>'+
    '<div style="display:flex;align-items:center;gap:9px">'+
-    badgeConexao()+
+    '<span id="badge-con">'+badgeConexao()+'</span>'+
     '<button class="b3" onclick="toggleTema()" title="Alternar tema">'+(S.tema==="dark"?mi("sun"):mi("moon"))+'</button>'+
     (pode("criar")?'<button class="b1" onclick="modalFalha()">'+mi('plus')+' Registrar falha</button>':"")+
-   '</div></header><div class="wrap">'+conteudo+'</div></main>'+barraLote()+'</div>';
+   '</div></header><div class="wrap'+(trocouTela?" entrando":"")+'">'+conteudo+
+   '</div></main>'+barraLote()+'</div>';
  devolverRolagem(memoria);
 }
 /* Telas que foram agrupadas ou removidas: um link antigo, um atalho salvo
@@ -4875,105 +4972,127 @@ function vProgramacao(){
   faixaTer+linhas.map(faixa).join("")+
   '</div></div>';
 
- /* ── Fila de programação ──
-    Depois que o backlog entra, esta fila passa de cinco cartões para
-    dezenas. Uma tira que rola de lado escondia tudo a partir do quarto
-    item; agora é uma lista que se lê de cima a baixo, com busca, ordem
-    e um botão que distribui vários serviços de uma vez. */
+
+ /* ── Carteira de tarefas ("Em programação") ──
+    É daqui que sai a semana. Depois do backlog ela tem dezenas de itens, e
+    uma lista chapada de tudo misturado não ajuda a decidir nada. Aqui o
+    serviço vem agrupado por frota — porque quem programa pensa em caminhão,
+    não em item solto: se o cavalo vai parar, tudo dele entra junto — e cada
+    linha pode ser marcada. O que estiver marcado vai para a barra de baixo,
+    onde se escolhe de uma vez quem executa e em que dia. */
  const F=S.FIL;
  const qf=(F.q||"").trim().toLowerCase();
  const filaV=fila.filter(function(t){
+  if(F.tipo&&t.tipo!==F.tipo)return false;
   if(!qf)return true;
   return [t.os,t.frota,t.titulo,t.sistema,(TIPO_SERV[t.tipo]||{l:""}).l]
    .join(" ").toLowerCase().indexOf(qf)>=0;});
- const porFrota=function(a,b){
+ const porFrotaCmp=function(a,b){
   return String(a.frota||"").localeCompare(String(b.frota||""),"pt-BR",{numeric:true});};
  const ORD_FILA={
-  frota:{l:"Frota",f:porFrota},
-  pend:{l:"Mais pendências",f:function(a,b){return chkAbertas(b)-chkAbertas(a)||porFrota(a,b);}},
-  tipo:{l:"Tipo de serviço",f:function(a,b){
-    return String(a.tipo||"").localeCompare(String(b.tipo||""))||porFrota(a,b);}},
-  data:{l:"Data prevista",f:function(a,b){return (a.ini||0)-(b.ini||0)||porFrota(a,b);}}
+  frota:{l:"Frota",f:porFrotaCmp},
+  pend:{l:"Mais pendências",f:function(a,b){return chkAbertas(b)-chkAbertas(a)||porFrotaCmp(a,b);}},
+  tipo:{l:"Tipo",f:function(a,b){
+    return String(a.tipo||"").localeCompare(String(b.tipo||""))||porFrotaCmp(a,b);}},
+  data:{l:"Data prevista",f:function(a,b){return (a.ini||0)-(b.ini||0)||porFrotaCmp(a,b);}}
  };
  filaV.sort((ORD_FILA[F.ord]||ORD_FILA.frota).f);
  const pendFila=fila.reduce(function(n,t){return n+chkAbertas(t);},0);
+ const selecionadas=(F.sel||[]).filter(function(id){
+  return fila.some(function(t){return String(t.id)===String(id);});});
+ const estaSel=function(t){return selecionadas.indexOf(String(t.id))>=0;};
 
  const linhaFila=function(t){
   const tp=TIPO_SERV[t.tipo]||TIPO_SERV.corretiva;
   const nCh=chkTotal(t),nAb=chkAbertas(t);
-  return '<div class="fil-l" data-id="'+esc(t.id)+'"'+arrastavel(t)+
-   ' onclick="drawerTarefa('+qid(t.id)+')" title="'+esc(t.titulo)+'">'+
-   '<i class="fil-c" style="background:'+tp.c+'" title="'+tp.l+'"></i>'+
-   '<b class="fil-fr">'+esc(t.frota)+'</b>'+
-   '<span class="fil-tx">'+esc(t.titulo)+'</span>'+
-   '<span class="fil-tp tag" style="background:'+mix(tp.c,14)+';color:'+tp.c+'">'+tp.l+'</span>'+
+  const on=estaSel(t);
+  return '<div class="cart-l'+(on?" on":"")+'" data-id="'+esc(t.id)+'"'+arrastavel(t)+
+   ' onclick="alternarSelFila(event,'+qid(t.id)+')" title="'+esc(t.titulo)+'">'+
+   '<span class="cart-ck'+(on?" on":"")+'">'+(on?mi("check"):"")+'</span>'+
+   '<i class="cart-c" style="background:'+tp.c+'" title="'+tp.l+'"></i>'+
+   '<span class="cart-tx">'+esc(t.titulo)+'</span>'+
+   '<span class="cart-tp tag" style="background:'+mix(tp.c,14)+';color:'+tp.c+'">'+tp.l+'</span>'+
    '<span class="agt-os">'+mi("file")+esc(t.os)+'</span>'+
    (nCh?'<span class="agt-chk'+(nAb?"":" ok")+'" title="'+(nCh-nAb)+' de '+nCh+' pendências resolvidas">'+
      mi("check")+(nCh-nAb)+'/'+nCh+'</span>'
-    :'<span class="fil-sp">sem pendências</span>')+
+    :'<span class="fil-sp">—</span>')+
    (pode("editar")?'<button class="fil-go" onclick="event.stopPropagation();modalTarefa('+qid(t.id)+')" '+
-     'title="Definir dia e executante">'+mi("clock")+' Programar</button>':"")+
+     'title="Definir dia e executante">'+mi("clock")+'</button>':"")+
    '</div>';
  };
- const cartaoFila=function(t){
-  const tp=TIPO_SERV[t.tipo]||TIPO_SERV.corretiva;
-  const nCh=chkTotal(t),nAb=chkAbertas(t);
-  return '<div class="fil-t" style="border-left-color:'+tp.c+'" data-id="'+esc(t.id)+'"'+arrastavel(t)+
-   ' onclick="drawerTarefa('+qid(t.id)+')" title="'+esc(t.titulo)+'">'+
-   '<div class="fil-top"><span class="agt-os">'+mi("file")+esc(t.os)+'</span>'+
-    '<span class="tag" style="background:'+mix(tp.c,14)+';color:'+tp.c+'">'+tp.l+'</span></div>'+
-   '<b>'+esc(t.frota)+'</b><span class="fil-tt">'+esc(t.titulo)+'</span>'+
-   '<div class="fil-pe">'+
-    (nCh?'<span class="agt-chk'+(nAb?"":" ok")+'">'+mi("check")+(nCh-nAb)+'/'+nCh+'</span>':
-      '<span class="fil-sp">sem pendências</span>')+
-    (pode("editar")?'<button class="fil-go" onclick="event.stopPropagation();modalTarefa('+qid(t.id)+')" '+
-      'title="Definir dia e executante">'+mi("clock")+' Programar</button>':"")+
-   '</div></div>';
+
+ /* Agrupado por frota: o caminhão é a unidade de decisão */
+ const grupos={};const ordemG=[];
+ filaV.forEach(function(t){
+  const k=F.grupo==="frota"?(t.frota||"—"):"_";
+  if(!grupos[k]){grupos[k]=[];ordemG.push(k);}
+  grupos[k].push(t);});
+ const blocoGrupo=function(k){
+  const ts=grupos[k];
+  const fechado=!!F.fechados[k];
+  const nAb=ts.reduce(function(n,t){return n+chkAbertas(t);},0);
+  const todasSel=ts.every(estaSel);
+  if(F.grupo!=="frota")return ts.map(linhaFila).join("");
+  return '<div class="cart-g'+(fechado?" off":"")+'">'+
+   '<div class="cart-gh">'+
+    '<button class="cart-gt" onclick="dobrarGrupoFila('+qid(k)+')">'+
+     mi("arrowDown")+'<b>'+esc(k)+'</b>'+
+     '<span>'+ts.length+' serviço'+(ts.length>1?"s":"")+
+     (nAb?' · '+nAb+' pendência'+(nAb>1?"s":""):"")+'</span></button>'+
+    (pode("editar")?'<button class="cart-gs'+(todasSel?" on":"")+'" '+
+      'onclick="selecionarFrota('+qid(k)+')" title="'+
+      (todasSel?"Desmarcar":"Marcar")+' toda a frota">'+
+      (todasSel?mi("close"):mi("check"))+(todasSel?" Limpar":" Marcar tudo")+'</button>':"")+
+   '</div>'+
+   (fechado?"":'<div class="cart-gb">'+ts.map(linhaFila).join("")+'</div>')+
+  '</div>';
  };
 
- const barraFila=fila.length?'<div class="fil-bar">'+
+ const tipoChip=function(k,rot){
+  return '<button class="bfg'+(F.tipo===k?" on":"")+'" onclick="setFilaTipo('+qid(k)+')">'+rot+'</button>';};
+ const tiposNaFila=uniq(fila.map(function(t){return t.tipo;}));
+
+ const barraFila=fila.length?'<div class="cart-bar">'+
   '<label class="fil-bq">'+mi("search")+
    '<input class="inp" placeholder="Buscar frota, OS ou serviço…" value="'+esc(F.q||"")+'" '+
    'oninput="S.FIL.q=this.value;clearTimeout(window._fq);window._fq=setTimeout(render,220)"></label>'+
+  '<div class="cart-chips">'+tipoChip("","Todos")+
+   tiposNaFila.map(function(k){return tipoChip(k,(TIPO_SERV[k]||{l:k}).l);}).join("")+'</div>'+
   '<select class="inp fil-bo" onchange="S.FIL.ord=this.value;render()">'+
    Object.keys(ORD_FILA).map(function(k){
     return '<option value="'+k+'"'+(F.ord===k?" selected":"")+'>Ordem: '+ORD_FILA[k].l+'</option>';}).join("")+
   '</select>'+
   '<div class="fil-vw">'+
-   [["lista","clipboard","Lista"],["cards","paineis","Cartões"]].map(function(v){
-    return '<button class="'+(F.modo===v[0]?"on":"")+'" title="Ver em '+v[2]+'" '+
-     'onclick="S.FIL.modo='+qid(v[0])+';render()">'+mi(v[1])+'</button>';}).join("")+
+   [["frota","truck","Por frota"],["nenhum","clipboard","Lista corrida"]].map(function(v){
+    return '<button class="'+(F.grupo===v[0]?"on":"")+'" title="'+v[2]+'" '+
+     'onclick="S.FIL.grupo='+qid(v[0])+';render()">'+mi(v[1])+'</button>';}).join("")+
   '</div>'+
-  (pode("editar")&&filaV.length>1
-   ?'<button class="b2 fil-lote" onclick="abrirLote()" '+
-    'title="Escolher um dia e um executante e distribuir vários serviços de uma vez">'+
-    mi("clock")+' Programar em lote</button>':"")+
   '</div>':"";
 
  const corpoFila=fila.length
   ?(filaV.length
-    ?(F.modo==="cards"
-      ?'<div class="fil-lista">'+filaV.map(cartaoFila).join("")+'</div>'
-      :'<div class="fil-tab">'+filaV.map(linhaFila).join("")+'</div>')
-    :'<div class="fil-vazio">'+mi("search")+' Nenhum serviço da fila combina com “'+esc(F.q)+'”. '+
-     '<button class="fil-go" onclick="S.FIL.q=\'\';render()">Limpar busca</button></div>')
-  :'<div class="fil-vazio">'+mi("check")+' Nada na fila. '+
-   (pode("criar")?'Use <b>Adicionar à fila</b> para registrar um serviço que ainda vai ser encaixado.':
+    ?'<div class="cart-lista">'+ordemG.map(blocoGrupo).join("")+'</div>'
+    :'<div class="fil-vazio">'+mi("search")+' Nenhum serviço combina com esse filtro. '+
+     '<button class="fil-go" onclick="S.FIL.q=\'\';S.FIL.tipo=\'\';render()">Limpar</button></div>')
+  :'<div class="fil-vazio">'+mi("check")+' Carteira vazia. '+
+   (pode("criar")?'Use <b>Adicionar</b> para registrar um serviço que ainda vai ser encaixado.':
     'Nenhum serviço aguardando programação.');
 
- const painelFila='<div class="pn fu fil-pn'+(fila.length?"":" vazia")+'"'+
-  '>'+
+ /* Barra de ação: aparece com a primeira tarefa marcada */
+ const barraSel=selecionadas.length?montarBarraSel(selecionadas,fila):"";
+
+ const painelFila='<div class="pn fu fil-pn'+(fila.length?"":" vazia")+'">'+
   '<div class="ph" style="margin-bottom:11px"><div>'+
    '<div class="pt"><span class="fil-pt" style="background:'+ST_TAREFA.em_programacao.c+'"></span>'+
-    'Em programação'+(fila.length?' <span class="fil-n">'+fila.length+'</span>':"")+'</div>'+
-   '<div class="ps">Serviços já definidos que ainda não têm dia nem executante'+
-    (pendFila?' · <b>'+pendFila+'</b> pendência'+(pendFila>1?"s":"")+' aguardando':"")+
-    ' · arraste para a grade abaixo ou use <b>Programar</b></div></div>'+
+    'Carteira de tarefas'+(fila.length?' <span class="fil-n">'+fila.length+'</span>':"")+'</div>'+
+   '<div class="ps">Serviços definidos aguardando dia e executante'+
+    (pendFila?' · <b>'+pendFila+'</b> pendência'+(pendFila>1?"s":""):"")+
+    ' · marque para programar em lote, ou arraste um cartão para a grade</div></div>'+
    (pode("criar")?'<button class="b2" onclick="modalTarefa(null,null,null,true)">'+
-     mi("plus")+' Adicionar à fila</button>':"")+'</div>'+
-  barraFila+corpoFila+
+     mi("plus")+' Adicionar</button>':"")+'</div>'+
+  barraFila+corpoFila+barraSel+
   (fila.length&&filaV.length&&filaV.length!==fila.length
-   ?'<div class="fil-cont">'+filaV.length+' de '+fila.length+' na fila</div>':"")+
+   ?'<div class="fil-cont">'+filaV.length+' de '+fila.length+' na carteira</div>':"")+
   '</div>';
 
  const ad=aderencia(filtradas.filter(function(t){return !naFila(t);}),ini.getTime(),fim.getTime());
@@ -4984,7 +5103,9 @@ function vProgramacao(){
   {i:mi("refresh"),c:ST_TAREFA.em_programacao.c,v:fila.length,l:"Em programação",
    s:"aguardando encaixe",aj:"prog_fila"},
   {i:mi("check"),c:corA,v:ad.aderencia==null?"—":ad.aderencia+"%",l:"Aderência",
-   s:ad.concluidas+" de "+ad.total+" concluídas",aj:"prog_aderencia"},
+   s:ad.concluidas+" de "+ad.total+" concluídas"+
+    (ad.firme!=null&&ad.firme!==ad.aderencia?" · "+ad.firme+"% no plano original":""),
+   aj:"prog_aderencia"},
   {i:mi("warning"),c:"var(--cr)",v:ad.vencidas,l:"Vencidas",s:"passaram do prazo",
    p:ad.vencidas>0,aj:"prog_vencidas"},
   {i:mi("falhas"),c:"var(--or)",v:ad.pAbertas,l:"Pendências abertas",
@@ -5024,6 +5145,9 @@ function vProgramacao(){
     (S.sem!==0?'<button onclick="S.sem=0;render()">Hoje</button>':"")+
    '</div>'+
    '<div style="display:flex;gap:7px;align-items:center;flex-wrap:wrap">'+
+   '<button class="bfg" onclick="abrirRegistro()" '+
+    'title="O que mudou de data na programação e a aderência ao plano">'+
+    mi("historico")+(ad.remarcacoes?ad.remarcacoes+' mudança'+(ad.remarcacoes>1?"s":""):'Registro')+'</button>'+
    '<button class="bfg" onclick="imprimirProgramacao()" title="Imprimir ou salvar em PDF">'+mi("printer")+'Imprimir</button>'+
    (pode("editar")?'<button class="bfg" onclick="abrirImportBacklog()" '+
      'title="Trazer pendências da planilha de backlog">'+mi("upload")+'Backlog</button>':"")+
@@ -5906,50 +6030,98 @@ function soltarTarefa(ev,diaMs,mdoId){
   t.titulo+" → "+dOnly(novo)+" · "+quem);
 }
 /* Devolver à fila: tira o dia da mesa sem perder nada do que já foi escrito */
-/* ═══════════ PROGRAMAR EM LOTE ═══════════
-   Encaixar quarenta serviços um a um é o trabalho que o sistema existe para
-   poupar. Aqui se escolhe o executante, o dia de partida e quantos serviços
-   por dia: o resto é distribuído sozinho, pulando domingo e feriado. */
-function loteFila(){
- const F=S.FIL,q=(F.q||"").trim().toLowerCase();
- return filtrarTarefas(DB.tarefas()).filter(naFila).filter(function(t){
-  if(!q)return true;
-  return [t.os,t.frota,t.titulo,t.sistema].join(" ").toLowerCase().indexOf(q)>=0;})
-  .sort(function(a,b){
-   return String(a.frota||"").localeCompare(String(b.frota||""),"pt-BR",{numeric:true});});
+/* ═══════════ PROGRAMAR EM LOTE, POR SELEÇÃO ═══════════
+   O lote antigo pedia "quantos da fila" e "quantos por dia" — números que
+   ninguém tem na cabeça, e que escolhiam as tarefas pela ordem da lista em
+   vez de pelo julgamento de quem programa. Agora é o contrário: marca-se
+   uma a uma o que vai entrar, e só depois se decide para quem e para
+   quando. O que está marcado fica visível o tempo todo na barra de baixo. */
+function alternarSelFila(ev,id){
+ if(ev&&ev.target&&ev.target.closest("button"))return;
+ if(!pode("editar"))return drawerTarefa(id);
+ const k=String(id);
+ const i=S.FIL.sel.indexOf(k);
+ if(i<0)S.FIL.sel.push(k);else S.FIL.sel.splice(i,1);
+ /* Troca só a linha e a barra: redesenhar a tela a cada clique de marcação
+    tornava impossível marcar cinco itens seguidos. */
+ pintarSelFila();
 }
-function abrirLote(){
- if(!pode("editar"))return;
- const fila=loteFila();
- if(!fila.length)return toast("Fila vazia","Não há serviço em programação para distribuir.","aviso");
+function pintarSelFila(){
+ const sel=S.FIL.sel;
+ [].slice.call(document.querySelectorAll(".cart-l")).forEach(function(el){
+  const on=sel.indexOf(String(el.dataset.id))>=0;
+  el.classList.toggle("on",on);
+  const c=el.querySelector(".cart-ck");
+  if(c){c.classList.toggle("on",on);c.innerHTML=on?mi("check"):"";}
+ });
+ /* botão "marcar tudo" de cada frota acompanha */
+ [].slice.call(document.querySelectorAll(".cart-g")).forEach(function(g){
+  const linhas=[].slice.call(g.querySelectorAll(".cart-l"));
+  const todas=linhas.length&&linhas.every(function(el){return el.classList.contains("on");});
+  const b=g.querySelector(".cart-gs");
+  if(b){b.classList.toggle("on",!!todas);
+   b.innerHTML=(todas?mi("close")+" Limpar":mi("check")+" Marcar tudo");}
+ });
+ const antiga=document.getElementById("cart-sel");
+ const nova=montarBarraSel(sel,DB.tarefas().filter(naFila));
+ if(antiga&&nova){antiga.outerHTML=nova;}
+ else if(antiga){antiga.remove();}
+ else if(nova){const pn=document.querySelector(".fil-pn");
+  if(pn)pn.insertAdjacentHTML("beforeend",nova);}
+}
+function selecionarFrota(frota){
+ const ids=DB.tarefas().filter(naFila)
+  .filter(function(t){return String(t.frota||"—")===String(frota);})
+  .map(function(t){return String(t.id);});
+ const todas=ids.every(function(id){return S.FIL.sel.indexOf(id)>=0;});
+ if(todas)S.FIL.sel=S.FIL.sel.filter(function(id){return ids.indexOf(id)<0;});
+ else ids.forEach(function(id){if(S.FIL.sel.indexOf(id)<0)S.FIL.sel.push(id);});
+ pintarSelFila();
+}
+function limparSelFila(){S.FIL.sel=[];pintarSelFila();}
+function dobrarGrupoFila(k){S.FIL.fechados[k]=!S.FIL.fechados[k];render();}
+function setFilaTipo(k){S.FIL.tipo=(S.FIL.tipo===k?"":k);render();}
+
+/* A barra que aparece com a primeira tarefa marcada */
+function montarBarraSel(sel,fila){
+ const ids=(sel||[]).filter(function(id){
+  return fila.some(function(t){return String(t.id)===String(id);});});
+ if(!ids.length||!pode("editar"))return "";
+ const tarefas=ids.map(function(id){
+  return fila.find(function(t){return String(t.id)===String(id);});}).filter(Boolean);
+ const frotas=uniq(tarefas.map(function(t){return t.frota;}));
+ const pend=tarefas.reduce(function(n,t){return n+chkAbertas(t);},0);
  const equipe=DB.maoDeObra().filter(function(m){return m.ativo;});
- if(!equipe.length)return toast("Sem executantes","Cadastre a mão de obra antes de programar em lote.","aviso");
  if(!S.LOTE)S.LOTE={};
- S.LOTE.dia=S.LOTE.dia||isoDia(proximoUtil(Date.now()));
- S.LOTE.mdo=S.LOTE.mdo&&equipe.some(function(m){return m.id===S.LOTE.mdo;})?S.LOTE.mdo:equipe[0].id;
- S.LOTE.porDia=S.LOTE.porDia||2;
- S.LOTE.n=Math.min(fila.length,S.LOTE.n||fila.length);
- abrir('<div class="md" style="max-width:600px"><div class="ph"><div>'+
-  '<div class="pt">'+mi("clock")+' Programar em lote</div>'+
-  '<div class="ps">'+fila.length+' serviço(s) na fila · o sistema distribui pulando domingo e feriado</div></div>'+
-  '<button class="b3" onclick="fechar()">'+mi("close")+'</button></div>'+
-  '<div class="tf-g2" style="margin-top:0">'+
-   '<label class="cp"><span>Executante</span><select class="inp" id="lt-mdo" onchange="setLote()">'+
-    equipe.map(function(m){return '<option value="'+esc(m.id)+'"'+(S.LOTE.mdo===m.id?" selected":"")+'>'+
-     esc(m.nome)+(m.funcao?" · "+esc(m.funcao):"")+'</option>';}).join("")+'</select></label>'+
-   '<label class="cp"><span>A partir de</span>'+
-    '<input class="inp" id="lt-dia" type="date" value="'+esc(S.LOTE.dia)+'" onchange="setLote()"></label>'+
-   '<label class="cp"><span>Serviços por dia útil</span>'+
-    '<input class="inp" id="lt-pd" type="number" min="1" max="12" value="'+S.LOTE.porDia+'" oninput="setLote()"></label>'+
-   '<label class="cp"><span>Quantos da fila</span>'+
-    '<input class="inp" id="lt-n" type="number" min="1" max="'+fila.length+'" value="'+S.LOTE.n+'" oninput="setLote()">'+
-    '<span class="tf-dica">na ordem da lista, por frota</span></label>'+
+ if(!S.LOTE.dia)S.LOTE.dia=isoDia(proximoUtil(Date.now()));
+ if(!S.LOTE.mdo||!equipe.some(function(m){return m.id===S.LOTE.mdo;}))
+  S.LOTE.mdo=equipe.length?equipe[0].id:"";
+ return '<div class="cart-sel" id="cart-sel">'+
+  '<div class="cs-n"><b>'+ids.length+'</b><span>marcada'+(ids.length>1?"s":"")+
+   ' · '+frotas.length+' frota'+(frotas.length>1?"s":"")+
+   (pend?' · '+pend+' pendência'+(pend>1?"s":""):"")+'</span></div>'+
+  '<div class="cs-campos">'+
+   '<label><span>Executante</span><select class="inp" id="cs-mdo" onchange="S.LOTE.mdo=this.value">'+
+    (equipe.length?equipe.map(function(m){
+     return '<option value="'+esc(m.id)+'"'+(S.LOTE.mdo===m.id?" selected":"")+'>'+
+      esc(m.nome)+'</option>';}).join("")
+     :'<option value="">— sem mão de obra cadastrada —</option>')+
+   '</select></label>'+
+   '<label><span>A partir de</span>'+
+    '<input class="inp" id="cs-dia" type="date" value="'+esc(S.LOTE.dia)+'" '+
+    'onchange="S.LOTE.dia=this.value"></label>'+
+   '<label class="cs-mod"><span>Distribuição</span>'+
+    '<select class="inp" id="cs-modo" onchange="S.LOTE.modo=this.value">'+
+    [["mesmo","Tudo no mesmo dia"],["seq","Um por dia útil"],["dois","Dois por dia útil"]]
+     .map(function(o){return '<option value="'+o[0]+'"'+
+      ((S.LOTE.modo||"mesmo")===o[0]?" selected":"")+'>'+o[1]+'</option>';}).join("")+
+    '</select></label>'+
   '</div>'+
-  '<div class="lt-prev" id="lt-prev"></div>'+
-  '<div class="md-ac">'+
-  '<button class="b2" onclick="fechar()">Cancelar</button>'+
-  '<button class="b1" onclick="aplicarLote()">'+mi("check")+' Programar</button></div></div>');
- previaLote();
+  '<div class="cs-acoes">'+
+   '<button class="b3" onclick="limparSelFila()" title="Desmarcar tudo">'+mi("close")+'</button>'+
+   '<button class="b1" onclick="programarSelecionadas()"'+(equipe.length?"":" disabled")+'>'+
+    mi("check")+' Programar</button></div>'+
+  '</div>';
 }
 /* Primeiro dia com expediente a partir de uma data */
 function proximoUtil(ms){
@@ -5957,63 +6129,61 @@ function proximoUtil(ms){
  while(ehFolga(d)&&g++<400)d+=DIA;
  return d;
 }
-function setLote(){
- const g=function(i){const e=document.getElementById(i);return e?e.value:"";};
- S.LOTE.mdo=g("lt-mdo");S.LOTE.dia=g("lt-dia");
- S.LOTE.porDia=Math.max(1,Math.min(12,Number(g("lt-pd"))||1));
- S.LOTE.n=Math.max(1,Number(g("lt-n"))||1);
- previaLote();
-}
-/* O plano: quem, em que dia, quantos — antes de gravar nada */
-function planoLote(){
- const fila=loteFila().slice(0,S.LOTE.n);
- if(!S.LOTE.dia||!fila.length)return[];
- let d=proximoUtil(new Date(S.LOTE.dia+"T12:00").getTime());
- const plano=[];let g=0;
- while(fila.length&&g++<500){
-  const doDia=fila.splice(0,S.LOTE.porDia);
-  plano.push({dia:d,tarefas:doDia});
-  d=proximoUtil(d+DIA);
- }
- return plano;
-}
-function previaLote(){
- const el=document.getElementById("lt-prev");
- if(!el)return;
- const plano=planoLote();
- if(!plano.length)return el.innerHTML='<span style="color:var(--t3)">Informe a data de partida.</span>';
- const m=DB.maoDeObra().find(function(x){return x.id===S.LOTE.mdo;});
- const ult=plano[plano.length-1].dia;
- el.innerHTML='<div style="color:var(--t1);font-weight:700;margin-bottom:6px">'+
-  plano.reduce(function(n,p){return n+p.tarefas.length;},0)+' serviço(s) para <b>'+esc(m?m.nome:"—")+
-  '</b> em '+plano.length+' dia(s) útil(eis), até '+dOnly(ult)+'</div>'+
-  plano.map(function(p){
-   return '<div class="lt-d"><span>'+p.tarefas.map(function(t){return esc(t.frota);}).join(", ")+
-    '</span><i>'+dOnly(p.dia)+'</i></div>';}).join("");
-}
-function aplicarLote(){
+function programarSelecionadas(){
  if(!pode("editar"))return;
- const plano=planoLote();
- if(!plano.length)return toast("Nada a programar","Confira a data e a quantidade.","aviso");
+ const g=function(i){const e=document.getElementById(i);return e?e.value:"";};
+ S.LOTE.mdo=g("cs-mdo")||S.LOTE.mdo;
+ S.LOTE.dia=g("cs-dia")||S.LOTE.dia;
+ S.LOTE.modo=g("cs-modo")||S.LOTE.modo||"mesmo";
+ if(!S.LOTE.mdo)return toast("Sem executante","Cadastre a mão de obra antes de programar.","aviso");
+ if(!S.LOTE.dia)return toast("Sem data","Escolha o dia de partida.","aviso");
  const tars=DB.tarefas();
- let n=0;
- plano.forEach(function(p){
-  p.tarefas.forEach(function(t){
-   const i=tars.findIndex(function(x){return String(x.id)===String(t.id);});
-   if(i<0)return;
-   const nd=diasTarefa(tars[i]);
-   tars[i]=Object.assign({},tars[i],{ini:p.dia,fim:fimDoDia(p.dia+(nd-1)*DIA),
-    equipe:[S.LOTE.mdo],status:"programada"});
-   n++;});
+ const ids=S.FIL.sel.slice();
+ /* Mantém a ordem em que aparecem na carteira, não a ordem dos cliques */
+ const alvo=tars.filter(function(t){return ids.indexOf(String(t.id))>=0&&naFila(t);})
+  .sort(function(a,b){return String(a.frota||"").localeCompare(String(b.frota||""),"pt-BR",{numeric:true});});
+ if(!alvo.length)return toast("Nada marcado","Marque as tarefas que vão para a programação.","aviso");
+ const porDia=S.LOTE.modo==="seq"?1:S.LOTE.modo==="dois"?2:alvo.length;
+ let dia=proximoUtil(new Date(S.LOTE.dia+"T12:00").getTime());
+ let noDia=0,n=0,dias=1;
+ const antes=alvo.map(function(t){return JSON.parse(JSON.stringify(t));});
+ alvo.forEach(function(t){
+  if(noDia>=porDia){dia=proximoUtil(dia+DIA);noDia=0;dias++;}
+  const i=tars.findIndex(function(x){return String(x.id)===String(t.id);});
+  const nd=diasTarefa(tars[i]);
+  tars[i]=Object.assign({},tars[i],{ini:dia,fim:fimDoDia(dia+(nd-1)*DIA),
+   equipe:[S.LOTE.mdo],status:"programada",
+   criadaPara:tars[i].criadaPara||dia});
+  noDia++;n++;
  });
- if(!n)return toast("Nada mudou","Os serviços da fila não foram encontrados.","aviso");
+ _desfazerLote={antes:antes,rotulo:n+" serviço(s) do lote"};
+ _desfazer=null;
  DB.setTarefas(tars);
  const m=DB.maoDeObra().find(function(x){return x.id===S.LOTE.mdo;});
- DB.log("editar","tarefa","",n+" serviços programados em lote para "+(m?m.nome:"—")+
-  " a partir de "+dOnly(plano[0].dia));
- fechar();render();
- toast("Programado em lote",n+" serviço(s) distribuídos para "+(m?m.nome:"—")+
-  " em "+plano.length+" dia(s)","ok");
+ DB.log("editar","tarefa","",n+" serviço(s) programados em lote para "+
+  (m?m.nome:"—")+" a partir de "+dOnly(dia));
+ S.FIL.sel=[];
+ render();
+ toastDesfazerLote("Programado em lote",
+  n+" serviço(s) para "+(m?m.nome:"—")+(dias>1?" em "+dias+" dias":" em "+dOnly(dia)));
+}
+/* Desfazer de um lote inteiro, não de uma tarefa só */
+let _desfazerLote=null;
+function desfazerLote(){
+ if(!_desfazerLote)return;
+ const d=_desfazerLote;_desfazerLote=null;
+ const tars=DB.tarefas();
+ d.antes.forEach(function(a){
+  const i=tars.findIndex(function(x){return String(x.id)===String(a.id);});
+  if(i>=0)tars[i]=a;});
+ DB.setTarefas(tars);
+ DB.log("editar","tarefa","","Desfeito: "+d.rotulo);
+ const t=document.getElementById("toast-desfazer");if(t)t.remove();
+ render();
+ toast("Desfeito",d.rotulo+" voltou para a carteira","ok");
+}
+function toastDesfazerLote(titulo,texto){
+ toastDesfazerBase(titulo,texto,"desfazerLote()");
 }
 function soltarNaFila(ev,idDireto){
  if(ev&&ev.preventDefault)ev.preventDefault();
@@ -6368,8 +6538,10 @@ function menuStatus(ev,id){
  m.style.top=((r.bottom+alt>window.innerHeight)?Math.max(6,r.top-alt-4):r.bottom+4)+"px";
  setTimeout(function(){document.addEventListener("click",fecharMenuStatus);},0);
 }
-function fecharMenuStatus(){
+function fecharMenuStatus(e){
+ /* Clique dentro do próprio menu é do item, não é "clicar fora" */
  const m=document.getElementById("stmenu");
+ if(e&&e.target&&m&&m.contains(e.target))return;
  if(m)m.remove();
  document.removeEventListener("click",fecharMenuStatus);
 }
@@ -6961,13 +7133,126 @@ function aderencia(tarefas,ini,fim){
  // Pendências de todas as tarefas da janela
  let pTotal=0,pAbertas=0;
  janela.forEach(function(t){pTotal+=chkTotal(t);pAbertas+=chkAbertas(t);});
+ /* ── Aderência ao plano, e não só à data de hoje ──
+    Medir a conclusão contra a data ATUAL da tarefa premia quem empurra o
+    serviço para a frente: reprogramou, a data virou outra, e o indicador
+    continua verde. A aderência firme compara com a data para a qual a
+    tarefa foi programada da PRIMEIRA vez — é ela que diz se o plano da
+    semana foi cumprido. O deslize é quantos dias, em média, o serviço
+    andou para longe do combinado. */
+ const reprogramadas=janela.filter(function(t){return (t.remarcacoes||[]).length;});
+ const firmes=concluidas.filter(function(t){
+  const alvo=t.criadaPara||t.ini;
+  return t.concluidaEm&&t.concluidaEm<=fimDoDia(alvo);});
+ let desliz=0,nDesliz=0;
+ reprogramadas.forEach(function(t){
+  const alvo=t.criadaPara||t.ini;
+  const d=Math.round((iniDoDia(t.ini)-iniDoDia(alvo))/DIA);
+  if(d>0){desliz+=d;nDesliz++;}});
  return{total:total,concluidas:concluidas.length,vencidas:vencidas.length,
   emDia:emDia.length,atrasadas:atrasadas.length,
   aderencia:total?Math.round(concluidas.length/total*100):null,
   pontualidade:concluidas.length?Math.round(emDia.length/concluidas.length*100):null,
+  reprogramadas:reprogramadas.length,
+  remarcacoes:reprogramadas.reduce(function(n,t){return n+(t.remarcacoes||[]).length;},0),
+  firme:total?Math.round(firmes.length/total*100):null,
+  deslizeMedio:nDesliz?Math.round(desliz/nDesliz*10)/10:0,
   dPrev:dPrev,dFeitos:dFeitos,
   pTotal:pTotal,pAbertas:pAbertas,
   pConcluidas:pTotal?Math.round((pTotal-pAbertas)/pTotal*100):null};
+}
+/* ═══════════ REGISTRO DA PROGRAMAÇÃO ═══════════
+   Toda mudança de data já ficava gravada na tarefa. Faltava o lugar onde
+   ler tudo junto: o que saiu do lugar na semana, quantos dias andou, por
+   quem e por quê — que é a conversa da reunião de segunda-feira. */
+function movimentosDoPeriodo(ini,fim){
+ const mov=[];
+ DB.tarefas().forEach(function(t){
+  (t.remarcacoes||[]).forEach(function(r){
+   if(r.ts<ini||r.ts>fim)return;
+   mov.push({tarefa:t,de:r.de,para:r.para,ts:r.ts,quem:r.quem||"",motivo:r.motivo||"",
+    dias:Math.round((iniDoDia(r.para)-iniDoDia(r.de))/DIA)});});
+ });
+ return mov.sort(function(a,b){return b.ts-a.ts;});
+}
+function abrirRegistro(){
+ const ini=inicioSemana(S.sem),fim=new Date(ini);fim.setDate(fim.getDate()+7);
+ const lista=DB.tarefas().filter(function(t){
+  return !naFila(t)&&t.ini<fim.getTime()&&t.fim>=ini.getTime();});
+ const a=aderencia(lista,ini.getTime(),fim.getTime());
+ /* Movimentos gravados na semana inteira, mesmo os de tarefa que já saiu */
+ const mov=movimentosDoPeriodo(ini.getTime()-30*DIA,Date.now());
+ const num=function(v,rot,sub,cor){
+  return '<div class="rg-n"'+(cor?' style="border-color:'+cor+'"':"")+'>'+
+   '<b'+(cor?' style="color:'+cor+'"':"")+'>'+v+'</b><span>'+rot+'</span>'+
+   (sub?'<i>'+sub+'</i>':"")+'</div>';};
+ const corA=a.aderencia==null?"var(--t2)":(a.aderencia>=85?"var(--ok)":a.aderencia>=60?"var(--wr)":"var(--cr)");
+ const corF=a.firme==null?"var(--t2)":(a.firme>=85?"var(--ok)":a.firme>=60?"var(--wr)":"var(--cr)");
+ abrir('<div class="md" style="max-width:660px"><div class="ph"><div>'+
+  '<div class="pt">'+mi("historico")+' Registro da programação</div>'+
+  '<div class="ps">Semana de '+dOnly(ini.getTime())+' · o que foi combinado e o que mudou</div></div>'+
+  '<button class="b3" onclick="fechar()">'+mi("close")+'</button></div>'+
+  '<div class="rg-nums">'+
+   num(a.total,"programados","na semana")+
+   num((a.aderencia==null?"—":a.aderencia+"%"),"concluídos",a.concluidas+" de "+a.total,corA)+
+   num((a.firme==null?"—":a.firme+"%"),"no plano original","sem contar remarcação",corF)+
+   num(a.reprogramadas,"reprogramados",a.remarcacoes+" mudança(s)",a.reprogramadas?"var(--wr)":"")+
+   num(a.deslizeMedio?("+"+a.deslizeMedio+"d"):"—","deslize médio","quanto andou para frente")+
+   num(a.vencidas,"vencidos","passaram do prazo",a.vencidas?"var(--cr)":"")+
+  '</div>'+
+  '<div class="lt-av">'+mi("bulb")+'<span><b>Concluídos</b> mede contra a data atual da tarefa. '+
+   '<b>No plano original</b> mede contra a data da primeira programação — é a que mostra se '+
+   'a semana combinada foi cumprida, porque reprogramar não melhora esse número.</span></div>'+
+  '<div class="tf-sec">Mudanças de data</div>'+
+  (mov.length?'<div class="rg-lista">'+mov.slice(0,80).map(function(m){
+    return '<div class="rg-i">'+
+     '<div class="rg-t"><b>'+esc(m.tarefa.frota)+'</b><span>'+esc(m.tarefa.titulo)+'</span></div>'+
+     '<div class="rg-d"><span>'+dOnly(m.de)+'</span>'+mi("arrowRight")+
+      '<span>'+dOnly(m.para)+'</span>'+
+      '<i class="'+(m.dias>0?"atr":"ant")+'">'+(m.dias>0?"+":"")+m.dias+'d</i></div>'+
+     '<div class="rg-q">'+esc(m.quem||"—")+'<span>'+dt(m.ts)+'</span></div>'+
+     (m.motivo?'<div class="rg-m">'+esc(m.motivo)+'</div>':
+      (pode("editar")?'<button class="rg-add" onclick="anotarMotivo('+qid(m.tarefa.id)+','+m.ts+')">'+
+       mi("edit")+' Anotar motivo</button>':""))+
+    '</div>';}).join("")+'</div>'
+   :'<div class="fil-vazio" style="padding:16px 2px">'+mi("check")+
+    ' Nenhuma tarefa mudou de data nos últimos 30 dias.</div>')+
+  '<div class="md-ac"><button class="b2" onclick="fechar()">Fechar</button>'+
+  '<button class="b1" onclick="fechar();abrirExportacao()">'+mi("download")+
+   ' Exportar período</button></div></div>');
+}
+/* Por que a tarefa andou: dá para anotar depois, sem travar o arraste */
+function anotarMotivo(id,ts){
+ const t=DB.tarefas().find(function(x){return String(x.id)===String(id);});
+ if(!t)return;
+ const r=(t.remarcacoes||[]).find(function(x){return x.ts===ts;});
+ if(!r)return;
+ const MOTIVOS=["Falta de peça","Falta de mão de obra","Veículo em viagem",
+  "Prioridade maior entrou","Oficina cheia","Aguardando terceiro","Erro de programação"];
+ abrir('<div class="md" style="max-width:440px"><div class="ph"><div>'+
+  '<div class="pt">'+mi("edit")+' Por que mudou de data?</div>'+
+  '<div class="ps">'+esc(t.frota)+' · '+dOnly(r.de)+' → '+dOnly(r.para)+'</div></div>'+
+  '<button class="b3" onclick="fechar()">'+mi("close")+'</button></div>'+
+  '<div class="tf-atalhos">'+MOTIVOS.map(function(m){
+   return '<button type="button" class="bfg" onclick="salvarMotivo('+qid(id)+','+ts+','+qid(m)+')">'+
+    esc(m)+'</button>';}).join("")+'</div>'+
+  '<label class="cp" style="margin-top:11px"><span>Ou escreva</span>'+
+   '<input class="inp" id="mot-txt" value="'+esc(r.motivo||"")+'" placeholder="Motivo…" '+
+   'onkeydown="if(event.key===&quot;Enter&quot;){event.preventDefault();'+
+   'salvarMotivo('+qid(id)+','+ts+',this.value);}"></label>'+
+  '<div class="md-ac"><button class="b2" onclick="fechar()">Cancelar</button>'+
+  '<button class="b1" onclick="salvarMotivo('+qid(id)+','+ts+','+
+   'document.getElementById(&quot;mot-txt&quot;).value)">'+mi("check")+
+   ' Salvar</button></div></div>');
+}
+function salvarMotivo(id,ts,motivo){
+ const tars=DB.tarefas(),i=tars.findIndex(function(x){return String(x.id)===String(id);});
+ if(i<0||!pode("editar"))return;
+ tars[i]=Object.assign({},tars[i],{remarcacoes:(tars[i].remarcacoes||[]).map(function(r){
+  return r.ts===ts?Object.assign({},r,{motivo:String(motivo||"").trim()}):r;})});
+ DB.setTarefas(tars);
+ DB.log("editar","tarefa",tars[i].frota,"Motivo da reprogramação: "+motivo);
+ fechar();abrirRegistro();
 }
 function contarFP(){return Object.keys(S.FP).filter(function(k){return S.FP[k];}).length;}
 function chipsFP(){
@@ -10074,10 +10359,12 @@ function abrirImpressao(){
    chk("pend","Pendências","checklist para marcar")+
    chk("desc","Descrição do serviço")+
    chk("assinatura","Linha de assinatura","executado por, data e visto")+
+   chk("terceiros","Serviços terceirizados","executados por empresa externa")+
    chk("concluidas","Concluídas")+
    chk("canceladas","Canceladas")+
-   chk("fila","Fila “Em programação”","o que ainda não tem dia")+
+   chk("fila","Carteira","o que ainda não tem dia")+
    chk("compacto","Modo compacto","mais serviços por página")+
+   chk("zebra","Linhas alternadas","facilita seguir a linha na bancada")+
   '</div>'+
 
   '<div class="tf-sec">Filtrar</div>'+
@@ -10130,6 +10417,9 @@ function dadosFolha(){
  const d0=iniDoDia(new Date(o.de+"T12:00").getTime());
  const d1=fimDoDia(new Date(o.ate+"T12:00").getTime());
  const passa=function(t){
+  /* Serviço que está fora da oficina não entra na folha da bancada quando
+     o PCM não quer — é a folha de quem executa, não a lista de cobrança. */
+  if(t.terceirizada&&!o.terceiros)return false;
   if(t.status==="concluida"&&!o.concluidas)return false;
   if(t.status==="cancelada"&&!o.canceladas)return false;
   if(o.mdo&&(t.equipe||[]).indexOf(o.mdo)<0)return false;
@@ -10159,6 +10449,12 @@ function impResumo(){
   (d.fila.length?' · <b>'+d.fila.length+'</b> na fila':"");
 }
 /* Nome do responsável, do jeito que a oficina lê */
+/* Com pendências designadas a gente diferente, a folha precisa dizer de quem
+   é cada item — senão o mecânico marca o que é do eletricista. */
+function quemPend(it){
+ const m=execDaPend(it);
+ return m?' <span class="pr-quem">'+esc(primeiroNome(m.nome))+'</span>':"";
+}
 /* Alguns bancos já guardam a OS com o prefixo; não repetir "OS OS001" */
 function rotuloOS(os){
  const v=String(os==null?"":os).trim();
@@ -10201,7 +10497,7 @@ function gerarFolha(){
    (o.desc&&t.descricao?'<div class="pr-desc">'+esc(t.descricao)+'</div>':"")+
    (o.pend?((t.checklist||[]).length
     ?'<div class="pr-chk"><div class="pr-chk-t">Pendências ('+feitas.length+'/'+(t.checklist||[]).length+')</div>'+
-     abertas.map(function(i){return '<div class="pr-i">☐ '+esc(i.texto)+'</div>';}).join("")+
+     abertas.map(function(i){return '<div class="pr-i">☐ '+esc(i.texto)+quemPend(i)+'</div>';}).join("")+
      feitas.map(function(i){return '<div class="pr-i ok">☑ '+esc(i.texto)+'</div>';}).join("")+'</div>'
     :'<div class="pr-chk"><div class="pr-i vazio">Sem pendências registradas</div></div>'):"")+
    (o.assinatura?'<div class="pr-ass"><span>Executado por: ____________________</span>'+
@@ -10234,7 +10530,9 @@ function gerarFolha(){
   const ts=grupos[k].slice().sort(function(a,b){return a.ini-b.ini||String(a.frota).localeCompare(String(b.frota));});
   const nd=ts.reduce(function(n,t){return n+diasTarefa(t);},0);
   const np=ts.reduce(function(n,t){return n+chkAbertas(t);},0);
-  return '<div class="pr-resp"><div class="pr-resp-h"><b>'+rotuloGrupo(k)+'</b>'+
+  const frotas=uniq(ts.map(function(t){return t.frota;})).length;
+  return '<div class="pr-resp"><div class="pr-resp-h"><b>'+rotuloGrupo(k)+
+   (o.agrupar!=="frota"&&frotas>1?'<em>'+frotas+' frotas</em>':"")+'</b>'+
    '<span>'+ts.length+' serviço(s)'+(o.agrupar==="dia"?"":" · "+nd+" dia(s) de serviço")+
    (np?' · '+np+' pendência(s)':"")+'</span></div>'+
    ts.map(function(t){return bloco(t,o.agrupar!=="mdo");}).join("")+'</div>';}).join("");
@@ -10252,10 +10550,12 @@ function gerarFolha(){
  const pendTot=d.tarefas.reduce(function(n,t){return n+chkTotal(t);},0);
  const atrasadas=d.tarefas.filter(function(t){
   return t.status!=="concluida"&&t.status!=="cancelada"&&t.fim<Date.now();}).length;
+ const reprog=d.tarefas.filter(function(t){return (t.remarcacoes||[]).length;}).length;
  const resumo=o.resumo?'<div class="pr-rs">'+
   '<div class="pr-rsn">'+
    [[d.tarefas.length,"serviços"],[uniq(d.tarefas.map(function(t){return t.frota;})).length,"frotas"],
-    [d.dias,"dias úteis"],[pendAb+"/"+pendTot,"pendências abertas"],[atrasadas,"vencidos"]]
+    [d.dias,"dias úteis"],[pendAb+"/"+pendTot,"pendências abertas"],[atrasadas,"vencidos"],
+    [reprog,"reprogramados"]]
    .map(function(x){return '<div><b>'+x[0]+'</b><span>'+x[1]+'</span></div>';}).join("")+'</div>'+
   linhaConta("Situação",conta(d.tarefas,function(t){return t.status;}),
    function(k){return (ST_TAREFA[k]||{l:k}).l;})+
@@ -10304,10 +10604,15 @@ function gerarFolha(){
   '.pr-rsb span{border:1px solid #ccc;border-left-width:3px;border-radius:3px;padding:1px 6px}'+
   '.pr-rsb i{font-style:normal;font-weight:700}'+
   '.pr-resp{margin-bottom:'+(o.compacto?"9":"14")+'px;break-inside:avoid}'+
-  '.pr-resp-h{background:#1a2744;color:#fff;padding:5px 10px;border-radius:4px 4px 0 0;'+
+  '.pr-resp-h{background:#1a2744;color:#fff;padding:6px 10px;border-radius:4px 4px 0 0;'+
    'display:flex;justify-content:space-between;align-items:center;gap:10px}'+
-  '.pr-resp-h b{font-size:12.5px}.pr-resp-h span{font-size:10px;opacity:.85;white-space:nowrap}'+
+  '.pr-resp-h b{font-size:13px;letter-spacing:.2px}'+
+  '.pr-resp-h span{font-size:10px;opacity:.9;white-space:nowrap}'+
+  '.pr-resp-h em{font-style:normal;background:rgba(255,255,255,.16);border-radius:3px;'+
+   'padding:1px 6px;font-size:9.5px;font-weight:700;margin-left:6px}'+
   '.pr-t{border:1px solid #ccc;border-top:none;padding:'+(o.compacto?"5px 8px":"8px 10px")+';break-inside:avoid}'+
+  (o.zebra?'.pr-t:nth-child(odd){background:#f6f8fb}':"")+
+  '.pr-t:last-child{border-radius:0 0 4px 4px}'+
   '.pr-t-h{display:flex;gap:7px;align-items:baseline;flex-wrap:wrap}'+
   '.pr-box{width:11px;height:11px;border:1.4px solid #444;border-radius:2px;display:inline-block;'+
    'flex-shrink:0;align-self:center}'+
@@ -10323,6 +10628,8 @@ function gerarFolha(){
   '.pr-chk-t{font-size:9.5px;text-transform:uppercase;letter-spacing:.4px;color:#777;margin-bottom:2px}'+
   '.pr-i{font-size:10.5px;line-height:'+(o.compacto?"1.35":"1.5")+'}'+
   '.pr-i.ok{color:#777;text-decoration:line-through}'+
+  '.pr-quem{font-size:9px;font-weight:700;background:#e8eeff;color:#1a3a8f;'+
+   'border-radius:3px;padding:0 5px;margin-left:4px}'+
   '.pr-i.vazio{color:#999;font-style:italic}'+
   '.pr-ass{display:flex;gap:16px;margin-top:7px;padding-top:5px;border-top:1px dashed #ccc;'+
    'font-size:9.5px;color:#666;flex-wrap:wrap}'+
@@ -10332,7 +10639,9 @@ function gerarFolha(){
   '.pr-fli+.pr-fli{border-top:1px dotted #ddd}'+
   '.pr-fli b{min-width:64px}.pr-fli span{flex:1}'+
   '.pr-fli i{font-style:normal;color:#777;font-size:9.5px;white-space:nowrap}'+
-  '.pr-rod{margin-top:14px;padding-top:6px;border-top:1px solid #ccc;font-size:9px;color:#888;'+
+  '.pr-fecho{display:flex;gap:20px;justify-content:space-between;margin-top:18px;'+
+   'padding-top:12px;border-top:1px solid #999;font-size:10px;color:#444;break-inside:avoid}'+
+  '.pr-rod{margin-top:10px;padding-top:6px;border-top:1px solid #ccc;font-size:9px;color:#888;'+
    'display:flex;justify-content:space-between}'+
   '@media print{.pr-bar{display:none}.pr-resp{page-break-inside:avoid}}'+
   '</style></head><body>'+
@@ -10341,10 +10650,14 @@ function gerarFolha(){
    '<button onclick="window.print()">Imprimir</button></div>'+
   '<div class="pr-cab"><div><h1>Programação de Serviços</h1>'+
    '<div class="sub">'+esc(d.rotulo)+' · agrupado por '+esc(IMP_AGRUPAR[o.agrupar].l.toLowerCase())+'</div>'+
-   (filtros?'<div class="sub">'+esc(filtros)+'</div>':"")+'</div>'+
+   (filtros?'<div class="sub">'+esc(filtros)+'</div>':"")+
+   (!o.terceiros?'<div class="sub">Sem serviços terceirizados</div>':"")+'</div>'+
    '<div class="dir">Makro Transportes<br>Emitido em '+dt(Date.now())+
    '<br>'+d.tarefas.length+' serviço(s)</div></div>'+
   resumo+corpo+filaBloco+
+  '<div class="pr-fecho"><span>Programado por: ____________________________</span>'+
+   '<span>Conferido por: ____________________________</span>'+
+   '<span>Data: ____/____/________</span></div>'+
   '<div class="pr-rod"><span>'+esc(SISTEMA_NOME)+'</span>'+
    '<span>As OS são abertas no Protheus</span></div>'+
   '</body></html>');
@@ -10449,7 +10762,8 @@ function desfazerUltima(){
 }
 /* Aviso com o botão de voltar atrás. O toast comum escapa o texto — este
    precisa de um botão dentro, então monta o próprio elemento. */
-function toastDesfazer(titulo,texto){
+function toastDesfazer(titulo,texto){return toastDesfazerBase(titulo,texto,"desfazerUltima()");}
+function toastDesfazerBase(titulo,texto,acao){
  let c=document.getElementById("toasts");
  if(!c){c=document.createElement("div");c.id="toasts";document.body.appendChild(c);}
  const velho=document.getElementById("toast-desfazer");if(velho)velho.remove();
@@ -10460,7 +10774,7 @@ function toastDesfazer(titulo,texto){
   ';color:var(--ok)">'+mi("check")+'</span>'+
   '<div style="flex:1;min-width:0"><div class="tt">'+esc(titulo)+'</div>'+
   '<div class="td">'+esc(texto)+'</div></div>'+
-  '<button class="tst-und" onclick="desfazerUltima()">'+mi("refresh")+' Desfazer</button>';
+  '<button class="tst-und" onclick="'+acao+'">'+mi("refresh")+' Desfazer</button>';
  c.appendChild(t);
  setTimeout(function(){if(t.parentNode){t.className="toast out";
   setTimeout(function(){t.remove();},280);}},7000);
@@ -10587,13 +10901,21 @@ function menuTarefa(id,x,y){
  m.style.top=Math.max(6,(y+r.height>window.innerHeight-8)
   ?Math.max(6,y-r.height):y)+"px";
  setTimeout(function(){
-  document.addEventListener("pointerdown",fecharMenuTarefa,true);
+  document.addEventListener("pointerdown",_ctxFora,true);
   document.addEventListener("keydown",_ctxEsc,true);},0);
+}
+/* Fecha no pointerdown, mas só quando ele cai FORA do menu. Sem esta
+   conferência o menu se removia do DOM antes do clique chegar ao item —
+   pointerdown vem antes de click — e nenhuma opção funcionava. */
+function _ctxFora(e){
+ const m=document.getElementById("ctxm");
+ if(m&&e.target&&m.contains(e.target))return;
+ fecharMenuTarefa();
 }
 function fecharMenuTarefa(){
  const m=document.getElementById("ctxm");
  if(m)m.remove();
- document.removeEventListener("pointerdown",fecharMenuTarefa,true);
+ document.removeEventListener("pointerdown",_ctxFora,true);
  document.removeEventListener("keydown",_ctxEsc,true);
 }
 function _ctxEsc(e){if(e.key==="Escape")fecharMenuTarefa();}
