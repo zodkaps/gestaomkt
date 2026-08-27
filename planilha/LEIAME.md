@@ -1,122 +1,88 @@
 # Programação de Serviços — planilha
 
-`Programacao_Servicos_Makro.xlsx` substitui o módulo de programação do site.
+`Programacao_Servicos_Makro.xlsx` é a programação semanal da oficina.
 
 ## A unidade é a atividade
 
 Cada linha é uma ATIVIDADE — o que antes era uma "pendência" dentro da
-tarefa: *trocar as lonas*, *regular a catraca*. Um serviço com três
-atividades ocupa três linhas.
+tarefa. Um serviço com três atividades ocupa três linhas.
 
 ```
-Aderência = atividades concluídas ÷ atividades programadas no período
+Aderência à programação = concluídas do plano ÷ atividades do plano
 ```
 
-Se duas saírem e uma ficar, a aderência mostra 67%: nem some da conta, nem
-finge que fechou.
+## O que fica fora da conta interna
 
-## Até três executantes por atividade
+| Fora | Por quê |
+|---|---|
+| Empresa terceirizada | serviço de fora, não mede a oficina da Makro |
+| Extra programação | não se cobra cumprimento do que nunca foi programado |
+| Cancelada | sai dos dois lados da divisão |
 
-Três colunas — **Executante 1, 2 e 3** — cada uma com sua caixa de seleção.
-Serviço feito a quatro mãos entra na carga de cada um na aba Semana e na
-Aderência, e conta **uma vez só** no total da oficina.
+Ao lado da aderência fica o **cumprimento geral**, que inclui o extra. A
+distância entre os dois é o tamanho do imprevisto da semana.
 
-Empresa externa: escreva o nome com `(externo)` no fim, em qualquer uma das
-três. A coluna Oficina se marca sozinha como Terceirizada.
+Terceirizada é detectada por `(externo)` no fim do nome do executante.
 
-## Serviço extra programação
+## Semana por número
 
-A coluna **Origem** separa o que estava no plano (`Programada`, ou em branco)
-do que entrou depois (`Extra`) — quebra, urgência, pedido da operação.
+A coluna **Semana** é o número ISO (35, 36…), não uma data. O ano fica na aba
+Semana e é dele que saem todas as datas. Repetir a semana passada é copiar as
+linhas e trocar esse número.
 
-Extra **não entra no denominador da aderência**: não dá para cobrar
-cumprimento de uma coisa que nunca foi programada. Ela ganha contador próprio
-na faixa da aba Semana e três indicadores na Aderência, entre eles *quanto da
-semana foi extra* — o número que explica uma aderência baixa numa semana em
-que a oficina não parou.
+## Dias previstos e o atraso
 
-Na **grade** da aba Semana, plano e extra aparecem juntos: ali o que importa
-é a carga de trabalho de cada um, venha de onde vier.
+**Dias prev.** é quanto o SERVIÇO leva por inteiro — dimensiona a semana.
 
-## Trocar de semana
+O **atraso da atividade** é medido pelo DIA dela, não pela folga do serviço:
+cada linha tem o seu dia. Depois da hora de fechar a oficina (célula
+*Expediente até* na aba Semana), o que vencia hoje já entra como VENCIDA.
 
-Na aba **Semana**, a célula amarela é uma caixa de seleção com todas as
-segundas-feiras. Escolha uma e a grade inteira acompanha. Logo abaixo, a
-faixa **ONDE TEM PROGRAMAÇÃO** mostra quantas atividades existem nas quatro
-semanas antes e nas quatro depois — dá para ver onde tem trabalho antes de
-trocar.
+As atividades vieram com estimativa de 2 a 3 dias. Como a estimativa é do
+serviço e cada atividade dele repete o número, a *soma das estimativas* infla
+em serviço com muitas atividades — sirva-se dela para comparar semanas, não
+como homem-dia.
 
-## Programar é escrever a semana e o dia
+## Cores
 
-A coluna **Data programada** não se digita — sai de **Semana** (a
-segunda-feira) + **Dia** (Seg…Dom). É isso que deixa repetir uma semana
-inteira trocando uma célula só: copie as linhas, troque a Semana, e todas as
-datas andam junto.
+A linha inteira muda com a situação: VENCIDA vermelha, *Vence hoje* laranja,
+*Em execução* e *Em andamento* azuis, *Concluída* verde, *Concluída com
+atraso* âmbar, *Cancelada* riscada, *Na carteira* cinza.
 
-## Como as colunas estão organizadas
-
-A **Situação** é o que mais se lê, então fica na frente (coluna B) — o resto
-do cálculo vai para o fim. As colunas de digitar estão em quatro faixas
-coloridas, na ordem em que se usa:
-
-| Faixa | Colunas | Quando se preenche |
-|---|---|---|
-| 1 · O que é o serviço | OS, Frota, Serviço, Atividade, Tipo, Origem | sempre |
-| 2 · Quem faz | Executante 1, 2 e 3 | ao programar |
-| 3 · Programar | Semana, Dia | ao programar |
-| 4 · Só quando acontecer | Concluída em, Marcar, 1ª data, Motivo, Obs. | exceção |
-
-Uma régua fina separa um serviço do outro, já que um serviço ocupa várias
-linhas seguidas.
+As colunas de digitar seguem quatro faixas, na ordem de uso: o que é o
+serviço · quem faz · programar · só quando acontecer. Cinza é calculado.
 
 ## Abas
 
 | Aba | Para que serve |
 |---|---|
 | Como usar | Os quatro passos da semana e o dia a dia |
-| Programação | Onde se trabalha — uma linha por atividade, 1.000 linhas |
-| Semana | Carga de cada executante por dia, com alerta de sobrecarga |
-| Aderência | Indicadores do período, por executante, frota e tipo |
+| Programação | Onde se trabalha — uma linha por atividade |
+| Semana | Carga por executante e por dia, com a diária |
+| Aderência | Os indicadores, por executante, frota e tipo |
 | Listas | Nomes das caixas de seleção |
 
 ## Regenerar
 
-A planilha é gerada por script — mudanças de estrutura se fazem nele.
-
 ```bash
-# 1. texto do PDF exportado pelo site
-pdftotext -layout "Programacao.PDF" prog.txt
+# planilha em uso → JSON (preserva tudo que foi digitado)
+python3 ler_planilha.py Programacao_Servicos_Makro.xlsx > dados.json
 
-# 2. PDF → JSON
-python3 extrair_pdf.py prog.txt > dados.json
+# JSON → planilha
+python3 montar_planilha.py dados.json --ano 2026
 
-# 3. JSON → planilha. --semana limita à semana daquela segunda-feira;
-#    sem ela, entra tudo o que o PDF traz.
-python3 montar_planilha.py dados.json --semana 2026-08-24
-
-# 4. calcular as fórmulas e conferir que não sobrou erro
-python3 /root/.claude/skills/synced/xlsx/scripts/recalc.py \
-        Programacao_Servicos_Makro.xlsx 400
+# calcular e conferir que não sobrou erro
+python3 /mnt/skills/public/xlsx/scripts/recalc.py \
+        Programacao_Servicos_Makro.xlsx 500
 ```
 
-Requer `openpyxl`, `poppler-utils` (pdftotext) e o LibreOffice **com o
-módulo Calc** (`libreoffice-calc`) — sem o Calc, o `recalc.py` não abre
-nenhum `.xlsx`.
+`extrair_pdf.py` continua servindo para importar a folha impressa pelo site.
 
-## O que a importação assume
+Requer `openpyxl`, `poppler-utils` e o LibreOffice **com o módulo Calc**
+(`libreoffice-calc`).
 
-A folha impressa pelo site não carrega tudo. Onde faltou dado, a escolha
-foi registrar o fato sem inventar número:
+### Um detalhe do recálculo
 
-- **Conclusão sem data.** A folha mostra a pendência riscada, mas não em que
-  dia saiu. Elas entram marcadas como `Concluída` na coluna Marcar, sem data.
-  Contam na aderência; ficam de fora da pontualidade, que passa a ler "—"
-  até existir conclusão com data de verdade.
-- **Serviço de vários dias.** Um serviço de 3 dias com 34 atividades não tem
-  as 34 no primeiro dia. Elas entram distribuídas pelo intervalo — mais perto
-  da verdade do que empilhar tudo na abertura.
-- **Fora da semana pedida.** Com `--semana`, serviço programado para antes
-  dela não entra: é programação da semana anterior arrastando. A carteira sem
-  dia também fica de fora.
-- **1ª data programada.** Vem da remarcação mais antiga de cada serviço no
-  anexo de reprogramações.
+A fórmula da Situação, escrita inteira, estourava no LibreOffice e voltava
+`#VALOR!` em toda a coluna. O teste de vencimento saiu para a coluna auxiliar
+**Venc?**, e com isso a fórmula cabe. Se for mexer nela, mantenha-a curta.
