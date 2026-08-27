@@ -15,6 +15,23 @@ Aderência = atividades concluídas ÷ atividades programadas no período
 Se duas saírem e uma ficar, a aderência mostra 67%: nem some da conta, nem
 finge que fechou.
 
+## Até três executantes por atividade
+
+Três colunas — **Executante 1, 2 e 3** — cada uma com sua caixa de seleção.
+Serviço feito a quatro mãos entra na carga de cada um na aba Semana e na
+Aderência, e conta **uma vez só** no total da oficina.
+
+Empresa externa: escreva o nome com `(externo)` no fim, em qualquer uma das
+três. A coluna Oficina se marca sozinha como Terceirizada.
+
+## Trocar de semana
+
+Na aba **Semana**, a célula amarela é uma caixa de seleção com todas as
+segundas-feiras. Escolha uma e a grade inteira acompanha. Logo abaixo, a
+faixa **ONDE TEM PROGRAMAÇÃO** mostra quantas atividades existem nas quatro
+semanas antes e nas quatro depois — dá para ver onde tem trabalho antes de
+trocar.
+
 ## Programar é escrever a semana e o dia
 
 A coluna **Data programada** não se digita — sai de **Semana** (a
@@ -43,8 +60,9 @@ pdftotext -layout "Programacao.PDF" prog.txt
 # 2. PDF → JSON
 python3 extrair_pdf.py prog.txt > dados.json
 
-# 3. JSON → planilha  (sem o JSON, sai vazia)
-python3 montar_planilha.py dados.json
+# 3. JSON → planilha. --semana limita à semana daquela segunda-feira;
+#    sem ela, entra tudo o que o PDF traz.
+python3 montar_planilha.py dados.json --semana 2026-08-24
 
 # 4. calcular as fórmulas e conferir que não sobrou erro
 python3 /root/.claude/skills/synced/xlsx/scripts/recalc.py \
@@ -67,8 +85,8 @@ foi registrar o fato sem inventar número:
 - **Serviço de vários dias.** Um serviço de 3 dias com 34 atividades não tem
   as 34 no primeiro dia. Elas entram distribuídas pelo intervalo — mais perto
   da verdade do que empilhar tudo na abertura.
-- **Carteira.** Os 39 serviços sem dia entraram como uma linha cada, porque a
-  folha só traz a contagem de pendências. Quebre em uma linha por atividade
-  quando for programar.
+- **Fora da semana pedida.** Com `--semana`, serviço programado para antes
+  dela não entra: é programação da semana anterior arrastando. A carteira sem
+  dia também fica de fora.
 - **1ª data programada.** Vem da remarcação mais antiga de cada serviço no
   anexo de reprogramações.

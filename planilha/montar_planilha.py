@@ -2,18 +2,21 @@
 """
 Programação de Serviços — Makro Transportes
 ============================================
-A unidade é a ATIVIDADE (o que antes era "pendência" dentro de uma tarefa).
-É por atividade que se programa, se executa e se mede:
+A unidade é a ATIVIDADE (o que antes era "pendência" dentro de uma tarefa):
 
     aderência = atividades concluídas ÷ atividades programadas no período
 
-Programar é escrever a SEMANA (segunda-feira) e o DIA. A data sai sozinha —
-é isso que deixa repetir uma semana inteira trocando uma célula só.
+Programar é escrever a SEMANA (segunda-feira) e o DIA — a data sai sozinha,
+e é isso que deixa repetir uma semana inteira trocando uma célula só.
 
-    python3 montar_planilha.py [dados.json]
+Uma atividade aceita até três executantes, cada um na sua coluna. A conta
+por pessoa soma as três, então serviço feito a quatro mãos aparece na carga
+de cada um sem contar duas vezes no total.
 
-`dados.json` é o que o extrair_pdf.py devolve a partir da folha impressa
-pelo site. Sem ele, a planilha sai vazia.
+    python3 montar_planilha.py [dados.json] [--semana AAAA-MM-DD]
+
+`dados.json` vem do extrair_pdf.py. `--semana` limita a importação à semana
+que começa naquela segunda-feira.
 """
 import sys, json, io
 from datetime import date, timedelta
@@ -21,12 +24,11 @@ from openpyxl import Workbook
 from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
 from openpyxl.utils import get_column_letter
 from openpyxl.worksheet.datavalidation import DataValidation
-from openpyxl.formatting.rule import CellIsRule, DataBarRule
+from openpyxl.formatting.rule import CellIsRule, DataBarRule, FormulaRule
 from openpyxl.comments import Comment
 
 SAIDA="/home/user/gestaomkt/planilha/Programacao_Servicos_Makro.xlsx"
 
-# Cores lidas do logotipo oficial da Makro
 NAVY="FF13164E"; NAVY2="FF2A3170"; RED="FFE4002A"
 CINZA="FFD9DEE8"; CINZA_C="FFEEF1F7"; AMARELO="FFFFF3CF"
 BORDA="FFC8D0DE"; BRANCO="FFFFFFFF"; TINTA="FF14181F"; T2="FF4A5464"
@@ -38,94 +40,75 @@ fina=Side(style="thin", color=BORDA)
 box=Border(left=fina,right=fina,top=fina,bottom=fina)
 def fill(c): return PatternFill("solid", fgColor=c)
 
-PRIM=5; ULT=1004; LIN_LISTA=64
+PRIM=5; ULT=1004; LIN_LISTA=84; N_SEMANAS=130
 DIAS_PT=["Seg","Ter","Qua","Qui","Sex","Sáb","Dom"]
+def segunda(d): return d - timedelta(days=d.weekday())
 
-# ═══════════════════════════════════ dados vindos do PDF
-def carregar(caminho):
-    if not caminho: return None
-    return json.load(io.open(caminho,encoding="utf-8"))
+# ═══════════════════════════════════ dados do PDF
+args=[a for a in sys.argv[1:] if not a.startswith("--")]
+SEM_ALVO=None
+if "--semana" in sys.argv:
+    a,m,d=sys.argv[sys.argv.index("--semana")+1].split("-")
+    SEM_ALVO=date(int(a),int(m),int(d))
+DADOS=json.load(io.open(args[0],encoding="utf-8")) if args else None
 
 def d2(s):
     a,m,d=s.split("-"); return date(int(a),int(m),int(d))
 
-def segunda(d): return d - timedelta(days=d.weekday())
-
 def montar_linhas(dados):
-    """Uma linha por atividade. Serviço sem pendência vira uma linha só."""
-    linhas=[]; execs=set(); frotas=set(); tipos=set()
-    if not dados: return linhas,execs,frotas,tipos
+    linhas=[]; execs=set(); frotas=set(); tipos=set(); fora=[]
+    if not dados: return linhas,execs,frotas,tipos,fora
 
-    # A 1ª data programada de cada serviço vem da remarcação mais antiga.
-    # A lista do site sai da mais nova para a mais velha, então a última
-    # ocorrência de um serviço carrega a data original.
     orig={}; motiv={}
     for r in dados.get("reprogramacoes",[]):
         ch=(r["frota"], r["servico"].split(" — ")[0].strip())
         d,m,a=r["de"].split("/")
         orig[ch]=date(2000+int(a),int(m),int(d))
         if r["motivo"] and ch not in motiv: motiv[ch]=r["motivo"]
-
     def casa(frota,titulo):
         for (f,s),v in orig.items():
             if f!=frota: continue
             a,b=s.lower(),titulo.lower()
-            if a[:20] in b or b[:20] in a:
-                return v, motiv.get((f,s),"")
+            if a[:20] in b or b[:20] in a: return v, motiv.get((f,s),"")
         return None,""
 
     for s in dados["servicos"]:
-        ini=d2(s["ini"]); sem=segunda(ini); dia=DIAS_PT[ini.weekday()]
-        concl = ini if s["situacao"]=="CONCLUÍDA" else None
-        marcar = "Em execução" if s["situacao"]=="EM EXECUÇÃO" else ""
+        ini=d2(s["ini"])
+        # Só o que foi programado PARA a semana pedida. Serviço que começou
+        # antes é programação da semana anterior arrastando — não entra.
+        if SEM_ALVO and not (SEM_ALVO <= ini <= SEM_ALVO+timedelta(days=6)):
+            fora.append((s["frota"],s["titulo"],ini,len(s["pendencias"]) or 1)); continue
+        marcar_exec = "Em execução" if s["situacao"]=="EM EXECUÇÃO" else ""
         p_orig,p_mot=casa(s["frota"],s["titulo"])
         if p_orig==ini: p_orig=None
         obs=s["obs"]
-        if s.get("sistema"): obs=("Sistema: "+s["sistema"]+(" · "+obs if obs else ""))
-        execs.add(s["executantes"]); frotas.add(s["frota"]); tipos.add(s["tipo"])
+        if s.get("sistema"):
+            obs=("Sistema: "+s["sistema"]+(" · "+obs if obs else ""))
+        eq=[x.strip() for x in s["executantes"].split(",") if x.strip()] \
+           if "(externo)" not in s["executantes"] else [s["executantes"].strip()]
+        for e in eq: execs.add(e)
+        frotas.add(s["frota"]); tipos.add(s["tipo"])
         itens=s["pendencias"] or [{"texto":s["titulo"],"feito":s["situacao"]=="CONCLUÍDA"}]
-        # Um serviço de 3 dias com 34 atividades não tem as 34 no primeiro dia.
-        # A folha impressa não diz qual cai em qual dia, então elas entram
-        # distribuídas pelo intervalo — mais perto da verdade do que empilhar
-        # tudo na abertura, e já deixa a grade da semana com cara de real.
         nd=max(1,s["dias"])
         for k,p in enumerate(itens):
             dk=ini+timedelta(days=(k*nd)//max(1,len(itens)))
             linhas.append(dict(os=s["os"], frota=s["frota"], servico=s["titulo"],
-                atividade=p["texto"], tipo=s["tipo"], executante=s["executantes"],
+                atividade=p["texto"], tipo=s["tipo"], equipe=eq[:3],
                 semana=segunda(dk), dia=DIAS_PT[dk.weekday()],
-                # A folha impressa mostra a pendência riscada, mas não em que
-                # dia ela saiu. Marcar "Concluída" registra o fato sem inventar
-                # uma data — e mantém a pontualidade honesta, medida só sobre
-                # as conclusões que têm data de verdade.
-                concluida=None, marcar=("Concluída" if p["feito"] else marcar),
+                concluida=None, marcar=("Concluída" if p["feito"] else marcar_exec),
                 orig=p_orig, motivo=(p_mot if p_orig else ""), obs=obs))
+    return linhas,execs,frotas,tipos,fora
 
-    for f in dados.get("fila",[]):
-        frotas.add(f["frota"])
-        linhas.append(dict(os="", frota=f["frota"], servico=f["titulo"],
-            atividade=f["titulo"], tipo="Corretiva", executante="",
-            semana=None, dia="", concluida=None, marcar="", orig=None, motivo="",
-            obs="%d pendência(s) a detalhar — quebre em uma linha por atividade "
-                "quando for programar" % f["pend"]))
-    return linhas,execs,frotas,tipos
-
-DADOS=carregar(sys.argv[1] if len(sys.argv)>1 else None)
-LINHAS,EXECS,FROTAS,TIPOS=montar_linhas(DADOS)
-
-# nomes soltos por vírgula viram executantes individuais nas listas
-nomes=set()
-for e in EXECS:
-    if not e: continue
-    if "(externo)" in e: nomes.add(e.strip())
-    else:
-        for n in e.split(","): 
-            if n.strip(): nomes.add(n.strip())
-EXEC_LISTA=sorted(nomes, key=lambda x:(("(externo)" in x), x.lower()))
+LINHAS,EXECS,FROTAS,TIPOS,FORA=montar_linhas(DADOS)
+EXEC_LISTA=sorted(EXECS, key=lambda x:(("(externo)" in x), x.lower()))
 FROTA_LISTA=sorted(FROTAS)
-TIPO_LISTA=sorted(TIPOS) or ["Corretiva","Preventiva"]
+TIPO_LISTA=sorted(TIPOS)
 for t in ("Corretiva","Preventiva","Preditiva","Melhoria","Inspeção"):
     if t not in TIPO_LISTA: TIPO_LISTA.append(t)
+
+# lista de segundas-feiras para a caixa de seleção da aba Semana
+base=segunda(min([l["semana"] for l in LINHAS] or [date.today()])) - timedelta(weeks=26)
+SEMANAS=[base+timedelta(weeks=i) for i in range(N_SEMANAS)]
 
 wb=Workbook()
 
@@ -140,10 +123,10 @@ COLS_L=[("Executantes",EXEC_LISTA),("Frotas",FROTA_LISTA),("Tipo de serviço",TI
 ls["A1"]="LISTAS DE APOIO"
 ls["A1"].font=F(bold=True,size=11,color=BRANCO); ls["A1"].fill=fill(NAVY)
 ls["A1"].alignment=Alignment(vertical="center",indent=1)
-ls.merge_cells("A1:F1"); ls.row_dimensions[1].height=24
-ls["A2"]=("Alimentam as caixas de seleção da aba Programação. Acrescente nomes aqui e as caixas "
-          "acompanham. Não deixe linha em branco no meio de uma lista.")
-ls["A2"].font=F(size=9,italic=True,color=T2); ls.merge_cells("A2:F2")
+ls.merge_cells("A1:G1"); ls.row_dimensions[1].height=24
+ls["A2"]=("Alimentam as caixas de seleção. Acrescente nomes aqui e as caixas acompanham. "
+          "Não deixe linha em branco no meio de uma lista.")
+ls["A2"].font=F(size=9,italic=True,color=T2); ls.merge_cells("A2:G2")
 for j,(tit,vals) in enumerate(COLS_L,start=1):
     c=ls.cell(row=4,column=j,value=tit)
     c.font=F(bold=True,size=10,color=BRANCO); c.fill=fill(NAVY2)
@@ -152,105 +135,117 @@ for j,(tit,vals) in enumerate(COLS_L,start=1):
         cc=ls.cell(row=i,column=j)
         if i-5<len(vals): cc.value=vals[i-5]
         cc.font=F(size=10); cc.border=box
-for j,w in enumerate([26,12,16,14,28,8],start=1):
+c=ls.cell(row=4,column=7,value="Semanas")
+c.font=F(bold=True,size=10,color=BRANCO); c.fill=fill(NAVY2)
+c.alignment=Alignment(horizontal="center"); c.border=box
+for i,dt_ in enumerate(SEMANAS):
+    cc=ls.cell(row=5+i,column=7,value=dt_)
+    cc.font=F(size=10); cc.border=box; cc.number_format="dd/mm/yyyy"
+    cc.alignment=Alignment(horizontal="center")
+ls["I4"]=("Segundas-feiras que aparecem na caixa de seleção da aba Semana. "
+          "Vão de %s a %s." % (SEMANAS[0].strftime("%d/%m/%Y"),SEMANAS[-1].strftime("%d/%m/%Y")))
+ls["I4"].font=F(size=9,italic=True,color=T2)
+for j,w in enumerate([26,12,16,14,28,8,13],start=1):
     ls.column_dimensions[get_column_letter(j)].width=w
 ls.sheet_view.showGridLines=False; ls.freeze_panes="A5"
-DIA_REF=f"Listas!$F$5:$F$11"
+FIM_SEM=5+N_SEMANAS-1
+REF_SEMANAS=f"Listas!$G$5:$G${FIM_SEM}"
 
 # ═══════════════════════════════════ PROGRAMAÇÃO
 pg=wb.create_sheet("Programação")
-COLS=[("A","Nº",6,"c"),
-      ("B","OS",13,"1"),("C","Frota",10,"1"),("D","Serviço",30,"1"),
-      ("E","Atividade",46,"1"),("F","Tipo",12,"1"),("G","Executante",22,"1"),
-      ("H","Semana",12,"2"),("I","Dia",8,"2"),("J","Data programada",15,"c"),
-      ("K","Concluída em",13,"3"),("L","Marcar",13,"3"),("M","1ª data",11,"3"),
-      ("N","Motivo",24,"3"),("O","Obs.",26,"3"),
-      ("P","Situação",19,"c"),("Q","Oficina",12,"c"),("R","Plano",11,"c"),
-      ("S","No prazo",8,"c"),("T","No plano",8,"c"),("U","Atraso",8,"c"),
-      ("V","Reprog.",8,"c"),("W","Concl.",8,"c")]
-CORB={"1":AMARELO,"2":"FFDCE9FA","3":"FFEDEFF4","c":CINZA}
+COLS=[("A","Nº",5,"c"),
+      ("B","OS",12,"1"),("C","Frota",9,"1"),("D","Serviço",28,"1"),
+      ("E","Atividade",44,"1"),("F","Tipo",11,"1"),
+      ("G","Executante 1",18,"q"),("H","Executante 2",18,"q"),("I","Executante 3",18,"q"),
+      ("J","Semana",11,"2"),("K","Dia",7,"2"),("L","Data programada",14,"c"),
+      ("M","Concluída em",13,"3"),("N","Marcar",13,"3"),("O","1ª data",11,"3"),
+      ("P","Motivo",22,"3"),("Q","Obs.",24,"3"),
+      ("R","Situação",19,"c"),("S","Oficina",12,"c"),("T","Plano",11,"c"),
+      ("U","No prazo",8,"c"),("V","No plano",8,"c"),("W","Atraso",8,"c"),
+      ("X","Reprog.",8,"c"),("Y","Concl.",8,"c")]
+CORB={"1":AMARELO,"q":"FFE9F3E6","2":"FFDCE9FA","3":"FFEDEFF4","c":CINZA}
 
 pg["A1"]="PROGRAMAÇÃO DE SERVIÇOS  ·  MAKRO TRANSPORTES  ·  uma linha por atividade"
 pg["A1"].font=F(bold=True,size=13,color=BRANCO); pg["A1"].fill=fill(NAVY)
 pg["A1"].alignment=Alignment(vertical="center",indent=1)
-pg.merge_cells("A1:W1"); pg.row_dimensions[1].height=30
+pg.merge_cells("A1:Y1"); pg.row_dimensions[1].height=30
 
-BANDAS=[("A","A","",CINZA),("B","G","1 · SEMPRE — o que é o serviço","1"),
-        ("H","J","2 · PROGRAMAR — escreva a semana e o dia","2"),
-        ("K","O","3 · SÓ QUANDO ACONTECER","3"),
-        ("P","W","CALCULADO — não digite aqui","c")]
-for a,b,txt,g in BANDAS:
+for a,b,txt,g in [("A","A","",("c")),("B","F","1 · O QUE É O SERVIÇO","1"),
+                  ("G","I","2 · QUEM FAZ — até três","q"),
+                  ("J","L","3 · PROGRAMAR — semana e dia","2"),
+                  ("M","Q","4 · SÓ QUANDO ACONTECER","3"),
+                  ("R","Y","CALCULADO — não digite aqui","c")]:
     pg.merge_cells(f"{a}2:{b}2")
     c=pg[f"{a}2"]; c.value=txt
-    c.font=F(bold=True,size=9,color=T2); c.fill=fill(CORB.get(g,g))
+    c.font=F(bold=True,size=9,color=T2); c.fill=fill(CORB[g])
     c.alignment=Alignment(horizontal="center",vertical="center"); c.border=box
 pg.row_dimensions[2].height=18
 
 for letra,tit,larg,grp in COLS:
     c=pg[letra+"3"]; c.value=tit
     c.font=F(bold=True,size=9.5,color=BRANCO)
-    c.fill=fill(NAVY if grp in "123" else NAVY2)
+    c.fill=fill(NAVY if grp in "12q3" else NAVY2)
     c.alignment=Alignment(horizontal="center",vertical="center",wrap_text=True)
     c.border=box
     pg.column_dimensions[letra].width=larg
 pg.row_dimensions[3].height=30
 
 pg["E3"].comment=Comment(
- "A ATIVIDADE é a unidade desta planilha: “trocar as lonas”, “regular a catraca”.\n\n"
+ "A ATIVIDADE é a unidade: “trocar as lonas”, “regular a catraca”.\n\n"
  "Um serviço com três atividades ocupa três linhas — mesma OS, mesmo Serviço.\n\n"
  "A aderência é medida por aqui.","PCM")
-pg["H3"].comment=Comment(
+pg["G3"].comment=Comment(
+ "Até três pessoas na mesma atividade, uma por coluna.\n\n"
+ "Na aba Semana e na Aderência, a atividade entra na carga de cada uma "
+ "delas — e conta uma vez só no total.\n\n"
+ "Empresa externa: escreva o nome com “(externo)” no fim.","PCM")
+pg["J3"].comment=Comment(
  "A SEGUNDA-FEIRA da semana. Escreva numa linha e arraste para baixo.\n\n"
  "Para repetir a semana passada: copie as linhas, cole no fim e troque só "
  "esta coluna — todas as datas andam junto.","PCM")
-pg["I3"].comment=Comment("Seg, Ter, Qua, Qui, Sex, Sáb ou Dom.\n\n"
- "Semana + Dia = Data programada, na coluna ao lado.","PCM")
-pg["J3"].comment=Comment("Sai sozinha de Semana + Dia. Não digite aqui.","PCM")
-pg["K3"].comment=Comment("Preencher esta data já conclui a atividade — "
- "não precisa mexer em mais nada.","PCM")
-pg["M3"].comment=Comment("Só ao REPROGRAMAR: guarde aqui a data que estava antes.\n\n"
- "É contra ela que sai a aderência ao plano original — o indicador que não "
- "melhora quando se empurra o serviço para a frente.","PCM")
+pg["K3"].comment=Comment("Seg, Ter, Qua, Qui, Sex, Sáb ou Dom.\n\nSemana + Dia = Data programada.","PCM")
+pg["M3"].comment=Comment("Preencher esta data já conclui a atividade.","PCM")
+pg["O3"].comment=Comment("Só ao REPROGRAMAR: guarde aqui a data que estava antes.","PCM")
 
-# ── dados ──
 for i,d in enumerate(LINHAS):
     r=PRIM+i
+    eq=d["equipe"]+["",""]
     for col,val in (("B",d["os"]),("C",d["frota"]),("D",d["servico"]),("E",d["atividade"]),
-                    ("F",d["tipo"]),("G",d["executante"]),("H",d["semana"]),("I",d["dia"]),
-                    ("K",d["concluida"]),("L",d["marcar"]),("M",d["orig"]),
-                    ("N",d["motivo"]),("O",d["obs"])):
+                    ("F",d["tipo"]),("G",eq[0]),("H",eq[1]),("I",eq[2]),
+                    ("J",d["semana"]),("K",d["dia"]),("M",d["concluida"]),
+                    ("N",d["marcar"]),("O",d["orig"]),("P",d["motivo"]),("Q",d["obs"])):
         if val not in (None,""): pg[f"{col}{r}"]=val
 
-# ── fórmulas e formatação ──
 for r in range(PRIM,ULT+1):
     pg[f"A{r}"]=f'=IF($E{r}="","",COUNTA($E${PRIM}:$E{r}))'
-    pg[f"J{r}"]=(f'=IF(OR($H{r}="",$I{r}=""),"",$H{r}+MATCH($I{r},{DIA_REF},0)-1)')
-    pg[f"P{r}"]=(f'=IF($E{r}="","",'
-      f'IF($L{r}="Cancelada","Cancelada",'
-      f'IF(OR($K{r}<>"",$L{r}="Concluída"),'
-      f'IF(OR($J{r}="",$K{r}="",$K{r}<=$J{r}),"Concluída","Concluída com atraso"),'
-      f'IF($J{r}="","Na carteira",'
-      f'IF($J{r}<TODAY(),"VENCIDA",'
-      f'IF($L{r}="Em execução","Em execução",'
-      f'IF($J{r}=TODAY(),"Hoje","Programada")))))))')
-    pg[f"Q{r}"]=(f'=IF($E{r}="","",IF(ISNUMBER(SEARCH("(externo)",$G{r})),"Terceirizada","Interna"))')
-    pg[f"R{r}"]=f'=IF($J{r}="","",IF($M{r}="",$J{r},$M{r}))'
-    pg[f"S{r}"]=f'=IF($E{r}="","",IF(OR($K{r}="",$J{r}=""),0,IF($K{r}<=$J{r},1,0)))'
-    pg[f"T{r}"]=f'=IF($E{r}="","",IF(OR($K{r}="",$R{r}=""),0,IF($K{r}<=$R{r},1,0)))'
-    pg[f"U{r}"]=f'=IF(OR($K{r}="",$J{r}=""),"",MAX(0,$K{r}-$J{r}))'
-    pg[f"V{r}"]=f'=IF($E{r}="","",IF(AND($M{r}<>"",$J{r}<>"",$M{r}<>$J{r}),1,0))'
-    pg[f"W{r}"]=(f'=IF($E{r}="","",IF($L{r}="Cancelada",0,'
-                 f'IF(OR($K{r}<>"",$L{r}="Concluída"),1,0)))')
+    pg[f"L{r}"]=f'=IF(OR($J{r}="",$K{r}=""),"",$J{r}+MATCH($K{r},Listas!$F$5:$F$11,0)-1)'
+    pg[f"R{r}"]=(f'=IF($E{r}="","",'
+      f'IF($N{r}="Cancelada","Cancelada",'
+      f'IF(OR($M{r}<>"",$N{r}="Concluída"),'
+      f'IF(OR($L{r}="",$M{r}="",$M{r}<=$L{r}),"Concluída","Concluída com atraso"),'
+      f'IF($L{r}="","Na carteira",'
+      f'IF($L{r}<TODAY(),"VENCIDA",'
+      f'IF($N{r}="Em execução","Em execução",'
+      f'IF($L{r}=TODAY(),"Hoje","Programada")))))))')
+    pg[f"S{r}"]=(f'=IF($E{r}="","",IF(ISNUMBER(SEARCH("(externo)",$G{r}&$H{r}&$I{r})),'
+                 f'"Terceirizada","Interna"))')
+    pg[f"T{r}"]=f'=IF($L{r}="","",IF($O{r}="",$L{r},$O{r}))'
+    pg[f"U{r}"]=f'=IF($E{r}="","",IF(OR($M{r}="",$L{r}=""),0,IF($M{r}<=$L{r},1,0)))'
+    pg[f"V{r}"]=f'=IF($E{r}="","",IF(OR($M{r}="",$T{r}=""),0,IF($M{r}<=$T{r},1,0)))'
+    pg[f"W{r}"]=f'=IF(OR($M{r}="",$L{r}=""),"",MAX(0,$M{r}-$L{r}))'
+    pg[f"X{r}"]=f'=IF($E{r}="","",IF(AND($O{r}<>"",$L{r}<>"",$O{r}<>$L{r}),1,0))'
+    pg[f"Y{r}"]=(f'=IF($E{r}="","",IF($N{r}="Cancelada",0,'
+                 f'IF(OR($M{r}<>"",$N{r}="Concluída"),1,0)))')
     for letra,tit,larg,grp in COLS:
         c=pg[letra+str(r)]
-        c.font=F(size=10, color=TINTA if grp in "123" else T2)
+        c.font=F(size=10, color=TINTA if grp in "12q3" else T2)
         c.border=box
         if grp=="c": c.fill=fill(CINZA_C)
         elif grp=="2": c.fill=fill("FFF4F9FF")
-        if letra in ("H","J","K","M","R"): c.number_format="dd/mm/yyyy"
-        if letra in ("A","F","I","L","S","T","U","V","Q"):
+        elif grp=="q": c.fill=fill("FFF6FBF5")
+        if letra in ("J","L","M","O","T"): c.number_format="dd/mm/yyyy"
+        if letra in ("A","F","K","N","R","S","U","V","W","X","Y"):
             c.alignment=Alignment(horizontal="center")
-        if letra=="P": c.alignment=Alignment(horizontal="center")
     pg.row_dimensions[r].height=15
 
 def dv(col, formula, titulo, msg):
@@ -259,29 +254,35 @@ def dv(col, formula, titulo, msg):
     pg.add_data_validation(v); v.add(f"{col}{PRIM}:{col}{ULT}")
 dv("C", f"=Listas!$B$5:$B${LIN_LISTA}", "Frota", "Escolha uma frota da aba Listas.")
 dv("F", f"=Listas!$C$5:$C${LIN_LISTA}", "Tipo", "Escolha um tipo da aba Listas.")
-dv("G", f"=Listas!$A$5:$A${LIN_LISTA}", "Executante", "Escolha um executante da aba Listas.")
-dv("I", "=Listas!$F$5:$F$11", "Dia", "Seg, Ter, Qua, Qui, Sex, Sáb ou Dom.")
-dv("L", f"=Listas!$D$5:$D$7", "Marcar",
-   "Deixe vazio, ou use Concluída / Em execução / Cancelada.")
-dv("N", f"=Listas!$E$5:$E${LIN_LISTA}", "Motivo", "Escolha da aba Listas ou escreva o seu.")
+for cx in ("G","H","I"):
+    dv(cx, f"=Listas!$A$5:$A${LIN_LISTA}", "Executante", "Escolha um nome da aba Listas.")
+dv("K", "=Listas!$F$5:$F$11", "Dia", "Seg, Ter, Qua, Qui, Sex, Sáb ou Dom.")
+dv("N", "=Listas!$D$5:$D$7", "Marcar", "Deixe vazio, ou Concluída / Em execução / Cancelada.")
+dv("P", f"=Listas!$E$5:$E${LIN_LISTA}", "Motivo", "Escolha da aba Listas ou escreva o seu.")
 
-fx=f"P{PRIM}:P{ULT}"
+fx=f"R{PRIM}:R{ULT}"
 for txt,fv,ft in (("VENCIDA",RU_V,RU_T),("Concluída",OK_V,OK_T),
                   ("Concluída com atraso",AL_V,AL_T),("Hoje",AZ_V,AZ_T),
                   ("Em execução",AZ_V,AZ_T),("Na carteira",CINZA,T2)):
     pg.conditional_formatting.add(fx, CellIsRule(operator="equal", formula=[f'"{txt}"'],
         fill=fill(fv), font=F(bold=True,size=10,color=ft)))
-pg.conditional_formatting.add(f"U{PRIM}:U{ULT}", CellIsRule(operator="greaterThan",
+pg.conditional_formatting.add(f"W{PRIM}:W{ULT}", CellIsRule(operator="greaterThan",
     formula=["0"], font=F(bold=True,size=10,color=RU_T)))
 
 pg.freeze_panes="E5"
-pg.auto_filter.ref=f"A3:W{ULT}"
+pg.auto_filter.ref=f"A3:Y{ULT}"
 pg.sheet_view.showGridLines=False
 
 # ═══════════════════════════════════ referências
 PROG="Programação"
 def rg(c): return f"{PROG}!${c}${PRIM}:${c}${ULT}"
-G_,J_,L_,K_,E_,C_,F_,R_,S_,T_,U_,V_,P_,W_=[rg(c) for c in "GJLKECFRSTUVPW"]
+G_,H_,I_,L_,M_,N_,E_,C_,F_,T_,U_,V_,W_,X_,Y_,S_=[rg(c) for c in "GHILMNECFTUVWXYS"]
+EQ=(G_,H_,I_)
+def porpessoa(alvo, extra, agregado="COUNTIFS", faixa=None):
+    """Soma as três colunas de executante — uma atividade a quatro mãos
+       entra na carga de cada um, e uma vez só no total da oficina."""
+    ini=f"SUMIFS({faixa}," if agregado=="SUMIFS" else "COUNTIFS("
+    return "+".join(f'{ini}{c},{alvo},{extra})' for c in EQ)
 
 def titulo(ws, texto, ate, altura=30, tam=13):
     ws["A1"]=texto
@@ -298,66 +299,121 @@ def cabec(ws, linha, itens, cor=NAVY2):
 # ═══════════════════════════════════ SEMANA
 sm=wb.create_sheet("Semana")
 titulo(sm,"GRADE DA SEMANA  ·  atividades por executante e por dia","L")
-sm["A3"]="Semana (segunda-feira):"
-sm["A3"].font=F(bold=True,size=10); sm.merge_cells("A3:B3")
-sm["C3"]="=TODAY()-WEEKDAY(TODAY(),3)"
-sm["C3"].font=F(bold=True,size=11); sm["C3"].fill=fill(AMARELO)
-sm["C3"].number_format="dd/mm/yyyy"; sm["C3"].border=box
-sm["C3"].alignment=Alignment(horizontal="center")
-sm["D3"]="←  troque para ver outra semana"
-sm["D3"].font=F(size=9,italic=True,color=T2); sm.merge_cells("D3:F3")
-sm["G3"]="Alerta acima de:"; sm["G3"].font=F(bold=True,size=10)
-sm.merge_cells("G3:H3")
-sm["I3"]=4
-sm["I3"].font=F(bold=True,size=11); sm["I3"].fill=fill(AMARELO)
-sm["I3"].border=box; sm["I3"].alignment=Alignment(horizontal="center")
-sm["I3"].comment=Comment("Quantas atividades por pessoa por dia você considera cheio. "
- "Acima disso o dia fica em vermelho na grade.","PCM")
-sm["J3"]="atividades por dia"
-sm["J3"].font=F(size=9,italic=True,color=T2); sm.merge_cells("J3:L3")
 
+# ── escolher a semana ──
+sm["A3"]="SEMANA:"
+sm["A3"].font=F(bold=True,size=12,color=NAVY)
+sm["A3"].alignment=Alignment(vertical="center",indent=1)
+sm.merge_cells("A3:B3")
+sm["C3"]=(LINHAS[0]["semana"] if LINHAS else date.today()-timedelta(days=date.today().weekday()))
+c=sm["C3"]; c.font=F(bold=True,size=14,color=NAVY); c.fill=fill(AMARELO)
+c.number_format="dd/mm/yyyy"; c.border=Border(*[Side(style="medium",color=NAVY)]*4)
+c.alignment=Alignment(horizontal="center",vertical="center")
+c.comment=Comment("Clique na célula e abra a setinha: a lista traz todas as "
+ "segundas-feiras.\n\nA grade inteira, os números e a faixa “onde tem "
+ "programação” acompanham o que você escolher aqui.","PCM")
+dvS=DataValidation(type="list", formula1=f"={REF_SEMANAS}", allow_blank=False, showDropDown=False)
+dvS.errorTitle="Semana"; dvS.error="Escolha uma segunda-feira da lista."
+dvS.showErrorMessage=True
+sm.add_data_validation(dvS); dvS.add("C3")
+sm["D3"]="até"
+sm["D3"].font=F(size=11,color=T2); sm["D3"].alignment=Alignment(horizontal="center",vertical="center")
+sm["E3"]="=$C$3+6"
+c=sm["E3"]; c.font=F(bold=True,size=14,color=T2); c.number_format="dd/mm/yyyy"
+c.alignment=Alignment(horizontal="center",vertical="center"); c.fill=fill(CINZA_C); c.border=box
+sm["F3"]="◀  clique na seta da célula amarela e escolha a segunda-feira"
+sm["F3"].font=F(size=10,italic=True,color=NAVY)
+sm["F3"].alignment=Alignment(vertical="center",indent=1); sm.merge_cells("F3:L3")
+sm.row_dimensions[3].height=28
+
+# ── resumo da semana escolhida ──
+jan=f'{L_},">="&$C$3,{L_},"<="&$C$3+6'
+RES=[("B","PROGRAMADAS",f'=COUNTIFS({jan},{N_},"<>Cancelada")',"0",NAVY),
+     ("D","CONCLUÍDAS", f'=SUMIFS({Y_},{jan})',"0",OK_T),
+     ("F","ADERÊNCIA",  '=IF($B$6=0,"",$D$6/$B$6)',"0%",NAVY),
+     ("H","VENCIDAS",   f'=COUNTIFS({jan},{L_},"<"&TODAY(),{Y_},0,{N_},"<>Cancelada")',"0",RU_T),
+     ("J","NA CARTEIRA",f'=COUNTIFS({L_},"",{E_},"<>",{N_},"<>Cancelada")',"0",T2)]
+for col,rot,fml,fmt,cor in RES:
+    sm.merge_cells(f"{col}5:{get_column_letter(ord(col)-64+1)}5")
+    sm.merge_cells(f"{col}6:{get_column_letter(ord(col)-64+1)}6")
+    a=sm[f"{col}5"]; a.value=rot
+    a.font=F(bold=True,size=8.5,color=T2); a.alignment=Alignment(horizontal="center")
+    a.fill=fill(CINZA_C)
+    b=sm[f"{col}6"]; b.value=fml
+    b.font=F(bold=True,size=18,color=cor); b.number_format=fmt
+    b.alignment=Alignment(horizontal="center",vertical="center"); b.fill=fill(CINZA_C)
+    for cc in (col,get_column_letter(ord(col)-64+1)):
+        sm[f"{cc}5"].border=box; sm[f"{cc}6"].border=box
+sm["A5"]="NESTA SEMANA"
+sm["A5"].font=F(bold=True,size=9,color=NAVY)
+sm["A5"].alignment=Alignment(vertical="center",indent=1)
+sm.merge_cells("A5:A6"); sm.row_dimensions[6].height=26
+
+# ── onde tem programação: quatro semanas para cada lado ──
+sm["A8"]="ONDE TEM PROGRAMAÇÃO"
+sm["A8"].font=F(bold=True,size=10,color=NAVY)
+sm["A8"].alignment=Alignment(vertical="center",indent=1); sm.merge_cells("A8:C8")
+sm["D8"]="atividades programadas em cada semana — a do meio é a que você escolheu"
+sm["D8"].font=F(size=9,italic=True,color=T2); sm.merge_cells("D8:L8")
+NAV=["D","E","F","G","H","I","J","K","L"]
+for k,col in enumerate(NAV):
+    off=k-4
+    a=sm[f"{col}9"]; a.value=f"=$C$3+{off*7}" if off else "=$C$3"
+    a.number_format="dd/mm"
+    a.font=F(bold=True,size=10,color=BRANCO if off==0 else T2)
+    a.fill=fill(NAVY if off==0 else CINZA_C)
+    a.alignment=Alignment(horizontal="center"); a.border=box
+    b=sm[f"{col}10"]
+    b.value=(f'=COUNTIFS({L_},">="&{col}$9,{L_},"<="&{col}$9+6,{N_},"<>Cancelada")')
+    b.font=F(bold=True,size=12,color=NAVY if off==0 else T2)
+    b.alignment=Alignment(horizontal="center"); b.border=box
+    b.fill=fill(AZ_V if off==0 else BRANCO)
+sm["C9"]="semana de"; sm["C10"]="atividades"
+for r in (9,10):
+    sm[f"C{r}"].font=F(size=9,italic=True,color=T2)
+    sm[f"C{r}"].alignment=Alignment(horizontal="right",vertical="center")
+sm.conditional_formatting.add("D10:L10", CellIsRule(operator="equal", formula=["0"],
+    font=F(size=12,color="FFB9C2D0")))
+sm.row_dimensions[10].height=20
+
+# ── a grade ──
+LCAB=12
 DS=["B","C","D","E","F","G","H"]
-cabec(sm,5,[("A","Executante")]+[(c,"") for c in DS]+
-        [("I","Programadas"),("J","Concluídas"),("K","Aderência"),("L","Vencidas")])
+cabec(sm,LCAB,[("A","Executante")]+[(c,"") for c in DS]+
+      [("I","Programadas"),("J","Concluídas"),("K","Aderência"),("L","Vencidas")])
 for i,col in enumerate(DS):
-    c=sm[f"{col}5"]; c.value=f"=$C$3+{i}" if i else "=$C$3"
+    c=sm[f"{col}{LCAB}"]; c.value=f"=$C$3+{i}" if i else "=$C$3"
     c.number_format='[$-416]ddd\\ dd/mm;@'
-sm.row_dimensions[5].height=30
+sm.row_dimensions[LCAB].height=30
 
-NEX=24; P0=6; P1=P0+NEX-1; LSEM=P1+1; LTOT=P1+2
+NEX=22; P0=LCAB+1; P1=P0+NEX-1; LSEM=P1+1; LTOT=P1+2
+naoCanc=f'{N_},"<>Cancelada"'
 for k in range(NEX):
     r=P0+k
     sm[f"A{r}"]=f'=IF(Listas!A{5+k}="","",Listas!A{5+k})'
     for i,col in enumerate(DS):
-        sm[f"{col}{r}"]=(f'=IF($A{r}="","",COUNTIFS({G_},"*"&$A{r}&"*",{J_},{col}$5,'
-                         f'{L_},"<>Cancelada"))')
+        soma=porpessoa(f"$A{r}", f'{L_},{col}${LCAB},{naoCanc}')
+        sm[f"{col}{r}"]=f'=IF($A{r}="","",{soma})'
     sm[f"I{r}"]=f'=IF($A{r}="","",SUM($B{r}:$H{r}))'
-    sm[f"J{r}"]=(f'=IF($A{r}="","",SUMIFS({W_},{G_},"*"&$A{r}&"*",{J_},">="&$C$3,'
-                 f'{J_},"<="&$C$3+6))')
+    sm[f"J{r}"]=f'=IF($A{r}="","",{porpessoa(f"$A{r}", jan, "SUMIFS", Y_)})'
     sm[f"K{r}"]=f'=IF(OR($A{r}="",$I{r}=0),"",$J{r}/$I{r})'
-    sm[f"L{r}"]=(f'=IF($A{r}="","",COUNTIFS({G_},"*"&$A{r}&"*",{J_},">="&$C$3,'
-                 f'{J_},"<="&$C$3+6,{J_},"<"&TODAY(),{W_},0,{L_},"<>Cancelada"))')
+    venc=f'{jan},{L_},"<"&TODAY(),{Y_},0,{naoCanc}'
+    sm[f"L{r}"]=f'=IF($A{r}="","",{porpessoa(f"$A{r}", venc)})'
 
 sm[f"A{LSEM}"]="— sem executante definido —"
 sm[f"A{LSEM}"].font=F(size=10,italic=True,color=T2)
 for i,col in enumerate(DS):
-    sm[f"{col}{LSEM}"]=f'=COUNTIFS({G_},"",{J_},{col}$5,{L_},"<>Cancelada")'
+    sm[f"{col}{LSEM}"]=f'=COUNTIFS({G_},"",{L_},{col}${LCAB},{naoCanc})'
 sm[f"I{LSEM}"]=f'=SUM($B{LSEM}:$H{LSEM})'
-sm[f"J{LSEM}"]=f'=SUMIFS({W_},{G_},"",{J_},">="&$C$3,{J_},"<="&$C$3+6)'
+sm[f"J{LSEM}"]=f'=SUMIFS({Y_},{G_},"",{jan})'
 sm[f"K{LSEM}"]=f'=IF($I{LSEM}=0,"",$J{LSEM}/$I{LSEM})'
-sm[f"L{LSEM}"]=(f'=COUNTIFS({G_},"",{J_},">="&$C$3,{J_},"<="&$C$3+6,{J_},"<"&TODAY(),'
-                f'{W_},0,{L_},"<>Cancelada")')
+sm[f"L{LSEM}"]=f'=COUNTIFS({G_},"",{jan},{L_},"<"&TODAY(),{Y_},0,{naoCanc})'
 
-# O total conta as atividades, e não a soma das pessoas: um serviço com dois
-# executantes aparece nas duas linhas, mas é uma atividade só.
 sm[f"A{LTOT}"]="TOTAL DE ATIVIDADES"
 for i,col in enumerate(DS):
-    sm[f"{col}{LTOT}"]=f'=COUNTIFS({J_},{col}$5,{L_},"<>Cancelada")'
-sm[f"I{LTOT}"]=f'=COUNTIFS({J_},">="&$C$3,{J_},"<="&$C$3+6,{L_},"<>Cancelada")'
-sm[f"J{LTOT}"]=f'=SUMIFS({W_},{J_},">="&$C$3,{J_},"<="&$C$3+6)'
-sm[f"K{LTOT}"]=f'=IF($I{LTOT}=0,"",$J{LTOT}/$I{LTOT})'
-sm[f"L{LTOT}"]=(f'=COUNTIFS({J_},">="&$C$3,{J_},"<="&$C$3+6,{J_},"<"&TODAY(),'
-                f'{W_},0,{L_},"<>Cancelada")')
+    sm[f"{col}{LTOT}"]=f'=COUNTIFS({L_},{col}${LCAB},{naoCanc})'
+sm[f"I{LTOT}"]="=$B$6"; sm[f"J{LTOT}"]="=$D$6"
+sm[f"K{LTOT}"]="=$F$6"; sm[f"L{LTOT}"]="=$H$6"
 
 for r in range(P0,LTOT+1):
     for col in ["A"]+DS+["I","J","K","L"]:
@@ -376,8 +432,8 @@ for col,w in (("I",12),("J",11),("K",11),("L",10)): sm.column_dimensions[col].wi
 sm.conditional_formatting.add(f"B{P0}:H{P1}",
     DataBarRule(start_type="num",start_value=0,end_type="num",end_value=8,
                 color="FF9DB4DE",showValue=True))
-sm.conditional_formatting.add(f"B{P0}:H{P1}", CellIsRule(operator="greaterThan",
-    formula=["$I$3"], fill=fill(RU_V), font=F(bold=True,size=10,color=RU_T)))
+sm.conditional_formatting.add(f"B{P0}:H{P1}", CellIsRule(operator="equal",
+    formula=["0"], font=F(size=10,color="FFC3CBD8")))
 sm.conditional_formatting.add(f"K{P0}:K{P1}", CellIsRule(operator="greaterThanOrEqual",
     formula=["0.85"], fill=fill(OK_V), font=F(bold=True,size=10,color=OK_T)))
 sm.conditional_formatting.add(f"K{P0}:K{P1}", CellIsRule(operator="lessThan",
@@ -386,33 +442,27 @@ sm.conditional_formatting.add(f"L{P0}:L{LSEM}", CellIsRule(operator="greaterThan
     formula=["0"], fill=fill(RU_V), font=F(bold=True,size=10,color=RU_T)))
 
 LC=LTOT+2
-sm[f"A{LC}"]="Na carteira, ainda sem dia:"
-sm[f"A{LC}"].font=F(bold=True,size=10); sm.merge_cells(f"A{LC}:B{LC}")
-sm[f"C{LC}"]=f'=COUNTIFS({J_},"",{E_},"<>",{L_},"<>Cancelada")'
-sm[f"C{LC}"].font=F(bold=True,size=12,color=RED)
-sm[f"C{LC}"].alignment=Alignment(horizontal="center")
-sm[f"C{LC}"].border=box; sm[f"C{LC}"].fill=fill(CINZA_C)
-sm[f"D{LC}"]=("atividade(s) esperando encaixe — filtre a coluna Situação por “Na carteira” "
-              "na aba Programação e escreva a Semana e o Dia")
-sm[f"D{LC}"].font=F(size=9,italic=True,color=T2); sm.merge_cells(f"D{LC}:L{LC}")
-sm.freeze_panes="B6"; sm.sheet_view.showGridLines=False
+sm[f"A{LC}"]=("Para programar o que está na carteira: na aba Programação, filtre a coluna "
+              "Situação por “Na carteira” e escreva a Semana e o Dia.")
+sm[f"A{LC}"].font=F(size=9,italic=True,color=T2); sm.merge_cells(f"A{LC}:L{LC}")
+sm.freeze_panes=f"B{LCAB+1}"; sm.sheet_view.showGridLines=False
 
 # ═══════════════════════════════════ ADERÊNCIA
 ad=wb.create_sheet("Aderência")
 titulo(ad,"ADERÊNCIA DA PROGRAMAÇÃO  ·  medida por atividade","K")
 ad["A3"]="De:"; ad["A4"]="Até:"
 for ref in ("A3","A4"): ad[ref].font=F(bold=True,size=10)
-ad["B3"]="=TODAY()-WEEKDAY(TODAY(),3)"; ad["B4"]="=B3+6"
+ad["B3"]="=Semana!$C$3"; ad["B4"]="=Semana!$C$3+6"
 for ref in ("B3","B4"):
     c=ad[ref]; c.font=F(bold=True,size=11); c.fill=fill(AMARELO)
     c.number_format="dd/mm/yyyy"; c.border=box; c.alignment=Alignment(horizontal="center")
-ad["C3"]="←  troque as duas datas para analisar outro período"
-ad["C3"].font=F(size=9,italic=True,color=T2); ad.merge_cells("C3:H3")
+ad["C3"]="←  vem da semana escolhida na aba Semana; escreva outras datas para analisar o mês, o trimestre…"
+ad["C3"].font=F(size=9,italic=True,color=T2); ad.merge_cells("C3:K3")
 ad["C4"]="As atividades entram pelo dia para o qual foram PROGRAMADAS."
-ad["C4"].font=F(size=9,italic=True,color=T2); ad.merge_cells("C4:H4")
+ad["C4"].font=F(size=9,italic=True,color=T2); ad.merge_cells("C4:K4")
 
-jan=f'{J_},">="&$B$3,{J_},"<="&$B$4'
-janR=f'{R_},">="&$B$3,{R_},"<="&$B$4'
+janA=f'{L_},">="&$B$3,{L_},"<="&$B$4'
+janT=f'{T_},">="&$B$3,{T_},"<="&$B$4'
 
 ad.merge_cells("A6:B9")
 ad["A6"]='=IFERROR(B14,"—")'
@@ -437,34 +487,33 @@ ad.merge_cells("C11:K11")
 ad["C11"].alignment=Alignment(horizontal="left",vertical="center",indent=1)
 
 IND=[
- ("Atividades programadas", f'=COUNTIFS({jan},{L_},"<>Cancelada")', "0",
+ ("Atividades programadas", f'=COUNTIFS({janA},{N_},"<>Cancelada")',"0",
   "com data programada no período, exceto as canceladas"),
- ("Concluídas", f'=SUMIFS({W_},{jan})', "0",
+ ("Concluídas", f'=SUMIFS({Y_},{janA})',"0",
   "com data em Concluída em, ou marcadas como Concluída"),
- ("Aderência por atividade", '=IFERROR(B13/B12,"")', "0%",
+ ("Aderência por atividade", '=IFERROR(B13/B12,"")',"0%",
   "concluídas ÷ programadas — o indicador principal"),
- ("Concluídas no prazo", f'=IF(COUNTIFS({jan},{K_},"<>")=0,"",SUMIFS({S_},{jan}))', "0",
-  "concluídas até o próprio dia programado — só conta quem tem data de conclusão"),
- ("Pontualidade", f'=IFERROR(B15/COUNTIFS({jan},{K_},"<>",{L_},"<>Cancelada"),"")', "0%",
-  "concluídas no prazo ÷ concluídas COM data — as sem data ficam de fora"),
- ("Programadas no plano original", f'=COUNTIFS({janR},{L_},"<>Cancelada")', "0",
+ ("Concluídas no prazo", f'=IF(COUNTIFS({janA},{M_},"<>")=0,"",SUMIFS({U_},{janA}))',"0",
+  "concluídas até o próprio dia — só conta quem tem data de conclusão"),
+ ("Pontualidade", f'=IFERROR(B15/COUNTIFS({janA},{M_},"<>",{N_},"<>Cancelada"),"")',"0%",
+  "concluídas no prazo ÷ concluídas COM data"),
+ ("Programadas no plano original", f'=COUNTIFS({janT},{N_},"<>Cancelada")',"0",
   "pela 1ª data programada, e não pela data de hoje"),
- ("Concluídas até a 1ª data", f'=IF(COUNTIFS({janR},{K_},"<>")=0,"",SUMIFS({T_},{janR}))', "0",
+ ("Concluídas até a 1ª data", f'=IF(COUNTIFS({janT},{M_},"<>")=0,"",SUMIFS({V_},{janT}))',"0",
   "entregues sem precisar empurrar o dia"),
- ("Aderência ao plano original", f'=IF(COUNTIFS({janR},{K_},"<>")=0,"",IFERROR(B18/B17,""))', "0%",
+ ("Aderência ao plano original", f'=IF(COUNTIFS({janT},{M_},"<>")=0,"",IFERROR(B18/B17,""))',"0%",
   "não melhora quando se reprograma — mostra se a semana combinada foi cumprida"),
- ("Vencidas", f'=COUNTIFS({jan},{J_},"<"&TODAY(),{W_},0,{L_},"<>Cancelada")', "0",
+ ("Vencidas", f'=COUNTIFS({janA},{L_},"<"&TODAY(),{Y_},0,{N_},"<>Cancelada")',"0",
   "o dia passou e a atividade não foi concluída nem cancelada"),
- ("Canceladas", f'=COUNTIFS({jan},{L_},"Cancelada")', "0",
-  "fora do cálculo da aderência"),
- ("Atividades reprogramadas", f'=SUMIFS({V_},{jan})', "0",
+ ("Canceladas", f'=COUNTIFS({janA},{N_},"Cancelada")',"0","fora do cálculo da aderência"),
+ ("Atividades reprogramadas", f'=SUMIFS({X_},{janA})',"0",
   "a 1ª data programada é diferente da data de hoje"),
- ("Atraso médio, quando atrasa", f'=IFERROR(SUMIFS({U_},{jan})/COUNTIFS({jan},{U_},">0"),0)', "0.0",
+ ("Atraso médio, quando atrasa", f'=IFERROR(SUMIFS({W_},{janA})/COUNTIFS({janA},{W_},">0"),0)',"0.0",
   "dias entre o programado e o concluído, só das que passaram do dia"),
- ("Na carteira, sem dia", f'=COUNTIFS({J_},"",{E_},"<>",{L_},"<>Cancelada")', "0",
+ ("Na carteira, sem dia", f'=COUNTIFS({L_},"",{E_},"<>",{N_},"<>Cancelada")',"0",
   "não depende do período — é o que ainda espera encaixe"),
- ("Atividades em empresa externa", f'=COUNTIFS({jan},{rg("Q")},"Terceirizada")', "0",
-  "executante escrito com “(externo)” no fim"),
+ ("Atividades em empresa externa", f'=COUNTIFS({janA},{S_},"Terceirizada")',"0",
+  "algum executante escrito com “(externo)” no fim"),
 ]
 for i,(rot,fml,fmt,expl) in enumerate(IND):
     r=12+i
@@ -489,7 +538,7 @@ for ref in ("B14","B16","B19","A6"):
     ad.conditional_formatting.add(ref, CellIsRule(operator="lessThan",
         formula=["0.6"], font=F(bold=True,size=tam,color=RU_T)))
 
-def recorte(lin, col0, tit, lista, coluna, n=24, curinga=False):
+def recorte(lin, col0, tit, lista, coluna, n=22, equipe=False):
     cols=[get_column_letter(col0+i) for i in range(5)]
     a,b,c,d,e=cols
     ad[f"{a}{lin}"]=tit
@@ -499,13 +548,19 @@ def recorte(lin, col0, tit, lista, coluna, n=24, curinga=False):
     for k in range(n):
         r=lin+2+k
         ad[f"{a}{r}"]=f'=IF(Listas!{lista}{5+k}="","",Listas!{lista}{5+k})'
-        alvo=f'"*"&${a}{r}&"*"' if curinga else f'${a}{r}'
-        crit=f'{coluna},{alvo}'
-        ad[f"{b}{r}"]=f'=IF(${a}{r}="","",COUNTIFS({crit},{jan},{L_},"<>Cancelada"))'
-        ad[f"{c}{r}"]=f'=IF(${a}{r}="","",SUMIFS({W_},{crit},{jan}))'
+        venc=f'{janA},{L_},"<"&TODAY(),{Y_},0,{N_},"<>Cancelada"'
+        if equipe:
+            fb=porpessoa(f"${a}{r}", f'{janA},{N_},"<>Cancelada"')
+            fc=porpessoa(f"${a}{r}", janA, "SUMIFS", Y_)
+            fe=porpessoa(f"${a}{r}", venc)
+        else:
+            fb=f'COUNTIFS({coluna},${a}{r},{janA},{N_},"<>Cancelada")'
+            fc=f'SUMIFS({Y_},{coluna},${a}{r},{janA})'
+            fe=f'COUNTIFS({coluna},${a}{r},{venc})'
+        ad[f"{b}{r}"]=f'=IF(${a}{r}="","",{fb})'
+        ad[f"{c}{r}"]=f'=IF(${a}{r}="","",{fc})'
         ad[f"{d}{r}"]=f'=IF(OR(${a}{r}="",${b}{r}=0),"",${c}{r}/${b}{r})'
-        ad[f"{e}{r}"]=(f'=IF(${a}{r}="","",COUNTIFS({crit},{jan},{J_},"<"&TODAY(),'
-                       f'{W_},0,{L_},"<>Cancelada"))')
+        ad[f"{e}{r}"]=f'=IF(${a}{r}="","",{fe})'
         for col in cols:
             cc=ad[f"{col}{r}"]; cc.border=box; cc.font=F(size=10)
             if col!=a: cc.alignment=Alignment(horizontal="center")
@@ -520,9 +575,13 @@ def recorte(lin, col0, tit, lista, coluna, n=24, curinga=False):
     ad.conditional_formatting.add(f"{e}{lin+2}:{e}{lin+1+n}", CellIsRule(
         operator="greaterThan", formula=["0"], font=F(bold=True,size=10,color=RU_T)))
 
-recorte(28, 1, "POR EXECUTANTE", "A", G_, 24, curinga=True)
-recorte(28, 7, "POR FROTA", "B", C_, 24)
-recorte(55, 1, "POR TIPO DE SERVIÇO", "C", F_, 8)
+# Os blocos são do tamanho das listas, com folga: um recorte cortado no meio
+# some com dado sem avisar — foi o que aconteceu com a 23ª frota.
+N_EX=max(14, len(EXEC_LISTA)+3)
+N_FR=max(14, len(FROTA_LISTA)+3)
+recorte(28, 1, "POR EXECUTANTE  ·  soma as três colunas de quem faz", "A", None, N_EX, equipe=True)
+recorte(28, 7, "POR FROTA", "B", C_, N_FR)
+recorte(28+max(N_EX,N_FR)+4, 1, "POR TIPO DE SERVIÇO", "C", F_, len(TIPO_LISTA)+2)
 
 ad.column_dimensions["A"].width=30
 for col,w in (("B",10),("C",11),("D",11),("E",10),("F",3),
@@ -542,9 +601,9 @@ def sec(r, txt):
     ins[f"A{r}"]=txt
     ins[f"A{r}"].font=F(bold=True,size=11,color=NAVY)
     ins.merge_cells(f"A{r}:H{r}"); ins.row_dimensions[r].height=24
-def par(r, txt, alt=None, cor=TINTA, negrito=False):
+def par(r, txt, alt=None, cor=TINTA):
     ins[f"A{r}"]=txt
-    ins[f"A{r}"].font=F(size=10,bold=negrito,color=cor)
+    ins[f"A{r}"].font=F(size=10,color=cor)
     ins[f"A{r}"].alignment=Alignment(vertical="top",wrap_text=True,indent=1)
     ins.merge_cells(f"A{r}:H{r}")
     if alt: ins.row_dimensions[r].height=alt
@@ -561,38 +620,46 @@ def passo(r, n, txt, cor=NAVY):
     ins.row_dimensions[r].height=34
 
 L=4
+sec(L,"TROCAR DE SEMANA — uma célula só"); L+=1
+passo(L,"►","Na aba SEMANA, clique na célula amarela grande e abra a setinha: "
+           "a lista traz todas as segundas-feiras. Escolha uma e a grade inteira "
+           "acompanha — os dias no topo, os números de cada executante e o resumo.",NAVY2); L+=1
+passo(L,"◄","Logo abaixo, a faixa ONDE TEM PROGRAMAÇÃO mostra quantas atividades "
+           "existem em cada uma das quatro semanas antes e depois. Assim você vê "
+           "onde tem trabalho antes de trocar.",NAVY2); L+=2
+
 sec(L,"MONTAR A PROGRAMAÇÃO DA SEMANA — quatro passos"); L+=1
-passo(L,"1","Na aba PROGRAMAÇÃO, clique na setinha do filtro da coluna "
-           "SITUAÇÃO e deixe marcado só “Na carteira”. Sobram as atividades "
-           "que ainda não têm dia."); L+=1
-passo(L,"2","Nas que você vai fazer, escreva a SEGUNDA-FEIRA da semana na coluna "
-           "SEMANA. Escreva numa linha e arraste para baixo — vale para todas."); L+=1
-passo(L,"3","Escolha o DIA (Seg, Ter, Qua…) e o EXECUTANTE. "
+passo(L,"1","Na aba PROGRAMAÇÃO, clique na setinha do filtro da coluna SITUAÇÃO "
+           "e deixe marcado só “Na carteira”. Sobram as atividades sem dia."); L+=1
+passo(L,"2","Nas que você vai fazer, escreva a SEGUNDA-FEIRA na coluna SEMANA. "
+           "Escreva numa linha e arraste para baixo — vale para todas."); L+=1
+passo(L,"3","Escolha o DIA (Seg, Ter, Qua…) e quem faz, em EXECUTANTE 1, 2 e 3. "
            "A coluna Data programada se preenche sozinha."); L+=1
-passo(L,"4","Tire o filtro. A aba SEMANA já mostra quantas atividades cada um "
-           "ficou por dia — e pinta de vermelho quem passou do limite."); L+=2
+passo(L,"4","Tire o filtro e volte à aba SEMANA: ela mostra a carga que cada um "
+           "ficou por dia, e apaga os zeros para o que tem trabalho saltar aos olhos."); L+=2
+
+sec(L,"VÁRIOS EXECUTANTES NA MESMA ATIVIDADE"); L+=1
+par(L,"São três colunas — Executante 1, 2 e 3 — cada uma com sua caixa de seleção. "
+      "Serviço feito a quatro mãos entra na carga de cada um deles na aba Semana e "
+      "na Aderência, e conta uma vez só no total da oficina.",alt=32); L+=1
+par(L,"Empresa externa: escreva o nome com “(externo)” no fim, em qualquer uma das três. "
+      "A coluna Oficina se marca sozinha como Terceirizada.",alt=28); L+=2
 
 sec(L,"REPETIR A SEMANA QUE PASSOU"); L+=1
-par(L,"Boa parte da semana se repete: preventivas, calibrações, inspeções. Em vez de "
-      "digitar tudo de novo:",alt=18); L+=1
 passo(L,"1","Selecione as linhas da semana passada, copie e cole no fim da lista.",NAVY2); L+=1
 passo(L,"2","Troque só a coluna SEMANA pela nova segunda-feira. Todas as datas "
-           "andam junto — é para isso que existe a coluna Semana.",NAVY2); L+=1
+           "andam junto — é para isso que Semana e Dia são separados.",NAVY2); L+=1
 passo(L,"3","Apague o que ficou em CONCLUÍDA EM e em MARCAR nas linhas coladas.",NAVY2); L+=2
 
 sec(L,"O DIA A DIA"); L+=1
-DIA=[("Concluiu uma atividade?","Escreva a data em CONCLUÍDA EM. Só isso — a situação "
-      "muda sozinha e a aderência já conta."),
-     ("Vai empurrar para outro dia?","Antes de mudar, copie a data de hoje para a coluna "
-      "1ª DATA. Depois troque o Dia (ou a Semana) e escreva o MOTIVO. Sem a 1ª data, a "
-      "aderência ao plano original não tem contra o que medir."),
-     ("Serviço em empresa externa?","Escreva o nome da empresa no EXECUTANTE com "
-      "“(externo)” no fim — a coluna Oficina se marca sozinha como Terceirizada."),
-     ("Cancelou?","Escolha “Cancelada” na coluna MARCAR. Ela sai dos dois lados da "
-      "conta da aderência."),
-     ("Serviço novo sem dia ainda?","Escreva tudo menos a Semana e o Dia. Ele fica "
-      "na carteira até você programar.")]
-for perg,resp in DIA:
+for perg,resp in [
+ ("Concluiu uma atividade?","Escreva a data em CONCLUÍDA EM. Só isso — a situação "
+  "muda sozinha e a aderência já conta."),
+ ("Vai empurrar para outro dia?","Antes de mudar, copie a data de hoje para a coluna "
+  "1ª DATA. Depois troque o Dia (ou a Semana) e escreva o MOTIVO."),
+ ("Cancelou?","Escolha “Cancelada” na coluna MARCAR. Sai dos dois lados da conta."),
+ ("Serviço novo sem dia ainda?","Escreva tudo menos a Semana e o Dia. Fica na "
+  "carteira até você programar.")]:
     ins[f"A{L}"]=perg; ins[f"A{L}"].font=F(bold=True,size=10,color=NAVY)
     ins[f"A{L}"].alignment=Alignment(vertical="top",wrap_text=True,indent=1)
     ins.merge_cells(f"A{L}:B{L}")
@@ -600,7 +667,7 @@ for perg,resp in DIA:
     ins[f"C{L}"].alignment=Alignment(vertical="top",wrap_text=True,indent=1)
     ins.merge_cells(f"C{L}:H{L}")
     for col in "ABCDEFGH": ins[f"{col}{L}"].border=box
-    ins.row_dimensions[L].height=34
+    ins.row_dimensions[L].height=30
     L+=1
 L+=1
 
@@ -611,33 +678,19 @@ ins[f"A{L}"].alignment=Alignment(vertical="center",indent=1)
 ins.merge_cells(f"A{L}:H{L}"); ins.row_dimensions[L].height=26
 for col in "ABCDEFGH": ins[f"{col}{L}"].border=box
 L+=1
-par(L,"Cada linha da aba Programação é uma ATIVIDADE — “trocar as lonas”, “regular a "
-      "catraca”. Um serviço com três atividades ocupa três linhas. Se duas saírem e uma "
-      "ficar, a aderência mostra 67%: nem some da conta, nem finge que fechou.",alt=32); L+=1
-par(L,"A aba Aderência traz ainda dois recortes que a conta principal não mostra:",alt=16); L+=1
-par(L,"    •  Pontualidade — das que foram concluídas, quantas saíram até o próprio dia.",alt=16); L+=1
+par(L,"Cada linha da aba Programação é uma ATIVIDADE. Um serviço com três atividades "
+      "ocupa três linhas: se duas saírem e uma ficar, a aderência mostra 67% — nem some "
+      "da conta, nem finge que fechou.",alt=30); L+=1
+par(L,"    •  Pontualidade — das concluídas, quantas saíram até o próprio dia.",alt=16); L+=1
 par(L,"    •  Aderência ao plano original — mede contra a 1ª data programada. É a única "
       "que não melhora quando se empurra o serviço para a frente.",alt=28); L+=2
 
-sec(L,"AS ABAS E AS CORES"); L+=1
-ABAS=[("Programação","Onde se trabalha. Uma linha por atividade."),
-      ("Semana","A carga de cada executante em cada dia."),
-      ("Aderência","Os indicadores do período, por executante, frota e tipo."),
-      ("Listas","Os nomes das caixas de seleção.")]
-for nome,txt in ABAS:
-    ins[f"A{L}"]=nome; ins[f"A{L}"].font=F(bold=True,size=10)
-    ins[f"A{L}"].alignment=Alignment(vertical="center",indent=1)
-    ins[f"B{L}"]=txt; ins[f"B{L}"].font=F(size=10)
-    ins[f"B{L}"].alignment=Alignment(vertical="center",indent=1)
-    ins.merge_cells(f"B{L}:H{L}")
-    for col in "ABCDEFGH": ins[f"{col}{L}"].border=box
-    ins.row_dimensions[L].height=18
-    L+=1
-CORES=[(AMARELO,"Amarelo","o que você sempre preenche, e as células de controle"),
-       ("FFF4F9FF","Azul claro","Semana e Dia — é onde se programa"),
+sec(L,"AS CORES DA ABA PROGRAMAÇÃO"); L+=1
+for corv,nome,txt in [(AMARELO,"Amarelo","o que é o serviço — preenche sempre"),
+       ("FFF6FBF5","Verde claro","quem faz — até três executantes"),
+       ("FFF4F9FF","Azul claro","semana e dia — é onde se programa"),
        ("FFEDEFF4","Cinza claro","só quando acontecer: concluir, cancelar, reprogramar"),
-       (CINZA_C,"Cinza","calculado pela planilha — não digite")]
-for corv,nome,txt in CORES:
+       (CINZA_C,"Cinza","calculado pela planilha — não digite")]:
     c=ins[f"A{L}"]; c.value=nome; c.fill=fill(corv); c.border=box
     c.font=F(size=10,bold=True); c.alignment=Alignment(horizontal="center")
     ins[f"B{L}"]=txt; ins[f"B{L}"].font=F(size=10)
@@ -649,28 +702,31 @@ for corv,nome,txt in CORES:
 L+=1
 
 if LINHAS:
-    nfila=sum(1 for d in LINHAS if d["semana"] is None)
-    ins[f"A{L}"]=("A planilha já veio carregada com a programação de 24 a 28/08/26 que você "
-                  "imprimiu do site: %d atividades, sendo %d ainda na carteira. As da carteira "
-                  "entraram como uma linha por serviço, porque a folha impressa só traz a "
-                  "contagem de pendências — quebre em uma linha por atividade quando for "
-                  "programar." % (len(LINHAS), nfila))
+    sem=LINHAS[0]["semana"]
+    txt=("A planilha veio com a semana de %s a %s: %d atividades em %d serviços. "
+         % (sem.strftime("%d/%m"), (sem+timedelta(days=4)).strftime("%d/%m/%y"),
+            len(LINHAS), len(set((l["frota"],l["servico"]) for l in LINHAS))))
+    if FORA:
+        txt+=("Ficaram de fora %d serviço(s) programados antes desta semana (%s) e a "
+              "carteira sem dia, porque você pediu só o desta semana."
+              % (len(FORA), ", ".join(f[0] for f in FORA)))
+    ins[f"A{L}"]=txt
     ins[f"A{L}"].font=F(size=10,color=OK_T); ins[f"A{L}"].fill=fill(OK_V)
     ins[f"A{L}"].alignment=Alignment(vertical="center",wrap_text=True,indent=1)
-    ins.merge_cells(f"A{L}:H{L}"); ins.row_dimensions[L].height=46
+    ins.merge_cells(f"A{L}:H{L}"); ins.row_dimensions[L].height=42
     for col in "ABCDEFGH": ins[f"{col}{L}"].border=box
     L+=2
-par(L,"Há 1.000 linhas prontas na aba Programação, com as fórmulas das colunas cinzas já "
-      "em todas elas. Para imprimir a semana: filtre a coluna Data programada pelo período "
-      "e mande imprimir — sai só o que o filtro deixou visível.",cor=T2,alt=32)
+par(L,"Há 1.000 linhas prontas na aba Programação, com as fórmulas das colunas cinzas "
+      "já em todas elas. Para imprimir a semana: filtre a coluna Data programada pelo "
+      "período e mande imprimir — sai só o que o filtro deixou visível.",cor=T2,alt=32)
 
 ins.column_dimensions["A"].width=14
 for col in "BCDEFGH": ins.column_dimensions[col].width=17
 ins.sheet_view.showGridLines=False
 
 # ═══════════════════════════════════ IMPRESSÃO E FECHO
-for ws,orient,tit_rows in ((pg,"landscape",3),(sm,"landscape",5),
-                           (ad,"portrait",None),(ins,"portrait",None),(ls,"portrait",None)):
+for ws,orient,tr in ((pg,"landscape",3),(sm,"landscape",LCAB),
+                     (ad,"portrait",None),(ins,"portrait",None),(ls,"portrait",None)):
     ws.page_setup.orientation=orient
     ws.page_setup.paperSize=ws.PAPERSIZE_A4
     ws.page_setup.fitToWidth=1; ws.page_setup.fitToHeight=0
@@ -678,15 +734,15 @@ for ws,orient,tit_rows in ((pg,"landscape",3),(sm,"landscape",5),
     ws.print_options.horizontalCentered=True
     ws.page_margins.left=ws.page_margins.right=0.4
     ws.page_margins.top=ws.page_margins.bottom=0.5
-    if tit_rows: ws.print_title_rows=f"1:{tit_rows}"
-pg.print_area=f"A1:W{PRIM+max(len(LINHAS),60)+5}"
+    if tr: ws.print_title_rows=f"1:{tr}"
+pg.print_area=f"A1:Y{PRIM+max(len(LINHAS),60)+5}"
 sm.print_area=f"A1:L{LTOT+3}"
-ls.print_area=f"A1:F{LIN_LISTA}"
+ls.print_area=f"A1:G{LIN_LISTA}"
 
 wb.calculation.fullCalcOnLoad=True
 for ws in wb.worksheets: ws.sheet_properties.tabColor=NAVY[2:]
 wb.active=0
 wb.save(SAIDA)
 print("planilha montada:",SAIDA)
-print("  atividades carregadas:",len(LINHAS))
-print("  executantes:",len(EXEC_LISTA),"| frotas:",len(FROTA_LISTA))
+print("  atividades:",len(LINHAS),"| executantes:",len(EXEC_LISTA),"| frotas:",len(FROTA_LISTA))
+if FORA: print("  fora da semana:",", ".join(f"{f[0]} ({f[2]}, {f[3]} ativ.)" for f in FORA))
