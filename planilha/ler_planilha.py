@@ -15,6 +15,9 @@ from openpyxl import load_workbook
 
 def texto(v):
     if v is None: return ""
+    # OS digitada no Google Sheets volta como número: 21344.0 tem de virar
+    # "21344", senão o campo entra na planilha com a casa decimal colada.
+    if isinstance(v,float) and v.is_integer(): return str(int(v))
     return str(v).strip()
 
 def num(v):
@@ -33,8 +36,16 @@ def ler(caminho):
     for c in range(1,60):
         t=texto(pg.cell(row=3,column=c).value)
         if t: col.setdefault(t,c)
+    def acha(titulo):
+        # Título exato primeiro; depois por prefixo, porque cabeçalho cresce
+        # com o tempo ("Motivo" virou "Motivo do atraso / da mudança") e a
+        # busca exata devolvia vazio calado, apagando a coluna no ida e volta.
+        if titulo in col: return col[titulo]
+        for t,c in col.items():
+            if t.startswith(titulo): return c
+        return None
     def v(r,titulo):
-        c=col.get(titulo)
+        c=acha(titulo)
         return pg.cell(row=r,column=c).value if c else None
 
     linhas=[]
