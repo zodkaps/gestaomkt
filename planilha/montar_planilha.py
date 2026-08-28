@@ -31,6 +31,13 @@ from openpyxl.utils import get_column_letter
 from openpyxl.worksheet.datavalidation import DataValidation
 from openpyxl.formatting.rule import CellIsRule, DataBarRule, Rule
 from openpyxl.comments import Comment
+from openpyxl.chart import BarChart, Reference
+from openpyxl.chart.label import DataLabelList
+from openpyxl.chart.marker import DataPoint
+from openpyxl.chart.shapes import GraphicalProperties
+from openpyxl.chart.text import RichText
+from openpyxl.drawing.text import (RichTextProperties, Paragraph,
+                                   ParagraphProperties, CharacterProperties)
 
 SAIDA="/home/user/gestaomkt/planilha/Programacao_Servicos_Makro.xlsx"
 
@@ -75,6 +82,13 @@ def _dias_estimados(frota,servico,atividade):
     h=zlib.crc32((frota+"|"+servico+"|"+atividade).encode("utf-8"))%20
     return 2 if h<9 else (3 if h<17 else 4)
 
+# "Em execução" e "Em andamento" saíram: o que a oficina precisa saber é se a
+# atividade está PROGRAMADA (tem dia marcado) ou ainda EM PROGRAMAÇÃO (sendo
+# encaixada). Planilha antiga que traga o texto velho entra como programada.
+VELHO={"em execução":"","em execucao":"","em andamento":"","em curso":""}
+def _marcar(v):
+    return VELHO.get(str(v or "").strip().lower(), v or "")
+
 LINHAS=[]
 for x in FONTE["linhas"]:
     d=d2(x.get("data")); o=d2(x.get("orig"))
@@ -85,7 +99,7 @@ for x in FONTE["linhas"]:
         semana=(d.isocalendar()[1] if d else None),
         dia=(DIAS_PT[d.weekday()] if d else ""),
         dias=_dias_estimados(x.get("frota",""),x.get("servico",""),x.get("atividade","")),
-        concluida=d2(x.get("concluida")), marcar=x.get("marcar",""),
+        concluida=d2(x.get("concluida")), marcar=_marcar(x.get("marcar","")),
         semorig=(o.isocalendar()[1] if o else None),
         motivo=x.get("motivo",""), obs=x.get("obs","")))
 
@@ -111,7 +125,7 @@ wb=Workbook()
 # ═══════════════════════════════════ LISTAS
 ls=wb.active; ls.title="Listas"
 COLS_L=[("Executantes",EXEC_LISTA),("Frotas",FROTA_LISTA),("Tipo de serviço",TIPO_LISTA),
-        ("Marcar",["Concluída","Em execução","Cancelada"]),
+        ("Marcar",["Programada","Em programação","Concluída","Cancelada"]),
         ("Motivo do atraso ou da mudança",MOTIVOS),("Dia",DIAS_PT)]
 ls["A1"]="LISTAS DE APOIO"
 ls["A1"].font=F(bold=True,size=11,color=BRANCO); ls["A1"].fill=fill(NAVY)
@@ -175,9 +189,9 @@ for letra,tit,larg,grp in COLS:
 pg.row_dimensions[3].height=32
 
 DICAS={
- "B":"Sai sozinha. A LINHA INTEIRA muda de cor conforme ela.\n\n"
-     "Na carteira · Programada · Em andamento · Vence hoje · Em execução · "
-     "VENCIDA · Concluída · Concluída com atraso · Cancelada",
+ "B":"Sai sozinha, e SÓ ESTA CÉLULA muda de cor — o resto da linha fica limpo.\n\n"
+     "Em programação · Na carteira · Programada · Vence hoje · VENCIDA · "
+     "Concluída · Concluída com atraso · Cancelada",
  "D":"Pode digitar uma frota que ainda não está na lista — a planilha avisa mas "
      "deixa passar. Depois acrescente na aba Listas para ela virar opção.",
  "F":"A ATIVIDADE é a unidade: “trocar as lonas”, “regular a catraca”.\n\n"
@@ -225,14 +239,16 @@ for r in range(PRIM,ULT+1):
     # Situação caber — inteira, ela estourava e voltava #VALOR! em toda linha.
     pg[f"AC{r}"]=(f'=IF($O{r}="",0,IF($O{r}<TODAY(),1,'
                   f'IF(AND($O{r}=TODAY(),NOW()-TODAY()>{EXPREF}),1,0)))')
+    # Atividade de semana que ainda vem é PROGRAMADA, ponto. O teste antigo
+    # olhava o fim do serviço e, como ele nunca é anterior a hoje, tudo o que
+    # estava marcado para a frente aparecia como "em andamento".
     pg[f"B{r}"]=(f'=IF($F{r}="","",'
       f'IF($R{r}="Cancelada","Cancelada",'
       f'IF($AB{r}=1,IF(N($Z{r})>0,"Concluída com atraso","Concluída"),'
+      f'IF($R{r}="Em programação","Em programação",'
       f'IF($O{r}="","Na carteira",'
       f'IF($AC{r}=1,"VENCIDA",'
-      f'IF($R{r}="Em execução","Em execução",'
-      f'IF($O{r}=TODAY(),"Vence hoje",'
-      f'IF($P{r}>=TODAY(),"Em andamento","Programada"))))))))')
+      f'IF($O{r}=TODAY(),"Vence hoje","Programada")))))))')
     pg[f"V{r}"]=(f'=IF($F{r}="","",IF(ISNUMBER(SEARCH("(externo)",$I{r}&$J{r}&$K{r})),'
                  f'"Terceirizada","Interna"))')
     pg[f"X{r}"]=f'=IF($F{r}="","",IF(OR($Q{r}="",$O{r}=""),0,IF($Q{r}<=$O{r},1,0)))'
@@ -270,7 +286,9 @@ for cx in ("I","J","K"):
     dv(cx, f"=Listas!$A$5:$A${LIN_LISTA}", "Executante",
        "Nome fora da lista.\n\nPode continuar — depois acrescente na aba Listas.", brando=True)
 dv("M", "=Listas!$F$5:$F$11", "Dia", "Seg, Ter, Qua, Qui, Sex, Sáb ou Dom.")
-dv("R", "=Listas!$D$5:$D$7", "Marcar", "Deixe vazio, ou Concluída / Em execução / Cancelada.")
+dv("R", "=Listas!$D$5:$D$8", "Marcar",
+   "Deixe vazio (a situação sai sozinha), ou escolha: Programada / "
+   "Em programação / Concluída / Cancelada.")
 dv("T", f"=Listas!$E$5:$E${LIN_LISTA}", "Motivo", "Escolha da aba Listas ou escreva o seu.", brando=True)
 vn=DataValidation(type="whole", operator="between", formula1="1", formula2="53", allow_blank=True)
 vn.errorTitle="Semana"; vn.error="O número da semana vai de 1 a 53."; vn.showErrorMessage=True
@@ -279,25 +297,63 @@ vd=DataValidation(type="whole", operator="between", formula1="1", formula2="60",
 vd.errorTitle="Dias previstos"; vd.error="De 1 a 60 dias."; vd.showErrorMessage=True
 pg.add_data_validation(vd); vd.add(f"N{PRIM}:N{ULT}")
 
-# ── a linha inteira muda de cor com a situação ──
+# ── a cor fica na CÉLULA, não na linha inteira ──
+# Pintar a linha toda virava borrão: com fundo colorido de ponta a ponta não
+# se lia mais a atividade nem a observação. Agora só muda de cor a célula que
+# carrega aquela informação — o texto fica no branco.
 FAIXA=f"A{PRIM}:AC{ULT}"
-PINTA=[("VENCIDA",       RU_V, RU_T, True,  False),
-       ("Vence hoje",     EX_V, EX_T, True,  False),
-       ("Em execução",    AZ_V, AZ_T, False, False),
-       ("Em andamento",   "FFF2F6FD", AZ_T, False, False),
-       ("Concluída com atraso", AL_V, AL_T, False, False),
-       ("Concluída",      OK_V, OK_T, False, False),
-       ("Cancelada",      "FFF0F1F4", "FF9AA3B2", False, True),
-       ("Na carteira",    "FFF7F8FA", T2,   False, False)]
-for txt,bg,fg,negrito,riscado in PINTA:
+PINTA=[("VENCIDA",             RU_V,       RU_T,       True),
+       ("Vence hoje",          EX_V,       EX_T,       True),
+       ("Concluída",           OK_V,       OK_T,       True),
+       ("Concluída com atraso",AL_V,       AL_T,       True),
+       ("Em programação",      AZ_V,       AZ_T,       True),
+       ("Programada",          "FFEDF2FC", "FF2C4272",  False),
+       ("Na carteira",         "FFF2F4F8", T2,          False),
+       ("Cancelada",           "FFE6E9EF", "FF7C8698",  False)]
+for txt,bg,fg,negrito in PINTA:
     rg_=Rule(type="expression", stopIfTrue=True,
              dxf=DifferentialStyle(fill=PatternFill(bgColor=bg),
-                                   font=Font(color=fg,bold=negrito,strike=riscado)))
+                                   font=Font(color=fg,bold=negrito)))
     rg_.formula=[f'$B{PRIM}="{txt}"']
-    pg.conditional_formatting.add(FAIXA, rg_)
-# a coluna Origem continua marcando o extra por cima da cor da linha
-pg.conditional_formatting.add(f"H{PRIM}:H{ULT}", CellIsRule(operator="equal",
-    formula=['"Extra"'], fill=fill(EX_V), font=F(bold=True,size=10,color=EX_T)))
+    pg.conditional_formatting.add(f"B{PRIM}:B{ULT}", rg_)
+
+# cancelada: sem fundo, só o texto riscado e apagado no que descreve o serviço
+canc=Rule(type="expression", dxf=DifferentialStyle(
+    font=Font(strike=True, color="FF98A1B2")))
+canc.formula=[f'$B{PRIM}="Cancelada"']
+pg.conditional_formatting.add(f"C{PRIM}:H{ULT}", canc)
+
+# ── EXTRA PROGRAMAÇÃO: a marca mais forte da planilha ──
+# Fundo laranja cheio, texto escuro em negrito e moldura grossa em volta da
+# célula. O número da linha ganha o mesmo laranja, para o extra se achar de
+# longe sem precisar ler a coluna Origem.
+EXV="FFFFC97A"; EXT="FF6E2E00"
+gro=Side(style="medium", color=EXT)
+exh=Rule(type="expression", stopIfTrue=True, dxf=DifferentialStyle(
+    fill=PatternFill(bgColor=EXV), font=Font(color=EXT,bold=True),
+    border=Border(left=gro,right=gro,top=gro,bottom=gro)))
+exh.formula=[f'$H{PRIM}="Extra"']
+pg.conditional_formatting.add(f"H{PRIM}:H{ULT}", exh)
+exn=Rule(type="expression", dxf=DifferentialStyle(
+    fill=PatternFill(bgColor=EXV), font=Font(color=EXT,bold=True)))
+exn.formula=[f'$H{PRIM}="Extra"']
+pg.conditional_formatting.add(f"A{PRIM}:A{ULT}", exn)
+
+# ── as datas avisam sozinhas, só com a cor da letra ──
+for txt,cor in (("VENCIDA",RU_T),("Vence hoje",EX_T)):
+    rd=Rule(type="expression", stopIfTrue=True,
+            dxf=DifferentialStyle(font=Font(color=cor,bold=True)))
+    rd.formula=[f'$B{PRIM}="{txt}"']
+    pg.conditional_formatting.add(f"O{PRIM}:P{ULT}", rd)
+# a data de conclusão fica verde no instante em que é escrita
+rq=Rule(type="expression", dxf=DifferentialStyle(
+    fill=PatternFill(bgColor=OK_V), font=Font(color=OK_T,bold=True)))
+rq.formula=[f'AND($Q{PRIM}<>"",$F{PRIM}<>"")']
+pg.conditional_formatting.add(f"Q{PRIM}:Q{ULT}", rq)
+# motivo escrito: amarelo claro, para saber de relance quem já foi justificado
+rt=Rule(type="expression", dxf=DifferentialStyle(fill=PatternFill(bgColor="FFFFF6DC")))
+rt.formula=[f'$T{PRIM}<>""']
+pg.conditional_formatting.add(f"T{PRIM}:T{ULT}", rt)
 # régua entre um serviço e outro
 reg=Rule(type="expression", dxf=DifferentialStyle(
     border=Border(top=Side(style="medium", color="FF8494B0"))))
@@ -669,6 +725,79 @@ for a6,rot in (("A6","Aderência à programação"),("G6","Cumprimento geral")):
     ad.conditional_formatting.add(a6, CellIsRule(operator="lessThan",
         formula=["0.6"], font=F(bold=True,size=34,color=RU_T)))
 
+# ═══════════════════════════════════ GRÁFICOS
+# Dois gráficos, um ao lado do outro: à esquerda o tamanho de cada bloco e
+# quanto dele saiu; à direita onde a semana parou. Os números que os
+# alimentam ficam nas colunas O:Q, fora da área de impressão — mexer neles
+# é mexer nos indicadores de cima, que é de onde eles vêm.
+def _txt(tam=9, negrito=False, cor=T2):
+    """Fonte dos rótulos do gráfico — o padrão do Excel sai pequeno demais."""
+    return RichText(p=[Paragraph(pPr=ParagraphProperties(defRPr=CharacterProperties(
+        sz=int(tam*100), b=negrito, latin=None,
+        solidFill=cor[2:])), endParaRPr=CharacterProperties(sz=int(tam*100)))],
+        bodyPr=RichTextProperties())
+
+DAD=FIM_IND+1                       # canto do bloco de números dos gráficos
+ad[f"O{DAD}"]="Bloco"; ad[f"P{DAD}"]="Tinha para fazer"; ad[f"Q{DAD}"]="Concluídas"
+ad[f"O{DAD+1}"]="Plano da semana"
+ad[f"P{DAD+1}"]=f"={LINHA_DE['Atividades do plano']}"
+ad[f"Q{DAD+1}"]=f"={LINHA_DE['Concluídas do plano']}"
+ad[f"O{DAD+2}"]="Extra programação"
+ad[f"P{DAD+2}"]=f"={LINHA_DE['Extra programação']}"
+ad[f"Q{DAD+2}"]=f"={LINHA_DE['Extras concluídas']}"
+
+E0=DAD+4
+ad[f"O{E0}"]="Situação"; ad[f"P{E0}"]="Atividades"
+SITG=[("Concluídas",  f"={LINHA_DE['Total concluído']}",                    OK_T),
+      ("Vencidas",    f"={LINHA_DE['Vencidas']}",                           RU_T),
+      ("A vencer",    f"=MAX(0,{LINHA_DE['Total interno']}-{LINHA_DE['Total concluído']}"
+                      f"-{LINHA_DE['Vencidas']})",                          "FF2C4272"),
+      ("Canceladas",  f"={LINHA_DE['Canceladas']}",                         "FF98A1B2"),
+      ("Terceirizada",f"={LINHA_DE['Em empresa terceirizada']}",            EXT)]
+for k,(rot,fml,_c) in enumerate(SITG):
+    ad[f"O{E0+1+k}"]=rot; ad[f"P{E0+1+k}"]=fml
+for rr in list(range(DAD,DAD+3))+list(range(E0,E0+1+len(SITG))):
+    for cc in "OPQ":
+        ad[f"{cc}{rr}"].font=F(size=9,color=T2)
+for cc,w in (("O",18),("P",15),("Q",12)): ad.column_dimensions[cc].width=w
+
+CH=FIM_IND+1                        # onde os desenhos ficam ancorados
+
+g1=BarChart(); g1.type="col"; g1.grouping="clustered"; g1.gapWidth=60; g1.overlap=-15
+g1.title="Quanto tinha, quanto saiu"
+g1.add_data(Reference(ad,min_col=16,max_col=17,min_row=DAD,max_row=DAD+2),
+            titles_from_data=True)
+g1.set_categories(Reference(ad,min_col=15,min_row=DAD+1,max_row=DAD+2))
+g1.series[0].graphicalProperties=GraphicalProperties(solidFill=NAVY[2:])
+g1.series[1].graphicalProperties=GraphicalProperties(solidFill=OK_T[2:])
+
+g2=BarChart(); g2.type="col"; g2.grouping="clustered"; g2.gapWidth=45
+g2.title="Onde a semana parou"
+g2.add_data(Reference(ad,min_col=16,min_row=E0,max_row=E0+len(SITG)),
+            titles_from_data=True)
+g2.set_categories(Reference(ad,min_col=15,min_row=E0+1,max_row=E0+len(SITG)))
+g2.legend=None
+# cada barra na cor que ela já tem na planilha: verde concluída, vermelho
+# vencida, azul a vencer, cinza cancelada, laranja terceirizada.
+g2.series[0].data_points=[DataPoint(idx=k,
+    spPr=GraphicalProperties(solidFill=cor[2:]))
+    for k,(_r,_f,cor) in enumerate(SITG)]
+
+for g,anc,larg in ((g1,f"A{CH}",14.5),(g2,f"H{CH}",11.5)):
+    g.height=8.2; g.width=larg
+    g.y_axis.majorGridlines=None
+    g.y_axis.title=None; g.x_axis.title=None
+    g.y_axis.numFmt="0"
+    g.dLbls=DataLabelList(); g.dLbls.showVal=True; g.dLbls.showLegendKey=False
+    g.dLbls.showCatName=False; g.dLbls.showSerName=False
+    g.dLbls.txPr=_txt(9,True,TINTA)
+    g.x_axis.txPr=_txt(9); g.y_axis.txPr=_txt(8)
+    g.txPr=_txt(9)
+    if g.legend is not None:
+        g.legend.position="b"; g.legend.overlay=False; g.legend.txPr=_txt(9)
+    ad.add_chart(g,anc)
+CH_FIM=CH+16
+
 # ── recortes ──
 def recorte(lin, col0, tit, lista, coluna, n=22, equipe=False):
     cols=[get_column_letter(col0+i) for i in range(6)]
@@ -713,7 +842,7 @@ def recorte(lin, col0, tit, lista, coluna, n=22, equipe=False):
     ad.conditional_formatting.add(f"{e}{lin+2}:{e}{lin+1+n}", CellIsRule(
         operator="greaterThan", formula=["0"], font=F(bold=True,size=10,color=RU_T)))
 
-L0=FIM_IND+2
+L0=CH_FIM+2
 N_EX=max(14,len(EXEC_LISTA)+3); N_FR=max(14,len(FROTA_LISTA)+3)
 recorte(L0, 1, "POR EXECUTANTE  ·  soma as três colunas de quem faz", "A", None, N_EX, equipe=True)
 recorte(L0, 8, "POR FROTA", "B", FROTA_, N_FR)
@@ -808,8 +937,8 @@ L+=1
 
 sec(L,"O DIA A DIA"); L+=1
 for perg,resp in [
- ("Concluiu?","Escreva a data em CONCLUÍDA EM. A situação muda sozinha e a linha "
-  "inteira fica verde."),
+ ("Concluiu?","Escreva a data em CONCLUÍDA EM. A situação muda sozinha e a "
+  "célula fica verde."),
  ("Atrasou?","Escreva o porquê em MOTIVO DO ATRASO / DA MUDANÇA. A lista já traz os "
   "motivos mais comuns, e você pode escrever outro."),
  ("Vai empurrar para outra semana?","Guarde o número da semana antiga em SEMANA ORIG. "
@@ -827,16 +956,20 @@ for perg,resp in [
     ins.row_dimensions[L].height=30; L+=1
 L+=1
 
-sec(L,"AS CORES — a linha inteira muda com a situação"); L+=1
-for cor_,nome,txt in [(RU_V,"VENCIDA","o dia dela passou"),
+sec(L,"AS CORES — a cor fica na CÉLULA, não na linha inteira"); L+=1
+par(L,"Quem muda de cor é a coluna SITUAÇÃO. O resto da linha continua branco, "
+      "para o texto da atividade e a observação se lerem. Fora dela só se "
+      "pintam três coisas: a coluna ORIGEM quando é EXTRA, a data de conclusão "
+      "assim que é escrita, e o motivo quando é preenchido.",alt=32,cor=T2); L+=2
+for cor_,nome,txt in [(RU_V,"VENCIDA","o dia dela passou e não foi concluída"),
       (EX_V,"Vence hoje","é para hoje e ainda não saiu"),
-      (AZ_V,"Em execução","alguém está tocando agora"),
-      ("FFF2F6FD","Em andamento","serviço de vários dias, já começou"),
-      (OK_V,"Concluída","saiu dentro do prazo"),
-      (AL_V,"Concluída com atraso","saiu depois do término previsto"),
-      ("FFF0F1F4","Cancelada","texto riscado"),
-      ("FFF7F8FA","Na carteira","ainda sem dia"),
-      (BRANCO,"Programada","tem dia e o prazo ainda não chegou")]:
+      (OK_V,"Concluída","tem data de conclusão"),
+      (AL_V,"Concluída com atraso","saiu depois do dia programado"),
+      (AZ_V,"Em programação","você marcou: ainda está sendo encaixada"),
+      ("FFEDF2FC","Programada","tem semana e dia, e o dia ainda não chegou"),
+      ("FFF2F4F8","Na carteira","ainda sem semana e sem dia"),
+      ("FFE6E9EF","Cancelada","texto riscado; sai dos dois lados da aderência"),
+      ("FFFFC97A","EXTRA — coluna Origem","entrou fora do plano; moldura grossa")]:
     c=ins[f"A{L}"]; c.value=nome; c.fill=fill(cor_); c.border=box
     c.font=F(size=10,bold=True); c.alignment=Alignment(horizontal="center")
     ins.merge_cells(f"A{L}:B{L}")
@@ -865,6 +998,7 @@ for ws,orient,tr in ((pg,"landscape",3),(sm,"landscape",LCAB),
     ws.page_margins.top=ws.page_margins.bottom=0.5
     if tr: ws.print_title_rows=f"1:{tr}"
 pg.print_area=f"A1:U{PRIM+max(len(LINHAS),60)+5}"
+ad.print_area=f"A1:M{L0+max(N_EX,N_FR)+len(TIPO_LISTA)+12}"   # O:Q são os números dos gráficos
 sm.print_area=f"A1:M{LTOT+3}"
 wb.calculation.fullCalcOnLoad=True
 for ws in wb.worksheets: ws.sheet_properties.tabColor=NAVY[2:]

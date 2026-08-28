@@ -43,14 +43,58 @@ serviço e cada atividade dele repete o número, a *soma das estimativas* infla
 em serviço com muitas atividades — sirva-se dela para comparar semanas, não
 como homem-dia.
 
+## Situação
+
+Oito estados, e só dois se marcam à mão. A **Situação** sai sozinha:
+
+| Situação | Quando |
+|---|---|
+| Concluída / Concluída com atraso | tem data em *Concluída em* |
+| Cancelada | marcada como tal |
+| Em programação | marcada à mão: ainda está sendo encaixada |
+| Na carteira | sem semana e sem dia |
+| VENCIDA | o dia passou (ou passou da hora de fechar, no próprio dia) |
+| Vence hoje | é para hoje |
+| Programada | tem dia e o dia ainda não chegou |
+
+*Em execução* e *Em andamento* saíram. O segundo olhava o fim do serviço e,
+como ele nunca é anterior a hoje, tudo que estava marcado para a frente —
+uma F-331 da semana que vem, por exemplo — aparecia como "em andamento".
+Atividade de semana futura é **Programada**, ponto. Planilha antiga que traga
+o texto velho na coluna *Marcar* entra como programada.
+
 ## Cores
 
-A linha inteira muda com a situação: VENCIDA vermelha, *Vence hoje* laranja,
-*Em execução* e *Em andamento* azuis, *Concluída* verde, *Concluída com
-atraso* âmbar, *Cancelada* riscada, *Na carteira* cinza.
+A cor fica na **célula**, não na linha. Linha inteira pintada de ponta a ponta
+não deixava ler a atividade nem a observação.
+
+Muda de cor a coluna **Situação** — vermelho vencida, laranja vence hoje,
+verde concluída, âmbar concluída com atraso, azul em programação, azul claro
+programada, cinza na carteira e cancelada. Fora dela, só três células:
+
+* **Origem = Extra** — laranja cheio, negrito e moldura grossa; o Nº da linha
+  ganha o mesmo laranja, para se achar o extra de longe;
+* **Concluída em** — fica verde no instante em que a data é escrita;
+* **Motivo** — amarelo claro quando preenchido, para ver quem já foi
+  justificado.
+
+Vencida e vence hoje também tingem a letra das datas de *Início* e *Fim*.
+Cancelada risca o texto do serviço. O resto da linha é branco.
 
 As colunas de digitar seguem quatro faixas, na ordem de uso: o que é o
 serviço · quem faz · programar · só quando acontecer. Cinza é calculado.
+
+## Gráficos
+
+Na aba Aderência, abaixo dos indicadores:
+
+* **Quanto tinha, quanto saiu** — plano da semana e extra programação lado a
+  lado, cada um com o que foi concluído;
+* **Onde a semana parou** — concluídas, vencidas, a vencer, canceladas e
+  terceirizadas, cada barra na cor que a situação já tem na planilha.
+
+Os números que alimentam os dois ficam nas colunas O:Q da aba, fora da área
+de impressão, e não são digitados: vêm da tabela de indicadores.
 
 ## Abas
 
