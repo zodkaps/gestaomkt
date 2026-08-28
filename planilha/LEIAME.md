@@ -84,6 +84,43 @@ Cancelada risca o texto do serviço. O resto da linha é branco.
 As colunas de digitar seguem quatro faixas, na ordem de uso: o que é o
 serviço · quem faz · programar · só quando acontecer. Cinza é calculado.
 
+## Quem fez o quê, quando são vários
+
+Três coisas diferentes, que costumam ser confundidas:
+
+**A aderência global conta ATIVIDADES, não pessoas.** As fórmulas são
+`COUNTIFS` sobre as linhas da Programação, então uma atividade com três
+executantes conta uma vez. Na semana 35, 40 das 60 atividades do plano tinham
+dois ou três executantes, e o total seguiu 60. Ter mais gente numa atividade
+**não mexe** na aderência.
+
+**A visão por pessoa dá crédito cheio a cada participante.** É o certo para a
+*razão* — "do que eu peguei, quanto saiu" —, mas faz a coluna somar mais que a
+semana: 176 contra 107 atividades, 120/52 contra 60/52 no recorte. Não é erro;
+é a mesma atividade aparecendo na linha de cada um que a dividiu.
+
+**O PESO é o rateio que fecha.** Coluna nova na grade da aba Semana: a
+atividade dividida entre quem participou (três executantes dão 1/3 para cada).
+A soma da coluna bate exatamente com o *TOTAL — atividades distintas*. É o
+número para dizer quanto da carga foi de cada um sem contar ninguém duas vezes.
+
+Sai da coluna auxiliar **Fração** (AD) na Programação, que é `1 ÷ nº de
+executantes` da linha. Na aba Aderência, o recorte POR EXECUTANTE ganhou um
+rodapé com as atividades distintas, para os dois números se lerem lado a lado.
+
+## Frotas e linhas reservadas
+
+Chegaram do Pará em 31/08 (segunda da semana 36), anotadas em conjunto —
+`F425/1038/1039`, `F621/433`, `F817/150`, `F818/745` — e cadastradas unidade a
+unidade, que é como o resto da lista é escrito: **F-425, F-1038, F-1039, F-621,
+F-433, F-817, F-818, F-745**. O `F-150` já existia e não se repete.
+
+Cada uma ganhou uma **linha reservada**: frota, semana e dia prontos, serviço e
+atividade em branco. Enquanto a **Atividade** estiver vazia a linha não entra em
+conta nenhuma — nem aderência, nem extra, nem vencidas, nem diária —, porque
+todas essas fórmulas exigem atividade. Escreveu o serviço, a linha passa a
+valer. É assim que se reserva espaço na semana sem sujar o indicador.
+
 ## Gráficos
 
 Na aba Aderência, abaixo dos indicadores:
@@ -109,7 +146,8 @@ de impressão, e não são digitados: vêm da tabela de indicadores.
 ## Regenerar
 
 ```bash
-# planilha em uso → JSON (preserva tudo que foi digitado)
+# planilha em uso → JSON (preserva tudo que foi digitado: semana, dia,
+# estimativa de dias, motivos, conclusões e as linhas reservadas)
 python3 ler_planilha.py Programacao_Servicos_Makro.xlsx > dados.json
 
 # JSON → planilha
