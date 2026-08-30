@@ -61,6 +61,12 @@ DIAS_PT=["Seg","Ter","Qua","Qui","Sex","Sáb","Dom"]
 args=[a for a in sys.argv[1:] if not a.startswith("--")]
 ANO=2026
 if "--ano" in sys.argv: ANO=int(sys.argv[sys.argv.index("--ano")+1])
+# --puxar 35:36 leva o que não saiu na semana 35 para a 36. É a "continuidade"
+# de toda segunda-feira, e por isso é parâmetro e não regra fixa.
+PUXAR=None
+if "--puxar" in sys.argv:
+    _de,_para=sys.argv[sys.argv.index("--puxar")+1].split(":")
+    PUXAR=(int(_de),int(_para))
 FONTE=json.load(io.open(args[0],encoding="utf-8")) if args else {"linhas":[],"listas":{}}
 
 def d2(s):
@@ -82,12 +88,13 @@ def _dias_estimados(frota,servico,atividade):
     h=zlib.crc32((frota+"|"+servico+"|"+atividade).encode("utf-8"))%20
     return 2 if h<9 else (3 if h<17 else 4)
 
-# "Em execução" e "Em andamento" saíram: o que a oficina precisa saber é se a
-# atividade está PROGRAMADA (tem dia marcado) ou ainda EM PROGRAMAÇÃO (sendo
-# encaixada). Planilha antiga que traga o texto velho entra como programada.
-VELHO={"em execução":"","em execucao":"","em andamento":"","em curso":""}
+# A coluna Marcar só serve para FORÇAR o que a data não sabe dizer: cancelada,
+# concluída, ou ainda em programação. "Programada", "Em execução" e "Em
+# andamento" a Situação já calcula sozinha pela janela de execução — deixá-las
+# escritas ali é ruído que não muda nada. Saem na importação.
+INERTE={"em execução","em execucao","em andamento","em curso","programada"}
 def _marcar(v):
-    return VELHO.get(str(v or "").strip().lower(), v or "")
+    return "" if str(v or "").strip().lower() in INERTE else (v or "")
 
 def _num(v):
     try: return int(float(v))
@@ -113,6 +120,26 @@ for x in FONTE["linhas"]:
         concluida=d2(x.get("concluida")), marcar=_marcar(x.get("marcar","")),
         semorig=_sor if _sor else (o.isocalendar()[1] if o else None),
         motivo=x.get("motivo",""), obs=x.get("obs","")))
+
+# Semana orig. igual à Semana não é reprogramação nenhuma: a coluna Reprog. já
+# exige que sejam diferentes. Escrita, ela só faz parecer que tudo foi
+# empurrado. Limpa.
+for l in LINHAS:
+    if l["semorig"] and l["semorig"]==l["semana"]: l["semorig"]=None
+
+# ── continuidade: o que não saiu numa semana passa para a seguinte ──
+# Ela entra no PLANO da semana nova, mesmo tendo chegado como extra: quando se
+# programa uma atividade para a semana que vem, ela passa a ser cobrada. A
+# semana de origem fica registrada, e é contra ela que sai a aderência ao plano
+# original — reprogramar não limpa a ficha.
+if PUXAR:
+    _de,_para=PUXAR; _n=0
+    for l in LINHAS:
+        if (l["semana"]==_de and l["atividade"] and not l["concluida"]
+                and l["marcar"]!="Cancelada"):
+            if not l["semorig"]: l["semorig"]=_de
+            l["semana"]=_para; l["origem"]="Programada"; _n+=1
+    print(f"  continuidade: {_n} atividades da semana {_de} passaram para a {_para}")
 
 # ── frotas que chegam do Pará em 31/08, segunda-feira da semana 36 ──
 # Vieram anotadas em conjunto — F425/1038/1039, F621/433, F817/150, F818/745 —
@@ -192,18 +219,19 @@ COLS=[("A","Nº",5,"c"),("B","Situação",19,"c"),
       ("T","Motivo do atraso / da mudança",26,"3"),("U","Obs.",22,"3"),
       ("V","Oficina",12,"c"),("W","Plano",11,"c"),("X","No prazo",8,"c"),
       ("Y","No plano",8,"c"),("Z","Atraso",8,"c"),("AA","Reprog.",8,"c"),("AB","Concl.",8,"c"),
-      ("AC","Venc?",7,"c"),("AD","Fração",8,"c")]
+      ("AC","Venc?",7,"c"),("AD","Fração",8,"c"),
+      ("AE","Ordem dia",9,"c"),("AF","Ordem atr.",9,"c"),("AG","Quem",22,"c")]
 CORB={"1":AMARELO,"q":"FFE9F3E6","2":"FFDCE9FA","3":"FFEDEFF4","c":CINZA}
 
 pg["A1"]="PROGRAMAÇÃO DE SERVIÇOS  ·  MAKRO TRANSPORTES  ·  uma linha por atividade"
 pg["A1"].font=F(bold=True,size=13,color=BRANCO); pg["A1"].fill=fill(NAVY)
 pg["A1"].alignment=Alignment(vertical="center",indent=1)
-pg.merge_cells("A1:AD1"); pg.row_dimensions[1].height=30
+pg.merge_cells("A1:AG1"); pg.row_dimensions[1].height=30
 for a,b,txt,g in [("A","B","CALCULADO","c"),("C","H","1 · O QUE É O SERVIÇO","1"),
                   ("I","K","2 · QUEM FAZ — até três","q"),
                   ("L","N","3 · PROGRAMAR — semana, dia e quantos dias leva","2"),
                   ("O","P","CALCULADO","c"),("Q","U","4 · SÓ QUANDO ACONTECER","3"),
-                  ("V","AD","CALCULADO — não digite aqui","c")]:
+                  ("V","AG","CALCULADO — não digite aqui","c")]:
     pg.merge_cells(f"{a}2:{b}2")
     c=pg[f"{a}2"]; c.value=txt
     c.font=F(bold=True,size=9,color=T2); c.fill=fill(CORB[g])
@@ -220,7 +248,8 @@ pg.row_dimensions[3].height=32
 
 DICAS={
  "B":"Sai sozinha, e SÓ ESTA CÉLULA muda de cor — o resto da linha fica limpo.\n\n"
-     "Em programação · Na carteira · Programada · Vence hoje · VENCIDA · "
+     "Em programação · Na carteira · Programada · Em execução · Fecha hoje · "
+     "VENCIDA · "
      "Concluída · Concluída com atraso · Cancelada",
  "D":"Pode digitar uma frota que ainda não está na lista — a planilha avisa mas "
      "deixa passar. Depois acrescente na aba Listas para ela virar opção.",
@@ -258,7 +287,7 @@ for i,d in enumerate(LINHAS):
                     ("T",d["motivo"]),("U",d["obs"])):
         if val not in (None,""): pg[f"{col}{r}"]=val
 
-ANOREF="Semana!$J$3"; EXPREF="Semana!$M$3"
+ANOREF="Semana!$J$3"; EXPREF="Semana!$M$3"; HOJEREF="Hoje!$C$3"
 SEG=f'(DATE({ANOREF},1,4)-WEEKDAY(DATE({ANOREF},1,4),3))'   # segunda da semana 1
 for r in range(PRIM,ULT+1):
     pg[f"A{r}"]=f'=IF($F{r}="","",COUNTA($F${PRIM}:$F{r}))'
@@ -267,21 +296,26 @@ for r in range(PRIM,ULT+1):
     pg[f"P{r}"]=f'=IF($O{r}="","",$O{r}+MAX(1,IF($N{r}="",1,$N{r}))-1)'
     pg[f"W{r}"]=(f'=IF($O{r}="","",IF($S{r}="",$O{r},{SEG}+($S{r}-1)*7+'
                  f'IF($M{r}="",0,MATCH($M{r},Listas!$F$5:$F$11,0)-1)))')
-    # Passou do término previsto? E, no próprio dia do vencimento, já passou
-    # da hora de fechar a oficina? Fica numa coluna só para a fórmula da
-    # Situação caber — inteira, ela estourava e voltava #VALOR! em toda linha.
-    pg[f"AC{r}"]=(f'=IF($O{r}="",0,IF($O{r}<TODAY(),1,'
-                  f'IF(AND($O{r}=TODAY(),NOW()-TODAY()>{EXPREF}),1,0)))')
-    # Atividade de semana que ainda vem é PROGRAMADA, ponto. O teste antigo
-    # olhava o fim do serviço e, como ele nunca é anterior a hoje, tudo o que
-    # estava marcado para a frente aparecia como "em andamento".
-    pg[f"B{r}"]=(f'=IF($F{r}="","",'
+    # Vencida é só depois que a janela de execução FECHOU. Uma atividade de
+    # três dias que começa segunda está em execução até quarta — chamar isso de
+    # vencida já na segunda era o que enchia a planilha de vermelho sem motivo.
+    # No último dia ela só vence depois da hora de fechar a oficina.
+    # Fica em coluna própria para a fórmula da Situação caber: inteira, ela
+    # estourava e voltava #VALOR! em toda linha.
+    pg[f"AC{r}"]=(f'=IF($P{r}="",0,IF($P{r}<TODAY(),1,'
+                  f'IF(AND($P{r}=TODAY(),NOW()-TODAY()>{EXPREF}),1,0)))')
+    # A janela manda no status: antes dela, Programada; dentro, Em execução;
+    # no último dia, Fecha hoje; depois, VENCIDA.
+    # Linha com frota e sem atividade é a linha reservada: ela não conta em
+    # lugar nenhum, e o status diz o que falta para ela passar a valer.
+    pg[f"B{r}"]=(f'=IF($F{r}="",IF($D{r}="","","Falta a atividade"),'
       f'IF($R{r}="Cancelada","Cancelada",'
       f'IF($AB{r}=1,IF(N($Z{r})>0,"Concluída com atraso","Concluída"),'
       f'IF($R{r}="Em programação","Em programação",'
       f'IF($O{r}="","Na carteira",'
       f'IF($AC{r}=1,"VENCIDA",'
-      f'IF($O{r}=TODAY(),"Vence hoje","Programada")))))))')
+      f'IF($O{r}>TODAY(),"Programada",'
+      f'IF($P{r}>TODAY(),"Em execução","Fecha hoje"))))))))')
     pg[f"V{r}"]=(f'=IF($F{r}="","",IF(ISNUMBER(SEARCH("(externo)",$I{r}&$J{r}&$K{r})),'
                  f'"Terceirizada","Interna"))')
     pg[f"X{r}"]=f'=IF($F{r}="","",IF(OR($Q{r}="",$O{r}=""),0,IF($Q{r}<=$O{r},1,0)))'
@@ -296,6 +330,17 @@ for r in range(PRIM,ULT+1):
     # a coluna por pessoa somava o dobro do total e parecia erro de conta.
     pg[f"AD{r}"]=(f'=IF($F{r}="","",IF(COUNTA($I{r}:$K{r})=0,0,'
                   f'1/COUNTA($I{r}:$K{r})))')
+    # ── numeração que alimenta a aba Hoje ──
+    # Contador corrido: só sobe na linha que entra na lista, e nunca desce.
+    # Como ele é monótono, MATCH(k) acha exatamente a k-ésima linha da lista —
+    # sem fórmula matricial e sem COUNTIFS sobre faixa que cresce, que ficaria
+    # quadrático nas mil linhas.
+    pg[f"AE{r}"]=(f'=IF($F{r}="",N($AE{r-1}),IF(AND($O{r}<>"",$O{r}<={HOJEREF},'
+                  f'$P{r}>={HOJEREF},$R{r}<>"Cancelada"),N($AE{r-1})+1,N($AE{r-1})))')
+    pg[f"AF{r}"]=(f'=IF($F{r}="",N($AF{r-1}),IF(AND($P{r}<>"",$P{r}<{HOJEREF},'
+                  f'$AB{r}=0,$R{r}<>"Cancelada"),N($AF{r-1})+1,N($AF{r-1})))')
+    pg[f"AG{r}"]=(f'=IF($F{r}="","",$I{r}&IF($J{r}="",""," · "&$J{r})'
+                  f'&IF($K{r}="",""," · "&$K{r}))')
     for letra,tit,larg,grp in COLS:
         c=pg[letra+str(r)]
         c.font=F(size=10, color=TINTA if grp in "12q3" else T2)
@@ -304,7 +349,7 @@ for r in range(PRIM,ULT+1):
         elif grp=="2": c.fill=fill("FFF4F9FF")
         elif grp=="q": c.fill=fill("FFF6FBF5")
         if letra in ("O","P","Q","W"): c.number_format=DFMT
-        if letra in ("A","B","G","H","L","M","N","R","S","V","X","Y","Z","AA","AB","AC","AD"):
+        if letra in ("A","B","G","H","L","M","N","R","S","V","X","Y","Z","AA","AB","AC","AD","AE","AF"):
             c.alignment=Alignment(horizontal="center")
         if letra in ("L","N","S"): c.number_format="0"
     pg.row_dimensions[r].height=16.5
@@ -340,9 +385,11 @@ pg.add_data_validation(vd); vd.add(f"N{PRIM}:N{ULT}")
 # Pintar a linha toda virava borrão: com fundo colorido de ponta a ponta não
 # se lia mais a atividade nem a observação. Agora só muda de cor a célula que
 # carrega aquela informação — o texto fica no branco.
-FAIXA=f"A{PRIM}:AD{ULT}"
+FAIXA=f"A{PRIM}:AG{ULT}"
 PINTA=[("VENCIDA",             RU_V,       RU_T,       True),
-       ("Vence hoje",          EX_V,       EX_T,       True),
+       ("Fecha hoje",          EX_V,       EX_T,       True),
+       ("Em execução",         AZ_V,       AZ_T,       True),
+       ("Falta a atividade",   "FFF6E8CE", "FF8A5A05", False),
        ("Concluída",           OK_V,       OK_T,       True),
        ("Concluída com atraso",AL_V,       AL_T,       True),
        ("Em programação",      AZ_V,       AZ_T,       True),
@@ -379,7 +426,7 @@ exn.formula=[f'$H{PRIM}="Extra"']
 pg.conditional_formatting.add(f"A{PRIM}:A{ULT}", exn)
 
 # ── as datas avisam sozinhas, só com a cor da letra ──
-for txt,cor in (("VENCIDA",RU_T),("Vence hoje",EX_T)):
+for txt,cor in (("VENCIDA",RU_T),("Fecha hoje",EX_T),("Em execução",AZ_T)):
     rd=Rule(type="expression", stopIfTrue=True,
             dxf=DifferentialStyle(font=Font(color=cor,bold=True)))
     rd.formula=[f'$B{PRIM}="{txt}"']
@@ -400,7 +447,7 @@ reg.formula=[f'AND($F{PRIM}<>"",$D{PRIM}&$E{PRIM}<>$D{PRIM-1}&$E{PRIM-1})']
 pg.conditional_formatting.add(FAIXA, reg)
 
 pg.freeze_panes="G5"
-pg.auto_filter.ref=f"A3:AD{ULT}"
+pg.auto_filter.ref=f"A3:AG{ULT}"
 pg.sheet_view.showGridLines=False
 
 # ═══════════════════════════════════ referências
@@ -411,6 +458,7 @@ EQ=(rg("I"),rg("J"),rg("K")); SEM=rg("L"); DIAS=rg("N")
 INI=rg("O"); FIM=rg("P"); CONCLEM=rg("Q"); MARC=rg("R")
 OFIC=rg("V"); PLANOD=rg("W"); NOPRAZO=rg("X"); NOPLANO=rg("Y")
 ATRASO=rg("Z"); REP=rg("AA"); CONCL=rg("AB"); FRACAO=rg("AD")
+ORD_DIA=rg("AE"); ORD_ATR=rg("AF"); QUEM=rg("AG"); SEMORIG=rg("S")
 INT=f'{OFIC},"Interna"'          # só a oficina da Makro
 NC =f'{MARC},"<>Cancelada"'
 NEX=f'{ORIG},"<>Extra"'
@@ -438,7 +486,9 @@ titulo(sm,"GRADE DA SEMANA  ·  atividades por executante e por dia","N")
 sm["A3"]="SEMANA Nº"
 sm["A3"].font=F(bold=True,size=12,color=NAVY)
 sm["A3"].alignment=Alignment(vertical="center",indent=1); sm.merge_cells("A3:B3")
-sem_ini=min([l["semana"] for l in LINHAS if l["semana"]] or [date.today().isocalendar()[1]])
+# Abre na semana mais adiantada que tem programação: é a que está sendo tocada.
+# Abrir na mais antiga fazia a planilha começar num retrato já encerrado.
+sem_ini=max([l["semana"] for l in LINHAS if l["semana"]] or [date.today().isocalendar()[1]])
 sm["C3"]=sem_ini
 c=sm["C3"]; c.font=F(bold=True,size=18,color=NAVY); c.fill=fill(AMARELO)
 c.border=Border(*[Side(style="medium",color=NAVY)]*4)
@@ -624,7 +674,46 @@ sm.conditional_formatting.add(f"L{P0}:L{P1}", CellIsRule(operator="lessThan",
     formula=["0.6"], fill=fill(RU_V), font=F(bold=True,size=10,color=RU_T)))
 sm.conditional_formatting.add(f"M{P0}:M{LSEM}", CellIsRule(operator="greaterThan",
     formula=["0"], fill=fill(RU_V), font=F(bold=True,size=10,color=RU_T)))
-LC=LTOT+2
+# ── a semana dia a dia ──
+# O denominador é o TÉRMINO previsto, não o início: o que interessa saber é o
+# que tinha de estar pronto naquele dia. É a aderência diária, e é ela que diz
+# em que dia a semana descarrilou.
+LDIA=LTOT+2
+sm[f"A{LDIA}"]="ADERÊNCIA DIA A DIA  ·  o que tinha de fechar em cada dia"
+sm[f"A{LDIA}"].font=F(bold=True,size=10,color=NAVY)
+sm[f"A{LDIA}"].alignment=Alignment(vertical="center",indent=1)
+sm.merge_cells(f"A{LDIA}:N{LDIA}"); sm.row_dimensions[LDIA].height=20
+DIAG=[("Para fechar", lambda c: f'=COUNTIFS({FIM},{c}${LCAB},{ATIV},"<>",{BASE})',"0"),
+      ("Fechou",      lambda c: f'=SUMIFS({CONCL},{FIM},{c}${LCAB},{BASE})',"0"),
+      ("% do dia",    None,"0%")]
+for i,(rot,f_,fmt) in enumerate(DIAG):
+    r=LDIA+1+i
+    sm[f"A{r}"]=rot
+    sm[f"A{r}"].font=F(size=10,bold=(rot=="% do dia"))
+    sm[f"A{r}"].alignment=Alignment(vertical="center",indent=1)
+    for col in DS:
+        sm[f"{col}{r}"]=(f'=IF({col}{LDIA+1}=0,"",{col}{LDIA+2}/{col}{LDIA+1})'
+                         if f_ is None else f_(col))
+        sm[f"{col}{r}"].number_format=fmt
+    sm[f"I{r}"]=(f'=IF($I{LDIA+1}=0,"",$I{LDIA+2}/$I{LDIA+1})' if f_ is None
+                 else f'=SUM($B{r}:$H{r})')
+    sm[f"I{r}"].number_format=fmt
+    for col in ["A"]+DS+["I"]:
+        c=sm[f"{col}{r}"]; c.border=box
+        if col!="A":
+            c.font=F(size=10,bold=(rot=="% do dia")); c.fill=fill(CINZA_C)
+            c.alignment=Alignment(horizontal="center")
+    sm.row_dimensions[r].height=17
+sm[f"A{LDIA+3}"].comment=Comment("Fechou ÷ para fechar, dia a dia. O total da "
+ "direita é a semana inteira.\n\nDia sem nada previsto fica em branco, não "
+ "em zero: zero de nada não é zero por cento.","PCM")
+fa_=f"B{LDIA+3}:I{LDIA+3}"
+sm.conditional_formatting.add(fa_, CellIsRule(operator="greaterThanOrEqual",
+    formula=["0.85"], fill=fill(OK_V), font=F(bold=True,size=10,color=OK_T)))
+sm.conditional_formatting.add(fa_, CellIsRule(operator="lessThan",
+    formula=["0.6"], fill=fill(RU_V), font=F(bold=True,size=10,color=RU_T)))
+
+LC=LDIA+5
 sm[f"A{LC}"]=("Para programar o que está na carteira: na aba Programação, filtre a coluna "
               "Situação por “Na carteira” e escreva a Semana, o Dia e quantos dias leva.")
 sm[f"A{LC}"].font=F(size=9,italic=True,color=T2); sm.merge_cells(f"A{LC}:N{LC}")
@@ -678,8 +767,12 @@ IND=[
  ("Aderência ao plano original", f'=IF(COUNTIFS({janW},{CONCLEM},"<>")=0,"",'
   f'IFERROR(SUMIFS({NOPLANO},{janW},{NEX},{INT})/COUNTIFS({janW},{PLAN}),""))',"0%",
   "contra a semana da 1ª programação — não melhora quando se empurra para a frente"),
+ ("Saíram desta semana", f'=COUNTIFS({SEMORIG},$B$3,{SEM},"<>"&$B$3,{NC})',"0",
+  "estavam programadas para esta semana e foram empurradas para outra. A "
+  "aderência acima não cobra mais elas — quem cobra é a aderência ao plano "
+  "original. Quando este número é grande, é ela que conta a verdade da semana"),
  ("Vencidas", f'=COUNTIFS({SIT},"VENCIDA",{janA},{INT})',"0",
-  "o dia passou e a atividade não foi concluída"),
+  "a janela de execução fechou e a atividade não saiu"),
  ("Atividades reprogramadas", f'=SUMIFS({REP},{janA},{INT})',"0",
   "mudaram de semana"),
  ("Atraso médio, quando atrasa", f'=IFERROR(SUMIFS({ATRASO},{janA},{INT})/COUNTIFS({janA},{ATRASO},">0",{INT}),0)',"0.0",
@@ -932,6 +1025,142 @@ for col,w in (("B",9),("C",9),("D",11),("E",10),("F",9),("G",3),
     ad.column_dimensions[col].width=w
 ad.sheet_view.showGridLines=False; ad.freeze_panes="A4"
 
+# ═══════════════════════════════════ HOJE
+# O painel do dia, e a folha que se imprime e leva para a oficina. Ele não
+# guarda nada: tudo vem da Programação pelas colunas de ordem, e a data lá em
+# cima é o único campo que se digita.
+hj=wb.create_sheet("Hoje")
+titulo(hj,"O DIA  ·  o que a oficina tem para fazer e o que já fechou","I")
+hj["A3"]="DATA"; hj["A3"].font=F(bold=True,size=11,color=NAVY)
+hj["A3"].alignment=Alignment(horizontal="right",vertical="center")
+hj.merge_cells("A3:B3")
+hj["C3"]="=TODAY()"
+x=hj["C3"]; x.font=F(bold=True,size=14,color=NAVY); x.fill=fill(AMARELO)
+x.border=box; x.alignment=Alignment(horizontal="center",vertical="center")
+x.number_format=DFMT
+x.comment=Comment("Vem preenchida com o dia de hoje.\n\nTroque a data para "
+ "olhar outro dia — a lista, os indicadores e as atrasadas acompanham. "
+ "Para voltar ao normal, escreva =HOJE()","PCM")
+hj["D3"]='=IF($C$3="","",TEXT($C$3,"[$-416]dddd"))'
+hj["D3"].font=F(bold=True,size=11,color=T2)
+hj["D3"].alignment=Alignment(horizontal="center",vertical="center")
+# ISOWEEKNUM não existe em toda build. O número sai da mesma âncora que a
+# coluna Início usa — assim a semana daqui e a de lá nunca divergem.
+hj["E3"]=f'=IF($C$3="","","semana "&(INT(($C$3-{SEG})/7)+1))'
+hj["E3"].font=F(bold=True,size=11,color=T2)
+hj["E3"].alignment=Alignment(horizontal="center",vertical="center")
+hj["F3"]="←  troque a data para ver outro dia"
+hj["F3"].font=F(size=9,italic=True,color=T2); hj.merge_cells("F3:I3")
+hj["F3"].alignment=Alignment(vertical="center")
+hj.row_dimensions[3].height=26
+
+D_="$C$3"
+janD=f'{FIM},{D_}'
+RESH=[("A","B","PARA FECHAR HOJE",f'=COUNTIFS({janD},{BASE})',"0",NAVY,
+       "atividades cujo término previsto cai neste dia"),
+      ("C","C","FECHARAM",f'=SUMIFS({CONCL},{janD},{INT},{NC})',"0",OK_T,
+       "dessas, quantas já estão concluídas"),
+      ("D","E","ADERÊNCIA DO DIA",'=IF($A$6=0,"",$C$6/$A$6)',"0%",NAVY,
+       "fecharam ÷ para fechar — é a aderência diária, por atividade"),
+      ("F","G","EM EXECUÇÃO",
+       f'=COUNTIFS({INI},"<="&{D_},{FIM},">="&{D_},{CONCL},0,{BASE})',"0",AZ_T,
+       "abertas e dentro da janela de execução neste dia"),
+      ("H","I","ATRASADAS",f'=COUNTIFS({FIM},"<"&{D_},{CONCL},0,{BASE})',"0",RU_T,
+       "a janela fechou e a atividade não saiu — vêm de dias anteriores")]
+for c1,c2,rot,fml,fmt,cor,dica in RESH:
+    hj.merge_cells(f"{c1}5:{c2}5"); hj.merge_cells(f"{c1}6:{c2}6")
+    a=hj[f"{c1}5"]; a.value=rot
+    a.font=F(bold=True,size=8.5,color=T2); a.fill=fill(CINZA_C)
+    a.alignment=Alignment(horizontal="center",wrap_text=True)
+    a.comment=Comment(dica,"PCM")
+    b=hj[f"{c1}6"]; b.value=fml
+    b.font=F(bold=True,size=20,color=cor); b.number_format=fmt
+    b.alignment=Alignment(horizontal="center",vertical="center")
+    b.fill=fill(RU_V if rot=="ATRASADAS" else CINZA_C)
+    for cc in {c1,c2}:
+        hj[f"{cc}5"].border=box; hj[f"{cc}6"].border=box
+hj.row_dimensions[5].height=22; hj.row_dimensions[6].height=30
+hj.conditional_formatting.add("D6", CellIsRule(operator="greaterThanOrEqual",
+    formula=["0.85"], font=F(bold=True,size=20,color=OK_T)))
+hj.conditional_formatting.add("D6", CellIsRule(operator="lessThan",
+    formula=["0.6"], font=F(bold=True,size=20,color=RU_T)))
+hj.conditional_formatting.add("H6", CellIsRule(operator="equal",
+    formula=["0"], fill=fill(OK_V), font=F(bold=True,size=20,color=OK_T)))
+
+COLS_H=[("A","Frota",10),("B","Serviço",28),("C","Atividade",40),
+        ("D","Quem faz",26),("E","Início",11),("F","Fim",11),
+        ("G","Situação",17),("H","Concluída em",12),("I","Linha",7)]
+for col,_t,w in COLS_H: hj.column_dimensions[col].width=w
+DE_ONDE=[("A","D"),("B","E"),("C","F"),("D","AG"),("E","O"),("F","P"),("H","Q")]
+
+def bloco(lin, rot, sub, ordem, n, cor):
+    """Uma lista puxada da Programação pela coluna de ordem, sem matricial."""
+    hj[f"A{lin}"]=rot
+    hj[f"A{lin}"].font=F(bold=True,size=11,color=cor)
+    hj[f"A{lin}"].alignment=Alignment(vertical="center",indent=1)
+    hj.merge_cells(f"A{lin}:C{lin}")
+    hj[f"D{lin}"]=sub
+    hj[f"D{lin}"].font=F(size=9,italic=True,color=T2)
+    hj.merge_cells(f"D{lin}:I{lin}")
+    hj.row_dimensions[lin].height=20
+    cabec(hj,lin+1,[(c,t) for c,t,_w in COLS_H])
+    # última célula da coluna de ordem = quantas linhas a lista tem.
+    # Precisa vir com o nome da aba: sem ele a fórmula leria a própria Hoje.
+    fim_=f"{PROG}!"+ordem.split("!")[1].split(":")[1]      # Programação!$AE$1004
+    for k in range(1,n+1):
+        r=lin+1+k
+        pos=f'MATCH({k},{ordem},0)'
+        for col,orig in DE_ONDE:
+            alvo=f"INDEX({rg(orig)},{pos})"
+            # Célula vazia puxada por INDEX vale zero, e zero com formato de
+            # data vira 30/12/1899 na tela. A data de conclusão é a única que
+            # pode estar vazia numa linha listada, então ela leva a guarda.
+            if col=="H": alvo=f'IF({alvo}="","",{alvo})'
+            hj[f"{col}{r}"]=f'=IF({fim_}<{k},"",{alvo})'
+        hj[f"I{r}"]=f'=IF({fim_}<{k},"",{pos}+{PRIM-1})'
+        # situação relativa à DATA escolhida, não a hoje: trocar a data no
+        # topo tem de mudar a leitura da lista inteira.
+        hj[f"G{r}"]=(f'=IF($A{r}="","",IF($H{r}<>"","Concluída",'
+                     f'IF($F{r}<$C$3,"Atrasada",'
+                     f'IF($F{r}=$C$3,"Fecha neste dia","Em execução"))))')
+        for col,_t,_w in COLS_H:
+            c=hj[f"{col}{r}"]; c.border=box; c.font=F(size=10)
+            if col in ("E","F","H"): c.number_format=DFMT
+            if col in ("A","E","F","G","H","I"): c.alignment=Alignment(horizontal="center")
+            if col=="C": c.alignment=Alignment(vertical="center",indent=1)
+        hj.row_dimensions[r].height=16
+    # A lista tem teto. Sem este aviso um dia cheio truncaria calado, e ele
+    # tocaria a oficina achando que viu tudo.
+    hj[f"A{lin+2+n}"]=(f'=IF({fim_}<={n},"",'
+      f'"⚠ há mais "&({fim_}-{n})&" atividades além das {n} listadas — '
+      f'veja na aba Programação")')
+    hj[f"A{lin+2+n}"].font=F(bold=True,size=10,color=RU_T)
+    hj[f"A{lin+2+n}"].alignment=Alignment(vertical="center",indent=1)
+    hj.merge_cells(f"A{lin+2+n}:I{lin+2+n}")
+    hj.row_dimensions[lin+2+n].height=18
+    faixa=f"G{lin+2}:G{lin+1+n}"
+    for txt,bg,fg in (("Concluída",OK_V,OK_T),("Fecha neste dia",EX_V,EX_T),
+                      ("Atrasada",RU_V,RU_T),("Em execução",AZ_V,AZ_T)):
+        rr=Rule(type="expression", stopIfTrue=True,
+                dxf=DifferentialStyle(fill=PatternFill(bgColor=bg),
+                                      font=Font(color=fg,bold=True)))
+        rr.formula=[f'$G{lin+2}="{txt}"']
+        hj.conditional_formatting.add(faixa, rr)
+    return lin+3+n
+
+N_DIA=45; N_ATR=40
+L1=bloco(8,"O DIA","a janela de execução da atividade contém esta data",
+         ORD_DIA,N_DIA,NAVY)
+L2=bloco(L1+1,"ATRASADAS","a janela já fechou e a atividade continua aberta — "
+         "estas vêm de dias anteriores",ORD_ATR,N_ATR,RU_T)
+hj[f"A{L2+1}"]=("Para concluir uma atividade: vá à aba PROGRAMAÇÃO, na linha "
+  "que a coluna LINHA indica, e escreva a data em CONCLUÍDA EM. Aqui nada se "
+  "digita a não ser a data lá em cima — o resto é espelho da Programação.")
+hj[f"A{L2+1}"].font=F(size=9,italic=True,color=T2)
+hj[f"A{L2+1}"].alignment=Alignment(vertical="top",wrap_text=True,indent=1)
+hj.merge_cells(f"A{L2+1}:I{L2+1}"); hj.row_dimensions[L2+1].height=28
+hj.sheet_view.showGridLines=False; hj.freeze_panes="A10"
+
 # ═══════════════════════════════════ COMO USAR
 ins=wb.create_sheet("Como usar", 0)
 titulo(ins,"PROGRAMAÇÃO DE SERVIÇOS  ·  MAKRO TRANSPORTES","H",34,15)
@@ -961,6 +1190,19 @@ def passo(r,n,txt,cor=NAVY):
     ins.row_dimensions[r].height=34
 
 L=4
+sec(L,"O DIA A DIA — comece pela aba HOJE"); L+=1
+par(L,"A aba HOJE abre no dia de hoje e responde três coisas: o que tem de "
+      "FECHAR hoje, o que já fechou, e o que ficou atrasado de dias "
+      "anteriores. A ADERÊNCIA DO DIA é fechou ÷ para fechar — a mesma conta "
+      "da semana, medida no dia.",alt=42); L+=1
+par(L,"A lista embaixo é o que está em execução: a janela de cada atividade "
+      "vai do DIA dela até o TÉRMINO PREVISTO. Enquanto a janela está aberta a "
+      "situação é EM EXECUÇÃO; no último dia vira FECHA HOJE; só depois disso "
+      "ela fica VENCIDA.",alt=42); L+=1
+par(L,"Para CONCLUIR: a coluna LINHA da aba Hoje diz a linha exata na "
+      "Programação. Vá lá e escreva a data em CONCLUÍDA EM. Na aba Hoje só se "
+      "digita a data lá em cima — o resto é espelho.",alt=36,cor=T2); L+=2
+
 sec(L,"MONTAR A SEMANA — quatro passos"); L+=1
 passo(L,"1","Na aba PROGRAMAÇÃO, filtre a coluna SITUAÇÃO por “Na carteira”. "
            "Sobram as atividades que ainda não têm dia."); L+=1
@@ -1041,12 +1283,15 @@ par(L,"Quem muda de cor é a coluna SITUAÇÃO. O resto da linha continua branco
       "pintam três coisas: a coluna ORIGEM quando é EXTRA, a data de conclusão "
       "assim que é escrita, e o motivo quando é preenchido.",alt=32,cor=T2); L+=2
 for cor_,nome,txt in [(RU_V,"VENCIDA","o dia dela passou e não foi concluída"),
-      (EX_V,"Vence hoje","é para hoje e ainda não saiu"),
+      (EX_V,"Fecha hoje","é o último dia da janela — tem de sair hoje"),
+      (AZ_V,"Em execução","está dentro da janela de execução dela"),
       (OK_V,"Concluída","tem data de conclusão"),
       (AL_V,"Concluída com atraso","saiu depois do dia programado"),
       (AZ_V,"Em programação","você marcou: ainda está sendo encaixada"),
-      ("FFEDF2FC","Programada","tem semana e dia, e o dia ainda não chegou"),
+      ("FFEDF2FC","Programada","tem semana e dia, e a janela ainda não abriu"),
       ("FFF2F4F8","Na carteira","ainda sem semana e sem dia"),
+      ("FFF6E8CE","Falta a atividade","linha com frota e sem atividade — ela "
+       "não conta em lugar nenhum até você escrever o que vai ser feito"),
       ("FFE6E9EF","Cancelada","texto riscado; sai dos dois lados da aderência"),
       ("FFFFC97A","EXTRA — coluna Origem","entrou fora do plano; moldura grossa")]:
     c=ins[f"A{L}"]; c.value=nome; c.fill=fill(cor_); c.border=box
@@ -1067,7 +1312,8 @@ ins.sheet_view.showGridLines=False
 
 # ═══════════════════════════════════ IMPRESSÃO E FECHO
 for ws,orient,tr in ((pg,"landscape",3),(sm,"landscape",LCAB),
-                     (ad,"portrait",None),(ins,"portrait",None)):
+                     (ad,"portrait",None),(ins,"portrait",None),
+                     (hj,"landscape",None)):
     ws.page_setup.orientation=orient
     ws.page_setup.paperSize=ws.PAPERSIZE_A4
     ws.page_setup.fitToWidth=1; ws.page_setup.fitToHeight=0
@@ -1078,9 +1324,16 @@ for ws,orient,tr in ((pg,"landscape",3),(sm,"landscape",LCAB),
     if tr: ws.print_title_rows=f"1:{tr}"
 pg.print_area=f"A1:U{PRIM+max(len(LINHAS),60)+5}"
 ad.print_area=f"A1:M{L0+max(N_EX,N_FR)+len(TIPO_LISTA)+12}"   # O:Q são os números dos gráficos
-sm.print_area=f"A1:N{LTOT+3}"
+sm.print_area=f"A1:N{LDIA+3}"
+hj.print_area=f"A1:I{L2}"
+# As onze colunas de cálculo ficam agrupadas e recolhidas: a Programação passa
+# de trinta colunas na tela para dezenove, que são as que se digitam. O sinal
+# de + na régua abre o grupo quando ele quiser conferir a conta.
+pg.column_dimensions.group("V","AG", outline_level=1, hidden=True)
 wb.calculation.fullCalcOnLoad=True
 for ws in wb.worksheets: ws.sheet_properties.tabColor=NAVY[2:]
+# O dia primeiro: é por ele que se começa a manhã.
+wb.move_sheet("Hoje", offset=-(wb.sheetnames.index("Hoje")))
 wb.active=0
 wb.save(SAIDA)
 print("planilha montada:",SAIDA)

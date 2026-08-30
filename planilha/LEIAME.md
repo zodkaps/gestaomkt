@@ -45,7 +45,8 @@ como homem-dia.
 
 ## Situação
 
-Oito estados, e só dois se marcam à mão. A **Situação** sai sozinha:
+Quem manda é a **janela de execução**: ela vai do *Início* (o Dia da
+atividade) até o *Fim do serviço* (Início + Dias prev. − 1).
 
 | Situação | Quando |
 |---|---|
@@ -53,15 +54,23 @@ Oito estados, e só dois se marcam à mão. A **Situação** sai sozinha:
 | Cancelada | marcada como tal |
 | Em programação | marcada à mão: ainda está sendo encaixada |
 | Na carteira | sem semana e sem dia |
-| VENCIDA | o dia passou (ou passou da hora de fechar, no próprio dia) |
-| Vence hoje | é para hoje |
-| Programada | tem dia e o dia ainda não chegou |
+| Programada | tem dia, e a janela ainda não abriu |
+| **Em execução** | hoje está dentro da janela |
+| **Fecha hoje** | hoje é o último dia da janela |
+| VENCIDA | a janela fechou (ou passou das 18h no último dia) |
+| Falta a atividade | linha com frota e sem atividade |
 
-*Em execução* e *Em andamento* saíram. O segundo olhava o fim do serviço e,
-como ele nunca é anterior a hoje, tudo que estava marcado para a frente —
-uma F-331 da semana que vem, por exemplo — aparecia como "em andamento".
-Atividade de semana futura é **Programada**, ponto. Planilha antiga que traga
-o texto velho na coluna *Marcar* entra como programada.
+Antes, *VENCIDA* comparava o **Início** com hoje: uma atividade de três dias
+começada na segunda já nascia vencida na segunda. A planilha enchia de
+vermelho sem motivo. Agora só vence quem passou do **Fim**.
+
+Só três valores se marcam à mão em *Marcar*: **Concluída**, **Cancelada** e
+**Em programação**. "Programada", "Em execução" e "Em andamento" a Situação
+calcula sozinha, então saem na importação — escritos ali eram ruído inerte.
+
+*Falta a atividade* é a linha reservada: frota lançada, serviço ainda por
+escrever. Ela não entra em conta nenhuma — toda contagem exige atividade — e
+o status existe para ela não passar despercebida.
 
 ## Cores
 
@@ -121,6 +130,45 @@ conta nenhuma — nem aderência, nem extra, nem vencidas, nem diária —, porq
 todas essas fórmulas exigem atividade. Escreveu o serviço, a linha passa a
 valer. É assim que se reserva espaço na semana sem sujar o indicador.
 
+## A aba Hoje
+
+Abre no dia de hoje e responde o que a oficina faz agora. A **data no topo** é
+o único campo que se digita — troque para olhar outro dia e tudo acompanha.
+
+* **Para fechar hoje** — atividades cujo *Fim do serviço* cai neste dia;
+* **Fecharam** — dessas, quantas já estão concluídas;
+* **Aderência do dia** — fecharam ÷ para fechar. É a aderência por atividade,
+  medida no dia;
+* **Em execução** — abertas e dentro da janela;
+* **Atrasadas** — a janela fechou e a atividade não saiu.
+
+Embaixo, duas listas: **o dia** e **as atrasadas**. A coluna *Linha* diz a
+linha exata na Programação — é lá que se escreve a conclusão, porque célula de
+fórmula não aceita digitação de volta. Se um dia tiver mais atividades do que
+cabe na lista, aparece um aviso em vermelho com quantas ficaram de fora.
+
+Ela não guarda nada: puxa tudo da Programação por duas colunas de ordem
+(*Ordem dia* e *Ordem atr.*), um contador corrido que só sobe nas linhas que
+entram na lista. Como é monótono, `MATCH` acha a k-ésima direto — sem fórmula
+matricial e sem varredura quadrática.
+
+## Continuidade de uma semana para a outra
+
+```bash
+python3 montar_planilha.py dados.json --ano 2026 --puxar 35:36
+```
+
+Leva para a semana 36 tudo que ficou aberto na 35: grava *Semana orig.* 35,
+troca a semana e põe **Origem = Programada** — programou para a semana que
+vem, passou a ser cobrada.
+
+**Cuidado com o retrovisor.** Depois de puxar, a semana de origem fica
+bonita: as pendentes saíram dela, então a *Aderência à programação* da 35
+sobe. A verdade fica na **Aderência ao plano original**, que mede contra a
+*Semana orig.* e não perdoa o empurrão. O indicador **Saíram desta semana**
+diz quantas foram embora — quando ele é grande, é a aderência ao plano
+original que conta a história.
+
 ## Gráficos
 
 Na aba Aderência, abaixo dos indicadores:
@@ -137,6 +185,7 @@ de impressão, e não são digitados: vêm da tabela de indicadores.
 
 | Aba | Para que serve |
 |---|---|
+| **Hoje** | O painel do dia: o que fecha hoje, o que fechou, o que atrasou |
 | Como usar | Os quatro passos da semana e o dia a dia |
 | Programação | Onde se trabalha — uma linha por atividade |
 | Semana | Carga por executante e por dia, com a diária |
