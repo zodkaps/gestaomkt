@@ -59,6 +59,7 @@ atividade) até o *Fim do serviço* (Início + Dias prev. − 1).
 | **Fecha hoje** | hoje é o último dia da janela |
 | VENCIDA | a janela fechou (ou passou das 18h no último dia) |
 | Falta a atividade | linha com frota e sem atividade |
+| Falta a semana | tem DIA e não tem SEMANA |
 
 Antes, *VENCIDA* comparava o **Início** com hoje: uma atividade de três dias
 começada na segunda já nascia vencida na segunda. A planilha enchia de
@@ -129,6 +130,44 @@ atividade em branco. Enquanto a **Atividade** estiver vazia a linha não entra e
 conta nenhuma — nem aderência, nem extra, nem vencidas, nem diária —, porque
 todas essas fórmulas exigem atividade. Escreveu o serviço, a linha passa a
 valer. É assim que se reserva espaço na semana sem sujar o indicador.
+
+## Uso no Excel — o que não se pode quebrar
+
+**Nunca numerar em cadeia.** As colunas de ordem que alimentam a aba Hoje já
+foram um contador que lia a linha de cima (`N($AE{r-1})`). Bastou apagar uma
+linha para a seguinte apontar para o vazio, e o `#REF!` desceu por todas as
+outras: **uma linha apagada produziu 2.593 células quebradas**.
+
+O desenho de agora é à prova disso:
+
+* `AH` e `AI` são bandeiras 0/1 que **só olham a própria linha**;
+* `AE` e `AI` são `SUM($AH$4:$AH{linha})` — de uma âncora fixa até aqui.
+
+Apagar uma linha só encurta o intervalo. A âncora é a **linha 4**, vazia e
+dentro do painel congelado; ancorar na 5, a primeira de dados, quebraria se
+alguém apagasse justo ela. Pelo mesmo motivo a numeração é
+`COUNTA($F$4:$F{linha})`.
+
+**Regra para quem mexer no gerador:** nenhuma fórmula da Programação pode
+citar outra linha de dados da própria aba. Há um teste disso na verificação —
+o resultado tem de ser zero.
+
+**Voláteis.** `TODAY()` e `NOW()` moravam dentro das mil linhas, em `AC` e `B`:
+cerca de 5.000 chamadas voláteis a cada tecla digitada. Agora são calculadas
+uma vez no bloco motor (`Hoje!$L$1` e `$L$2`) e as colunas só leem o
+resultado. Sobraram **3 células voláteis** na planilha inteira.
+
+**Duas datas que não se confundem:** `Hoje!$C$3` é a data que se escolhe
+olhar e move a aba Hoje; `Hoje!$L$1` é o hoje real e move a Situação. Se a
+Situação seguisse a data escolhida, espiar a quinta reescreveria o status de
+mil linhas.
+
+**OS é texto.** A coluna tem formato `@`, senão o Excel come o zero à esquerda
+e `021188` vira `21188`.
+
+**Mexer nas linhas:** acrescentar no fim puxando a alça; inserir no meio com
+Ctrl+C na linha inteira e *Inserir células copiadas* (nunca *Inserir linha*
+pura, que entra sem fórmula); apagar linha inteira é seguro.
 
 ## A aba Hoje
 

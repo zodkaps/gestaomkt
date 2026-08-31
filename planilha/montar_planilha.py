@@ -220,18 +220,19 @@ COLS=[("A","Nº",5,"c"),("B","Situação",19,"c"),
       ("V","Oficina",12,"c"),("W","Plano",11,"c"),("X","No prazo",8,"c"),
       ("Y","No plano",8,"c"),("Z","Atraso",8,"c"),("AA","Reprog.",8,"c"),("AB","Concl.",8,"c"),
       ("AC","Venc?",7,"c"),("AD","Fração",8,"c"),
-      ("AE","Ordem dia",9,"c"),("AF","Ordem atr.",9,"c"),("AG","Quem",22,"c")]
+      ("AE","Ordem dia",9,"c"),("AF","Ordem atr.",9,"c"),("AG","Quem",22,"c"),
+      ("AH","Entra dia",9,"c"),("AI","Entra atr.",9,"c")]
 CORB={"1":AMARELO,"q":"FFE9F3E6","2":"FFDCE9FA","3":"FFEDEFF4","c":CINZA}
 
 pg["A1"]="PROGRAMAÇÃO DE SERVIÇOS  ·  MAKRO TRANSPORTES  ·  uma linha por atividade"
 pg["A1"].font=F(bold=True,size=13,color=BRANCO); pg["A1"].fill=fill(NAVY)
 pg["A1"].alignment=Alignment(vertical="center",indent=1)
-pg.merge_cells("A1:AG1"); pg.row_dimensions[1].height=30
+pg.merge_cells("A1:AI1"); pg.row_dimensions[1].height=30
 for a,b,txt,g in [("A","B","CALCULADO","c"),("C","H","1 · O QUE É O SERVIÇO","1"),
                   ("I","K","2 · QUEM FAZ — até três","q"),
                   ("L","N","3 · PROGRAMAR — semana, dia e quantos dias leva","2"),
                   ("O","P","CALCULADO","c"),("Q","U","4 · SÓ QUANDO ACONTECER","3"),
-                  ("V","AG","CALCULADO — não digite aqui","c")]:
+                  ("V","AI","CALCULADO — não digite aqui","c")]:
     pg.merge_cells(f"{a}2:{b}2")
     c=pg[f"{a}2"]; c.value=txt
     c.font=F(bold=True,size=9,color=T2); c.fill=fill(CORB[g])
@@ -248,8 +249,8 @@ pg.row_dimensions[3].height=32
 
 DICAS={
  "B":"Sai sozinha, e SÓ ESTA CÉLULA muda de cor — o resto da linha fica limpo.\n\n"
-     "Em programação · Na carteira · Programada · Em execução · Fecha hoje · "
-     "VENCIDA · "
+     "Em programação · Na carteira · Falta a semana · Programada · "
+     "Em execução · Fecha hoje · VENCIDA · "
      "Concluída · Concluída com atraso · Cancelada",
  "D":"Pode digitar uma frota que ainda não está na lista — a planilha avisa mas "
      "deixa passar. Depois acrescente na aba Listas para ela virar opção.",
@@ -287,10 +288,18 @@ for i,d in enumerate(LINHAS):
                     ("T",d["motivo"]),("U",d["obs"])):
         if val not in (None,""): pg[f"{col}{r}"]=val
 
-ANOREF="Semana!$J$3"; EXPREF="Semana!$M$3"; HOJEREF="Hoje!$C$3"
+ANOREF="Semana!$J$3"; EXPREF="Semana!$M$3"
+# Duas datas que não se confundem:
+#   HOJEREF  — a data que ele ESCOLHE olhar; move a aba Hoje e as listas.
+#   HOJEREAL — o hoje de verdade; move a Situação. Se a Situação seguisse a
+#              data escolhida, espiar a quinta reescreveria o status de mil
+#              linhas.
+HOJEREF="Hoje!$C$3"; HOJEREAL="Hoje!$L$1"; AGORA="Hoje!$L$2"
 SEG=f'(DATE({ANOREF},1,4)-WEEKDAY(DATE({ANOREF},1,4),3))'   # segunda da semana 1
 for r in range(PRIM,ULT+1):
-    pg[f"A{r}"]=f'=IF($F{r}="","",COUNTA($F${PRIM}:$F{r}))'
+    # Âncora na linha 4 pelo mesmo motivo das colunas de ordem: ancorada na 5,
+    # apagar a primeira linha de dados levava a numeração toda junto.
+    pg[f"A{r}"]=f'=IF($F{r}="","",COUNTA($F${PRIM-1}:$F{r}))'
     pg[f"O{r}"]=(f'=IF(OR($L{r}="",$M{r}=""),"",'
                  f'{SEG}+($L{r}-1)*7+MATCH($M{r},Listas!$F$5:$F$11,0)-1)')
     pg[f"P{r}"]=f'=IF($O{r}="","",$O{r}+MAX(1,IF($N{r}="",1,$N{r}))-1)'
@@ -302,20 +311,26 @@ for r in range(PRIM,ULT+1):
     # No último dia ela só vence depois da hora de fechar a oficina.
     # Fica em coluna própria para a fórmula da Situação caber: inteira, ela
     # estourava e voltava #VALOR! em toda linha.
-    pg[f"AC{r}"]=(f'=IF($P{r}="",0,IF($P{r}<TODAY(),1,'
-                  f'IF(AND($P{r}=TODAY(),NOW()-TODAY()>{EXPREF}),1,0)))')
+    # TODAY() e NOW() são voláteis: dentro das mil linhas, o Excel refazia
+    # cinco mil chamadas a cada tecla. Elas passaram a ser calculadas uma vez
+    # só, no bloco motor da aba Hoje, e aqui só se lê o resultado.
+    pg[f"AC{r}"]=(f'=IF($P{r}="",0,IF($P{r}<{HOJEREAL},1,'
+                  f'IF(AND($P{r}={HOJEREAL},{AGORA}>{EXPREF}),1,0)))')
     # A janela manda no status: antes dela, Programada; dentro, Em execução;
     # no último dia, Fecha hoje; depois, VENCIDA.
     # Linha com frota e sem atividade é a linha reservada: ela não conta em
     # lugar nenhum, e o status diz o que falta para ela passar a valer.
+    # Dia escrito e semana em branco não gera Início, e sem Início a atividade
+    # some: some da semana, da aba Hoje e de todo indicador. Ele tinha 37
+    # assim, marcadas para segunda e invisíveis. Agora elas se anunciam.
     pg[f"B{r}"]=(f'=IF($F{r}="",IF($D{r}="","","Falta a atividade"),'
       f'IF($R{r}="Cancelada","Cancelada",'
       f'IF($AB{r}=1,IF(N($Z{r})>0,"Concluída com atraso","Concluída"),'
       f'IF($R{r}="Em programação","Em programação",'
-      f'IF($O{r}="","Na carteira",'
+      f'IF($O{r}="",IF($M{r}="","Na carteira","Falta a semana"),'
       f'IF($AC{r}=1,"VENCIDA",'
-      f'IF($O{r}>TODAY(),"Programada",'
-      f'IF($P{r}>TODAY(),"Em execução","Fecha hoje"))))))))')
+      f'IF($O{r}>{HOJEREAL},"Programada",'
+      f'IF($P{r}>{HOJEREAL},"Em execução","Fecha hoje"))))))))')
     pg[f"V{r}"]=(f'=IF($F{r}="","",IF(ISNUMBER(SEARCH("(externo)",$I{r}&$J{r}&$K{r})),'
                  f'"Terceirizada","Interna"))')
     pg[f"X{r}"]=f'=IF($F{r}="","",IF(OR($Q{r}="",$O{r}=""),0,IF($Q{r}<=$O{r},1,0)))'
@@ -331,14 +346,20 @@ for r in range(PRIM,ULT+1):
     pg[f"AD{r}"]=(f'=IF($F{r}="","",IF(COUNTA($I{r}:$K{r})=0,0,'
                   f'1/COUNTA($I{r}:$K{r})))')
     # ── numeração que alimenta a aba Hoje ──
-    # Contador corrido: só sobe na linha que entra na lista, e nunca desce.
-    # Como ele é monótono, MATCH(k) acha exatamente a k-ésima linha da lista —
-    # sem fórmula matricial e sem COUNTIFS sobre faixa que cresce, que ficaria
-    # quadrático nas mil linhas.
-    pg[f"AE{r}"]=(f'=IF($F{r}="",N($AE{r-1}),IF(AND($O{r}<>"",$O{r}<={HOJEREF},'
-                  f'$P{r}>={HOJEREF},$R{r}<>"Cancelada"),N($AE{r-1})+1,N($AE{r-1})))')
-    pg[f"AF{r}"]=(f'=IF($F{r}="",N($AF{r-1}),IF(AND($P{r}<>"",$P{r}<{HOJEREF},'
-                  f'$AB{r}=0,$R{r}<>"Cancelada"),N($AF{r-1})+1,N($AF{r-1})))')
+    # NUNCA voltar a fazer isto em cadeia (cada linha lendo N($AE{r-1})).
+    # Apagar uma linha no Excel fazia a linha seguinte apontar para uma linha
+    # que não existe mais, e o #REF! descia por todas as outras: uma linha
+    # apagada produziu 2.593 células quebradas.
+    # A bandeira só olha a própria linha; a ordem é uma soma acumulada de uma
+    # âncora fixa até aqui. Apagar linha só encurta o intervalo.
+    pg[f"AH{r}"]=(f'=IF(AND($F{r}<>"",$O{r}<>"",$O{r}<={HOJEREF},'
+                  f'$P{r}>={HOJEREF},$R{r}<>"Cancelada"),1,0)')
+    pg[f"AI{r}"]=(f'=IF(AND($F{r}<>"",$P{r}<>"",$P{r}<{HOJEREF},'
+                  f'$AB{r}=0,$R{r}<>"Cancelada"),1,0)')
+    # A âncora é a linha 4, vazia e dentro do painel congelado. Ancorar na 5,
+    # que é a primeira linha de dados, quebraria se ele apagasse justo ela.
+    pg[f"AE{r}"]=f'=IF($AH{r}=0,"",SUM($AH$4:$AH{r}))'
+    pg[f"AF{r}"]=f'=IF($AI{r}=0,"",SUM($AI$4:$AI{r}))'
     pg[f"AG{r}"]=(f'=IF($F{r}="","",$I{r}&IF($J{r}="",""," · "&$J{r})'
                   f'&IF($K{r}="",""," · "&$K{r}))')
     for letra,tit,larg,grp in COLS:
@@ -349,7 +370,10 @@ for r in range(PRIM,ULT+1):
         elif grp=="2": c.fill=fill("FFF4F9FF")
         elif grp=="q": c.fill=fill("FFF6FBF5")
         if letra in ("O","P","Q","W"): c.number_format=DFMT
-        if letra in ("A","B","G","H","L","M","N","R","S","V","X","Y","Z","AA","AB","AC","AD","AE","AF"):
+        # O Excel come o zero à esquerda de uma OS como 021188 se a coluna
+        # for geral. Texto explícito segura.
+        if letra=="C": c.number_format="@"
+        if letra in ("A","B","G","H","L","M","N","R","S","V","X","Y","Z","AA","AB","AC","AD","AE","AF","AH","AI"):
             c.alignment=Alignment(horizontal="center")
         if letra in ("L","N","S"): c.number_format="0"
     pg.row_dimensions[r].height=16.5
@@ -385,11 +409,12 @@ pg.add_data_validation(vd); vd.add(f"N{PRIM}:N{ULT}")
 # Pintar a linha toda virava borrão: com fundo colorido de ponta a ponta não
 # se lia mais a atividade nem a observação. Agora só muda de cor a célula que
 # carrega aquela informação — o texto fica no branco.
-FAIXA=f"A{PRIM}:AG{ULT}"
+FAIXA=f"A{PRIM}:AI{ULT}"
 PINTA=[("VENCIDA",             RU_V,       RU_T,       True),
        ("Fecha hoje",          EX_V,       EX_T,       True),
        ("Em execução",         AZ_V,       AZ_T,       True),
        ("Falta a atividade",   "FFF6E8CE", "FF8A5A05", False),
+       ("Falta a semana",      "FFF6E8CE", "FF8A5A05", True),
        ("Concluída",           OK_V,       OK_T,       True),
        ("Concluída com atraso",AL_V,       AL_T,       True),
        ("Em programação",      AZ_V,       AZ_T,       True),
@@ -447,7 +472,7 @@ reg.formula=[f'AND($F{PRIM}<>"",$D{PRIM}&$E{PRIM}<>$D{PRIM-1}&$E{PRIM-1})']
 pg.conditional_formatting.add(FAIXA, reg)
 
 pg.freeze_panes="G5"
-pg.auto_filter.ref=f"A3:AG{ULT}"
+pg.auto_filter.ref=f"A3:AI{ULT}"
 pg.sheet_view.showGridLines=False
 
 # ═══════════════════════════════════ referências
@@ -1054,6 +1079,26 @@ hj["F3"].font=F(size=9,italic=True,color=T2); hj.merge_cells("F3:I3")
 hj["F3"].alignment=Alignment(vertical="center")
 hj.row_dimensions[3].height=26
 
+# ── bloco motor ──
+# Fica em K:L, fora da área de impressão. As duas primeiras células são as
+# únicas voláteis da planilha inteira: antes TODAY() e NOW() moravam dentro
+# das mil linhas da Programação e o Excel refazia cinco mil chamadas a cada
+# tecla digitada.
+hj["K1"]="motor — não apague"
+hj["K1"].font=F(bold=True,size=8,color=RU_T)
+for lin,rot,fml,fmt in ((1,"hoje","=TODAY()",DFMT),
+                        (2,"agora","=NOW()-TODAY()","hh:mm"),
+                        (3,"no dia",f'=SUM({rg("AH")})',"0"),
+                        (4,"atrasadas",f'=SUM({rg("AI")})',"0")):
+    if lin>1:
+        hj[f"K{lin}"]=rot; hj[f"K{lin}"].font=F(size=8,color=T2)
+    hj[f"L{lin}"]=fml
+    hj[f"L{lin}"].font=F(size=8,color=T2); hj[f"L{lin}"].number_format=fmt
+hj["M1"]=("Estas quatro células movem a planilha: a data de hoje, a hora, e o "
+          "tamanho das duas listas abaixo. Não apague nem mova.")
+hj["M1"].font=F(size=8,italic=True,color=T2)
+for c,w in (("K",13),("L",10),("M",60)): hj.column_dimensions[c].width=w
+
 D_="$C$3"
 janD=f'{FIM},{D_}'
 RESH=[("A","B","PARA FECHAR HOJE",f'=COUNTIFS({janD},{BASE})',"0",NAVY,
@@ -1093,7 +1138,7 @@ COLS_H=[("A","Frota",10),("B","Serviço",28),("C","Atividade",40),
 for col,_t,w in COLS_H: hj.column_dimensions[col].width=w
 DE_ONDE=[("A","D"),("B","E"),("C","F"),("D","AG"),("E","O"),("F","P"),("H","Q")]
 
-def bloco(lin, rot, sub, ordem, n, cor):
+def bloco(lin, rot, sub, ordem, total, n, cor):
     """Uma lista puxada da Programação pela coluna de ordem, sem matricial."""
     hj[f"A{lin}"]=rot
     hj[f"A{lin}"].font=F(bold=True,size=11,color=cor)
@@ -1102,11 +1147,13 @@ def bloco(lin, rot, sub, ordem, n, cor):
     hj[f"D{lin}"]=sub
     hj[f"D{lin}"].font=F(size=9,italic=True,color=T2)
     hj.merge_cells(f"D{lin}:I{lin}")
+    hj[f"D{lin}"].alignment=Alignment(vertical="center")
     hj.row_dimensions[lin].height=20
     cabec(hj,lin+1,[(c,t) for c,t,_w in COLS_H])
-    # última célula da coluna de ordem = quantas linhas a lista tem.
-    # Precisa vir com o nome da aba: sem ele a fórmula leria a própria Hoje.
-    fim_=f"{PROG}!"+ordem.split("!")[1].split(":")[1]      # Programação!$AE$1004
+    # Quantas linhas a lista tem, vindo do bloco motor. Antes era a última
+    # célula da coluna de ordem, que só servia enquanto a ordem era um
+    # contador em cadeia — e a cadeia é justamente o que causou os #REF!.
+    fim_=total
     for k in range(1,n+1):
         r=lin+1+k
         pos=f'MATCH({k},{ordem},0)'
@@ -1149,10 +1196,15 @@ def bloco(lin, rot, sub, ordem, n, cor):
     return lin+3+n
 
 N_DIA=45; N_ATR=40
-L1=bloco(8,"O DIA","a janela de execução da atividade contém esta data",
-         ORD_DIA,N_DIA,NAVY)
+# "Para fechar hoje" é zero em todo dia que não é término de nada — numa
+# segunda com estimativas de três dias, o painel inteiro ficava mudo. O que
+# de fato saiu no dia entra aqui, e essa linha responde todo dia.
+L1=bloco(8,"O DIA",
+         f'="a janela de execução contém esta data   ·   CONCLUÍDAS NESTA '
+         f'DATA: "&COUNTIFS({CONCLEM},{D_},{BASE})',
+         ORD_DIA,"$L$3",N_DIA,NAVY)
 L2=bloco(L1+1,"ATRASADAS","a janela já fechou e a atividade continua aberta — "
-         "estas vêm de dias anteriores",ORD_ATR,N_ATR,RU_T)
+         "estas vêm de dias anteriores",ORD_ATR,"$L$4",N_ATR,RU_T)
 hj[f"A{L2+1}"]=("Para concluir uma atividade: vá à aba PROGRAMAÇÃO, na linha "
   "que a coluna LINHA indica, e escreva a data em CONCLUÍDA EM. Aqui nada se "
   "digita a não ser a data lá em cima — o resto é espelho da Programação.")
@@ -1212,6 +1264,16 @@ passo(L,"3","Escolha o DIA, quantos DIAS PREV. o serviço leva, e quem faz em "
            "EXECUTANTE 1, 2 e 3. Início, término previsto e Situação saem sozinhos."); L+=1
 passo(L,"4","Volte à aba SEMANA: ela mostra a carga de cada um por dia e os "
            "dias de serviço — a diária."); L+=2
+
+sec(L,"MEXER NAS LINHAS — no Excel"); L+=1
+par(L,"ACRESCENTAR NO FIM: clique na última linha preenchida, pegue a alça no "
+      "canto da seleção e puxe para baixo. As fórmulas vêm junto.",alt=30); L+=1
+par(L,"INSERIR NO MEIO: selecione uma LINHA INTEIRA parecida, Ctrl+C, botão "
+      "direito na linha de baixo e “Inserir células copiadas”. Não use "
+      "“Inserir linha” pura — ela entra sem fórmula nenhuma e fica muda: sem "
+      "Nº, sem Situação, sem data.",alt=42); L+=1
+par(L,"APAGAR: apague a LINHA INTEIRA, pelo número dela à esquerda. Pode "
+      "apagar à vontade — as contas se ajustam sozinhas.",alt=30); L+=2
 
 sec(L,"TROCAR DE SEMANA"); L+=1
 par(L,"Na aba SEMANA, a célula amarela grande é o NÚMERO da semana. Troque e tudo "
@@ -1292,6 +1354,8 @@ for cor_,nome,txt in [(RU_V,"VENCIDA","o dia dela passou e não foi concluída")
       ("FFF2F4F8","Na carteira","ainda sem semana e sem dia"),
       ("FFF6E8CE","Falta a atividade","linha com frota e sem atividade — ela "
        "não conta em lugar nenhum até você escrever o que vai ser feito"),
+      ("FFF6E8CE","Falta a semana","tem DIA e não tem SEMANA. Sem semana não "
+       "há data, e sem data a atividade some da conta — escreva o número"),
       ("FFE6E9EF","Cancelada","texto riscado; sai dos dois lados da aderência"),
       ("FFFFC97A","EXTRA — coluna Origem","entrou fora do plano; moldura grossa")]:
     c=ins[f"A{L}"]; c.value=nome; c.fill=fill(cor_); c.border=box
@@ -1329,7 +1393,7 @@ hj.print_area=f"A1:I{L2}"
 # As onze colunas de cálculo ficam agrupadas e recolhidas: a Programação passa
 # de trinta colunas na tela para dezenove, que são as que se digitam. O sinal
 # de + na régua abre o grupo quando ele quiser conferir a conta.
-pg.column_dimensions.group("V","AG", outline_level=1, hidden=True)
+pg.column_dimensions.group("V","AI", outline_level=1, hidden=True)
 wb.calculation.fullCalcOnLoad=True
 for ws in wb.worksheets: ws.sheet_properties.tabColor=NAVY[2:]
 # O dia primeiro: é por ele que se começa a manhã.
