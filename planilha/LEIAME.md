@@ -30,23 +30,56 @@ A coluna **Semana** é o número ISO (35, 36…), não uma data. O ano fica na a
 Semana e é dele que saem todas as datas. Repetir a semana passada é copiar as
 linhas e trocar esse número.
 
-## Dias previstos e o atraso
+## Serviço, atividade e prazo
 
-**Dias prev.** é quanto o SERVIÇO leva por inteiro — dimensiona a semana.
+**O serviço é a unidade de planejamento; a atividade é a de execução.**
 
-O **atraso da atividade** é medido pelo DIA dela, não pela folga do serviço:
-cada linha tem o seu dia. Depois da hora de fechar a oficina (célula
-*Expediente até* na aba Semana), o que vencia hoje já entra como VENCIDA.
+Você marca duas coisas no serviço: o **Dia** em que ele começa e quantos
+**Dias prev.** ele leva. A planilha faz o resto — divide as atividades do
+serviço pelos dias dele e dá a cada uma o seu **Prazo**.
 
-As atividades vieram com estimativa de 2 a 3 dias. Como a estimativa é do
-serviço e cada atividade dele repete o número, a *soma das estimativas* infla
-em serviço com muitas atividades — sirva-se dela para comparar semanas, não
-como homem-dia.
+> 34 atividades da F-815 em 3 dias → 12 na segunda, 11 na terça, 11 na quarta.
+
+Antes, cada atividade herdava a janela inteira e vencia no fim dela. O
+resultado era uma semana sem dia a dia:
+
+| | seg | ter | qua | qui | sex |
+|---|---|---|---|---|---|
+| antes | 0 | 1 | **40** | 1 | 2 |
+| depois | 15 | 14 | 12 | 4 | 0 |
+
+Quarenta das quarenta e cinco fechavam na quarta. Não dava para medir dia
+nenhum.
+
+A duração é **do serviço**, então vale igual para todas as atividades dele: se
+o mesmo serviço vier com números diferentes, a importação fica com **o maior**
+— a frota só sai da oficina quando a última atividade sai. Sete serviços
+vinham se contradizendo (a F-624 com 2, 3 e 4 dias dentro de si).
+
+Sai de três colunas auxiliares: `AJ` é a chave frota+serviço+semana, `AK` é a
+posição da atividade dentro do serviço, `AL` é quantas o serviço tem. O prazo
+é `Início + INT((AK−1) × dias ÷ AL)`. A chave inclui a semana de propósito:
+serviço partido entre duas semanas são dois blocos, e juntá-los distorceria a
+divisão.
+
+**Mexer no Dia move o serviço inteiro. Mexer nos Dias prev. redistribui os
+prazos.** Você não precisa marcar dia atividade por atividade.
+
+## O atraso
+
+O **atraso da atividade** é medido pelo **Prazo** dela, não pelo fim do
+serviço. Depois da hora de fechar a oficina (célula *Expediente até* na aba
+Semana), o que vencia hoje já entra como VENCIDA.
+
+A *soma das estimativas*, na aba Aderência, é a soma da coluna Dias prev.
+Como a duração é do serviço e cada atividade dele repete o número, esse total
+infla em serviço com muitas atividades — sirva-se dele para comparar semanas,
+não como homem-dia. Quem mede carga por pessoa é a coluna **Peso**.
 
 ## Situação
 
-Quem manda é a **janela de execução**: ela vai do *Início* (o Dia da
-atividade) até o *Fim do serviço* (Início + Dias prev. − 1).
+Quem manda são duas datas: o **Início** (o dia em que o serviço começa) e o
+**Prazo** da própria atividade, que sai da divisão descrita acima.
 
 | Situação | Quando |
 |---|---|
@@ -55,8 +88,8 @@ atividade) até o *Fim do serviço* (Início + Dias prev. − 1).
 | Em programação | marcada à mão: ainda está sendo encaixada |
 | Na carteira | sem semana e sem dia |
 | Programada | tem dia, e a janela ainda não abriu |
-| **Em execução** | hoje está dentro da janela |
-| **Fecha hoje** | hoje é o último dia da janela |
+| **Em execução** | o serviço começou e o prazo desta atividade não chegou |
+| **Fecha hoje** | hoje é o prazo dela |
 | VENCIDA | a janela fechou (ou passou das 18h no último dia) |
 | Falta a atividade | linha com frota e sem atividade |
 | Falta a semana | tem DIA e não tem SEMANA |
@@ -174,7 +207,7 @@ pura, que entra sem fórmula); apagar linha inteira é seguro.
 Abre no dia de hoje e responde o que a oficina faz agora. A **data no topo** é
 o único campo que se digita — troque para olhar outro dia e tudo acompanha.
 
-* **Para fechar hoje** — atividades cujo *Fim do serviço* cai neste dia;
+* **Para fechar hoje** — atividades cujo *Prazo* cai neste dia;
 * **Fecharam** — dessas, quantas já estão concluídas;
 * **Aderência do dia** — fecharam ÷ para fechar. É a aderência por atividade,
   medida no dia;
