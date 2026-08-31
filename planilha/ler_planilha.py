@@ -70,6 +70,8 @@ def ler(caminho):
             semorig=num(v(r,"Semana orig.")),
             dias=num(v(r,"Dias prev.")),
             data=iso(v(r,"Início")) or iso(v(r,"Data programada")),
+            # o prazo da própria atividade, que é o que vale no dia a dia
+            prazo=iso(v(r,"Prazo")),
             concluida=iso(v(r,"Concluída em")),
             marcar=texto(v(r,"Marcar")),
             orig=iso(v(r,"1ª data")),

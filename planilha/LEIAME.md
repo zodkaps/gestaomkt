@@ -1,5 +1,54 @@
 # Programação de Serviços — planilha
 
+> **São duas planilhas.**
+>
+> **`Programacao_Diaria_Makro.xlsx`** é a que se usa no dia a dia, no tablet.
+> Uma aba de trabalho, oito colunas, **nenhuma fórmula nas linhas** — só quatro
+> contas no topo. O controle de verdade é o **Protheus**; ela só anota a
+> atividade, o número da OS aberta lá, e se saiu. Gerada por
+> `montar_diaria.py`.
+>
+> **`Programacao_Servicos_Makro.xlsx`** é a analítica, descrita no resto deste
+> arquivo: aderência da semana, peso por executante, gráficos, distribuição de
+> prazo. Continua aqui porque é dela que vêm os dados, mas ficou complexa
+> demais para o uso diário. Gerada por `montar_planilha.py`.
+
+## A planilha diária
+
+Oito colunas, nessa ordem, pensada para o tablet — as cinco primeiras cabem
+numa tela e são as que se lê e se toca:
+
+| | coluna | |
+|---|---|---|
+| A | Data | o dia da atividade; vazia = esperando |
+| B | Frota | caixa de seleção |
+| C | Atividade | o que tem de ser feito |
+| D | Feito | **Sim / Não**, uma tocada |
+| E | OS Protheus | o número aberto lá. **Vazia fica laranja** — é o que falta lançar |
+| F | Quem faz | caixa de seleção |
+| G | Serviço | de onde a atividade veio |
+| H | Obs. | motivo, observação |
+
+No topo: a caixa amarela do **DIA** (vem em hoje, troque para ver outro), e
+quatro números — **programadas · feitas · aderência do dia · sem OS**. Embaixo,
+numa linha só, as atrasadas e as que ainda não têm data.
+
+**O pendente vem primeiro.** A ordem é: o que falta fazer, por data; depois o
+que já saiu, em cinza, no fim. O topo da planilha é sempre o que está aberto.
+
+**Nenhuma fórmula nas linhas.** São 7 fórmulas na planilha inteira, todas no
+cabeçalho. Isso a deixa leve no tablet, torna apagar e inserir linha seguro, e
+elimina qualquer chance de `#REF!` — que foi o que quebrou a analítica quando
+uma linha foi apagada no Excel.
+
+Para regerar a partir da analítica:
+
+```bash
+python3 ler_planilha.py Programacao_Servicos_Makro.xlsx > dados.json
+python3 montar_diaria.py dados.json
+```
+
+
 `Programacao_Servicos_Makro.xlsx` é a programação semanal da oficina.
 
 ## A unidade é a atividade
