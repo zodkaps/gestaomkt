@@ -335,8 +335,13 @@ for r in range(PRIM,ULT+1):
     pg[f"AJ{r}"]=f'=IF($F{r}="","",$D{r}&"|"&$E{r}&"|"&$L{r})'
     pg[f"AK{r}"]=f'=IF($AJ{r}="","",COUNTIF($AJ${PRIM-1}:$AJ{r},$AJ{r}))'
     pg[f"AL{r}"]=f'=IF($AJ{r}="","",COUNTIF($AJ${PRIM-1}:$AJ${ULT},$AJ{r}))'
-    pg[f"P{r}"]=(f'=IF($O{r}="","",$O{r}+INT(($AK{r}-1)*'
-                 f'MAX(1,IF($N{r}="",1,$N{r}))/MAX(1,$AL{r})))')
+    # A atividade vence no FIM da fatia dela, não no começo — por isso
+    # ROUNDUP e não INT. Com INT, serviço de uma atividade só dava
+    # (1-1)*dias/1 = 0 e o Dias prev. era simplesmente ignorado: metade dos
+    # serviços dele vencia no mesmo dia do início por mais dias que pusesse.
+    # Agora o último da fila cai sempre no dia (dias-1), como tem de ser.
+    pg[f"P{r}"]=(f'=IF($O{r}="","",$O{r}+MAX(0,ROUNDUP($AK{r}*'
+                 f'MAX(1,IF($N{r}="",1,$N{r}))/MAX(1,$AL{r}),0)-1))')
     pg[f"W{r}"]=(f'=IF($O{r}="","",IF($S{r}="",$O{r},{SEG}+($S{r}-1)*7+'
                  f'IF($M{r}="",0,MATCH($M{r},Listas!$F$5:$F$11,0)-1)))')
     # Vencida é só depois que a janela de execução FECHOU. Uma atividade de
