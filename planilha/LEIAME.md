@@ -48,6 +48,12 @@ python3 ler_planilha.py Programacao_Servicos_Makro.xlsx > dados.json
 python3 montar_diaria.py dados.json
 ```
 
+**Sempre a partir da analítica RECONSTRUÍDA, nunca do arquivo que veio de
+volta.** O Prazo é fórmula: um arquivo editado no Excel traz o valor em cache,
+e linha que ele inseriu sem copiar as fórmulas traz o cache velho junto. Gerar
+a diária direto da entrada já pôs uma atividade num domingo que a fórmula
+nunca teria calculado.
+
 
 `Programacao_Servicos_Makro.xlsx` é a programação semanal da oficina.
 

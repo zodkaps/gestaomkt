@@ -61,7 +61,9 @@ def ler(caminho):
             servico=texto(v(r,"Serviço")), atividade=ativ,
             tipo=texto(v(r,"Tipo")) or "Corretiva",
             origem=texto(v(r,"Origem")),
-            equipe=[x for x in eq if x],
+            # mesma pessoa em duas colunas de executante é engano de
+            # digitação, e dobrava a carga dela na visão por pessoa
+            equipe=list(dict.fromkeys([x for x in eq if x])),
             # Programar virou NÚMERO de semana + dia; "Data programada" e
             # "1ª data" são do layout antigo e ficam como reserva, senão a
             # leitura de uma planilha nova devolvia semana e dia vazios e o
