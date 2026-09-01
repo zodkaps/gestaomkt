@@ -116,7 +116,7 @@ for x in FONTE["linhas"]:
         # a atividade ainda não tem nenhuma
         dias=(_dp if _dp else
               (_dias_estimados(x.get("frota",""),x.get("servico",""),x.get("atividade",""))
-               if x.get("atividade") else "")),
+               if (x.get("atividade") and _sem) else "")),
         concluida=d2(x.get("concluida")), marcar=_marcar(x.get("marcar","")),
         semorig=_sor if _sor else (o.isocalendar()[1] if o else None),
         motivo=x.get("motivo",""), obs=x.get("obs","")))
@@ -137,11 +137,13 @@ for l in LINHAS:
 # e a distribuição.
 def _chave(l): return (l["frota"], l["servico"], l["semana"])
 _dur={}
+# Só o que tem semana entra na conta: normalizar quem ainda não foi
+# programado transformava o campo vazio num "1 dia" que ninguém escreveu.
 for l in LINHAS:
-    if not l["atividade"]: continue
+    if not (l["atividade"] and l["semana"]): continue
     k=_chave(l); _dur[k]=max(_dur.get(k,1), int(l["dias"] or 1))
 for l in LINHAS:
-    if l["atividade"]: l["dias"]=_dur[_chave(l)]
+    if l["atividade"] and l["semana"]: l["dias"]=_dur[_chave(l)]
 
 # ── continuidade: o que não saiu numa semana passa para a seguinte ──
 # Ela entra no PLANO da semana nova, mesmo tendo chegado como extra: quando se
@@ -167,7 +169,7 @@ SEM_CHEGADA=36
 # em branco para ele escrever. Enquanto a Atividade estiver vazia a linha não
 # entra em conta nenhuma: aderência, extra, vencidas e diária todas exigem
 # atividade. Ela existe só para a frota já aparecer na grade da semana 36.
-_com_linha={l["frota"] for l in LINHAS if l["frota"] and l["semana"]==SEM_CHEGADA}
+_com_linha={l["frota"] for l in LINHAS if l["frota"] and l["atividade"]}
 for _f in FROTAS_PARA:
     if _f in _com_linha: continue
     LINHAS.append(dict(os="", frota=_f, servico="", atividade="", tipo="",
