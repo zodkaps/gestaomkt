@@ -13,6 +13,36 @@
 > prazo. Continua aqui porque é dela que vêm os dados, mas ficou complexa
 > demais para o uso diário. Gerada por `montar_planilha.py`.
 
+## A aba Movimentações
+
+A operação leva a frota ao fornecedor, ou traz de volta. Quando ela demora, a
+oficina fica com a atividade vencida e o motivo vira *frota não chegou* — que
+foram **19 dos 49 motivos** registrados até aqui, o maior de todos. Esta aba
+mede a demora com nome e data, para a cobrança sair de número e não de memória.
+
+| | coluna | |
+|---|---|---|
+| A | Frota | caixa de seleção |
+| B | Destino / fornecedor | para onde vai |
+| C | Pedida em | quando o PCM pediu |
+| D | **Prometida para** | a data que a operação **se comprometeu** |
+| E | Chegou em | quando chegou de verdade |
+| F | Atraso | sai sozinho: chegou − prometida, em dias |
+| G | Situação | sai sozinha |
+| H | Para quê | qual serviço depende dessa frota |
+| I | **Quem prometeu** | sem nome, a cobrança vira conversa |
+
+Sem a data **prometida** não há atraso a medir — é ela, e não a data pedida,
+que sustenta a cobrança. Chegar antes conta **zero**, não crédito.
+
+No topo: movimentações · entregues · no prazo · **pontualidade da operação** ·
+atraso médio · **dias perdidos**. Os dois em negrito são os de levar à reunião.
+
+**As movimentações são digitadas aqui, não vêm da analítica.** Por isso o
+gerador relê a aba do próprio arquivo antes de reconstruir — sem isso, toda
+reconstrução apagaria o que foi lançado. São duas fórmulas por linha, ambas
+olhando só a própria linha: apagar linha continua seguro.
+
 ## A planilha diária
 
 Oito colunas, nessa ordem, pensada para o tablet — as cinco primeiras cabem
