@@ -28,9 +28,14 @@ SAIDA="/home/user/gestaomkt/planilha/Programacao_Diaria_Makro.xlsx"
 NAVY="FF13164E"; NAVY2="FF2A3170"; BRANCO="FFFFFFFF"
 TINTA="FF14181F"; T2="FF4A5464"; BORDA="FFC8D0DE"; CINZA="FFEEF1F7"
 AMARELO="FFFFF3CF"
-OK_V="FFDCF3E4"; OK_T="FF116B3E"
-AL_V="FFFFE9CC"; AL_T="FF9A4C00"
-RU_V="FFFDE4E7"; RU_T="FFB00020"
+OK_V="FFDCF3E4"; OK_T="FF116B3E"      # verde  · resolvido
+AL_V="FFFFE9CC"; AL_T="FF9A4C00"      # âmbar  · falta agir
+RU_V="FFFDE4E7"; RU_T="FFB00020"      # vermelho · atrasado
+AZ_V="FFE3ECFC"; AZ_T="FF1749C4"      # azul   · é hoje
+# A coluna OS é régua de duas cores: âmbar berrante para o que falta lançar no
+# Protheus, verde de repouso para o que já está lá.
+SEM_OS_V="FFFFC97A"; SEM_OS_T="FF6E2E00"
+COM_OS_V="FFEFF9F2"
 
 F=lambda **k: Font(name="Arial", **k)
 fina=Side(style="thin", color=BORDA)
@@ -127,6 +132,11 @@ ws["C3"]='=IF($B$3="","",TEXT($B$3,"[$-416]dddd"))'
 ws["C3"].font=F(bold=True,size=12,color=T2)
 ws["C3"].alignment=Alignment(horizontal="center",vertical="center")
 ws.row_dimensions[3].height=30
+# O hoje de verdade, calculado uma vez. B3 é a data que ele ESCOLHE olhar;
+# esta é a que decide se a atividade atrasou. Fora da área de impressão.
+ws["K1"]="hoje — não apague"; ws["K1"].font=F(bold=True,size=8,color=RU_T)
+ws["L1"]="=TODAY()"; ws["L1"].font=F(size=8,color=T2); ws["L1"].number_format=DFMT
+ws.column_dimensions["K"].width=16; ws.column_dimensions["L"].width=11
 
 # ── as quatro contas, e só elas ──
 DATA=f"$A${PRIM}:$A${ULT}"; ATIV=f"$C${PRIM}:$C${ULT}"
@@ -157,10 +167,12 @@ ws.row_dimensions[4].height=30
 ws["A5"]=(f'="Atrasadas, de dias anteriores:  "&'
           f'(COUNTIFS({DATA},"<"&$B$3,{ATIV},"<>")-'
           f'COUNTIFS({DATA},"<"&$B$3,{ATIV},"<>",{FEITO},"Sim"))&'
-          f'"        |        Sem data, esperando entrar na programação:  "&'
+          f'"        |        Sem data:  "&'
           # contar vazio com COUNTIFS(...,"") não é confiável entre engines;
           # o total menos as que têm data é inequívoco.
-          f'(COUNTIFS({ATIV},"<>")-COUNTIFS({ATIV},"<>",{DATA},"<>"))')
+          f'(COUNTIFS({ATIV},"<>")-COUNTIFS({ATIV},"<>",{DATA},"<>"))&'
+          f'"        |        SEM OS no Protheus, no total:  "&'
+          f'(COUNTIFS({ATIV},"<>")-COUNTIFS({ATIV},"<>",{OSC},"<>"))')
 ws["A5"].font=F(size=10,bold=True,color=T2)
 ws["A5"].alignment=Alignment(vertical="center",indent=1)
 ws.merge_cells("A5:H5"); ws.row_dimensions[5].height=22
@@ -221,25 +233,47 @@ dv("F", f"=Listas!$B$2:$B${LIN_L}", "Quem faz",
    "Nome fora da lista. Pode continuar — depois acrescente na aba Listas.")
 dv("D", '"Sim,Não"', "Feito", "Escolha Sim ou Não, ou deixe vazio.", brando=False)
 
-# ── cores: só o que ajuda a decidir ──
+# ── cores: uma cor, um significado ──
+# O esquema antigo usava o mesmo laranja para "o prazo chegou" e para "falta
+# OS". Duas coisas diferentes com a mesma cor não se lê: bate o olho e não se
+# sabe do que a linha está reclamando. Agora cada cor quer dizer uma coisa só.
+#
+#   ÂMBAR   falta abrir a OS no Protheus      (coluna OS)
+#   VERDE   resolvido — OS aberta, ou feita   (colunas OS e Feito)
+#   VERMELHO atrasada, ou marcada como não    (colunas Data e Feito)
+#   AZUL    é hoje                            (coluna Data)
+#   CINZA   já saiu, pode ignorar             (linha inteira)
 FX=f"A{PRIM}:H{ULT}"
 def regra(faixa, formula, **est):
     r=Rule(type="expression", dxf=DifferentialStyle(**est)); r.formula=[formula]
     ws.conditional_formatting.add(faixa, r)
-# feita: a célula fica verde
+
+# ── OS: a coluna vira uma régua de duas cores, para achar de longe ──
+# Sem OS grita; com OS descansa. É o pedido dele: localizar num relance o que
+# ainda falta lançar no Protheus.
+regra(f"E{PRIM}:E{ULT}", f'AND($C{PRIM}<>"",$E{PRIM}="")',
+      fill=PatternFill(bgColor=SEM_OS_V),
+      font=Font(color=SEM_OS_T,bold=True),
+      border=Border(*[Side(style="thin",color=SEM_OS_T)]*4))
+regra(f"E{PRIM}:E{ULT}", f'AND($C{PRIM}<>"",$E{PRIM}<>"")',
+      fill=PatternFill(bgColor=COM_OS_V), font=Font(color=OK_T,bold=True))
+
+# ── Feito ──
 regra(f"D{PRIM}:D{ULT}", f'$D{PRIM}="Sim"',
       fill=PatternFill(bgColor=OK_V), font=Font(color=OK_T,bold=True))
 regra(f"D{PRIM}:D{ULT}", f'$D{PRIM}="Não"',
       fill=PatternFill(bgColor=RU_V), font=Font(color=RU_T,bold=True))
-# o dia chegou e não saiu: a data acende
+
+# ── Data: vermelho só quando atrasou de verdade; azul quando é hoje ──
 regra(f"A{PRIM}:A{ULT}",
-      f'AND($C{PRIM}<>"",$A{PRIM}<>"",$A{PRIM}<=TODAY(),$D{PRIM}<>"Sim")',
-      fill=PatternFill(bgColor=AL_V), font=Font(color=AL_T,bold=True))
-# sem OS no Protheus, tendo dia marcado: é o que falta lançar lá
-regra(f"E{PRIM}:E{ULT}", f'AND($C{PRIM}<>"",$A{PRIM}<>"",$E{PRIM}="")',
-      fill=PatternFill(bgColor=AL_V))
-# linha inteira apagada quando já saiu, para o olho ir no que falta
-regra(FX, f'$D{PRIM}="Sim"', font=Font(color="FF98A1B2"))
+      f'AND($C{PRIM}<>"",$A{PRIM}<>"",$A{PRIM}<$L$1,$D{PRIM}<>"Sim")',
+      fill=PatternFill(bgColor=RU_V), font=Font(color=RU_T,bold=True))
+regra(f"A{PRIM}:A{ULT}",
+      f'AND($C{PRIM}<>"",$A{PRIM}=$L$1,$D{PRIM}<>"Sim")',
+      fill=PatternFill(bgColor=AZ_V), font=Font(color=AZ_T,bold=True))
+
+# ── linha já resolvida sai de cena ──
+regra(FX, f'$D{PRIM}="Sim"', font=Font(color="FFA6AEBC"))
 
 ws.freeze_panes=f"A{PRIM}"
 ws.auto_filter.ref=f"A{CAB}:H{ULT}"
@@ -282,6 +316,32 @@ for i,t in enumerate(AJUDA):
     c.font=F(size=10, bold=t.endswith(":"), color=NAVY if t.endswith(":") else TINTA)
     c.alignment=Alignment(vertical="center")
 ls.column_dimensions["D"].width=76
+
+# ── legenda das cores ──
+# Cor sem dicionário vira enfeite. Cada uma quer dizer uma coisa só, e é isto
+# que está escrito aqui.
+# A tarja vai numa coluna estreita própria: na coluna do texto de ajuda, que
+# tem 76 de largura, ela virava uma faixa atravessando a tela.
+LL=len(AJUDA)+4
+ls[f"F{LL}"]="AS CORES — cada uma quer dizer uma coisa só"
+ls[f"F{LL}"].font=F(bold=True,size=11,color=NAVY)
+LEG=[(SEM_OS_V,SEM_OS_T,"SEM OS","coluna OS vazia: falta abrir no Protheus. É o que se procura."),
+     (COM_OS_V,OK_T,"COM OS","o número já está lá. Pode seguir."),
+     (AZ_V,AZ_T,"É HOJE","a data da atividade é hoje e ela ainda não saiu."),
+     (RU_V,RU_T,"ATRASADA","a data passou e a atividade não saiu."),
+     (OK_V,OK_T,"FEITA","marcada como Sim. A linha inteira desbota."),
+     (RU_V,RU_T,"NÃO","marcada como Não: não saiu e você registrou o porquê.")]
+for i,(bg,fg,rot,txt) in enumerate(LEG):
+    r=LL+1+i
+    c=ls[f"F{r}"]; c.value=rot
+    c.fill=fill(bg); c.font=F(bold=True,size=10,color=fg); c.border=box
+    c.alignment=Alignment(horizontal="center",vertical="center")
+    e=ls[f"G{r}"]; e.value=txt
+    e.font=F(size=10,color=TINTA)
+    e.alignment=Alignment(vertical="center",indent=1)
+    ls.row_dimensions[r].height=20
+ls.column_dimensions["F"].width=17
+ls.column_dimensions["G"].width=62
 ls.sheet_view.showGridLines=False
 
 # ═══════════════════════════════════ MOVIMENTAÇÕES

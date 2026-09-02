@@ -13,6 +13,30 @@
 > prazo. Continua aqui porque é dela que vêm os dados, mas ficou complexa
 > demais para o uso diário. Gerada por `montar_planilha.py`.
 
+## As cores da planilha diária
+
+Uma cor, um significado. O esquema anterior usava o mesmo laranja para "o
+prazo chegou" e para "falta OS" — duas coisas diferentes com a mesma cor não
+se leem: batia o olho e não se sabia do que a linha reclamava.
+
+| cor | onde | quer dizer |
+|---|---|---|
+| **âmbar forte** | coluna OS | vazia: falta abrir no Protheus |
+| verde claro | coluna OS | o número já está lá |
+| **azul** | coluna Data | é hoje e não saiu |
+| **vermelho** | coluna Data | a data passou e não saiu |
+| verde | coluna Feito | marcada Sim — a linha inteira desbota |
+| vermelho | coluna Feito | marcada Não |
+
+A **coluna OS vira uma régua de duas cores**: o âmbar grita, o verde descansa.
+É o que permite achar num relance o que falta lançar no Protheus, sem filtrar
+nada. A legenda com as tarjas está na aba Listas.
+
+A data usa **duas células diferentes**: `B3` é a que ele escolhe olhar e move
+os indicadores; `L1` é o hoje real e decide se a atividade atrasou. Se a cor
+seguisse a data escolhida, espiar a quinta pintaria a planilha inteira de
+vermelho.
+
 ## A aba Movimentações
 
 A operação leva a frota ao fornecedor, ou traz de volta. Quando ela demora, a
