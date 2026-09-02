@@ -505,10 +505,10 @@ canc=Rule(type="expression", dxf=DifferentialStyle(
 canc.formula=[f'$B{PRIM}="Cancelada"']
 pg.conditional_formatting.add(f"C{PRIM}:H{ULT}", canc)
 
-# ── EXTRA PROGRAMAÇÃO: a marca mais forte da planilha ──
+# ── EXTRA PROGRAMAÇÃO ──
 # Fundo laranja cheio, texto escuro em negrito e moldura grossa em volta da
-# célula. O número da linha ganha o mesmo laranja, para o extra se achar de
-# longe sem precisar ler a coluna Origem.
+# célula. A moldura é o que distingue este laranja do âmbar da coluna OS logo
+# ao lado: aqui é ORIGEM, lá é o que falta lançar no Protheus.
 EXV="FFFFC97A"; EXT="FF6E2E00"
 gro=Side(style="medium", color=EXT)
 exh=Rule(type="expression", stopIfTrue=True, dxf=DifferentialStyle(
@@ -516,10 +516,22 @@ exh=Rule(type="expression", stopIfTrue=True, dxf=DifferentialStyle(
     border=Border(left=gro,right=gro,top=gro,bottom=gro)))
 exh.formula=[f'$H{PRIM}="Extra"']
 pg.conditional_formatting.add(f"H{PRIM}:H{ULT}", exh)
-exn=Rule(type="expression", dxf=DifferentialStyle(
-    fill=PatternFill(bgColor=EXV), font=Font(color=EXT,bold=True)))
-exn.formula=[f'$H{PRIM}="Extra"']
-pg.conditional_formatting.add(f"A{PRIM}:A{ULT}", exn)
+# O Nº da linha deixou de repetir o laranja do extra: ele ficava a duas
+# colunas da OS e os dois alaranjados competiam. Extra se lê na coluna Origem,
+# que é onde ele significa alguma coisa.
+
+# ── OS DO PROTHEUS: a coluna vira régua de duas cores ──
+# Âmbar no que falta abrir, verde de repouso no que já está lá. É o que
+# permite achar de relance o que ainda não foi lançado, sem filtrar nada.
+SEM_OS_V="FFFFD98A"; SEM_OS_T="FF6E2E00"; COM_OS_V="FFEFF9F2"
+ros=Rule(type="expression", stopIfTrue=True, dxf=DifferentialStyle(
+    fill=PatternFill(bgColor=SEM_OS_V), font=Font(color=SEM_OS_T,bold=True)))
+ros.formula=[f'AND($F{PRIM}<>"",$C{PRIM}="")']
+pg.conditional_formatting.add(f"C{PRIM}:C{ULT}", ros)
+rcs=Rule(type="expression", dxf=DifferentialStyle(
+    fill=PatternFill(bgColor=COM_OS_V), font=Font(color=OK_T,bold=True)))
+rcs.formula=[f'AND($F{PRIM}<>"",$C{PRIM}<>"")']
+pg.conditional_formatting.add(f"C{PRIM}:C{ULT}", rcs)
 
 # ── as datas avisam sozinhas, só com a cor da letra ──
 for txt,cor in (("VENCIDA",RU_T),("Fecha hoje",EX_T),("Em execução",AZ_T)):
@@ -1525,8 +1537,9 @@ L+=1
 sec(L,"AS CORES — a cor fica na CÉLULA, não na linha inteira"); L+=1
 par(L,"Quem muda de cor é a coluna SITUAÇÃO. O resto da linha continua branco, "
       "para o texto da atividade e a observação se lerem. Fora dela só se "
-      "pintam três coisas: a coluna ORIGEM quando é EXTRA, a data de conclusão "
-      "assim que é escrita, e o motivo quando é preenchido.",alt=32,cor=T2); L+=2
+      "pintam quatro coisas: a coluna OS (âmbar sem OS, verde com OS), a coluna "
+      "ORIGEM quando é EXTRA, a data de conclusão assim que é escrita, e o "
+      "motivo quando é preenchido.",alt=32,cor=T2); L+=2
 for cor_,nome,txt in [(RU_V,"VENCIDA","o dia dela passou e não foi concluída"),
       (EX_V,"Fecha hoje","é o último dia da janela — tem de sair hoje"),
       (AZ_V,"Em execução","está dentro da janela de execução dela"),
@@ -1540,9 +1553,19 @@ for cor_,nome,txt in [(RU_V,"VENCIDA","o dia dela passou e não foi concluída")
       ("FFF6E8CE","Falta a semana","tem DIA e não tem SEMANA. Sem semana não "
        "há data, e sem data a atividade some da conta — escreva o número"),
       ("FFE6E9EF","Cancelada","texto riscado; sai dos dois lados da aderência"),
-      ("FFFFC97A","EXTRA — coluna Origem","entrou fora do plano; moldura grossa")]:
+      ("FFFFD98A","SEM OS — coluna OS","atividade escrita e nada aberto no "
+       "Protheus ainda. É a fila do que você tem de lançar"),
+      ("FFEFF9F2","COM OS — coluna OS","o número está lá; nada a fazer no "
+       "Protheus por esta atividade"),
+      ("FFFFC97A","EXTRA — coluna Origem","entrou fora do plano; moldura grossa "
+       "em volta — é a moldura que o separa do âmbar da coluna OS")]:
     c=ins[f"A{L}"]; c.value=nome; c.fill=fill(cor_); c.border=box
-    c.font=F(size=10,bold=True); c.alignment=Alignment(horizontal="center")
+    # O verde da OS lançada é de propósito quase branco — na grade ele só tem
+    # de não chamar atenção. Aqui na legenda isso deixaria a amostra parecendo
+    # vazia, então as duas linhas da OS levam a cor da letra que usam de verdade.
+    c.font=F(size=10,bold=True,
+             color={"FFFFD98A":SEM_OS_T,"FFEFF9F2":OK_T}.get(cor_))
+    c.alignment=Alignment(horizontal="center")
     ins.merge_cells(f"A{L}:B{L}")
     ins[f"C{L}"]=txt; ins[f"C{L}"].font=F(size=10)
     ins[f"C{L}"].alignment=Alignment(vertical="center",indent=1)

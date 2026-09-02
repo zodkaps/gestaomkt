@@ -228,13 +228,25 @@ não deixava ler a atividade nem a observação.
 
 Muda de cor a coluna **Situação** — vermelho vencida, laranja vence hoje,
 verde concluída, âmbar concluída com atraso, azul em programação, azul claro
-programada, cinza na carteira e cancelada. Fora dela, só três células:
+programada, cinza na carteira e cancelada. Fora dela, só quatro células:
 
-* **Origem = Extra** — laranja cheio, negrito e moldura grossa; o Nº da linha
-  ganha o mesmo laranja, para se achar o extra de longe;
+* **OS** — régua de duas cores, a mesma da planilha diária: **âmbar forte**
+  quando a atividade está escrita e a célula está vazia (falta abrir no
+  Protheus), **verde claro** quando o número já está lá. O âmbar grita, o
+  verde descansa;
+* **Origem = Extra** — laranja cheio, negrito e moldura grossa;
 * **Concluída em** — fica verde no instante em que a data é escrita;
 * **Motivo** — amarelo claro quando preenchido, para ver quem já foi
   justificado.
+
+O Nº da linha **deixou de repetir o laranja do extra**. Ele ficava a duas
+colunas da OS, e dois alaranjados lado a lado com significados diferentes é
+exatamente o defeito que a régua de OS veio corrigir. O que separa o laranja
+do extra do âmbar da OS é a **moldura grossa**, que só o extra tem. Extra se
+lê na coluna *Origem*, que é onde ele quer dizer alguma coisa.
+
+Linha **cancelada** tem prioridade sobre a régua: o cinza vence, porque uma
+atividade cancelada não está esperando OS nenhuma.
 
 Vencida e vence hoje também tingem a letra das datas de *Início* e *Fim*.
 Cancelada risca o texto do serviço. O resto da linha é branco.
