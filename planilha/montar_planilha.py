@@ -55,6 +55,7 @@ def fill(c): return PatternFill("solid", fgColor=c)
 DFMT='[$-416]dd/mm/yyyy;@'          # dd/mm/aaaa em qualquer Excel
 
 PRIM=5; ULT=1004; LIN_LISTA=120
+MCAB=8; MPRIM=MCAB+1; MULT=MPRIM+299        # aba de movimentações, 300 linhas
 DIAS_PT=["Seg","Ter","Qua","Qui","Sex","Sáb","Dom"]
 
 # ═══════════════════════════════════ entrada
@@ -68,6 +69,35 @@ if "--puxar" in sys.argv:
     _de,_para=sys.argv[sys.argv.index("--puxar")+1].split(":")
     PUXAR=(int(_de),int(_para))
 FONTE=json.load(io.open(args[0],encoding="utf-8")) if args else {"linhas":[],"listas":{}}
+
+# As movimentações são digitadas na aba, não vêm do JSON. Sem reler o próprio
+# arquivo de saída, toda reconstrução apagaria o que ele lançou.
+MOVS=[]
+try:
+    from openpyxl import load_workbook as _lw
+    import os as _os
+    if _os.path.exists(SAIDA):
+        _w=_lw(SAIDA, data_only=True)
+        if "Movimentações" in _w.sheetnames:
+            _m=_w["Movimentações"]
+            for _r in range(MPRIM,MULT+1):
+                if not _m[f"A{_r}"].value: continue
+                MOVS.append([_m[f"{c}{_r}"].value for c in ("A","B","C","D","E","H","I")])
+except Exception as _e:
+    sys.stderr.write(f"aviso: não consegui reler as movimentações ({_e})\n")
+# Semente vinda de fora, para a mudança de planilha não perder o que já existia
+if "--movs" in sys.argv and not MOVS:
+    import csv
+    def _dt(x):
+        # data em texto não faz conta: o CSV traz ISO e aqui vira data mesmo
+        if not x: return None
+        try: return date(*[int(v) for v in str(x)[:10].split("-")])
+        except ValueError: return x
+    with io.open(sys.argv[sys.argv.index("--movs")+1],encoding="utf-8") as _f:
+        for _l in csv.reader(_f):
+            if not (_l and _l[0]): continue
+            MOVS.append([_dt(v) if i in (2,3,4) else (v or None)
+                         for i,v in enumerate(_l)])
 
 def d2(s):
     if not s: return None
@@ -1254,6 +1284,117 @@ hj[f"A{L2+1}"].alignment=Alignment(vertical="top",wrap_text=True,indent=1)
 hj.merge_cells(f"A{L2+1}:I{L2+1}"); hj.row_dimensions[L2+1].height=28
 hj.sheet_view.showGridLines=False; hj.freeze_panes="A10"
 
+# ═══════════════════════════════════ MOVIMENTAÇÕES
+# A operação leva a frota ao fornecedor, ou traz de volta. Quando ela demora, a
+# oficina fica com a atividade vencida e o motivo vira "frota não chegou" — que
+# são 19 dos 49 motivos registrados até aqui, o maior de todos. Esta aba mede a
+# demora com nome e data, para a cobrança sair de número e não de memória.
+mv=wb.create_sheet("Movimentações")
+titulo(mv,"MOVIMENTAÇÃO DE FROTAS  ·  o que a operação prometeu e quando entregou","I")
+mv["A2"]=("Peça a movimentação, anote a data que a operação prometeu, e marque "
+          "quando a frota chegou. O atraso e os números saem sozinhos.")
+mv["A2"].font=F(size=10,italic=True,color=T2)
+mv["A2"].alignment=Alignment(vertical="center",indent=1)
+mv.merge_cells("A2:I2"); mv.row_dimensions[2].height=18
+
+MFROTA=f"$A${MPRIM}:$A${MULT}"; MPROM=f"$D${MPRIM}:$D${MULT}"
+MCHEG=f"$E${MPRIM}:$E${MULT}"; MATR=f"$F${MPRIM}:$F${MULT}"
+ENTR=f'COUNTIFS({MFROTA},"<>",{MCHEG},"<>")'
+ATRAS=f'COUNTIFS({MFROTA},"<>",{MATR},">0")'
+MIND=[("A","B","MOVIMENTAÇÕES",f'=COUNTIFS({MFROTA},"<>")',"0",NAVY,
+       "tudo que foi pedido à operação"),
+      ("C","C","ENTREGUES",f"={ENTR}","0",OK_T,"já chegaram"),
+      ("D","D","NO PRAZO",f"={ENTR}-{ATRAS}","0",OK_T,
+       "chegaram até a data prometida"),
+      ("E","F","PONTUALIDADE DA OPERAÇÃO",'=IF($C$4=0,"",$D$4/$C$4)',"0%",NAVY,
+       "no prazo ÷ entregues. É este o número para levar à reunião"),
+      ("G","H","ATRASO MÉDIO",
+       f'=IF({ATRAS}=0,"",SUMIFS({MATR},{MFROTA},"<>")/{ATRAS})',"0.0",AL_T,
+       "dias, contando só as que atrasaram"),
+      ("I","I","DIAS PERDIDOS",f'=SUMIFS({MATR},{MFROTA},"<>")',"0",RU_T,
+       "a soma de todos os atrasos: o tamanho do prejuízo em dias de oficina")]
+for c1,c2,rot,fml,fmt,cor,dica in MIND:
+    if c1!=c2: mv.merge_cells(f"{c1}3:{c2}3"); mv.merge_cells(f"{c1}4:{c2}4")
+    a_=mv[f"{c1}3"]; a_.value=rot
+    a_.font=F(bold=True,size=8.5,color=T2); a_.fill=fill(CINZA_C)
+    a_.alignment=Alignment(horizontal="center",vertical="center",wrap_text=True)
+    a_.comment=Comment(dica,"PCM")
+    b_=mv[f"{c1}4"]; b_.value=fml
+    b_.font=F(bold=True,size=18,color=cor); b_.number_format=fmt
+    b_.alignment=Alignment(horizontal="center",vertical="center"); b_.fill=fill(CINZA_C)
+    for cc in {c1,c2}: mv[f"{cc}3"].border=box; mv[f"{cc}4"].border=box
+mv.row_dimensions[3].height=24; mv.row_dimensions[4].height=30
+for cond,cor_ in (("greaterThanOrEqual",OK_T),("lessThan",RU_T)):
+    mv.conditional_formatting.add("E4", CellIsRule(operator=cond,
+        formula=["0.85" if cor_==OK_T else "0.6"], font=F(bold=True,size=18,color=cor_)))
+mv["A6"]=("Atraso = quando chegou menos quando foi prometida. Chegar antes conta "
+          "como zero, não como crédito.")
+mv["A6"].font=F(size=9,italic=True,color=T2)
+mv["A6"].alignment=Alignment(vertical="center",indent=1)
+mv.merge_cells("A6:I6"); mv.row_dimensions[6].height=18
+
+MCOLS=[("A","Frota",11),("B","Destino / fornecedor",26),("C","Pedida em",12),
+       ("D","Prometida para",13),("E","Chegou em",12),("F","Atraso",9),
+       ("G","Situação",17),("H","Para quê",30),("I","Quem prometeu",18)]
+MDICAS={"C":"O dia em que você pediu a movimentação à operação.",
+        "D":"A data que a operação SE COMPROMETEU a entregar. É contra ela que "
+            "o atraso é medido — sem essa data não há o que cobrar.",
+        "E":"O dia em que a frota chegou de verdade. Enquanto estiver vazio, a "
+            "movimentação está em aberto.",
+        "F":"Sai sozinho: chegou menos prometida, em dias. Chegar antes conta zero.",
+        "I":"Quem, na operação, deu a data. Sem nome, a cobrança vira conversa."}
+for letra,tit,larg in MCOLS:
+    c=mv[f"{letra}{MCAB}"]; c.value=tit
+    c.font=F(bold=True,size=11,color=BRANCO); c.fill=fill(NAVY2)
+    c.alignment=Alignment(horizontal="center",vertical="center"); c.border=box
+    mv.column_dimensions[letra].width=larg
+    if letra in MDICAS: c.comment=Comment(MDICAS[letra],"PCM")
+mv.row_dimensions[MCAB].height=26
+
+for i in range(MULT-MPRIM+1):
+    r=MPRIM+i
+    if i<len(MOVS):
+        for letra,val in zip(("A","B","C","D","E","H","I"),MOVS[i]):
+            if val not in (None,""): mv[f"{letra}{r}"]=val
+    # As duas fórmulas olham só a própria linha: apagar linha não quebra nada.
+    mv[f"F{r}"]=f'=IF(OR($A{r}="",$D{r}="",$E{r}=""),"",MAX(0,$E{r}-$D{r}))'
+    mv[f"G{r}"]=(f'=IF($A{r}="","",IF($E{r}<>"",IF(N($F{r})>0,"Entregue com atraso",'
+                 f'"Entregue no prazo"),IF($D{r}="","Sem data prometida",'
+                 f'IF($D{r}<{HOJEREAL},"ATRASADA","Aguardando"))))')
+    for letra,tit,larg in MCOLS:
+        c=mv[f"{letra}{r}"]
+        c.font=F(size=11,color=TINTA); c.border=box
+        if letra in ("C","D","E"): c.number_format=DFMT
+        if letra in ("A","C","D","E","F","G"):
+            c.alignment=Alignment(horizontal="center",vertical="center")
+        else: c.alignment=Alignment(vertical="center",indent=1)
+    mv.row_dimensions[r].height=21
+
+vmf=DataValidation(type="list", formula1=f"=Listas!$B$5:$B${LIN_LISTA}",
+                   allow_blank=True, showDropDown=False)
+vmf.errorTitle="Frota"; vmf.error="Frota fora da lista — pode continuar."
+vmf.errorStyle="warning"; vmf.showErrorMessage=True
+mv.add_data_validation(vmf); vmf.add(f"A{MPRIM}:A{MULT}")
+
+def mregra(faixa, formula, **est):
+    r_=Rule(type="expression", dxf=DifferentialStyle(**est)); r_.formula=[formula]
+    mv.conditional_formatting.add(faixa, r_)
+for txt,bg,fg in (("Entregue no prazo",OK_V,OK_T),("Entregue com atraso",AL_V,AL_T),
+                  ("ATRASADA",RU_V,RU_T),("Aguardando",AZ_V,AZ_T),
+                  ("Sem data prometida","FFF6E8CE","FF8A5A05")):
+    mregra(f"G{MPRIM}:G{MULT}", f'$G{MPRIM}="{txt}"',
+           fill=PatternFill(bgColor=bg), font=Font(color=fg,bold=True))
+mregra(f"F{MPRIM}:F{MULT}", f'N($F{MPRIM})>0',
+       fill=PatternFill(bgColor=RU_V), font=Font(color=RU_T,bold=True))
+mregra(f"D{MPRIM}:D{MULT}",
+       f'AND($A{MPRIM}<>"",$D{MPRIM}<>"",$E{MPRIM}="",$D{MPRIM}<{HOJEREAL})',
+       fill=PatternFill(bgColor=RU_V), font=Font(color=RU_T,bold=True))
+mregra(f"A{MPRIM}:I{MULT}", f'$E{MPRIM}<>""', font=Font(color="FFA6AEBC"))
+
+mv.freeze_panes=f"A{MPRIM}"
+mv.auto_filter.ref=f"A{MCAB}:I{MULT}"
+mv.sheet_view.showGridLines=False
+
 # ═══════════════════════════════════ COMO USAR
 ins=wb.create_sheet("Como usar", 0)
 titulo(ins,"PROGRAMAÇÃO DE SERVIÇOS  ·  MAKRO TRANSPORTES","H",34,15)
@@ -1419,7 +1560,7 @@ ins.sheet_view.showGridLines=False
 # ═══════════════════════════════════ IMPRESSÃO E FECHO
 for ws,orient,tr in ((pg,"landscape",3),(sm,"landscape",LCAB),
                      (ad,"portrait",None),(ins,"portrait",None),
-                     (hj,"landscape",None)):
+                     (hj,"landscape",None),(mv,"landscape",MCAB)):
     ws.page_setup.orientation=orient
     ws.page_setup.paperSize=ws.PAPERSIZE_A4
     ws.page_setup.fitToWidth=1; ws.page_setup.fitToHeight=0
@@ -1432,6 +1573,7 @@ pg.print_area=f"A1:U{PRIM+max(len(LINHAS),60)+5}"
 ad.print_area=f"A1:M{L0+max(N_EX,N_FR)+len(TIPO_LISTA)+12}"   # O:Q são os números dos gráficos
 sm.print_area=f"A1:N{LDIA+3}"
 hj.print_area=f"A1:I{L2}"
+mv.print_area=f"A1:I{MPRIM+max(len(MOVS),25)+3}"
 # As onze colunas de cálculo ficam agrupadas e recolhidas: a Programação passa
 # de trinta colunas na tela para dezenove, que são as que se digitam. O sinal
 # de + na régua abre o grupo quando ele quiser conferir a conta.
@@ -1446,3 +1588,4 @@ print("planilha montada:",SAIDA)
 print("  atividades:",len(LINHAS),"| executantes:",len(EXEC_LISTA),"| frotas:",len(FROTA_LISTA))
 from collections import Counter
 print("  dias previstos:",dict(Counter(l["dias"] for l in LINHAS)))
+print("  movimentações preservadas:",len(MOVS))

@@ -39,6 +39,12 @@ vermelho.
 
 ## A aba Movimentações
 
+**Fica na planilha ANALÍTICA**, que é a principal para ele — é onde ele
+trabalha de fato e para onde ele manda os arquivos de volta. Ficou só num
+lugar de propósito: dois lugares para lançar a mesma movimentação é pior que
+nenhum.
+
+
 A operação leva a frota ao fornecedor, ou traz de volta. Quando ela demora, a
 oficina fica com a atividade vencida e o motivo vira *frota não chegou* — que
 foram **19 dos 49 motivos** registrados até aqui, o maior de todos. Esta aba
