@@ -125,13 +125,18 @@ CAUDA = re.compile(
 # São 32 atividades hoje (22 "Realizar", 10 "Programar"), fora os bullets de PDF.
 #
 # O conector "de/do/da" é opcional porque ele às vezes escreve "substituição
-# lona de freio", sem o "da". Mas o que vem depois NÃO pode ser conjunção nem
-# outra preposição: "Realizar troca OU calibração dos pneus" viraria "Trocar ou
-# calibração dos pneus", e "Realizar limpeza NOS bornes" viraria "Limpar nos
-# bornes". Quando a frase não é <verbo> <substantivo> <complemento>, o texto
-# fica como está — português quebrado é pior que texto comprido.
-_CONECTOR = r"(?:ou|e|no|na|nos|nas|em|com|para|por|ao|aos|a|o|se|que)"
-_D = r"(?:\s+d[oaeu]s?)?\s+(?!" + _CONECTOR + r"\b)"
+# lona de freio", sem o "da". Mas o que vem depois NÃO pode ser o objeto em duas
+# famílias de palavra: conjunção e preposição, que quebrariam a frase ("Realizar
+# troca OU calibração" viraria "Trocar ou calibração", "Realizar limpeza NOS
+# bornes" viraria "Limpar nos bornes"); e adjetivo que qualifica o substantivo
+# em vez de ser qualificado por ele — "lubrificação GERAL" viraria "Lubrificar
+# geral", que não é ordem de serviço nenhuma. Quando a frase não é
+# <verbo> <substantivo> <complemento>, o texto fica como está: português
+# quebrado é pior que texto comprido.
+_NAO_OBJETO = (r"(?:ou|e|no|na|nos|nas|em|com|para|por|ao|aos|a|o|se|que"
+               r"|geral|gerais|complet[oa]s?|total|parcial|peri[óo]dic[oa]"
+               r"|preventiv[oa]|corretiv[oa]|simples)")
+_D = r"(?:\s+d[oaeu]s?)?\s+(?!" + _NAO_OBJETO + r"\b)"
 ENCHIMENTO = [
     (re.compile(r"^\s*[*\-–·•]+\s*"), ""),
     (re.compile(r"^(?:realizar|efetuar|fazer|executar|proceder\s+a?o?|programar)"
