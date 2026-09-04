@@ -117,6 +117,125 @@ nunca teria calculado.
 
 `Programacao_Servicos_Makro.xlsx` é a programação semanal da oficina.
 
+## Mandar atividades novas
+
+Lote novo entra por `adicionar.py`, nunca à mão no arquivo. **Uma linha por
+atividade**, campos separados por `·` (ou `|`):
+
+```
+F-815 · Trocar amortecedor da cabine · Adilton
+F-964 · Revisar freios do 2º eixo · OS 007301
+F-331 · Lavagem completa da cabine · Júnior · Gabriel · seg
+F-1065 · Ferrar pneus do bitrem · extra · Luiz Paulo
+```
+
+Os **dois primeiros campos são posicionais**: frota, depois o que fazer. Do
+terceiro em diante **a ordem não importa** — cada pedaço se identifica sozinho
+contra as listas que a planilha já tem:
+
+| o pedaço | vira |
+|---|---|
+| `OS 007301`, `os 7301`, `007301` | coluna OS |
+| um nome de *Executantes* | Executante 1..3 |
+| `seg`, `segunda`, `segunda-feira` | coluna Dia |
+| `sem 36`, `semana 36`, `s36` | coluna Semana |
+| `2 dias` | Dias prev. |
+| um valor de *Tipo de serviço* | coluna Tipo |
+| `extra` | Origem = Extra |
+| `feito`, `ok`, `pronto` | Concluída, com a data de hoje |
+| `serviço: X` / `obs: X` | coluna Serviço / Observação |
+| **qualquer outra coisa** | vai para a observação, intacta |
+
+Pedaço que não casa **nunca** faz o lote falhar nem vira palpite: cai na
+observação e aparece no relatório. Frota ou executante que não existe é
+cadastrado **e sinalizado** — pode ser frota nova, pode ser dedo torto.
+A atividade nasce PENDENTE, sem data e sem OS que ele não tenha dito.
+
+```bash
+python3 adicionar.py planilha.json lote.txt > novo.json
+```
+
+## Duplicata: por que a POSIÇÃO decide
+
+Comparar atividade "por parecença" **não funciona em manutenção**. Num acervo
+de 271 atividades, um comparador difuso acusa **182 pares suspeitos** e erra em
+quase todos, porque as atividades de uma frota diferem só pelo lugar da peça:
+
+```
+lona de freio dianteira LD   ×   lona de freio dianteiro LE
+Regular freios 3º eixo       ×   Regular freios 1º eixo
+```
+
+São dois serviços, em duas rodas, com duas peças. Alertar nisso afoga o PCM e
+pode barrar atividade legítima.
+
+`texto.py` parte a identidade em duas metades — **esqueleto** (o serviço, sem
+posição, com a palavra reduzida ao radical) e **posição** (LD/LE, dianteiro,
+2º eixo…). Com isso os 182 caem para **4 pares reais, zero falso positivo**.
+São três faixas:
+
+| faixa | quando | o que acontece |
+|---|---|---|
+| **1** | mesma frota, mesmo esqueleto, **mesma posição**, e a que já existe está em aberto | **não grava**, e o relatório diz qual é, em que linha, semana, situação e OS |
+| **2** | igual, mas a existente está Concluída ou Cancelada | **grava** — é recorrência: troca de pneu acontece de novo |
+| **3** | mesmo esqueleto, **posição diferente** | **grava, sem alarme** |
+
+`trocar` e `substituir` contam como o mesmo verbo. `recuperar`, `corrigir` e
+`repor` **não** entram nessa lista de propósito: recuperar é reformar a peça,
+repor é pôr a que sumiu, e juntá-los esconderia serviço de verdade.
+
+**Poder reescrever e poder comparar são perguntas separadas.** `esqueleto` usa
+o núcleo reduzido mesmo quando a padronização se recusa a gravar — senão duas
+cópias da mesma atividade, uma inteira e outra truncada no PDF, passariam por
+atividades diferentes. Foi exatamente o que aconteceu com os anéis de vedação
+da F-964 até isto ser separado.
+
+## O nome da atividade
+
+**Verbo no infinitivo + objeto + posição.** O porquê, o número de peça e a
+oficina moram na observação.
+
+```
+Realizar troca de pneus                    →  Trocar pneus
+Programar substituição da lona de freio    →  Substituir lona de freio terceiro
+  terceiro eixo LD avariada (serviço          eixo LD avariada
+  empresa especializada)                      obs: serviço empresa especializada
+```
+
+`adicionar.py --limpar` faz isso no acervo inteiro e em tudo que chega por
+lote. Três coisas saem do nome: o que está entre parênteses, a cauda que começa
+em *devido / para melhor / evitando / visando / pois / conforme*, e o verbo de
+enchimento que não diz nada (`Realizar troca de X` não diz mais que `Trocar X`).
+
+**O que ele se recusa a fazer**, devolvendo o texto intacto e listando a linha
+para revisão à mão:
+
+* parêntese dentro de parêntese, ou texto que não fecha parêntese — nesses a
+  extração deixa `)` solto e embaralha a observação;
+* resultado com menos de 8 caracteres;
+* resultado que **perdeu um token de posição** que o original tinha — sem o LD
+  vira outra atividade.
+
+Não existe regra que apague `Realizar` sozinho: `Realizar alinhamento` viraria
+`Alinhamento`, que é um assunto, não uma ordem de serviço. Só se dissolve o
+verbo quando há outro verbo para pôr no lugar. Pela mesma razão a conversão
+exige que o que vem depois não seja conjunção nem preposição — `Realizar troca
+OU calibração` e `Realizar limpeza NOS bornes` ficam como estão, porque
+português quebrado é pior que texto comprido.
+
+As 17 que sobraram do PDF de inspeção estão reescritas à mão em
+`revisao_manual.py`, com ⚠️ nas 5 cujo texto **veio cortado da origem** — essas
+só o relatório do Protheus devolve por inteiro.
+
+## A OS que estava escondida no texto
+
+O PDF de inspeção trazia a OS no meio da frase — `(OS 7185 · serviço interno)` —
+e ela nunca subia para a coluna. A régua de cores então pintava de âmbar
+("falta abrir no Protheus") **18 atividades da F-964 que já tinham OS aberta**.
+`--limpar` sobe esse número para a coluna. Quando o texto traz duas OS
+diferentes ele não escolhe: deixa como está.
+
+
 ## A unidade é a atividade
 
 Cada linha é uma ATIVIDADE — o que antes era uma "pendência" dentro da

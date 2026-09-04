@@ -1603,8 +1603,13 @@ mv.print_area=f"A1:I{MPRIM+max(len(MOVS),25)+3}"
 pg.column_dimensions.group("V","AL", outline_level=1, hidden=True)
 wb.calculation.fullCalcOnLoad=True
 for ws in wb.worksheets: ws.sheet_properties.tabColor=NAVY[2:]
-# O dia primeiro: é por ele que se começa a manhã.
-wb.move_sheet("Hoje", offset=-(wb.sheetnames.index("Hoje")))
+# A ordem das abas é a que ele deixou na planilha: primeiro as que se usam
+# todo dia, e o material de consulta no fim. Reconstruir não pode desfazer
+# isso — ele reordenou de propósito e pediu para eu não mexer.
+ORDEM=["Hoje","Programação","Semana","Aderência","Movimentações",
+       "Como usar","Listas"]
+wb._sheets=([wb[n] for n in ORDEM if n in wb.sheetnames]
+            +[w for w in wb._sheets if w.title not in ORDEM])
 wb.active=0
 wb.save(SAIDA)
 print("planilha montada:",SAIDA)
