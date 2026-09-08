@@ -233,6 +233,34 @@ mão numa seção própria. Conter não é ser igual — `Fixar farol LD` está 
 em `Fixar farol LD e a grade`, e são serviços diferentes — então quem decide é
 ele, não a ferramenta.
 
+## Fechar a semana
+
+```bash
+python3 adicionar.py planilha.json --fechar-semana 36 --em 2026-09-04 > novo.json
+```
+
+O que ficou em aberto na semana N sai como concluído na data dada. Três
+cuidados: **não sobrescreve data que já existe**, **não fecha cancelada** — sai
+dos dois lados da aderência, e fechá-la seria inventar entrega — e **`--em` é
+obrigatório**, porque é a data que decide no prazo contra com atraso, e
+adivinhar isso seria escolher o indicador pelo PCM.
+
+### Marcar não é datar
+
+A primeira vez que se fechou uma semana, apareceram **dois grupos, não um**: 12
+atividades de fato pendentes e **19 marcadas "Concluída" sem data nenhuma**.
+
+Isso é uma contradição silenciosa: a coluna **Situação lê a marcação** e diz
+*Concluída*, mas a **aderência conta por data** e não enxerga nenhuma delas. A
+planilha mostrava o serviço fechado e o indicador dizia que não fechou — foi por
+isso que a semana 36 marcava 69% com a oficina achando que tinha entregue muito
+mais. Com as datas preenchidas, foi a 100%, e **21 das 31 apareceram como
+"Concluída com atraso"**: o número fecha sem apagar o escorregão.
+
+O relatório separa os dois grupos de propósito, e destaca as que fecharam **sem
+OS** — serviço executado sem OS aberta é o buraco que a régua âmbar existe para
+mostrar.
+
 ## A OS é um campo de 6 dígitos
 
 A planilha convivia com `007157`, `21301` e `7166`, todas da mesma numeração:

@@ -200,15 +200,23 @@ if PUXAR:
 # A chegada é POR CONJUNTO e muda de semana para semana: o F818/745 já chegou
 # na sexta da 36, o resto ficou para a 38. Antes isto era uma data fixa de
 # 31/08 no código, que envelheceu na primeira vez que um conjunto atrasou.
-CHEGADA=[(37, ["F-818","F-745"],        "chegou na sexta da semana 36"),
-         (38, ["F-425","F-1038","F-1039"], "previsão de chegada na semana 38"),
-         (38, ["F-621","F-433"],        "previsão de chegada na semana 38"),
-         (38, ["F-817","F-150"],        "previsão de chegada na semana 38")]
+CHEGADA=[(37, ["F-818","F-745"],           "chegou na sexta da semana 36"),
+         (37, ["F-425","F-1038","F-1039"], "previsão de chegada na semana 37"),
+         (37, ["F-621","F-433"],           "previsão de chegada na semana 37"),
+         (37, ["F-817","F-150"],           "previsão de chegada na semana 37")]
 FROTAS_PARA=[f for _s,_g,_o in CHEGADA for f in _g]
 # Uma linha reservada por unidade, com frota, semana e dia prontos e o serviço
 # em branco para ele escrever. Enquanto a Atividade estiver vazia a linha não
 # entra em conta nenhuma: aderência, extra, vencidas e diária todas exigem
 # atividade. Ela existe só para a frota já aparecer na grade da semana 36.
+# A linha reservada pertence a esta tabela, não ao arquivo: ela é apagada e
+# refeita a cada reconstrução. Sem isso ela se acumulava — o teste era "frota
+# que não tem ATIVIDADE", e a própria reservada não tem atividade nenhuma, então
+# toda ida e volta criava mais uma; e quando a previsão mudava de semana, a
+# linha velha ficava para trás com a semana errada.
+MARCA_PARA="Vem do Pará"
+LINHAS=[l for l in LINHAS
+        if l["atividade"] or not str(l.get("obs") or "").startswith(MARCA_PARA)]
 _com_linha={l["frota"] for l in LINHAS if l["frota"] and l["atividade"]}
 for _sem,_grupo,_nota in CHEGADA:
     for _f in _grupo:
@@ -217,7 +225,7 @@ for _sem,_grupo,_nota in CHEGADA:
                            origem="Programada", equipe=[], semana=_sem,
                            dia="Seg", dias="", concluida=None, marcar="",
                            semorig=None, motivo="",
-                           obs=f"Vem do Pará · {_nota}"))
+                           obs=f"{MARCA_PARA} · {_nota}"))
 
 LST=FONTE.get("listas",{})
 def lista(nome,padrao):

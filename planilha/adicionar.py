@@ -8,6 +8,7 @@ O que ele manda toda semana entra por aqui.
     python3 adicionar.py planilha.json lote.txt  > novo.json   # grava o lote
     python3 adicionar.py planilha.json --limpar  > novo.json   # padroniza textos
     python3 adicionar.py planilha.json --juntar  > novo.json   # funde duplicatas
+    python3 adicionar.py planilha.json --fechar-semana 36 --em 2026-09-04
 
 O FORMATO DO LOTE — uma linha por atividade:
 
@@ -442,6 +443,46 @@ def modo_limpar(d, rel):
     return mudou, inseguras
 
 
+def modo_fechar(d, rel, sem, em):
+    """Fecha a semana: o que ficou em aberto sai como concluído na data dada.
+
+    São dois casos, e a diferença entre eles é a lição desta rodada. Uns estão
+    de fato pendentes; outros ele já marcou "Concluída" e ficaram SEM DATA — e
+    aí a planilha se contradiz, porque a coluna Situação lê a marcação e a
+    aderência conta por data. A Situação dizia concluída e o indicador dizia
+    que não. Os dois grupos fecham, mas entram separados no relatório."""
+    pend, marcadas = [], []
+    for x in d["linhas"]:
+        if not x.get("atividade") or x.get("semana") != sem:
+            continue
+        if x.get("concluida"):
+            continue                     # já tem data: a antiga nunca se perde
+        if x.get("marcar") == "Cancelada":
+            continue                     # cancelada não se entrega
+        (marcadas if x.get("marcar") == "Concluída" else pend).append(x)
+        x["concluida"] = em
+        x["marcar"] = "Concluída"
+
+    rel.append(f"FECHEI A SEMANA {sem} em {em[8:10]}/{em[5:7]} "
+               f"({len(pend) + len(marcadas)})")
+    for titulo, g in (("estavam PENDENTES", pend),
+                      ("estavam MARCADAS sem data", marcadas)):
+        if not g:
+            continue
+        rel.append(f"\n  {titulo} ({len(g)})")
+        for x in sorted(g, key=lambda y: (y.get("frota") or "")):
+            rel.append(f"    {x.get('frota'):8} "
+                       f"{('OS ' + x['os']) if x.get('os') else 'sem OS  ':11} "
+                       f"{x['atividade'][:56]}")
+    sem_os = [x for x in pend + marcadas if not x.get("os")]
+    if sem_os:
+        rel.append(f"\n  FECHARAM SEM OS ({len(sem_os)})")
+        rel.append("    serviço executado sem OS aberta no Protheus")
+        for x in sem_os:
+            rel.append(f"    {x.get('frota'):8} {x['atividade'][:60]}")
+    return pend, marcadas
+
+
 def modo_juntar(d, rel):
     """Funde grupos de atividades idênticas numa linha só.
 
@@ -517,7 +558,20 @@ def main():
     rel = []
     n0 = len(d["linhas"])
 
-    if "--limpar" in args:
+    if "--fechar-semana" in args:
+        alvo = int(args[args.index("--fechar-semana") + 1])
+        if "--em" not in args:
+            sys.stderr.write("--fechar-semana precisa de --em AAAA-MM-DD: é a "
+                             "data que decide no prazo contra com atraso, e "
+                             "adivinhar isso seria escolher o indicador por "
+                             "você\n")
+            sys.exit(1)
+        em = args[args.index("--em") + 1]
+        if not re.fullmatch(r"\d{4}-\d{2}-\d{2}", em):
+            sys.stderr.write(f"data inválida: {em!r} (use AAAA-MM-DD)\n")
+            sys.exit(1)
+        modo_fechar(d, rel, alvo, em)
+    elif "--limpar" in args:
         modo_limpar(d, rel)
     elif "--juntar" in args:
         modo_juntar(d, rel)
