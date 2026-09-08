@@ -190,6 +190,79 @@ cópias da mesma atividade, uma inteira e outra truncada no PDF, passariam por
 atividades diferentes. Foi exatamente o que aconteceu com os anéis de vedação
 da F-964 até isto ser separado.
 
+## Puxar pendência para a semana seguinte
+
+Toda segunda o que não saiu rola para a semana que vem. Isso **não é criar
+atividade nova** — é mover a que já existe, com a OS dela, o histórico dela e a
+memória de quando foi programada pela primeira vez. Ele manda a atividade
+repetida no lote e a ferramenta reconhece:
+
+```bash
+python3 adicionar.py planilha.json lote.txt --semana 37 --dia Ter --mover-repetidas
+```
+
+| opção | o que faz |
+|---|---|
+| `--semana N` | atividade nova do lote nasce na semana N |
+| `--dia Ter` | e no dia Ter. **Sem dia não há data**, e sem data a Situação joga a linha em "Na carteira", fora da grade e da aba Hoje |
+| `--mover-repetidas` | colisão de faixa 1 vira **reprogramação** em vez de bloqueio |
+
+Com `--mover-repetidas`, a linha que já existe recebe a semana nova, tem `dia`,
+`data` e `prazo` limpos para as fórmulas recalcularem a janela, e ganha os
+executantes e observações do lote **somados** aos que já tinha. OS, origem e
+tipo ficam intactos.
+
+**`semorig` só se escreve uma vez.** Reprogramar duas vezes não pode apagar
+contra qual semana a aderência é medida — senão a "aderência ao plano original"
+vira ficção, e ela é justamente o número honesto quando tudo rola para a frente.
+
+A flag é **explícita de propósito**. Mover linha é destrutivo o bastante para
+não acontecer por adivinhação: sem ela, o comportamento é o de sempre — barra e
+avisa.
+
+### Quando ele escreve mais curto do que está guardado
+
+Guardado: `Lubrificar travas da cabine com dificuldade de liberar a mesma para
+bascular`. Ele escreve: `Lubrificar travas da cabine`. Os esqueletos não casam,
+porque `com dificuldade de…` não é uma das caudas que se sabe descartar — e sem
+tratamento isso viraria uma segunda linha do mesmo serviço.
+
+Existe uma **quarta faixa** para isso: quando o esqueleto de uma está *contido*
+no da outra, com a mesma posição, a linha **é gravada** e o relatório levanta a
+mão numa seção própria. Conter não é ser igual — `Fixar farol LD` está contida
+em `Fixar farol LD e a grade`, e são serviços diferentes — então quem decide é
+ele, não a ferramenta.
+
+## A OS é um campo de 6 dígitos
+
+A planilha convivia com `007157`, `21301` e `7166`, todas da mesma numeração:
+as curtas só perderam o zero à esquerda no caminho. A prova estava na própria
+planilha — uma linha da F-815 trazia `007157` na coluna e `OS 7157` no texto.
+
+Como texto, `7166` e `007166` não casam em filtro nem em busca colada no
+Protheus. `--limpar` completa com zeros à esquerda até 6 (foram **100
+células**: 32 de 4 dígitos e 68 de 5) e **esvazia** a célula que não é número —
+havia um `-` literal na F-580. Célula vazia volta a ficar âmbar, que é a
+verdade: não há OS ali.
+
+## Frotas que estão chegando
+
+`CHEGADA`, em `montar_planilha.py`, lista os conjuntos que vêm do Pará com a
+semana em que cada um chega. Frota que ainda não tem atividade ganha uma **linha
+reservada** — frota, semana e dia preenchidos, atividade em branco — só para
+aparecer na grade. Enquanto a atividade estiver vazia ela não entra em conta
+nenhuma.
+
+Duas armadilhas que essas linhas revelaram, as duas corrigidas:
+
+* **o Prazo tem de se guardar na ATIVIDADE, não só no início.** Com frota,
+  semana e dia mas sem atividade, a coluna `O` calcula e as auxiliares `AK`/`AL`
+  não — elas dependem da atividade. Guardando só em `$O`, isso dava `#VALUE!`
+  em 775 células e contaminava a aba Hoje inteira;
+* **a grade abre na semana mais adiantada que tem ATIVIDADE**, não na mais
+  adiantada que existe. Sem a ressalva, uma frota prevista para a semana 38
+  fazia a planilha abrir numa semana futura e vazia.
+
 ## O nome da atividade
 
 **Verbo no infinitivo + objeto + posição.** O porquê, o número de peça e a

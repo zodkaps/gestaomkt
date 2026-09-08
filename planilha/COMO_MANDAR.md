@@ -54,3 +54,27 @@ Se a atividade que já existe estiver **Concluída** ou **Cancelada**, eu gravo:
 E `Regular freios 1º eixo` com `Regular freios 3º eixo` **não** é repetição —
 são dois eixos. Eu sei separar posição (LD/LE, dianteiro, 1º/2º/3º eixo) de
 serviço, então mande à vontade.
+
+## Puxar pendência para a semana que vem
+
+Se a atividade **já está na planilha e em aberto**, mandar ela de novo é como
+você me pede para reprogramá-la. Eu **movo** a linha para a semana nova — com a
+OS, o histórico e a memória de quando ela foi programada pela primeira vez — em
+vez de criar uma segunda.
+
+Só um cuidado: **escreva o nome como ele está na planilha**. Se lá está
+`Lubrificar travas da cabine com dificuldade de liberar para bascular` e você
+escrever só `Lubrificar travas da cabine`, eu gravo as duas e te aviso que
+parecem a mesma. Aí você me fala e eu junto.
+
+## Dia e semana
+
+Sempre que der, diga a semana e o dia:
+
+```
+814 · Regular freio terceiro eixo LE · Heliton · sem 37 · ter
+```
+
+**Sem dia não há data**, e sem data a atividade cai em "Na carteira" — fica
+fora da grade da semana e fora da aba Hoje. Se você me disser "nessa semana,
+começando hoje", eu ponho o dia de hoje em tudo e te digo que fiz isso.

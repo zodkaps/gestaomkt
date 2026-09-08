@@ -62,6 +62,10 @@ DIAS_PT=["Seg","Ter","Qua","Qui","Sex","Sáb","Dom"]
 args=[a for a in sys.argv[1:] if not a.startswith("--")]
 ANO=2026
 if "--ano" in sys.argv: ANO=int(sys.argv[sys.argv.index("--ano")+1])
+# --semana 37 escreve a semana no título. A aba Semana já abre sozinha na mais
+# adiantada; o cabeçalho é que não dizia qual estava sendo trabalhada.
+SEMANA=None
+if "--semana" in sys.argv: SEMANA=int(sys.argv[sys.argv.index("--semana")+1])
 # --puxar 35:36 leva o que não saiu na semana 35 para a 36. É a "continuidade"
 # de toda segunda-feira, e por isso é parâmetro e não regra fixa.
 PUXAR=None
@@ -189,23 +193,31 @@ if PUXAR:
             l["semana"]=_para; l["origem"]="Programada"; _n+=1
     print(f"  continuidade: {_n} atividades da semana {_de} passaram para a {_para}")
 
-# ── frotas que chegam do Pará em 31/08, segunda-feira da semana 36 ──
-# Vieram anotadas em conjunto — F425/1038/1039, F621/433, F817/150, F818/745 —
-# e foram cadastradas unidade a unidade, que é como o resto da lista é escrito.
-# O 150 do conjunto F817/150 já estava lá e não se repete.
-FROTAS_PARA=["F-425","F-1038","F-1039","F-621","F-433","F-817","F-818","F-745"]
-SEM_CHEGADA=36
+# ── frotas que vêm do Pará, cada conjunto com a semana em que chega ──
+# Vieram anotadas em conjunto — F818/745, F425/1038/1039, F621/433, F817/150 —
+# e são cadastradas unidade a unidade, que é como o resto da lista é escrito.
+#
+# A chegada é POR CONJUNTO e muda de semana para semana: o F818/745 já chegou
+# na sexta da 36, o resto ficou para a 38. Antes isto era uma data fixa de
+# 31/08 no código, que envelheceu na primeira vez que um conjunto atrasou.
+CHEGADA=[(37, ["F-818","F-745"],        "chegou na sexta da semana 36"),
+         (38, ["F-425","F-1038","F-1039"], "previsão de chegada na semana 38"),
+         (38, ["F-621","F-433"],        "previsão de chegada na semana 38"),
+         (38, ["F-817","F-150"],        "previsão de chegada na semana 38")]
+FROTAS_PARA=[f for _s,_g,_o in CHEGADA for f in _g]
 # Uma linha reservada por unidade, com frota, semana e dia prontos e o serviço
 # em branco para ele escrever. Enquanto a Atividade estiver vazia a linha não
 # entra em conta nenhuma: aderência, extra, vencidas e diária todas exigem
 # atividade. Ela existe só para a frota já aparecer na grade da semana 36.
 _com_linha={l["frota"] for l in LINHAS if l["frota"] and l["atividade"]}
-for _f in FROTAS_PARA:
-    if _f in _com_linha: continue
-    LINHAS.append(dict(os="", frota=_f, servico="", atividade="", tipo="",
-                       origem="Programada", equipe=[], semana=SEM_CHEGADA,
-                       dia="Seg", dias="", concluida=None, marcar="",
-                       semorig=None, motivo="", obs="Chegou do Pará em 31/08"))
+for _sem,_grupo,_nota in CHEGADA:
+    for _f in _grupo:
+        if _f in _com_linha: continue
+        LINHAS.append(dict(os="", frota=_f, servico="", atividade="", tipo="",
+                           origem="Programada", equipe=[], semana=_sem,
+                           dia="Seg", dias="", concluida=None, marcar="",
+                           semorig=None, motivo="",
+                           obs=f"Vem do Pará · {_nota}"))
 
 LST=FONTE.get("listas",{})
 def lista(nome,padrao):
@@ -273,7 +285,8 @@ COLS=[("A","Nº",5,"c"),("B","Situação",19,"c"),
       ("AJ","Chave",18,"c"),("AK","Nº no serv.",9,"c"),("AL","Qtd no serv.",9,"c")]
 CORB={"1":AMARELO,"q":"FFE9F3E6","2":"FFDCE9FA","3":"FFEDEFF4","c":CINZA}
 
-pg["A1"]="PROGRAMAÇÃO DE SERVIÇOS  ·  MAKRO TRANSPORTES  ·  uma linha por atividade"
+pg["A1"]=("PROGRAMAÇÃO DE SERVIÇOS  ·  MAKRO TRANSPORTES  ·  "
+          +(f"SEMANA {SEMANA}" if SEMANA else "uma linha por atividade"))
 pg["A1"].font=F(bold=True,size=13,color=BRANCO); pg["A1"].fill=fill(NAVY)
 pg["A1"].alignment=Alignment(vertical="center",indent=1)
 pg.merge_cells("A1:AL1"); pg.row_dimensions[1].height=30
@@ -372,7 +385,12 @@ for r in range(PRIM,ULT+1):
     # (1-1)*dias/1 = 0 e o Dias prev. era simplesmente ignorado: metade dos
     # serviços dele vencia no mesmo dia do início por mais dias que pusesse.
     # Agora o último da fila cai sempre no dia (dias-1), como tem de ser.
-    pg[f"P{r}"]=(f'=IF($O{r}="","",$O{r}+MAX(0,ROUNDUP($AK{r}*'
+    # A guarda é na ATIVIDADE, não só no início. Uma linha com frota, semana e
+    # dia mas ainda sem atividade — a linha reservada de uma frota que está
+    # chegando, ou ele digitando a frota antes do serviço — calcula o início e
+    # não calcula AK/AL, que dependem da atividade. Guardando só em $O, esse
+    # caso dava #VALUE! e contaminava a aba Hoje inteira.
+    pg[f"P{r}"]=(f'=IF(OR($F{r}="",$O{r}=""),"",$O{r}+MAX(0,ROUNDUP($AK{r}*'
                  f'MAX(1,IF($N{r}="",1,$N{r}))/MAX(1,$AL{r}),0)-1))')
     pg[f"W{r}"]=(f'=IF($O{r}="","",IF($S{r}="",$O{r},{SEG}+($S{r}-1)*7+'
                  f'IF($M{r}="",0,MATCH($M{r},Listas!$F$5:$F$11,0)-1)))')
@@ -596,7 +614,11 @@ sm["A3"].font=F(bold=True,size=12,color=NAVY)
 sm["A3"].alignment=Alignment(vertical="center",indent=1); sm.merge_cells("A3:B3")
 # Abre na semana mais adiantada que tem programação: é a que está sendo tocada.
 # Abrir na mais antiga fazia a planilha começar num retrato já encerrado.
-sem_ini=max([l["semana"] for l in LINHAS if l["semana"]] or [date.today().isocalendar()[1]])
+# --semana manda; sem ela, a semana mais adiantada que tem ATIVIDADE. A
+# ressalva importa: as linhas reservadas de frota que está chegando têm semana
+# e não têm atividade, e sem isso a grade abria numa semana futura e vazia.
+sem_ini=SEMANA or max([l["semana"] for l in LINHAS if l["semana"] and l["atividade"]]
+                      or [date.today().isocalendar()[1]])
 sm["C3"]=sem_ini
 c=sm["C3"]; c.font=F(bold=True,size=18,color=NAVY); c.fill=fill(AMARELO)
 c.border=Border(*[Side(style="medium",color=NAVY)]*4)

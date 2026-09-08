@@ -206,6 +206,23 @@ def aberta(x):
     return (x.get("marcar") or "") not in FECHADA and not x.get("concluida")
 
 
+def contida(a, b):
+    """Uma atividade é o texto curto da outra?
+
+    Ele escreve "Lubrificar travas da cabine"; guardado está "Lubrificar travas
+    da cabine com dificuldade de liberar a mesma para bascular". Mesmo serviço,
+    descrito com mais detalhe numa das pontas — e o esqueleto não casa, porque
+    a cauda "com dificuldade de…" não é uma das que se sabe descartar.
+
+    Isto NÃO grava nem move nada: só levanta a mão no relatório. Conter não é
+    ser igual — "Fixar farol LD" está contida em "Fixar farol LD e a grade", e
+    são serviços diferentes. Quem decide é ele."""
+    ta, tb = set(a.split()), set(b.split())
+    if not ta or not tb or ta == tb:
+        return False
+    return ta < tb or tb < ta
+
+
 def descreve(i, x):
     return (f"linha ~{i + 5} · semana {x.get('semana') or '—'} · "
             f"{x.get('marcar') or 'pendente'} · OS {x.get('os') or '—'}"
@@ -216,11 +233,11 @@ def descreve(i, x):
 #  Modos
 # ══════════════════════════════════════════════════════════════════
 
-def modo_lote(d, caminho, rel):
+def modo_lote(d, caminho, rel, semana=None, mover=False, dia=None):
     listas = d.setdefault("listas", {})
     itens, avisos = ler_lote(caminho, listas)
     idx = indexar(d["linhas"])
-    gravadas, barradas = [], []
+    gravadas, barradas, movidas, parecidas = [], [], [], []
     serv_padrao = f"Programação {HOJE.strftime('%d/%m')}"
 
     for it in itens:
@@ -236,16 +253,51 @@ def modo_lote(d, caminho, rel):
         for fr_ in it.get("frotas") or [it["frota"]]:
             k = T.chave(fr_, ativ)
             conflito = [(i, x) for i, x in idx.get(k, []) if aberta(x)]
+            if conflito and mover:
+                # Ele repetiu uma atividade que já está aberta: toda segunda o
+                # que não saiu rola para a semana seguinte. Reprograma em vez
+                # de criar uma segunda linha do mesmo serviço.
+                for i, x in conflito:
+                    de = x.get("semana")
+                    # a origem só se escreve UMA vez: reprogramar duas vezes não
+                    # pode apagar contra qual semana a aderência é medida
+                    if not x.get("semorig") and de and de != semana:
+                        x["semorig"] = de
+                    x["semana"] = semana
+                    # a janela se recalcula na semana nova
+                    x["dia"] = it["dia"] or dia or ""
+                    x["data"] = None; x["prazo"] = None
+                    for q in it["equipe"]:          # soma, nunca substitui
+                        if q not in (x.get("equipe") or []):
+                            x.setdefault("equipe", []).append(q)
+                    novas_obs = [o for o in obs if o and o not in (x.get("obs") or "")]
+                    if novas_obs:
+                        x["obs"] = " · ".join(p for p in
+                                              [x.get("obs") or ""] + novas_obs if p)
+                    movidas.append((fr_, ativ, x, de))
+                continue
             if conflito:
                 barradas.append((dict(it, frota=fr_), ativ, conflito))
                 continue
+
+            # não é a mesma atividade, mas pode ser a mesma escrita mais curta
+            esq_novo, pos_novo = k[1], k[2]
+            for (fr2, esq2, pos2), linhas2 in idx.items():
+                if fr2 != fr_ or pos2 != pos_novo:
+                    continue
+                if not contida(esq_novo, esq2):
+                    continue
+                for i, x in linhas2:
+                    if aberta(x):
+                        parecidas.append((fr_, ativ, i, x))
 
             nova = dict(
                 os=it["os"], frota=fr_,
                 servico=it["servico"] or serv_padrao,
                 atividade=ativ, tipo=it["tipo"] or "Corretiva",
                 origem=it["origem"], equipe=list(it["equipe"]),
-                semana=it["semana"], dia=it["dia"], dias=it["dias"],
+                semana=it["semana"] if it["semana"] is not None else semana,
+                dia=it["dia"] or dia or "", dias=it["dias"],
                 data=None, prazo=None,
                 concluida=it["concluida"], marcar=it["marcar"],
                 semorig=None, orig="", motivo="",
@@ -265,6 +317,15 @@ def modo_lote(d, caminho, rel):
         if it["tipo"]:   det.append(it["tipo"])
         if it["origem"] == "Extra": det.append("EXTRA")
         rel.append(f"  {it['frota']} · {ativ} · {' · '.join(det)}")
+    if movidas:
+        rel.append(f"\nREPROGRAMEI para a semana {semana} ({len(movidas)})")
+        rel.append("  já existiam e estavam em aberto — movi, não dupliquei")
+        for fr_, ativ, x, de in movidas:
+            det = f"OS {x.get('os') or '—'} · semana {de or '—'} → {semana}"
+            if x.get("semorig"): det += f" · origem registrada: {x['semorig']}"
+            if x.get("equipe"): det += f" · {', '.join(x['equipe'])}"
+            rel.append(f"  {fr_} · {ativ}")
+            rel.append(f"      {det}")
     if barradas:
         rel.append(f"\nNÃO GRAVEI — já está lá ({len(barradas)})")
         for it, ativ, conf in barradas:
@@ -272,6 +333,14 @@ def modo_lote(d, caminho, rel):
             for i, x in conf:
                 rel.append(f"      {descreve(i, x)}")
             rel.append("      → se for serviço novo mesmo, me fala que eu gravo")
+    if parecidas:
+        rel.append(f"\nGRAVEI, MAS OLHA ISTO — parece a mesma, escrita mais "
+                   f"curta ou mais longa ({len(parecidas)})")
+        for fr_, ativ, i, x in parecidas:
+            rel.append(f"  gravei : {fr_} · {ativ}")
+            rel.append(f"  existe : {x['atividade'][:76]}")
+            rel.append(f"           {descreve(i, x)}")
+            rel.append("      → se for a mesma, me fala que eu junto")
     if avisos:
         rel.append(f"\nATENÇÃO ({len(avisos)})")
         for a in dict.fromkeys(avisos):
@@ -300,6 +369,26 @@ def modo_limpar(d, rel):
             x["os"] = achou[0]
             resgatadas.append((x, achou[0]))
 
+    # ── a OS é um campo de 6 dígitos ──
+    # A planilha convive com 007157, 21301 e 7166, e as três são da mesma
+    # numeração: os curtos só perderam o zero à esquerda no caminho — a linha
+    # da F-815 trazia "007157" na coluna e "OS 7157" no texto, provando o par.
+    # Como texto, "7166" e "007166" não casam em filtro nem em busca colada no
+    # Protheus, então o campo se uniformiza.
+    LARG = 6
+    zeros, naonum = [], []
+    for x in d["linhas"]:
+        o = str(x.get("os") or "").strip()
+        if not o:
+            continue
+        if not o.isdigit():
+            naonum.append((x, o))       # "-" não é OS: a célula volta a vazia
+            x["os"] = ""
+            continue
+        if len(o) < LARG:
+            x["os"] = o.zfill(LARG)
+            zeros.append((x, o, x["os"]))
+
     for x in d["linhas"]:
         t = x.get("atividade")
         if not t:
@@ -327,6 +416,18 @@ def modo_limpar(d, rel):
         antes = sum(len(a) for a, _, _, _ in mudou) // len(mudou)
         dep = sum(len(b) for _, b, _, _ in mudou) // len(mudou)
         rel.append(f"  média de caracteres: {antes} → {dep}")
+    if zeros:
+        import collections as _c
+        por = _c.Counter(len(a) for _, a, _b in zeros)
+        rel.append(f"\nZEROS À ESQUERDA COMPLETADOS ({len(zeros)})")
+        for k in sorted(por):
+            ex = next(f"{a} → {b}" for _, a, b in zeros if len(a) == k)
+            rel.append(f"  {por[k]:3} tinham {k} dígitos   ex: {ex}")
+    if naonum:
+        rel.append(f"\nOS QUE NÃO SÃO NÚMERO — apaguei a célula ({len(naonum)})")
+        rel.append("  a célula volta a ficar âmbar, que é a verdade: não há OS ali")
+        for x, o in naonum:
+            rel.append(f"  {x.get('frota'):8} tinha {o!r} · {x.get('atividade','')[:52]}")
     if resgatadas:
         rel.append(f"\nOS QUE ESTAVAM NO TEXTO E SUBIRAM PARA A COLUNA "
                    f"({len(resgatadas)})")
@@ -394,6 +495,23 @@ def main():
     args = [a for a in sys.argv[1:]]
     if not args:
         sys.stderr.write(__doc__); sys.exit(1)
+    semana = None
+    if "--semana" in args:
+        semana = int(args[args.index("--semana") + 1])
+    mover = "--mover-repetidas" in args
+    # --dia Ter: sem dia a atividade tem semana mas não tem data, e a Situação
+    # a joga em "Na carteira" — fica fora da grade do dia e da aba Hoje.
+    dia = None
+    if "--dia" in args:
+        alvo = sem_acento(args[args.index("--dia") + 1])
+        d3 = DIA3.get(re.sub(r"[^a-z]", "", alvo.split("-")[0]))
+        if not d3:
+            sys.stderr.write(f"não reconheci o dia {alvo!r}\n"); sys.exit(1)
+        dia = d3.capitalize()
+    if mover and semana is None:
+        sys.stderr.write("--mover-repetidas precisa de --semana N: "
+                         "para onde eu movo?\n")
+        sys.exit(1)
     d = json.load(io.open(args[0], encoding="utf-8"))
     d.setdefault("linhas", []); d.setdefault("listas", {})
     rel = []
@@ -404,11 +522,12 @@ def main():
     elif "--juntar" in args:
         modo_juntar(d, rel)
     else:
-        lote = args[1] if len(args) > 1 else None
+        lote = next((a for a in args[1:] if not a.startswith("-")
+                     and not a.isdigit()), None)
         if not lote:
             sys.stderr.write("falta o arquivo do lote (ou --limpar / --juntar)\n")
             sys.exit(1)
-        modo_lote(d, lote, rel)
+        modo_lote(d, lote, rel, semana=semana, mover=mover, dia=dia)
 
     for l in rel:
         sys.stderr.write(l + "\n")
