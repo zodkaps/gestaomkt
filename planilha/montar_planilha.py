@@ -290,14 +290,14 @@ ls.print_area=f"A1:H{LIN_LISTA}"
 
 # ═══════════════════════════════════ PROGRAMAÇÃO
 pg=wb.create_sheet("Programação")
-COLS=[("A","Nº",5,"c"),("B","Situação",19,"c"),
+COLS=[("A","Linha",6,"c"),("B","Situação",18,"c"),
       ("C","OS",11,"1"),("D","Frota",9,"1"),("E","Serviço",25,"1"),
-      ("F","Atividade",40,"1"),("G","Tipo",11,"1"),("H","Origem",12,"1"),
-      ("I","Executante 1",16,"q"),("J","Executante 2",16,"q"),("K","Executante 3",16,"q"),
+      ("F","Atividade",38,"1"),("G","Tipo",11,"1"),("H","Origem",12,"1"),
+      ("I","Executante 1",14,"q"),("J","Executante 2",16,"q"),("K","Executante 3",16,"q"),
       ("L","Semana",8,"2"),("M","Dia",7,"2"),("N","Dias prev.",9,"2"),
       ("O","Início",11,"c"),("P","Prazo",12,"c"),
       ("Q","Concluída em",12,"3"),("R","Marcar",12,"3"),("S","Semana orig.",11,"3"),
-      ("T","Motivo do atraso / da mudança",26,"3"),("U","Obs.",22,"3"),
+      ("T","Motivo do atraso / da mudança",26,"3"),("U","Obs.",18,"3"),
       ("V","Oficina",12,"c"),("W","Plano",11,"c"),("X","No prazo",8,"c"),
       ("Y","No plano",8,"c"),("Z","Atraso",8,"c"),("AA","Reprog.",8,"c"),("AB","Concl.",8,"c"),
       ("AC","Venc?",7,"c"),("AD","Fração",8,"c"),
@@ -402,7 +402,11 @@ SEG=f'(DATE({ANOREF},1,4)-WEEKDAY(DATE({ANOREF},1,4),3))'   # segunda da semana 
 for r in range(PRIM,ULT+1):
     # Âncora na linha 4 pelo mesmo motivo das colunas de ordem: ancorada na 5,
     # apagar a primeira linha de dados levava a numeração toda junto.
-    pg[f"A{r}"]=f'=IF($F{r}="","",COUNTA($F${PRIM-1}:$F{r}))'
+    # O número da LINHA, não um contador de atividades. As abas Hoje, Carteira
+    # e Frota mandam ele para cá dizendo "linha 291", e o bloco DAR BAIXA pede
+    # esse mesmo número — com um contador aqui, a primeira coluna mostrava 287
+    # onde a lista dizia 291, e a baixa iria para a atividade errada.
+    pg[f"A{r}"]=f'=IF($F{r}="","",ROW())'
     pg[f"O{r}"]=(f'=IF(OR($L{r}="",$M{r}=""),"",'
                  f'{SEG}+($L{r}-1)*7+MATCH($M{r},Listas!$F$5:$F$11,0)-1)')
     # ── o PRAZO da atividade, espalhado pelos dias do serviço ──
@@ -1943,7 +1947,20 @@ for cor_,nome,txt in [(RU_V,"VENCIDA","o dia dela passou e não foi concluída")
 L+=1
 par(L,"As colunas de digitar seguem quatro faixas coloridas, na ordem em que se usam: "
       "o que é o serviço · quem faz · programar · só quando acontecer. "
-      "Cinza é calculado — não digite.",alt=30,cor=T2)
+      "Cinza é calculado — não digite.",alt=30,cor=T2); L+=3
+sec(L,"A PROGRAMAÇÃO ABRE COM ONZE COLUNAS, NÃO COM VINTE E DUAS"); L+=1
+par(L,"Ficam à vista as onze do dia a dia: LINHA · SITUAÇÃO · OS · FROTA · ATIVIDADE · "
+      "EXECUTANTE 1 · SEMANA · DIA · PRAZO · CONCLUÍDA EM · OBS. "
+      "Antes eram vinte e duas, e a planilha tinha três telas de largura no tablet.",
+      alt=30,cor=T2); L+=2
+par(L,"O resto está RECOLHIDO, não escondido. Na régua das colunas, os botões 1 e 2 "
+      "no canto abrem e fecham tudo de uma vez: o 2 mostra a planilha inteira quando "
+      "você precisa digitar serviço, tipo, origem, o segundo e o terceiro executante, "
+      "a estimativa em dias, ou o motivo do atraso. O 1 fecha de novo.",
+      alt=34,cor=T2); L+=2
+par(L,"A coluna LINHA é o número da linha mesmo — o mesmo que a aba HOJE, a CARTEIRA e "
+      "a FROTA mostram, e o mesmo que o bloco DAR BAIXA pede. Um número só, um "
+      "significado só.",alt=26,cor=T2)
 ins.column_dimensions["A"].width=14
 for col in "BCDEFGH": ins.column_dimensions[col].width=17
 ins.sheet_view.showGridLines=False
@@ -1968,8 +1985,26 @@ mv.print_area=f"A1:I{MPRIM+max(len(MOVS),25)+3}"
 # As onze colunas de cálculo ficam agrupadas e recolhidas: a Programação passa
 # de trinta colunas na tela para dezenove, que são as que se digitam. O sinal
 # de + na régua abre o grupo quando ele quiser conferir a conta.
-pg.column_dimensions.group("V","AL", outline_level=1, hidden=True)
-pg.column_dimensions.group("AN","AT", outline_level=1, hidden=True)
+# ── menos coluna à vista ──
+# Eram 22 colunas visíveis somando 316 caracteres de largura: quase três telas
+# de tablet, rolando para o lado o tempo todo. Ficam as onze do dia a dia —
+# linha, situação, OS, frota, atividade, quem faz, semana, dia, prazo,
+# concluída e observação — e o resto entra em grupos recolhidos.
+#
+# Recolhido não é escondido: o botão "2" no canto da régua abre todos de uma
+# vez, o "1" fecha. Ele digita nessas colunas de vez em quando, e é um clique.
+# Marcado coluna a coluna, e não com group(): o group() do openpyxl reescreve
+# a faixa inteira num objeto só, apaga as larguras que foram definidas antes e
+# só esconde a primeira coluna de cada grupo. Com sete chamadas ele quebrou até
+# o grupo V:AL, que funcionava havia semanas.
+def _recolher(*cols):
+    for _c in cols:
+        d=pg.column_dimensions[_c]
+        d.outlineLevel=1; d.hidden=True; d.collapsed=False
+_recolher("E","G","H","J","K","N","O","R","S","T")          # digitadas, de vez em quando
+_recolher(*[get_column_letter(i) for i in range(22,39)])    # V:AL, o cálculo
+_recolher("AM")                                             # prioridade
+_recolher(*[get_column_letter(i) for i in range(40,47)])    # AN:AT, o cálculo novo
 wb.calculation.fullCalcOnLoad=True
 for ws in wb.worksheets: ws.sheet_properties.tabColor=NAVY[2:]
 # A ordem das abas é a que ele deixou na planilha: primeiro as que se usam
