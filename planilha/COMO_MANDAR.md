@@ -78,3 +78,31 @@ Sempre que der, diga a semana e o dia:
 **Sem dia não há data**, e sem data a atividade cai em "Na carteira" — fica
 fora da grade da semana e fora da aba Hoje. Se você me disser "nessa semana,
 começando hoje", eu ponho o dia de hoje em tudo e te digo que fiz isso.
+
+## Prioridade e cliente
+
+```
+962 · Regular freio do primeiro eixo LE · 007492 · P1
+```
+
+`P1`, `P2` ou `P3` em qualquer posição da linha. **Vazio não é P3** — vazio quer
+dizer que ninguém priorizou ainda.
+
+O **cliente é do caminhão**, não da atividade, então não vai na linha: eu marco
+o lote inteiro de uma vez. Você só me diz de quem são os caminhões ("essas são
+da Petro") e eu cadastro na aba Listas, uma vez por frota.
+
+## Gente nova
+
+Nome que ainda não está na lista eu não adivinho — cairia na observação. Para
+cadastrar, use `quem:`:
+
+```
+962 · Fabricar tampa da caixa · quem: Edilberto
+```
+
+## Onde ver o que ainda não foi programado
+
+A aba **CARTEIRA** junta tudo que não tem semana, agrupado por caminhão e na
+ordem da OS. É de lá que sai a programação da semana. A aba **FROTA** mostra um
+caminhão só, inteiro — escolha na caixa amarela.

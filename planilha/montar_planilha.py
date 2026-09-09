@@ -153,7 +153,8 @@ for x in FONTE["linhas"]:
                if (x.get("atividade") and _sem) else "")),
         concluida=d2(x.get("concluida")), marcar=_marcar(x.get("marcar","")),
         semorig=_sor if _sor else (o.isocalendar()[1] if o else None),
-        motivo=x.get("motivo",""), obs=x.get("obs","")))
+        motivo=x.get("motivo",""), obs=x.get("obs",""),
+        prioridade=(x.get("prioridade") or "").strip().upper()))
 
 # Semana orig. igual à Semana não é reprogramação nenhuma: a coluna Reprog. já
 # exige que sejam diferentes. Escrita, ela só faz parecer que tudo foi
@@ -224,7 +225,7 @@ for _sem,_grupo,_nota in CHEGADA:
         LINHAS.append(dict(os="", frota=_f, servico="", atividade="", tipo="",
                            origem="Programada", equipe=[], semana=_sem,
                            dia="Seg", dias="", concluida=None, marcar="",
-                           semorig=None, motivo="",
+                           semorig=None, motivo="", prioridade="",
                            obs=f"{MARCA_PARA} · {_nota}"))
 
 LST=FONTE.get("listas",{})
@@ -235,6 +236,8 @@ EXEC_LISTA=lista("Executantes",[])
 FROTA_LISTA=sorted(set(lista("Frotas",[])) | set(FROTAS_PARA)
                    | {l["frota"] for l in LINHAS if l["frota"]})
 TIPO_LISTA=lista("Tipo de serviço",["Corretiva","Preventiva","Preditiva","Melhoria","Inspeção"])
+# Frota → cliente. Um caminhão pertence a um contrato; a atividade herda dele.
+CLIENTE_FROTA={k:v for k,v in (LST.get("Cliente por frota") or {}).items() if v}
 for l in LINHAS:
     for e in l["equipe"]:
         if e and e not in EXEC_LISTA: EXEC_LISTA.append(e)
@@ -249,16 +252,22 @@ wb=Workbook()
 
 # ═══════════════════════════════════ LISTAS
 ls=wb.active; ls.title="Listas"
+# O cliente é do CAMINHÃO, não da atividade: a F-972 é da Petro nas 22 linhas
+# dela. Escrito uma vez por frota, aqui, ao lado da própria frota — repetir 22
+# vezes na Programação é convite a divergir. A coluna G anda emparelhada com a
+# B, linha a linha, e a Programação busca com PROCV.
+CLIENTES=[CLIENTE_FROTA.get(f,"") for f in FROTA_LISTA]
 COLS_L=[("Executantes",EXEC_LISTA),("Frotas",FROTA_LISTA),("Tipo de serviço",TIPO_LISTA),
         ("Marcar",["Programada","Em programação","Concluída","Cancelada"]),
-        ("Motivo do atraso ou da mudança",MOTIVOS),("Dia",DIAS_PT)]
+        ("Motivo do atraso ou da mudança",MOTIVOS),("Dia",DIAS_PT),
+        ("Prioridade",["P1","P2","P3"]),("Cliente da frota ↔",CLIENTES)]
 ls["A1"]="LISTAS DE APOIO"
 ls["A1"].font=F(bold=True,size=11,color=BRANCO); ls["A1"].fill=fill(NAVY)
 ls["A1"].alignment=Alignment(vertical="center",indent=1)
-ls.merge_cells("A1:F1"); ls.row_dimensions[1].height=24
+ls.merge_cells("A1:H1"); ls.row_dimensions[1].height=24
 ls["A2"]=("Alimentam as caixas de seleção. Acrescente nomes aqui e as caixas acompanham. "
           "Frota nova você pode digitar direto na Programação — a planilha só avisa, não trava.")
-ls["A2"].font=F(size=9,italic=True,color=T2); ls.merge_cells("A2:F2")
+ls["A2"].font=F(size=9,italic=True,color=T2); ls.merge_cells("A2:H2")
 for j,(tit,vals) in enumerate(COLS_L,start=1):
     c=ls.cell(row=4,column=j,value=tit)
     c.font=F(bold=True,size=10,color=BRANCO); c.fill=fill(NAVY2)
@@ -268,12 +277,12 @@ for j,(tit,vals) in enumerate(COLS_L,start=1):
         if i-5<len(vals): cc.value=vals[i-5]
         cc.font=F(size=10); cc.border=box
 ls.row_dimensions[4].height=26
-for j,w in enumerate([26,12,16,14,30,8],start=1):
+for j,w in enumerate([26,12,16,14,30,8,11,18],start=1):
     ls.column_dimensions[get_column_letter(j)].width=w
 ls.sheet_view.showGridLines=False; ls.freeze_panes="A5"
 ls.page_setup.orientation="portrait"; ls.page_setup.fitToWidth=1
 ls.page_setup.fitToHeight=1; ls.sheet_properties.pageSetUpPr.fitToPage=True
-ls.print_area=f"A1:F{LIN_LISTA}"
+ls.print_area=f"A1:H{LIN_LISTA}"
 
 # ═══════════════════════════════════ PROGRAMAÇÃO
 pg=wb.create_sheet("Programação")
@@ -290,19 +299,29 @@ COLS=[("A","Nº",5,"c"),("B","Situação",19,"c"),
       ("AC","Venc?",7,"c"),("AD","Fração",8,"c"),
       ("AE","Ordem dia",9,"c"),("AF","Ordem atr.",9,"c"),("AG","Quem",22,"c"),
       ("AH","Entra dia",9,"c"),("AI","Entra atr.",9,"c"),
-      ("AJ","Chave",18,"c"),("AK","Nº no serv.",9,"c"),("AL","Qtd no serv.",9,"c")]
+      ("AJ","Chave",18,"c"),("AK","Nº no serv.",9,"c"),("AL","Qtd no serv.",9,"c"),
+      # ── depois do bloco calculado, de propósito ──
+      # Inserir no meio deslocaria as 19 colunas de cálculo e cada fórmula que
+      # as cita por letra. O ganho seria estético; o risco, dezenas de
+      # referências quebradas em silêncio.
+      ("AM","Prioridade",10,"1"),
+      ("AN","Cliente",14,"c"),("AO","Chave carteira",20,"c"),
+      ("AP","Ordem carteira",12,"c"),("AQ","É da frota",9,"c"),
+      ("AR","Ordem frota",11,"c")]
 CORB={"1":AMARELO,"q":"FFE9F3E6","2":"FFDCE9FA","3":"FFEDEFF4","c":CINZA}
 
 pg["A1"]=("PROGRAMAÇÃO DE SERVIÇOS  ·  MAKRO TRANSPORTES  ·  "
           +(f"SEMANA {SEMANA}" if SEMANA else "uma linha por atividade"))
 pg["A1"].font=F(bold=True,size=13,color=BRANCO); pg["A1"].fill=fill(NAVY)
 pg["A1"].alignment=Alignment(vertical="center",indent=1)
-pg.merge_cells("A1:AL1"); pg.row_dimensions[1].height=30
+pg.merge_cells("A1:AR1"); pg.row_dimensions[1].height=30
 for a,b,txt,g in [("A","B","CALCULADO","c"),("C","H","1 · O QUE É O SERVIÇO","1"),
                   ("I","K","2 · QUEM FAZ — até três","q"),
                   ("L","N","3 · PROGRAMAR — semana, dia e quantos dias leva","2"),
                   ("O","P","CALCULADO","c"),("Q","U","4 · SÓ QUANDO ACONTECER","3"),
-                  ("V","AL","CALCULADO — não digite aqui","c")]:
+                  ("V","AL","CALCULADO — não digite aqui","c"),
+                  ("AM","AM","5 · PRIORIDADE","1"),
+                  ("AN","AR","CALCULADO — não digite aqui","c")]:
     pg.merge_cells(f"{a}2:{b}2")
     c=pg[f"{a}2"]; c.value=txt
     c.font=F(bold=True,size=9,color=T2); c.fill=fill(CORB[g])
@@ -363,7 +382,8 @@ for i,d in enumerate(LINHAS):
                     ("G",d["tipo"]),("H",d["origem"]),("I",eq[0]),("J",eq[1]),("K",eq[2]),
                     ("L",d["semana"]),("M",d["dia"]),("N",d["dias"]),
                     ("Q",d["concluida"]),("R",d["marcar"]),("S",d["semorig"]),
-                    ("T",d["motivo"]),("U",d["obs"])):
+                    ("T",d["motivo"]),("U",d["obs"]),
+                    ("AM",d.get("prioridade",""))):
         if val not in (None,""): pg[f"{col}{r}"]=val
 
 ANOREF="Semana!$J$3"; EXPREF="Semana!$M$3"
@@ -388,6 +408,36 @@ for r in range(PRIM,ULT+1):
     pg[f"AJ{r}"]=f'=IF($F{r}="","",$D{r}&"|"&$E{r}&"|"&$L{r})'
     pg[f"AK{r}"]=f'=IF($AJ{r}="","",COUNTIF($AJ${PRIM-1}:$AJ{r},$AJ{r}))'
     pg[f"AL{r}"]=f'=IF($AJ{r}="","",COUNTIF($AJ${PRIM-1}:$AJ${ULT},$AJ{r}))'
+
+    # ── o que alimenta as abas CARTEIRA e FROTA ──
+    # Cliente vem da Listas, pela frota: uma frota, um contrato. PROCV e não
+    # digitação, para trocar o nome do cliente num lugar só.
+    # T() em volta do PROCV: célula vazia na Listas volta como 0, e "0|F-964"
+    # apareceria como cliente na tela. T() devolve o texto quando é texto e ""
+    # quando é número — que é exatamente a distinção que interessa aqui.
+    pg[f"AN{r}"]=(f'=IF($D{r}="","",IFERROR(T(VLOOKUP($D{r},'
+                  f'Listas!$B${PRIM}:$H${LIN_LISTA},7,0)),""))')
+    # Carteira = atividade escrita que ainda não tem semana. A chave ordena por
+    # cliente, depois frota, depois OS — que é a ordem em que ele mandou, já que
+    # as OS vêm sequenciais. Prioridade é coluna, não critério: ordenar por ela
+    # embaralharia a lista dele.
+    pg[f"AO{r}"]=(f'=IF(OR($F{r}="",$L{r}<>"",$R{r}="Cancelada",$Q{r}<>""),"",'
+                  f'$AN{r}&"|"&$D{r}&"|"&IF($C{r}="","zzz",$C{r})&"|"&TEXT({r},"0000"))')
+    # Posição = quantas chaves vêm antes desta. Sem matricial e sem cadeia: cada
+    # linha só olha a coluna inteira, então apagar linha continua seguro.
+    # Célula vazia é menor que qualquer texto, então o COUNTIF conta as 841
+    # linhas fora da carteira junto e a primeira começava na posição 842. O
+    # "<>" do COUNTIFS não resolve — vazio de FÓRMULA não é vazio para o
+    # critério, e isso já tinha me pegado antes ao contar OS em branco.
+    # Então se desconta: quantas linhas existem menos quantas estão na
+    # carteira, contadas uma vez só na célula motor Hoje!L5.
+    _fora=f'({ULT}-{PRIM}+1-Hoje!$L$5)'
+    pg[f"AP{r}"]=(f'=IF($AO{r}="","",COUNTIF($AO${PRIM}:$AO${ULT},"<"&$AO{r})'
+                  f'-{_fora}+1)')
+    # A frota escolhida na aba Frota. Mesma mecânica da aba Hoje: bandeira por
+    # linha e contador ancorado na linha 4, que é vazia e fica fora da conta.
+    pg[f"AQ{r}"]=f'=IF(AND($F{r}<>"",$D{r}=Frota!$C$3),1,0)'
+    pg[f"AR{r}"]=f'=IF($AQ{r}=0,"",SUM($AQ$4:$AQ{r}))'
     # A atividade vence no FIM da fatia dela, não no começo — por isso
     # ROUNDUP e não INT. Com INT, serviço de uma atividade só dava
     # (1-1)*dias/1 = 0 e o Dias prev. era simplesmente ignorado: metade dos
@@ -495,6 +545,9 @@ dv("R", "=Listas!$D$5:$D$8", "Marcar",
    "Deixe vazio (a situação sai sozinha), ou escolha: Programada / "
    "Em programação / Concluída / Cancelada.")
 dv("T", f"=Listas!$E$5:$E${LIN_LISTA}", "Motivo", "Escolha da aba Listas ou escreva o seu.", brando=True)
+dv("AM", "=Listas!$G$5:$G$7", "Prioridade",
+   "P1 (faz primeiro), P2 ou P3. Deixe vazio quando não houver prioridade "
+   "definida — vazio não é o mesmo que P3.", brando=True)
 vn=DataValidation(type="whole", operator="between", formula1="1", formula2="53", allow_blank=True)
 vn.errorTitle="Semana"; vn.error="O número da semana vai de 1 a 53."; vn.showErrorMessage=True
 pg.add_data_validation(vn); vn.add(f"L{PRIM}:L{ULT}"); vn.add(f"S{PRIM}:S{ULT}")
@@ -581,7 +634,7 @@ reg.formula=[f'AND($F{PRIM}<>"",$D{PRIM}&$E{PRIM}<>$D{PRIM-1}&$E{PRIM-1})']
 pg.conditional_formatting.add(FAIXA, reg)
 
 pg.freeze_panes="G5"
-pg.auto_filter.ref=f"A3:AL{ULT}"
+pg.auto_filter.ref=f"A3:AR{ULT}"
 pg.sheet_view.showGridLines=False
 
 # ═══════════════════════════════════ referências
@@ -602,6 +655,26 @@ PLAN=f'{BASE},{NEX}'             # e que estava no plano
 def porpessoa(alvo, extra, agreg="COUNTIFS", faixa=None):
     ini=f"SUMIFS({faixa}," if agreg=="SUMIFS" else "COUNTIFS("
     return "+".join(f'{ini}{c},{alvo},{extra})' for c in EQ)
+def ind(ws, lin, itens):
+    """Uma fileira de cartões de indicador: rótulo em cima, número embaixo.
+
+    Mesma forma dos cartões da aba Hoje — repetida ali por ter nascido antes
+    deste helper, e não vale mexer no que está provado só por simetria."""
+    for col, rot, fml, fmt, cor in itens:
+        a=ws[f"{col}{lin}"]; a.value=rot
+        a.font=F(bold=True,size=8.5,color=T2); a.fill=fill(CINZA_C)
+        a.alignment=Alignment(horizontal="center",wrap_text=True); a.border=box
+        b=ws[f"{col}{lin+1}"]; b.value=fml
+        b.font=F(bold=True,size=18,color=cor); b.number_format=fmt
+        b.alignment=Alignment(horizontal="center",vertical="center")
+        b.fill=fill(CINZA_C); b.border=box
+        prox=get_column_letter(ws[f"{col}{lin}"].column+1)
+        ws.merge_cells(f"{col}{lin}:{prox}{lin}")
+        ws.merge_cells(f"{col}{lin+1}:{prox}{lin+1}")
+        ws[f"{prox}{lin}"].border=box; ws[f"{prox}{lin+1}"].border=box
+    ws.row_dimensions[lin].height=22; ws.row_dimensions[lin+1].height=28
+
+
 def titulo(ws, texto, ate, altura=30, tam=13):
     ws["A1"]=texto
     ws["A1"].font=F(bold=True,size=tam,color=BRANCO); ws["A1"].fill=fill(NAVY)
@@ -1202,7 +1275,9 @@ hj["K1"].font=F(bold=True,size=8,color=RU_T)
 for lin,rot,fml,fmt in ((1,"hoje","=TODAY()",DFMT),
                         (2,"agora","=NOW()-TODAY()","hh:mm"),
                         (3,"no dia",f'=SUM({rg("AH")})',"0"),
-                        (4,"atrasadas",f'=SUM({rg("AI")})',"0")):
+                        (4,"atrasadas",f'=SUM({rg("AI")})',"0"),
+                        (5,"na carteira",
+                         f'=SUMPRODUCT(--({rg("AO")}<>""))',"0")):
     if lin>1:
         hj[f"K{lin}"]=rot; hj[f"K{lin}"].font=F(size=8,color=T2)
     hj[f"L{lin}"]=fml
@@ -1437,6 +1512,153 @@ mv.freeze_panes=f"A{MPRIM}"
 mv.auto_filter.ref=f"A{MCAB}:I{MULT}"
 mv.sheet_view.showGridLines=False
 
+
+# ═══════════════════════════════════ CARTEIRA
+# O que ainda não tem semana. Eram 100 atividades sem nada que as ordenasse;
+# com o backlog da Petro passam de 150, e a carteira é justamente de onde ele
+# tira o que vai programar na segunda. Espelho, como a aba Hoje: não se digita
+# nada aqui, e a coluna Linha diz onde editar na Programação.
+ct=wb.create_sheet("Carteira")
+titulo(ct,"CARTEIRA  ·  o que ainda não tem semana  —  daqui sai a programação","H")
+N_CART=200
+TOT_C=f'COUNT({rg("AP")})'
+COM_OS_C=f'COUNTIFS({rg("AP")},">0",{rg("C")},"<>")'
+ind(ct,4,[("A","NA CARTEIRA",f"={TOT_C}","0",NAVY),
+          ("C","SEM OS",f"={TOT_C}-{COM_OS_C}","0",AL_T),
+          ("E","COM OS",f"={COM_OS_C}","0",OK_T),
+          ("G","PRIORIDADE P1",f'=COUNTIFS({rg("AP")},">0",{rg("AM")},"P1")',"0",RU_T)])
+
+ct["A6"]="A FILA"
+ct["A6"].font=F(bold=True,size=11,color=NAVY)
+ct["A6"].alignment=Alignment(vertical="center",indent=1); ct.merge_cells("A6:C6")
+ct["D6"]=("agrupada por caminhão e, dentro dele, na ordem da OS  ·  "
+          "a linha grossa separa uma frota da outra")
+ct["D6"].font=F(size=9,italic=True,color=T2); ct.merge_cells("D6:H6")
+ct.row_dimensions[6].height=20
+
+COLS_C=[("A","Prio.",7),("B","OS",11),("C","Frota",9),("D","Cliente",13),
+        ("E","Atividade",52),("F","Tipo",12),("G","Obs.",30),("H","Linha",7)]
+for col,_t,w in COLS_C: ct.column_dimensions[col].width=w
+cabec(ct,7,[(c,t) for c,t,_w in COLS_C])
+DE_C=[("A","AM"),("B","C"),("C","D"),("D","AN"),("E","F"),("F","G"),("G","U")]
+for k in range(1,N_CART+1):
+    r=7+k
+    pos=f'MATCH({k},{rg("AP")},0)'
+    for col,orig in DE_C:
+        # INDEX numa célula vazia devolve 0, e o zero aparece na tela onde devia
+        # estar nada. Prioridade, OS, cliente e observação podem estar vazias em
+        # qualquer linha da carteira, então todas levam a guarda.
+        ct[f"{col}{r}"]=(f'=IF({TOT_C}<{k},"",IF(INDEX({rg(orig)},{pos})="","",'
+                         f'INDEX({rg(orig)},{pos})))')
+    ct[f"H{r}"]=f'=IF({TOT_C}<{k},"",{pos}+{PRIM-1})'
+    for col,_t,_w in COLS_C:
+        c=ct[f"{col}{r}"]; c.border=box; c.font=F(size=10)
+        if col in ("A","B","C","D","F","H"): c.alignment=Alignment(horizontal="center")
+        else: c.alignment=Alignment(vertical="center",indent=1)
+    ct.row_dimensions[r].height=16
+ct[f"A{8+N_CART}"]=(f'=IF({TOT_C}<={N_CART},"","⚠ a carteira tem "&{TOT_C}&'
+                    f'" atividades e esta lista mostra {N_CART} — veja o resto na Programação")')
+ct[f"A{8+N_CART}"].font=F(bold=True,size=10,color=RU_T)
+ct[f"A{8+N_CART}"].alignment=Alignment(vertical="center",indent=1)
+ct.merge_cells(f"A{8+N_CART}:H{8+N_CART}")
+
+# A troca de frota ganha uma linha grossa: é o que faz 150 linhas seguidas
+# virarem blocos por caminhão sem precisar de cabeçalho repetido.
+_gr=Side(style="medium", color=NAVY)
+rct=Rule(type="expression", dxf=DifferentialStyle(border=Border(top=_gr)))
+rct.formula=[f'AND($C8<>"",$C8<>$C7)']
+ct.conditional_formatting.add(f"A8:H{7+N_CART}", rct)
+# P1 é o único âmbar desta aba: aqui a cor quer dizer "faz primeiro", e nada mais.
+rp1=Rule(type="expression", dxf=DifferentialStyle(
+    fill=PatternFill(bgColor="FFFFD98A"), font=Font(color="FF6E2E00",bold=True)))
+rp1.formula=['$A8="P1"']
+ct.conditional_formatting.add(f"A8:A{7+N_CART}", rp1)
+# sem OS: a mesma régua da Programação, pelo mesmo motivo
+rso=Rule(type="expression", dxf=DifferentialStyle(
+    fill=PatternFill(bgColor="FFFFD98A"), font=Font(color="FF6E2E00",bold=True)))
+rso.formula=['AND($E8<>"",$B8="")']
+ct.conditional_formatting.add(f"B8:B{7+N_CART}", rso)
+ct.sheet_view.showGridLines=False; ct.freeze_panes="A8"
+ct.page_setup.orientation="landscape"; ct.page_setup.fitToWidth=1
+ct.page_setup.fitToHeight=0; ct.sheet_properties.pageSetUpPr.fitToPage=True
+ct.print_title_rows="7:7"
+
+# ═══════════════════════════════════ FROTA
+# Ele pensa por caminhão — "a F-972 tem 22 pendências" — e a planilha não
+# respondia isso sem filtrar. Escolhe a frota na caixa e vê a história dela.
+fr=wb.create_sheet("Frota")
+titulo(fr,"A FROTA  ·  tudo de um caminhão numa tela","I")
+fr["A3"]="FROTA"
+fr["A3"].font=F(bold=True,size=12,color=NAVY)
+fr["A3"].alignment=Alignment(vertical="center",indent=1); fr.merge_cells("A3:B3")
+fr["C3"]=(FROTA_LISTA[0] if FROTA_LISTA else "")
+c=fr["C3"]; c.font=F(bold=True,size=16,color=NAVY); c.fill=fill(AMARELO)
+c.border=Border(*[Side(style="medium",color=NAVY)]*4)
+c.alignment=Alignment(horizontal="center",vertical="center")
+c.comment=Comment("Escolha o caminhão aqui e a tela inteira acompanha.","PCM")
+vfr=DataValidation(type="list", formula1=f"=Listas!$B$5:$B${LIN_LISTA}",
+                   allow_blank=False, showDropDown=False)
+vfr.errorTitle="Frota"; vfr.error="Escolha uma frota da aba Listas."
+fr.add_data_validation(vfr); vfr.add("C3")
+fr["D3"]=f'=IFERROR(T(VLOOKUP($C$3,Listas!$B${PRIM}:$H${LIN_LISTA},7,0)),"")'
+fr["D3"].font=F(bold=True,size=12,color=T2)
+fr["D3"].alignment=Alignment(vertical="center",indent=1); fr.merge_cells("D3:E3")
+fr.row_dimensions[3].height=30
+
+TOT_F=f'COUNTIF({rg("AQ")},1)'
+CONC_F=f'COUNTIFS({rg("AQ")},1,{rg("Q")},"<>")'
+CANC_F=f'COUNTIFS({rg("AQ")},1,{rg("R")},"Cancelada")'
+COMOS_F=f'COUNTIFS({rg("AQ")},1,{rg("C")},"<>")'
+ind(fr,5,[("A","EM ABERTO",f"={TOT_F}-{CONC_F}-{CANC_F}","0",NAVY),
+          ("C","SEM OS",f"={TOT_F}-{COMOS_F}","0",AL_T),
+          ("E","VENCIDAS",f'=COUNTIFS({rg("AQ")},1,{rg("B")},"VENCIDA")',"0",RU_T),
+          ("G","CONCLUÍDAS",f"={CONC_F}","0",OK_T),
+          ("I","TOTAL",f"={TOT_F}","0",T2)])
+
+N_FR=120
+COLS_F=[("A","Prio.",7),("B","OS",11),("C","Serviço",24),("D","Atividade",46),
+        ("E","Quem faz",22),("F","Semana",8),("G","Prazo",11),
+        ("H","Situação",18),("I","Linha",7)]
+for col,_t,w in COLS_F: fr.column_dimensions[col].width=w
+cabec(fr,7,[(c,t) for c,t,_w in COLS_F])
+DE_F=[("A","AM"),("B","C"),("C","E"),("D","F"),("E","AG"),("F","L"),("G","P"),("H","B")]
+for k in range(1,N_FR+1):
+    r=7+k
+    pos=f'MATCH({k},{rg("AR")},0)'
+    for col,orig in DE_F:
+        alvo=f"INDEX({rg(orig)},{pos})"
+        fr[f"{col}{r}"]=f'=IF({TOT_F}<{k},"",IF({alvo}="","",{alvo}))'
+    fr[f"I{r}"]=f'=IF({TOT_F}<{k},"",{pos}+{PRIM-1})'
+    for col,_t,_w in COLS_F:
+        c=fr[f"{col}{r}"]; c.border=box; c.font=F(size=10)
+        if col=="G": c.number_format=DFMT
+        if col in ("A","B","F","G","H","I"): c.alignment=Alignment(horizontal="center")
+        else: c.alignment=Alignment(vertical="center",indent=1)
+    fr.row_dimensions[r].height=16
+fr[f"A{8+N_FR}"]=(f'=IF({TOT_F}<={N_FR},"","⚠ esta frota tem "&{TOT_F}&'
+                  f'" atividades e a lista mostra {N_FR}")')
+fr[f"A{8+N_FR}"].font=F(bold=True,size=10,color=RU_T)
+fr[f"A{8+N_FR}"].alignment=Alignment(vertical="center",indent=1)
+fr.merge_cells(f"A{8+N_FR}:I{8+N_FR}")
+
+for txt,cor in (("VENCIDA",RU_T),("Fecha hoje",EX_T),("Concluída",OK_T),
+                ("Na carteira",T2)):
+    rr=Rule(type="expression", dxf=DifferentialStyle(font=Font(color=cor,bold=True)))
+    rr.formula=[f'$H8="{txt}"']
+    fr.conditional_formatting.add(f"H8:H{7+N_FR}", rr)
+rp=Rule(type="expression", dxf=DifferentialStyle(
+    fill=PatternFill(bgColor="FFFFD98A"), font=Font(color="FF6E2E00",bold=True)))
+rp.formula=['$A8="P1"']
+fr.conditional_formatting.add(f"A8:A{7+N_FR}", rp)
+rso2=Rule(type="expression", dxf=DifferentialStyle(
+    fill=PatternFill(bgColor="FFFFD98A"), font=Font(color="FF6E2E00",bold=True)))
+rso2.formula=['AND($D8<>"",$B8="")']
+fr.conditional_formatting.add(f"B8:B{7+N_FR}", rso2)
+fr.sheet_view.showGridLines=False; fr.freeze_panes="A8"
+fr.page_setup.orientation="landscape"; fr.page_setup.fitToWidth=1
+fr.page_setup.fitToHeight=0; fr.sheet_properties.pageSetUpPr.fitToPage=True
+fr.print_title_rows="7:7"
+
 # ═══════════════════════════════════ COMO USAR
 ins=wb.create_sheet("Como usar", 0)
 titulo(ins,"PROGRAMAÇÃO DE SERVIÇOS  ·  MAKRO TRANSPORTES","H",34,15)
@@ -1631,13 +1853,14 @@ mv.print_area=f"A1:I{MPRIM+max(len(MOVS),25)+3}"
 # de trinta colunas na tela para dezenove, que são as que se digitam. O sinal
 # de + na régua abre o grupo quando ele quiser conferir a conta.
 pg.column_dimensions.group("V","AL", outline_level=1, hidden=True)
+pg.column_dimensions.group("AN","AR", outline_level=1, hidden=True)
 wb.calculation.fullCalcOnLoad=True
 for ws in wb.worksheets: ws.sheet_properties.tabColor=NAVY[2:]
 # A ordem das abas é a que ele deixou na planilha: primeiro as que se usam
 # todo dia, e o material de consulta no fim. Reconstruir não pode desfazer
 # isso — ele reordenou de propósito e pediu para eu não mexer.
-ORDEM=["Hoje","Programação","Semana","Aderência","Movimentações",
-       "Como usar","Listas"]
+ORDEM=["Hoje","Programação","Carteira","Frota","Semana","Aderência",
+       "Movimentações","Como usar","Listas"]
 wb._sheets=([wb[n] for n in ORDEM if n in wb.sheetnames]
             +[w for w in wb._sheets if w.title not in ORDEM])
 wb.active=0

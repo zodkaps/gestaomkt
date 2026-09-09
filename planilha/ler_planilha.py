@@ -79,6 +79,7 @@ def ler(caminho):
             orig=iso(v(r,"1ª data")),
             motivo=texto(v(r,"Motivo")), obs=texto(v(r,"Obs.")),
             oficina=texto(v(r,"Oficina")),
+            prioridade=texto(v(r,"Prioridade")),
         ))
     # listas de apoio, para não perder frotas/executantes cadastrados à mão
     listas={}
@@ -94,6 +95,24 @@ def ler(caminho):
                 if hasattr(x,"date"): continue      # a coluna de semanas some
                 vals.append(texto(x))
             if vals: listas[t]=vals
+    # "Cliente da frota ↔" não é uma lista de opções: é a coluna irmã de
+    # "Frotas", linha a linha. Lida como lista, perderia o pareamento — vira
+    # mapa frota → cliente, que é o que o gerador consome.
+    if "Listas" in wb.sheetnames:
+        ls=wb["Listas"]
+        col_f=col_c=None
+        for c in range(1,12):
+            t=texto(ls.cell(row=4,column=c).value)
+            if t=="Frotas": col_f=c
+            elif t.startswith("Cliente da frota"): col_c=c
+        if col_f and col_c:
+            mapa={}
+            for rr in range(5,200):
+                f=texto(ls.cell(row=rr,column=col_f).value)
+                cl=texto(ls.cell(row=rr,column=col_c).value)
+                if f and cl: mapa[f]=cl
+            if mapa: listas["Cliente por frota"]=mapa
+            listas.pop("Cliente da frota ↔", None)
     return {"linhas":linhas,"listas":listas}
 
 if __name__=="__main__":

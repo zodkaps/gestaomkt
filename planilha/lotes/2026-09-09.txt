@@ -1,0 +1,20 @@
+# ═══ SEMANA 37 · o dia 09/09, quarta ═══
+# Rodar com: --semana 37 --dia Qua --mover-repetidas
+
+580 · Retirar módulo · obs: ⚠️ executante a definir
+938 · Trocar baterias · Alexandre · Gabriel
+815 · Montar retrovisor · Heliton
+426 · Corrigir parte elétrica · Alexandre · Gabriel
+
+# "montar porta LE e instalar motor do vidro" são dois serviços
+618 · Montar porta LE · Júnior
+618 · Instalar motor do vidro · Júnior
+
+962 · Fabricar tampa da caixa · quem: Edilberto
+
+434 · Trocar pneus · extra
+744 · Trocar pneus · extra
+
+# Já estão abertas na semana 37 nos dois bitrens: isto atribui e põe no dia,
+# não cria linha nova. Nomeadas como estão guardadas.
+1064, 1065 · Instalar indicadores de folga nas porcas de roda · Luiz Paulo

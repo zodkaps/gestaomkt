@@ -1,0 +1,73 @@
+# ═══ BACKLOG DA PETRO · 59 atividades ═══
+# Vão para a CARTEIRA (sem semana, sem dia) — ele programa depois.
+# Rodar com: --cliente Petro
+# A ordem é a que ele mandou: as OS vêm sequenciais, 007440 a 007500.
+
+# ── F-972 · 22 · OS 007440–007461 ──
+972 · Registro das baterias ruim, substituir · 007440
+972 · Diagnosticar e corrigir falha registrada no módulo FR · 007441 · obs: limitações de funcionamento
+972 · Realizar lavagem do motor na parte traseira e verificar vazamento de óleo · 007442 · obs: podendo ser escorrido das tampas de válvulas
+972 · Revestir mangueira de retorno do reservatório · 007443 · obs: devido atrito com a cabine
+972 · Retirar borracha inferior da cabine · 007444 · obs: devido atrito com o reservatório d'água, podendo danificar o mesmo
+972 · Realizar lavagem do filtro racor e verificar vazamento · 007445 · obs: ou necessidade de substituição do conjunto
+972 · Realizar lavagem da parte inferior do reservatório de óleo hidráulico e da caixa de direção · 007446 · obs: para verificação de vazamento
+972 · Realizar lavagem no diferencial do terceiro eixo · 007447 · obs: para verificação de vazamento na vedação do diferencial ou retentor
+972 · Repor lanternas traseiras e placa de trânsito · 007448
+972 · Corrigir iluminação corujinha do teto LD · 007449
+972 · Corrigir iluminação da meia luz dos faróis · 007450
+972 · Fixar ou retirar chicote elétrico solto na dianteira LD · 007451
+972 · Fixar lanterna do pisca dianteiro LD e corrigir iluminação · 007452
+972 · Fixar tubo de enchimento de óleo · 007453 · obs: evitando danificar com atrito da ventoinha
+972 · Fixar retrovisores folgados LD e LE · 007454
+972 · Fixar paralama traseiro LE · 007455
+972 · Fixar tampa frontal, repor parafusos · 007456
+972 · Fixar base da placa de trânsito dianteira · 007457
+972 · Fixar acabamento da coluna LE · 007458
+972 · Corrigir fixação do degrau da escada LD · 007459
+972 · Recuperar barra de direção longa · 007460
+972 · Fixar tampa inferior da caixa de fusíveis · 007461
+
+# ── F-968 · 13 · OS 007462–007474 ──
+968 · funcionar e verificar vazamento na junta do trocador de calor LD) · 007462 · obs: ⚠️ VERIFICAR, o texto chegou cortado e falta o começo da frase
+968 · Realizar lavagem e verificar vazamento nos tubos de lubrificação da turbina · 007463
+968 · Isolar chicote de iluminação do implemento · 007464
+968 · Corrigir porta do passageiro com dificuldade de travar · 007465
+968 · Regular freio segundo eixo LD · 007466
+968 · Fixar painel e acabamento frontal, repor parafusos · 007467
+968 · Repor parafuso de fixação do tubo de saída da turbina · 007468 · obs: alimentação do intercooler
+968 · Fixar paralama dianteiro LD · 007469
+968 · Sanar vazamento de diesel no aferidor de combustível · 007470
+968 · Recuperar acabamento da alça de subir na cabine LD e LE · 007471
+968 · Corrigir paralama traseiro LD · 007472
+968 · Instalar lanternas e placa traseira · 007473 · obs: estão dentro da cabine
+968 · Realizar limpeza nos bornes das baterias e fixar tampa das mesmas · 007474
+
+# ── F-967 · 11 · OS 007475–007485 ──
+967 · Verificar falha no painel do módulo FR · 007475 · obs: limitações de funcionamento
+967 · Recarregar baterias para testar falha elétrica · 007476
+967 · Corrigir quantidade de molas nos feixes dianteiros LD e LE · 007477
+967 · Recuperar estrutura da placa traseira · 007478
+967 · Fixar tampa inferior da caixa de fusíveis · 007479
+967 · Repor acabamento do pega-mão do forro da porta do motorista · 007480 · obs: peça A 940 722 01 08
+967 · Repor para-choque traseiro · 007481
+967 · Fixar paralama superior dianteiro LD com base quebrada · 007482
+967 · Recuperar tapeçaria interna e dos bancos · 007483
+967 · Recuperar alças de subir na cabine LD e LE · 007484
+967 · Reinstalar cabo de segurança da cabine · 007485
+
+# ── F-962 · 13 · OS 007488–007500 ──
+# As marcas "| Ref.: — | P1" saem do nome e viram Prioridade.
+# OS 007486 e 007487 não vieram na lista dele.
+962 · Diagnosticar e corrigir falha no módulo do motor, freio motor · 007488 · P1
+962 · Instalar placa de trânsito traseira · 007489 · obs: sem prioridade no PDF
+962 · Diagnosticar e corrigir falha no módulo FR · 007490 · P1 · obs: limitações de funcionamento
+962 · Instalar cabo anti-tombamento da cabine · 007491 · P1
+962 · Regular freio do primeiro eixo LE · 007492 · P1
+962 · Substituir pneus gastos segundo eixo LE e terceiro eixo LD · 007493 · P1 · obs: verificar com a borracharia
+962 · Fixar e alinhar paralama traseiro avariado · 007494 · P1
+962 · Repor parafuso faltante do paralama LE · 007495 · P1
+962 · Repor para-choque · 007496
+962 · Corrigir iluminação meia-luz traseira LD · 007497 · P1
+962 · Sanar vazamento de ar no banco do motorista · 007498 · P1
+962 · Recuperar paralama dianteiro LE avariado · 007499 · P2 · obs: acompanhar
+962 · Recuperar alça da cabine LE e LD · 007500 · P3 · obs: acompanhar

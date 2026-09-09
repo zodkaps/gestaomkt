@@ -233,6 +233,56 @@ mão numa seção própria. Conter não é ser igual — `Fixar farol LD` está 
 em `Fixar farol LD e a grade`, e são serviços diferentes — então quem decide é
 ele, não a ferramenta.
 
+## Cliente é do caminhão, prioridade é da atividade
+
+Duas naturezas diferentes, dois lugares diferentes.
+
+**Cliente** não varia entre as atividades de um caminhão: a F-972 é da Petro nas
+22 linhas dela. Escrito 22 vezes, é convite a divergir. Mora na aba **Listas**,
+na coluna `Cliente da frota ↔`, emparelhada linha a linha com `Frotas`; a
+Programação busca com `PROCV` na coluna `AN`. Trocar o nome do cliente ali muda
+todas as atividades daquele caminhão de uma vez.
+
+**Prioridade** varia dentro do mesmo caminhão — a F-962 veio com P1, P2, P3 e
+uma sem prioridade nenhuma. Então é coluna digitada na Programação (`AM`), com
+caixa de seleção. **Vazio não é o mesmo que P3**: vazio quer dizer que ninguém
+priorizou.
+
+As colunas novas ficam **depois de AL**, de propósito. Inserir no meio
+deslocaria as 19 colunas de cálculo e cada fórmula que as cita por letra —
+dezenas de referências, e o ganho seria só estético.
+
+Duas armadilhas de fórmula que apareceram montando isso:
+
+* **`PROCV` em célula vazia devolve 0**, e `0` aparecia como nome do cliente na
+  tela. `T()` em volta resolve: devolve o texto quando é texto e `""` quando é
+  número.
+* **`ÍNDICE` numa célula vazia também devolve 0** — era o `0` que aparecia na
+  coluna Prioridade da Carteira. Toda coluna que pode estar vazia leva
+  `IF(...="","",...)`.
+
+## As abas Carteira e Frota
+
+**CARTEIRA** é o que ainda não tem semana — 159 atividades hoje, e é de lá que
+sai a programação da segunda. Agrupada por caminhão e, dentro dele, na ordem da
+OS; uma linha grossa separa uma frota da outra. Espelho, como a aba Hoje: não se
+digita nada nela, e a coluna `Linha` diz onde editar na Programação.
+
+A ordenação não usa matricial nem macro. A coluna `AO` monta uma chave
+`cliente|frota|OS` e a `AP` conta quantas chaves vêm antes dela. Uma armadilha:
+**célula vazia é menor que qualquer texto**, então o `CONT.SE` contava junto as
+841 linhas fora da carteira e a primeira começava na posição 842. O `"<>"` do
+`CONT.SES` não resolve — vazio de **fórmula** não é vazio para o critério, o que
+já tinha aparecido antes ao contar OS em branco. A saída foi descontar: quantas
+linhas existem menos quantas estão na carteira, contadas uma vez só na célula
+motor `Hoje!L5`.
+
+**FROTA** responde a pergunta que ele faz em voz alta — "a F-972 tem quantas
+pendências?" — e que a planilha não respondia sem filtrar. Escolhe o caminhão na
+caixa amarela e a tela inteira acompanha: em aberto, sem OS, vencidas,
+concluídas, e a lista. Mesma mecânica da aba Hoje: bandeira por linha (`AQ`),
+contador ancorado na linha 4 (`AR`), `ÍNDICE`/`CORRESP`.
+
 ## Fechar a semana
 
 ```bash

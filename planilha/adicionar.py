@@ -36,7 +36,11 @@ import texto as T
 HOJE = date.today()
 # Separadores aceitos. O hífen só conta cercado de espaço: "para-sol" e
 # "anti-tombamento" têm hífen no meio da palavra e não podem ser partidos.
-SEP = re.compile(r"\s*[·|]\s*|\s+[-–—]\s+")
+#
+# O travessão "—" ficou DE FORA de propósito. Ele é pontuação de frase em
+# português — inclusive nas observações que eu mesmo escrevo — e como separador
+# partia a observação ao meio no primeiro travessão que aparecesse.
+SEP = re.compile(r"\s*[·|]\s*|\s+[-–]\s+")
 
 # Dentro de um campo, "e" separa pessoas: "LUIZ PAULO E AIRTON" são dois.
 E_TAMBEM = re.compile(r"\s+e\s+", re.IGNORECASE)
@@ -125,7 +129,8 @@ def ler_lote(caminho, listas):
         it = dict(frota=lista_frotas[0], frotas=lista_frotas,
                   atividade=caixa(campos[1].strip()), os="", equipe=[],
                   dia="", semana=None, dias=None, tipo="", origem="Programada",
-                  servico="", obs=[], concluida="", marcar="", linha=n)
+                  servico="", obs=[], concluida="", marcar="", linha=n,
+                  prioridade="", cliente="")
 
         for p in campos[2:]:
             p = p.strip()
@@ -146,6 +151,28 @@ def ler_lote(caminho, listas):
             m = re.match(r"^(\d{1,2})\s*dias?$", b)
             if m:
                 it["dias"] = int(m.group(1)); continue
+            if re.fullmatch(r"p[123]", b):
+                it["prioridade"] = p.upper(); continue
+            m = re.match(r"^cliente\s*[:=]\s*(.+)$", p, re.I)
+            if m:
+                it["cliente"] = m.group(1).strip(); continue
+            # "quem: Edilberto" cadastra gente nova. Sem um jeito explícito, um
+            # nome desconhecido cairia na observação — e adivinhar que qualquer
+            # palavra solta é uma pessoa encheria a lista de lixo.
+            m = re.match(r"^(?:quem|executante)\s*[:=]\s*(.+)$", p, re.I)
+            if m:
+                for q in E_TAMBEM.split(m.group(1)):
+                    q = q.strip()
+                    if not q: continue
+                    achado = next((e for e in execs if sem_acento(e) == sem_acento(q)), None)
+                    if not achado:
+                        achado = q
+                        execs.append(achado)
+                        avisos.append(f"{achado} não estava nos executantes — "
+                                      f"cadastrei. Confere a grafia?")
+                    if achado not in it["equipe"]:
+                        it["equipe"].append(achado)
+                continue
             if re.fullmatch(r"extra(\s+prog(ramad[oa]|amacao|\.?)?)?", b):
                 it["origem"] = "Extra"; continue
             if b in ("feito", "ok", "concluido", "concluida", "pronto"):
@@ -234,7 +261,7 @@ def descreve(i, x):
 #  Modos
 # ══════════════════════════════════════════════════════════════════
 
-def modo_lote(d, caminho, rel, semana=None, mover=False, dia=None):
+def modo_lote(d, caminho, rel, semana=None, mover=False, dia=None, cliente=None):
     listas = d.setdefault("listas", {})
     itens, avisos = ler_lote(caminho, listas)
     idx = indexar(d["linhas"])
@@ -302,10 +329,26 @@ def modo_lote(d, caminho, rel, semana=None, mover=False, dia=None):
                 data=None, prazo=None,
                 concluida=it["concluida"], marcar=it["marcar"],
                 semorig=None, orig="", motivo="",
-                obs=" · ".join(o for o in obs if o), oficina="Interna")
+                obs=" · ".join(o for o in obs if o), oficina="Interna",
+                prioridade=it["prioridade"])
             d["linhas"].append(nova)
             idx.setdefault(k, []).append((len(d["linhas"]) - 1, nova))
             gravadas.append((dict(it, frota=fr_), ativ))
+
+    # Cliente não varia entre as atividades de um caminhão: a F-972 é da Petro
+    # nas 22 linhas dela. Dizer isso 22 vezes é convite a divergir — mora na
+    # Listas, uma vez por frota, e a Programação busca de lá.
+    if cliente:
+        mapa = listas.setdefault("Cliente por frota", {})
+        novas_frotas = []
+        for it in itens:
+            for fr_ in it.get("frotas") or [it["frota"]]:
+                if mapa.get(fr_) != cliente:
+                    mapa[fr_] = cliente
+                    if fr_ not in novas_frotas: novas_frotas.append(fr_)
+        if novas_frotas:
+            rel.append(f"CLIENTE {cliente} atribuído a {len(novas_frotas)} frotas: "
+                       f"{', '.join(novas_frotas)}\n")
 
     rel.append(f"LOTE {HOJE.strftime('%d/%m')} · {len(itens)} linhas lidas\n")
     rel.append(f"GRAVEI ({len(gravadas)})")
@@ -317,6 +360,7 @@ def modo_lote(d, caminho, rel, semana=None, mover=False, dia=None):
         if it["dias"]:   det.append(f"{it['dias']} dias")
         if it["tipo"]:   det.append(it["tipo"])
         if it["origem"] == "Extra": det.append("EXTRA")
+        if it.get("prioridade"): det.append(it["prioridade"])
         rel.append(f"  {it['frota']} · {ativ} · {' · '.join(det)}")
     if movidas:
         rel.append(f"\nREPROGRAMEI para a semana {semana} ({len(movidas)})")
@@ -581,7 +625,8 @@ def main():
         if not lote:
             sys.stderr.write("falta o arquivo do lote (ou --limpar / --juntar)\n")
             sys.exit(1)
-        modo_lote(d, lote, rel, semana=semana, mover=mover, dia=dia)
+        cli = args[args.index("--cliente") + 1] if "--cliente" in args else None
+        modo_lote(d, lote, rel, semana=semana, mover=mover, dia=dia, cliente=cli)
 
     for l in rel:
         sys.stderr.write(l + "\n")
