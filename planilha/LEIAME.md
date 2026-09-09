@@ -261,6 +261,69 @@ Duas armadilhas de fórmula que apareceram montando isso:
   coluna Prioridade da Carteira. Toda coluna que pode estar vazia leva
   `IF(...="","",...)`.
 
+## Dar baixa pela aba Hoje
+
+Um bloco em `J10:M29`, **ao lado** da lista do dia e não embaixo: no tablet ele
+vê a atividade e o campo de baixa na mesma tela. Escreve o **número da linha**
+que a lista já mostra e a data; a coluna ao lado confirma qual serviço fechou,
+ou avisa em vermelho que a linha não existe.
+
+**Por que um bloco separado e não uma coluna na própria lista.** A lista do dia
+é espelho por fórmula: cada célula é uma conta que lê a Programação, e uma
+célula não pode ser fórmula e campo de digitar ao mesmo tempo. Pior, a lista
+**reordena** quando se troca a data no topo — uma coluna de baixa dentro dela
+prenderia a data à *posição na tela*, não à atividade, e no dia seguinte daria
+baixa na errada. O bloco fica preso ao número da linha, que não muda.
+
+Duas colunas calculadas sustentam isso:
+
+| col | |
+|---|---|
+| `AS` | a data que veio do bloco: `ÍNDICE`/`CORRESP` usando **`LIN()`**, nunca o número da linha escrito na fórmula |
+| `AT` | **concluída efetiva** — `SE($Q<>""; $Q; $AS)` |
+
+Tudo que pergunta "isto foi concluído?" passou a ler `AT`: as colunas `X`, `Y`,
+`Z`, `AB` e a chave da carteira `AO`, mais as abas Hoje e Frota. Uma verdade só,
+montada de duas entradas — e não duas verdades que podem divergir.
+
+**O bloco se esvazia sozinho.** `ler_planilha.py` lê a concluída efetiva, então
+na reconstrução seguinte a data cai na coluna `Concluída em` de verdade e o
+bloco nasce limpo. Ele é buffer de digitação rápida, não um segundo lugar onde
+a data mora — dois lugares guardando a mesma data é como se perde a data.
+
+De quebra, três indicadores da Aderência que contavam conclusão com
+`CONT.SES(...;"<>")` na coluna digitada passaram a somar a bandeira numérica
+`AB`. Além de enxergar a baixa da aba Hoje, isso corrige uma divergência que já
+existia: atividade **marcada Concluída sem data** aparecia concluída na Situação
+e não entrava na conta.
+
+## O número que a planilha conta, não eu
+
+A ordenação da carteira tinha `1000` escrito na fórmula — o total de linhas de
+dados. Ele apagou uma linha no Excel, o intervalo encolheu para 999, e o literal
+não. As posições passaram a sair de 0 a 119 em vez de 1 a 120 e a última não era
+encontrada: **8 células `#N/A`** na aba Carteira.
+
+A correção é `LINS($AO$5:$AO$1004)`, que encolhe junto com o intervalo. É a
+mesma lição das outras armadilhas deste arquivo, e vale escrever por extenso:
+**nunca dependa de um número que a planilha pode mudar por baixo** — nem o total
+de linhas, nem o número da linha atual. `LIN()` e `LINS()` existem para isso.
+
+## Os KPIs de gestão
+
+Duas seções na aba Aderência, ambas contando pelas colunas que já existem:
+
+**MIX DE MANUTENÇÃO** — corretiva, preventiva e inspeção, na semana e no
+acervo. É o indicador que diz se o PCM está saindo do apaga-incêndio, e o que
+ele leva para a diretoria. Hoje: **6% de preventiva** no acumulado.
+
+**COBERTURA DE OS** — quantas atividades têm OS aberta no Protheus. A régua
+âmbar mostra isso linha a linha; faltava o número. Hoje: **74%** no acervo,
+**56%** na semana.
+
+Os dois fecham com a contagem: com OS + sem OS dá o total de atividades não
+canceladas. KPI que não fecha com a contagem é KPI errado.
+
 ## As abas Carteira e Frota
 
 **CARTEIRA** é o que ainda não tem semana — 159 atividades hoje, e é de lá que

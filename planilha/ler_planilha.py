@@ -74,7 +74,11 @@ def ler(caminho):
             data=iso(v(r,"Início")) or iso(v(r,"Data programada")),
             # o prazo da própria atividade, que é o que vale no dia a dia
             prazo=iso(v(r,"Prazo")),
-            concluida=iso(v(r,"Concluída em")),
+            # A "Concluída efetiva" junta as duas entradas: a data digitada na
+            # própria linha e a baixa dada pelo bloco da aba Hoje. Lendo só a
+            # coluna digitada, toda baixa feita pela aba Hoje se perderia na
+            # reconstrução seguinte.
+            concluida=(iso(v(r,"Concluída efetiva")) or iso(v(r,"Concluída em"))),
             marcar=texto(v(r,"Marcar")),
             orig=iso(v(r,"1ª data")),
             motivo=texto(v(r,"Motivo")), obs=texto(v(r,"Obs.")),

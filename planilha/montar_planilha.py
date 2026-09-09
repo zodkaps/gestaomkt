@@ -55,6 +55,10 @@ def fill(c): return PatternFill("solid", fgColor=c)
 DFMT='[$-416]dd/mm/yyyy;@'          # dd/mm/aaaa em qualquer Excel
 
 PRIM=5; ULT=1004; LIN_LISTA=120
+# O bloco de dar baixa, na aba Hoje: ao LADO da lista do dia (colunas J:M),
+# não embaixo dela. No tablet ele vê a atividade e o campo de baixa na
+# mesma tela, sem rolar cinquenta linhas.
+BX_INI=10; BX_FIM=29   # o motor da aba Hoje ocupa K1:L5
 MCAB=8; MPRIM=MCAB+1; MULT=MPRIM+299        # aba de movimentações, 300 linhas
 DIAS_PT=["Seg","Ter","Qua","Qui","Sex","Sáb","Dom"]
 
@@ -307,21 +311,22 @@ COLS=[("A","Nº",5,"c"),("B","Situação",19,"c"),
       ("AM","Prioridade",10,"1"),
       ("AN","Cliente",14,"c"),("AO","Chave carteira",20,"c"),
       ("AP","Ordem carteira",12,"c"),("AQ","É da frota",9,"c"),
-      ("AR","Ordem frota",11,"c")]
+      ("AR","Ordem frota",11,"c"),
+      ("AS","Baixa da aba Hoje",13,"c"),("AT","Concluída efetiva",13,"c")]
 CORB={"1":AMARELO,"q":"FFE9F3E6","2":"FFDCE9FA","3":"FFEDEFF4","c":CINZA}
 
 pg["A1"]=("PROGRAMAÇÃO DE SERVIÇOS  ·  MAKRO TRANSPORTES  ·  "
           +(f"SEMANA {SEMANA}" if SEMANA else "uma linha por atividade"))
 pg["A1"].font=F(bold=True,size=13,color=BRANCO); pg["A1"].fill=fill(NAVY)
 pg["A1"].alignment=Alignment(vertical="center",indent=1)
-pg.merge_cells("A1:AR1"); pg.row_dimensions[1].height=30
+pg.merge_cells("A1:AT1"); pg.row_dimensions[1].height=30
 for a,b,txt,g in [("A","B","CALCULADO","c"),("C","H","1 · O QUE É O SERVIÇO","1"),
                   ("I","K","2 · QUEM FAZ — até três","q"),
                   ("L","N","3 · PROGRAMAR — semana, dia e quantos dias leva","2"),
                   ("O","P","CALCULADO","c"),("Q","U","4 · SÓ QUANDO ACONTECER","3"),
                   ("V","AL","CALCULADO — não digite aqui","c"),
                   ("AM","AM","5 · PRIORIDADE","1"),
-                  ("AN","AR","CALCULADO — não digite aqui","c")]:
+                  ("AN","AT","CALCULADO — não digite aqui","c")]:
     pg.merge_cells(f"{a}2:{b}2")
     c=pg[f"{a}2"]; c.value=txt
     c.font=F(bold=True,size=9,color=T2); c.fill=fill(CORB[g])
@@ -421,7 +426,7 @@ for r in range(PRIM,ULT+1):
     # cliente, depois frota, depois OS — que é a ordem em que ele mandou, já que
     # as OS vêm sequenciais. Prioridade é coluna, não critério: ordenar por ela
     # embaralharia a lista dele.
-    pg[f"AO{r}"]=(f'=IF(OR($F{r}="",$L{r}<>"",$R{r}="Cancelada",$Q{r}<>""),"",'
+    pg[f"AO{r}"]=(f'=IF(OR($F{r}="",$L{r}<>"",$R{r}="Cancelada",$AT{r}<>""),"",'
                   f'$AN{r}&"|"&$D{r}&"|"&IF($C{r}="","zzz",$C{r})&"|"&TEXT({r},"0000"))')
     # Posição = quantas chaves vêm antes desta. Sem matricial e sem cadeia: cada
     # linha só olha a coluna inteira, então apagar linha continua seguro.
@@ -431,13 +436,29 @@ for r in range(PRIM,ULT+1):
     # critério, e isso já tinha me pegado antes ao contar OS em branco.
     # Então se desconta: quantas linhas existem menos quantas estão na
     # carteira, contadas uma vez só na célula motor Hoje!L5.
-    _fora=f'({ULT}-{PRIM}+1-Hoje!$L$5)'
+    # ROWS e não o número escrito à mão. Quando ele apaga uma linha, o
+    # intervalo encolhe e o total tem de encolher junto — com 1000 cravado, as
+    # posições saíam de 0 a 119 em vez de 1 a 120 e a Carteira dava #N/A na
+    # última. É a mesma lição de sempre: nunca dependa de um número que a
+    # planilha pode mudar por baixo.
+    _fora=f'(ROWS($AO${PRIM}:$AO${ULT})-Hoje!$L$5)'
     pg[f"AP{r}"]=(f'=IF($AO{r}="","",COUNTIF($AO${PRIM}:$AO${ULT},"<"&$AO{r})'
                   f'-{_fora}+1)')
     # A frota escolhida na aba Frota. Mesma mecânica da aba Hoje: bandeira por
     # linha e contador ancorado na linha 4, que é vazia e fica fora da conta.
     pg[f"AQ{r}"]=f'=IF(AND($F{r}<>"",$D{r}=Frota!$C$3),1,0)'
     pg[f"AR{r}"]=f'=IF($AQ{r}=0,"",SUM($AQ$4:$AQ{r}))'
+
+    # ── a baixa dada pela aba Hoje ──
+    # ROW() e não o número da linha escrito na fórmula: se ele apagar uma linha,
+    # a fórmula desce junto e ROW() acompanha. Escrito à mão, apontaria para a
+    # atividade errada — é o mesmo erro que fez a Carteira dar #N/A.
+    pg[f"AS{r}"]=(f'=IFERROR(INDEX(Hoje!$K${BX_INI}:$K${BX_FIM},'
+                  f'MATCH(ROW(),Hoje!$J${BX_INI}:$J${BX_FIM},0)),"")')
+    # A data vale de onde ela veio: a digitada na própria linha manda, e o
+    # bloco da aba Hoje entra quando a coluna está vazia. Uma verdade só,
+    # montada de duas entradas — e não duas verdades que podem divergir.
+    pg[f"AT{r}"]=f'=IF($Q{r}<>"",$Q{r},$AS{r})'
     # A atividade vence no FIM da fatia dela, não no começo — por isso
     # ROUNDUP e não INT. Com INT, serviço de uma atividade só dava
     # (1-1)*dias/1 = 0 e o Dias prev. era simplesmente ignorado: metade dos
@@ -480,12 +501,12 @@ for r in range(PRIM,ULT+1):
       f'IF($P{r}>{HOJEREAL},"Em execução","Fecha hoje"))))))))')
     pg[f"V{r}"]=(f'=IF($F{r}="","",IF(ISNUMBER(SEARCH("(externo)",$I{r}&$J{r}&$K{r})),'
                  f'"Terceirizada","Interna"))')
-    pg[f"X{r}"]=f'=IF($F{r}="","",IF(OR($Q{r}="",$O{r}=""),0,IF($Q{r}<=$O{r},1,0)))'
-    pg[f"Y{r}"]=f'=IF($F{r}="","",IF(OR($Q{r}="",$W{r}=""),0,IF($Q{r}<=$W{r},1,0)))'
-    pg[f"Z{r}"]=f'=IF(OR($Q{r}="",$O{r}=""),"",MAX(0,$Q{r}-$O{r}))'
+    pg[f"X{r}"]=f'=IF($F{r}="","",IF(OR($AT{r}="",$O{r}=""),0,IF($AT{r}<=$O{r},1,0)))'
+    pg[f"Y{r}"]=f'=IF($F{r}="","",IF(OR($AT{r}="",$W{r}=""),0,IF($AT{r}<=$W{r},1,0)))'
+    pg[f"Z{r}"]=f'=IF(OR($AT{r}="",$O{r}=""),"",MAX(0,$AT{r}-$O{r}))'
     pg[f"AA{r}"]=f'=IF($F{r}="","",IF(AND($S{r}<>"",$L{r}<>"",$S{r}<>$L{r}),1,0))'
     pg[f"AB{r}"]=(f'=IF($F{r}="","",IF($R{r}="Cancelada",0,'
-                  f'IF(OR($Q{r}<>"",$R{r}="Concluída"),1,0)))')
+                  f'IF(OR($AT{r}<>"",$R{r}="Concluída"),1,0)))')
     # Quanto desta atividade cabe a CADA um que participou. Três executantes
     # numa atividade dão 1/3 para cada, e a soma volta a fechar com o número
     # de atividades — que é o que a linha de TOTAL sempre mostrou. Sem isto,
@@ -634,7 +655,7 @@ reg.formula=[f'AND($F{PRIM}<>"",$D{PRIM}&$E{PRIM}<>$D{PRIM-1}&$E{PRIM-1})']
 pg.conditional_formatting.add(FAIXA, reg)
 
 pg.freeze_panes="G5"
-pg.auto_filter.ref=f"A3:AR{ULT}"
+pg.auto_filter.ref=f"A3:AT{ULT}"
 pg.sheet_view.showGridLines=False
 
 # ═══════════════════════════════════ referências
@@ -643,7 +664,7 @@ def rg(c): return f"{PROG}!${c}${PRIM}:${c}${ULT}"
 SIT=rg("B"); ATIV=rg("F"); FROTA_=rg("D"); TIPO_=rg("G"); ORIG=rg("H")
 EQ=(rg("I"),rg("J"),rg("K")); SEM=rg("L"); DIAS=rg("N")
 INI=rg("O"); FIM=rg("P"); CONCLEM=rg("Q"); MARC=rg("R")
-OFIC=rg("V"); PLANOD=rg("W"); NOPRAZO=rg("X"); NOPLANO=rg("Y")
+OFIC=rg("V"); PLANOD=rg("W"); NOPRAZO=rg("X"); NOPLANO=rg("Y"); OS_=rg("C")
 ATRASO=rg("Z"); REP=rg("AA"); CONCL=rg("AB"); FRACAO=rg("AD")
 ORD_DIA=rg("AE"); ORD_ATR=rg("AF"); QUEM=rg("AG"); SEMORIG=rg("S")
 INT=f'{OFIC},"Interna"'          # só a oficina da Makro
@@ -971,11 +992,11 @@ IND=[
   "total concluído ÷ total interno — inclui o extra"),
  ("Quanto da semana foi extra", '=IFERROR({Extra programação}/{Total interno},"")',"0%",
   "extra ÷ total interno"),
- ("Concluídas no prazo", f'=IF(COUNTIFS({janA},{CONCLEM},"<>")=0,"",SUMIFS({NOPRAZO},{janA},{NEX},{INT}))',"0",
+ ("Concluídas no prazo", f'=IF(SUMIFS({CONCL},{janA},{INT})=0,"",SUMIFS({NOPRAZO},{janA},{NEX},{INT}))',"0",
   "saíram no próprio dia programado"),
- ("Pontualidade", f'=IFERROR({{Concluídas no prazo}}/COUNTIFS({janA},{CONCLEM},"<>",{PLAN}),"")',"0%",
+ ("Pontualidade", f'=IFERROR({{Concluídas no prazo}}/SUMIFS({CONCL},{janA},{PLAN}),"")',"0%",
   "no prazo ÷ concluídas com data"),
- ("Aderência ao plano original", f'=IF(COUNTIFS({janW},{CONCLEM},"<>")=0,"",'
+ ("Aderência ao plano original", f'=IF(SUMIFS({CONCL},{janW},{INT})=0,"",'
   f'IFERROR(SUMIFS({NOPLANO},{janW},{NEX},{INT})/COUNTIFS({janW},{PLAN}),""))',"0%",
   "contra a semana da 1ª programação — não melhora quando se empurra para a frente"),
  ("Saíram desta semana", f'=COUNTIFS({SEMORIG},$B$3,{SEM},"<>"&$B$3,{NC})',"0",
@@ -1003,6 +1024,47 @@ IND=[
  ("Canceladas", f'=COUNTIFS({janA},{MARC},"Cancelada")',"0","saem dos dois lados"),
  ("Na carteira, sem dia", f'=COUNTIFS({INI},"",{ATIV},"<>",{NC})',"0",
   "não depende da semana — é o que ainda espera encaixe"),
+
+ # ── mix de manutenção ──
+ # O indicador que ele acompanha desde o começo e que, ironicamente, não estava
+ # aqui. Corretiva alta quer dizer oficina apagando incêndio; preventiva alta
+ # quer dizer PCM funcionando. É o número que muda a conversa com a diretoria.
+ (SEC,"MIX DE MANUTENÇÃO  ·  é aqui que se vê se o PCM está saindo do apaga-incêndio","",""),
+ ("Corretiva na semana", f'=COUNTIFS({janA},{TIPO_},"Corretiva",{BASE})',"0",
+  "quebrou e teve de consertar"),
+ ("Preventiva na semana", f'=COUNTIFS({janA},{TIPO_},"Preventiva",{BASE})',"0",
+  "foi feita antes de quebrar"),
+ ("Inspeção na semana", f'=COUNTIFS({janA},{TIPO_},"Inspeção",{BASE})',"0",
+  "olhar para achar o que vai quebrar"),
+ ("% preventiva na semana",
+  '=IFERROR({Preventiva na semana}/{Total interno},"")',"0%",
+  "preventiva ÷ total interno da semana"),
+ ("Corretiva no acervo", f'=COUNTIFS({ATIV},"<>",{TIPO_},"Corretiva",{NC})',"0",
+  "todas as semanas somadas"),
+ ("Preventiva no acervo", f'=COUNTIFS({ATIV},"<>",{TIPO_},"Preventiva",{NC})',"0",""),
+ ("% preventiva no acervo",
+  f'=IFERROR({{Preventiva no acervo}}/COUNTIFS({ATIV},"<>",{NC}),"")',"0%",
+  "o retrato acumulado — é o que mostra a tendência, não a semana solta"),
+
+ # ── cobertura de OS ──
+ # A régua âmbar mostra isso linha a linha; faltava o número. Serviço sem OS é
+ # serviço que saiu e o Protheus não soube.
+ (SEC,"COBERTURA DE OS  ·  o que a oficina fez e o Protheus registrou","",""),
+ ("Com OS na semana", f'=COUNTIFS({janA},{OS_},"<>",{BASE})',"0",
+  "atividades da semana com OS aberta no Protheus"),
+ ("Sem OS na semana",
+  f'=COUNTIFS({janA},{BASE})-{{Com OS na semana}}',"0",
+  "estas aparecem em âmbar na coluna OS"),
+ ("Cobertura na semana",
+  '=IFERROR({Com OS na semana}/{Total interno},"")',"0%",
+  "com OS ÷ total interno da semana"),
+ ("Com OS no acervo", f'=COUNTIFS({ATIV},"<>",{OS_},"<>",{NC})',"0",""),
+ ("Sem OS no acervo",
+  f'=COUNTIFS({ATIV},"<>",{NC})-{{Com OS no acervo}}',"0",
+  "a fila do que falta lançar"),
+ ("Cobertura no acervo",
+  f'=IFERROR({{Com OS no acervo}}/COUNTIFS({ATIV},"<>",{NC}),"")',"0%",
+  "com OS ÷ todas as atividades — o buraco entre a oficina e o sistema"),
 ]
 # Cada indicador cita os outros pelo NOME, não pela linha: acrescentar uma
 # linha no meio da tabela deixava de quebrar as contas de baixo.
@@ -1324,7 +1386,7 @@ COLS_H=[("A","Frota",10),("B","Serviço",28),("C","Atividade",40),
         ("D","Quem faz",26),("E","Início",11),("F","Fim",11),
         ("G","Situação",17),("H","Concluída em",12),("I","Linha",7)]
 for col,_t,w in COLS_H: hj.column_dimensions[col].width=w
-DE_ONDE=[("A","D"),("B","E"),("C","F"),("D","AG"),("E","O"),("F","P"),("H","Q")]
+DE_ONDE=[("A","D"),("B","E"),("C","F"),("D","AG"),("E","O"),("F","P"),("H","AT")]
 
 def bloco(lin, rot, sub, ordem, total, n, cor):
     """Uma lista puxada da Programação pela coluna de ordem, sem matricial."""
@@ -1399,6 +1461,60 @@ hj[f"A{L2+1}"]=("Para concluir uma atividade: vá à aba PROGRAMAÇÃO, na linha
 hj[f"A{L2+1}"].font=F(size=9,italic=True,color=T2)
 hj[f"A{L2+1}"].alignment=Alignment(vertical="top",wrap_text=True,indent=1)
 hj.merge_cells(f"A{L2+1}:I{L2+1}"); hj.row_dimensions[L2+1].height=28
+
+# ── DAR BAIXA: fechar a atividade sem sair da aba Hoje ──
+# A lista do dia é espelho por fórmula, e uma célula não pode ser fórmula e
+# campo de digitar ao mesmo tempo. Pior: a lista REORDENA quando ele troca a
+# data, então uma coluna de baixa dentro dela prenderia a data à posição na
+# tela e não à atividade — e no dia seguinte daria baixa na errada.
+#
+# Por isso o bloco é separado e ancorado no NÚMERO DA LINHA, que a lista já
+# mostra e que não muda quando a tela reordena.
+hj[f"J{BX_INI-3}"]="DAR BAIXA"
+hj[f"J{BX_INI-3}"].font=F(bold=True,size=11,color=NAVY)
+hj[f"J{BX_INI-3}"].alignment=Alignment(vertical="center",indent=1)
+hj.merge_cells(f"J{BX_INI-3}:M{BX_INI-3}")
+hj[f"J{BX_INI-2}"]=("escreva a LINHA que a lista mostra e a data — "
+                    "a atividade fecha na Programação")
+hj[f"J{BX_INI-2}"].font=F(size=8.5,italic=True,color=T2)
+hj.merge_cells(f"J{BX_INI-2}:M{BX_INI-2}")
+cabec(hj,BX_INI-1,[("J","Linha"),("K","Concluída em")])
+hj[f"L{BX_INI-1}"]="o que você está fechando"
+hj[f"L{BX_INI-1}"].font=F(bold=True,size=9,color=BRANCO)
+hj[f"L{BX_INI-1}"].fill=fill(NAVY2); hj[f"L{BX_INI-1}"].border=box
+hj[f"L{BX_INI-1}"].alignment=Alignment(horizontal="center",vertical="center")
+hj.merge_cells(f"L{BX_INI-1}:M{BX_INI-1}")
+hj[f"M{BX_INI-1}"].border=box
+
+for r in range(BX_INI, BX_FIM+1):
+    for col,larg in (("J",8),("K",13)):
+        c=hj[f"{col}{r}"]; c.fill=fill(AMARELO); c.border=box
+        c.font=F(size=10,bold=True)
+        c.alignment=Alignment(horizontal="center",vertical="center")
+    hj[f"K{r}"].number_format=DFMT
+    # a confirmação é o que impede dar baixa na errada: ele digita 289 e lê de
+    # volta qual serviço fechou, antes de seguir para o próximo
+    hj[f"L{r}"]=(f'=IF($J{r}="","",IFERROR(INDEX({rg("D")},$J{r}-{PRIM-1})&"  ·  "'
+                 f'&INDEX({rg("F")},$J{r}-{PRIM-1}),"⚠ linha não encontrada"))')
+    hj[f"L{r}"].font=F(size=9.5); hj[f"L{r}"].border=box
+    hj[f"L{r}"].alignment=Alignment(vertical="center",indent=1)
+    hj.merge_cells(f"L{r}:M{r}")
+    hj[f"M{r}"].border=box
+    hj.row_dimensions[r].height=18
+for col,larg in (("J",8),("K",13),("L",34),("M",14)):
+    hj.column_dimensions[col].width=larg
+hj[f"J{BX_INI}"].comment=Comment(
+    "A LINHA vem da última coluna da lista do dia.\n\n"
+    "Escreva o número aqui e a data ao lado: a atividade fecha na Programação, "
+    "e a coluna ao lado confirma qual serviço você fechou.\n\n"
+    "Na próxima vez que a planilha for reconstruída, a data passa para a coluna "
+    "CONCLUÍDA EM da Programação e este bloco volta a ficar vazio.", "PCM")
+# linha não encontrada fica vermelha: erro de digitação tem de gritar
+rbx=Rule(type="expression", dxf=DifferentialStyle(
+    fill=PatternFill(bgColor=RU_V), font=Font(color=RU_T,bold=True)))
+rbx.formula=[f'$L{BX_INI}="⚠ linha não encontrada"']
+hj.conditional_formatting.add(f"L{BX_INI}:M{BX_FIM}", rbx)
+
 hj.sheet_view.showGridLines=False; hj.freeze_panes="A10"
 
 # ═══════════════════════════════════ MOVIMENTAÇÕES
@@ -1606,7 +1722,7 @@ fr["D3"].alignment=Alignment(vertical="center",indent=1); fr.merge_cells("D3:E3"
 fr.row_dimensions[3].height=30
 
 TOT_F=f'COUNTIF({rg("AQ")},1)'
-CONC_F=f'COUNTIFS({rg("AQ")},1,{rg("Q")},"<>")'
+CONC_F=f'COUNTIFS({rg("AQ")},1,{rg("AT")},"<>")'
 CANC_F=f'COUNTIFS({rg("AQ")},1,{rg("R")},"Cancelada")'
 COMOS_F=f'COUNTIFS({rg("AQ")},1,{rg("C")},"<>")'
 ind(fr,5,[("A","EM ABERTO",f"={TOT_F}-{CONC_F}-{CANC_F}","0",NAVY),
@@ -1853,7 +1969,7 @@ mv.print_area=f"A1:I{MPRIM+max(len(MOVS),25)+3}"
 # de trinta colunas na tela para dezenove, que são as que se digitam. O sinal
 # de + na régua abre o grupo quando ele quiser conferir a conta.
 pg.column_dimensions.group("V","AL", outline_level=1, hidden=True)
-pg.column_dimensions.group("AN","AR", outline_level=1, hidden=True)
+pg.column_dimensions.group("AN","AT", outline_level=1, hidden=True)
 wb.calculation.fullCalcOnLoad=True
 for ws in wb.worksheets: ws.sheet_properties.tabColor=NAVY[2:]
 # A ordem das abas é a que ele deixou na planilha: primeiro as que se usam
