@@ -1,0 +1,10 @@
+{
+  "name": "gestaomkt",
+  "private": true,
+  "type": "module",
+  "description": "Programação e realização de OS — Makro Transportes. Site estático, sem passo de build: os arquivos em js/ são módulos ES servidos como estão. Este package.json existe só para declarar isso e para rodar os testes com node.",
+  "scripts": {
+    "teste": "node testes/rodar.js",
+    "servir": "python3 -m http.server 8000"
+  }
+}
