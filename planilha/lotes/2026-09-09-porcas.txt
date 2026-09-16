@@ -1,0 +1,4 @@
+# Indicador de porca aplicado — extra, concluído em 09/09 pelo Luiz Paulo.
+# A 1064 e a 1065 ficam de fora: já têm a atividade concluída na planilha.
+# F-1060 e F-1061 são frotas novas.
+1060, 1061, 1062, 1063 · Instalar indicadores de folga nas porcas de roda · Luiz Paulo · extra · feito

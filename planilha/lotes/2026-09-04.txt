@@ -1,0 +1,14 @@
+# Lote de 04/09 — texto dele, com as correções listadas no relatório
+F814, 815, 331, 617, 618 · Realizar lubrificação geral · Gabriel · extra · Preventiva
+F331 · Montar ar condicionado · Adilton · obs: já existe "Trocar peças do ar condicionado" (OS 021570) em aberto nesta frota, esta é a montagem depois da troca
+
+618 · Continuar diagnóstico · Thawan · extra · obs: ⚠️ VERIFICAR qual diagnóstico, não há nenhum em aberto na F-618 para continuar
+332 · Verificar falha de ABD · Thawan · extra · obs: ⚠️ VERIFICAR a frota, F-332 não existia na lista
+
+618 · Reparar carenagens · Júnior · extra
+617 · Reparar acabamento do teto · Júnior · extra
+
+1064 · Instalar indicadores de porca · Luiz Paulo · Airton · extra
+1064 · Substituir estepe · Luiz Paulo · Airton · extra
+
+814 · Trocar retrovisor LD · Júnior · extra

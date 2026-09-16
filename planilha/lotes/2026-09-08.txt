@@ -1,0 +1,46 @@
+# ═══ SEMANA 37 · programação de 08/09 ═══
+# Três mensagens dele, num lote só. Rodar com:
+#   --semana 37 --mover-repetidas
+# As leituras que exigiram julgamento estão anotadas em cada linha.
+
+# ── 1ª mensagem: a programação da semana ──
+F815 · Montar caixa de direção · Heliton · Adilton · obs: a "Recuperar caixa de direção com vazamento" está cancelada, a caixa foi para fora e volta para montar
+
+# "1064 e 1065 - lubrificação dos Bitrem": no 1064 a inspeção detalhou que é a
+# quinta roda, então lá vai a linha específica, mais abaixo. Aqui fica o 1065.
+1065 · Realizar lubrificação geral · Gabriel · Júnior
+
+# "realizar baixa de quaisquer pendências necessárias" não nomeia pendência
+# nenhuma, e os dois bitrens estão hoje sem nada em aberto. Vira inspeção.
+1064, 1065 · Inspecionar e registrar pendências encontradas · Gabriel · Júnior · Inspeção · obs: ⚠️ pedido como "baixa de quaisquer pendências necessárias", sem nomear quais
+
+# ── as quatro da F-814 já existem na semana 36: reprogramadas, não criadas ──
+814 · Reapertar base dos para-lamas traseiros LD · Heliton
+814 · Reapertar amortecedor segundo eixo LE · Heliton
+814 · Regular freio terceiro eixo LE · Heliton
+# nomeada como está guardada, senão não casa e viraria uma segunda linha
+814 · Lubrificar travas da cabine com dificuldade de liberar a mesma para bascular · Heliton
+
+331 · Montar limpador de parabrisa · obs: está com defeito, executante não definido
+331 · Trocar mangueiras · obs: executante não definido
+
+# ── 2ª mensagem: inspeção das frotas, tudo para Gabriel e Júnior nesta semana ──
+1064 · Substituir lanterna traseira LD avariada na lente e solta · Gabriel · Júnior · Inspeção · obs: peça 9531412, placa THP8G46
+1064 · Lubrificar quinta roda · Gabriel · Júnior · Inspeção · obs: placa THP8G46
+1064 · Instalar tag da frota · Gabriel · Júnior · Inspeção
+1064 · Instalar indicadores de folga nas porcas de roda · Gabriel · Júnior · Inspeção
+1064 · Substituir estepe avariado na banda de rodagem · Gabriel · Júnior · Inspeção · obs: verificar com a borracharia
+1064 · Instalar quebra dedo na trava da tampa do baú LD · Gabriel · Júnior · Inspeção
+
+1065 · Instalar sirene de ré · Gabriel · Júnior · Inspeção · obs: placa THP8J26
+1065 · Instalar tag da frota · Gabriel · Júnior · Inspeção · obs: placa THP8J26
+1065 · Instalar indicadores de folga nas porcas de roda · Gabriel · Júnior · Inspeção
+
+1063 · Fixar para-lama primeiro eixo LD · Gabriel · Júnior · Inspeção
+1063 · Fixar grade de proteção do ciclista traseira LD · Gabriel · Júnior · Inspeção
+
+1062 · Lubrificar quinta roda · Gabriel · Júnior · Inspeção · obs: ⚠️ marcado por ele na mensagem
+1062 · Fixar para-lama terceiro eixo LE · Gabriel · Júnior · Inspeção
+1062 · Regular freios segundo e terceiro eixo · Gabriel · Júnior · Inspeção
+1062 · Fixar correntes de amarração do estepe · Gabriel · Júnior · Inspeção
+1062 · Repor parafusos das tampas do cubo de roda primeiro e terceiro eixo LE · Gabriel · Júnior · Inspeção

@@ -1,0 +1,123 @@
+# -*- coding: utf-8 -*-
+"""
+Lê uma planilha já em uso e devolve as linhas em JSON, para o
+montar_planilha.py reconstruir a estrutura sem perder nada do que foi
+digitado.
+
+    python3 ler_planilha.py Programacao.xlsx > dados_atuais.json
+
+Lê pelo TÍTULO da coluna na linha 3, e não pela letra, então sobrevive a
+qualquer troca de posição. Reconhece o layout por número de semana e, como
+reserva, o antigo por data.
+"""
+import sys, json, io
+from openpyxl import load_workbook
+
+def texto(v):
+    if v is None: return ""
+    # OS digitada no Google Sheets volta como número: 21344.0 tem de virar
+    # "21344", senão o campo entra na planilha com a casa decimal colada.
+    if isinstance(v,float) and v.is_integer(): return str(int(v))
+    return str(v).strip()
+
+def num(v):
+    try: return int(float(v))
+    except (TypeError, ValueError): return None
+
+def iso(v):
+    return v.date().isoformat() if hasattr(v,"date") else (v.isoformat() if hasattr(v,"isoformat") else "")
+
+def ler(caminho):
+    wb=load_workbook(caminho, data_only=True)
+    pg=wb["Programação"]
+    # descobre onde está cada coluna pelo título, e não pela letra: assim a
+    # leitura sobrevive a qualquer troca de posição
+    col={}
+    for c in range(1,60):
+        t=texto(pg.cell(row=3,column=c).value)
+        if t: col.setdefault(t,c)
+    def acha(titulo):
+        # Título exato primeiro; depois por prefixo, porque cabeçalho cresce
+        # com o tempo ("Motivo" virou "Motivo do atraso / da mudança") e a
+        # busca exata devolvia vazio calado, apagando a coluna no ida e volta.
+        if titulo in col: return col[titulo]
+        for t,c in col.items():
+            if t.startswith(titulo): return c
+        return None
+    def v(r,titulo):
+        c=acha(titulo)
+        return pg.cell(row=r,column=c).value if c else None
+
+    linhas=[]
+    for r in range(4, pg.max_row+1):
+        ativ=texto(v(r,"Atividade"))
+        # Linha reservada — frota já lançada, serviço ainda por escrever —
+        # também tem de sobreviver ao ida e volta. Só se descarta a linha que
+        # não tem nem atividade nem frota, que é linha realmente vazia.
+        if not ativ and not texto(v(r,"Frota")): continue
+        eq=[texto(v(r,f"Executante {i}")) for i in (1,2,3)]
+        linhas.append(dict(
+            os=texto(v(r,"OS")), frota=texto(v(r,"Frota")),
+            servico=texto(v(r,"Serviço")), atividade=ativ,
+            tipo=texto(v(r,"Tipo")) or "Corretiva",
+            origem=texto(v(r,"Origem")),
+            # mesma pessoa em duas colunas de executante é engano de
+            # digitação, e dobrava a carga dela na visão por pessoa
+            equipe=list(dict.fromkeys([x for x in eq if x])),
+            # Programar virou NÚMERO de semana + dia; "Data programada" e
+            # "1ª data" são do layout antigo e ficam como reserva, senão a
+            # leitura de uma planilha nova devolvia semana e dia vazios e o
+            # ida e volta apagava a programação inteira.
+            semana=num(v(r,"Semana")), dia=texto(v(r,"Dia")),
+            semorig=num(v(r,"Semana orig.")),
+            dias=num(v(r,"Dias prev.")),
+            data=iso(v(r,"Início")) or iso(v(r,"Data programada")),
+            # o prazo da própria atividade, que é o que vale no dia a dia
+            prazo=iso(v(r,"Prazo")),
+            # A "Concluída efetiva" junta as duas entradas: a data digitada na
+            # própria linha e a baixa dada pelo bloco da aba Hoje. Lendo só a
+            # coluna digitada, toda baixa feita pela aba Hoje se perderia na
+            # reconstrução seguinte.
+            concluida=(iso(v(r,"Concluída efetiva")) or iso(v(r,"Concluída em"))),
+            marcar=texto(v(r,"Marcar")),
+            orig=iso(v(r,"1ª data")),
+            motivo=texto(v(r,"Motivo")), obs=texto(v(r,"Obs.")),
+            oficina=texto(v(r,"Oficina")),
+            prioridade=texto(v(r,"Prioridade")),
+        ))
+    # listas de apoio, para não perder frotas/executantes cadastrados à mão
+    listas={}
+    if "Listas" in wb.sheetnames:
+        ls=wb["Listas"]
+        for c in range(1,10):
+            t=texto(ls.cell(row=4,column=c).value)
+            if not t: continue
+            vals=[]
+            for rr in range(5,200):
+                x=ls.cell(row=rr,column=c).value
+                if x is None: continue
+                if hasattr(x,"date"): continue      # a coluna de semanas some
+                vals.append(texto(x))
+            if vals: listas[t]=vals
+    # "Cliente da frota ↔" não é uma lista de opções: é a coluna irmã de
+    # "Frotas", linha a linha. Lida como lista, perderia o pareamento — vira
+    # mapa frota → cliente, que é o que o gerador consome.
+    if "Listas" in wb.sheetnames:
+        ls=wb["Listas"]
+        col_f=col_c=None
+        for c in range(1,12):
+            t=texto(ls.cell(row=4,column=c).value)
+            if t=="Frotas": col_f=c
+            elif t.startswith("Cliente da frota"): col_c=c
+        if col_f and col_c:
+            mapa={}
+            for rr in range(5,200):
+                f=texto(ls.cell(row=rr,column=col_f).value)
+                cl=texto(ls.cell(row=rr,column=col_c).value)
+                if f and cl: mapa[f]=cl
+            if mapa: listas["Cliente por frota"]=mapa
+            listas.pop("Cliente da frota ↔", None)
+    return {"linhas":linhas,"listas":listas}
+
+if __name__=="__main__":
+    print(json.dumps(ler(sys.argv[1]), ensure_ascii=False, indent=1))

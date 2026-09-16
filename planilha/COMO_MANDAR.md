@@ -1,0 +1,108 @@
+# Como mandar atividades novas
+
+Uma linha por atividade. Separador `·` (ou `|`).
+
+```
+FROTA · O QUE FAZER · resto em qualquer ordem
+```
+
+**Só os dois primeiros são obrigatórios.** Todo o resto é opcional e a ordem
+não importa.
+
+```
+F-815 · Trocar amortecedor da cabine · Adilton
+964 · Revisar freios do 2º eixo · OS 007301
+F-331 · Lavagem completa da cabine · Júnior · Gabriel · seg
+F-1065 · Ferrar pneus do bitrem · extra · Luiz Paulo
+F-964 · Trocar pneus dianteiros · sem 37 · 2 dias
+```
+
+## O que eu reconheço sozinho
+
+| escreva | vira |
+|---|---|
+| `OS 007301` · `os 7301` · `007301` | a OS |
+| `Adilton` · `Júnior` (nome da lista) | quem faz |
+| `seg` · `segunda` · `segunda-feira` | o dia |
+| `sem 37` · `semana 37` · `s37` | a semana |
+| `2 dias` | a estimativa |
+| `Preventiva` · `Borracharia` (tipo da lista) | o tipo |
+| `extra` | entrou fora do plano |
+| `feito` · `ok` · `pronto` | já concluída, com a data de hoje |
+| `serviço: Baixa de carteira` | agrupa a atividade |
+| `obs: peça pedida dia 3` | observação |
+
+**Não precisa decorar nada disso.** O que eu não reconhecer eu não jogo fora:
+vai para a observação e eu te aviso no relatório. Frota que não existe eu
+cadastro e te pergunto se não foi engano.
+
+## O que eu nunca faço
+
+* **Não invento OS.** Número que a mensagem não liga a um serviço fica na
+  observação e a coluna OS continua vazia — âmbar, que é a sua fila.
+* **Não invento frota nem responsável.**
+* **Não marco como concluída** sem você dizer que foi feito.
+* **Não gravo atividade repetida.** Se o que você mandar já estiver lá e ainda
+  em aberto, eu não gravo e te digo qual é, em que linha, semana e situação.
+  Se for serviço novo mesmo, você fala e eu gravo.
+
+## Uma exceção que vale conhecer
+
+Se a atividade que já existe estiver **Concluída** ou **Cancelada**, eu gravo:
+é recorrência, troca de pneu acontece de novo.
+
+E `Regular freios 1º eixo` com `Regular freios 3º eixo` **não** é repetição —
+são dois eixos. Eu sei separar posição (LD/LE, dianteiro, 1º/2º/3º eixo) de
+serviço, então mande à vontade.
+
+## Puxar pendência para a semana que vem
+
+Se a atividade **já está na planilha e em aberto**, mandar ela de novo é como
+você me pede para reprogramá-la. Eu **movo** a linha para a semana nova — com a
+OS, o histórico e a memória de quando ela foi programada pela primeira vez — em
+vez de criar uma segunda.
+
+Só um cuidado: **escreva o nome como ele está na planilha**. Se lá está
+`Lubrificar travas da cabine com dificuldade de liberar para bascular` e você
+escrever só `Lubrificar travas da cabine`, eu gravo as duas e te aviso que
+parecem a mesma. Aí você me fala e eu junto.
+
+## Dia e semana
+
+Sempre que der, diga a semana e o dia:
+
+```
+814 · Regular freio terceiro eixo LE · Heliton · sem 37 · ter
+```
+
+**Sem dia não há data**, e sem data a atividade cai em "Na carteira" — fica
+fora da grade da semana e fora da aba Hoje. Se você me disser "nessa semana,
+começando hoje", eu ponho o dia de hoje em tudo e te digo que fiz isso.
+
+## Prioridade e cliente
+
+```
+962 · Regular freio do primeiro eixo LE · 007492 · P1
+```
+
+`P1`, `P2` ou `P3` em qualquer posição da linha. **Vazio não é P3** — vazio quer
+dizer que ninguém priorizou ainda.
+
+O **cliente é do caminhão**, não da atividade, então não vai na linha: eu marco
+o lote inteiro de uma vez. Você só me diz de quem são os caminhões ("essas são
+da Petro") e eu cadastro na aba Listas, uma vez por frota.
+
+## Gente nova
+
+Nome que ainda não está na lista eu não adivinho — cairia na observação. Para
+cadastrar, use `quem:`:
+
+```
+962 · Fabricar tampa da caixa · quem: Edilberto
+```
+
+## Onde ver o que ainda não foi programado
+
+A aba **CARTEIRA** junta tudo que não tem semana, agrupado por caminhão e na
+ordem da OS. É de lá que sai a programação da semana. A aba **FROTA** mostra um
+caminhão só, inteiro — escolha na caixa amarela.
