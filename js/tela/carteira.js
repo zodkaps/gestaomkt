@@ -6,8 +6,9 @@
 
 import * as ev from "../eventos.js";
 import * as M from "../modelo.js";
-import { el, limpar, caixa, campo, selecao, comSugestoes, avisar, erro, vazio } from "../ui.js";
-import { cartao, secao, criarNova, frotas, executantes, valoresDe } from "./comum.js";
+import { el, limpar, caixa, campo, selecao, comSugestoes, avisar, erro, vazio,
+  tabela, listaDupla, chip } from "../ui.js";
+import { cartao, secao, criarNova, frotas, executantes, valoresDe, abrirFicha } from "./comum.js";
 import { busca as semAcento } from "../texto.js";
 
 export async function montar(raiz, ctx, params) {
@@ -80,28 +81,57 @@ export async function montar(raiz, ctx, params) {
       return;
     }
 
-    // Agrupado por cliente e frota: é como a oficina pensa — o caminhão inteiro
-    // entra na oficina, não a atividade solta.
+    // Duas formas do mesmo conjunto. No computador, tabela densa e ordenável:
+    // o PCM compara duzentas linhas e precisa de colunas. No celular, cartão
+    // agrupado por cliente e frota — que é como a oficina pensa, o caminhão
+    // inteiro entrando, e é a única forma legível em 414px.
+    corpo.append(listaDupla(comoTabela(itens), comoCartoes(itens)));
+    pintarBarra();
+  }
+
+  function comoTabela(itens) {
+    return tabela(itens, [
+      { rot: "", largura: "34px",
+        val: a => caixinha(a), chave: a => sel.has(a.id) ? 0 : 1 },
+      { rot: "Frota", principal: true, largura: "88px", val: a => a.frota },
+      { rot: "OS", largura: "82px", val: a => a.os || el("span", { class: "seg" }, "—") },
+      { rot: "Atividade", val: a => a.atividade },
+      { rot: "Tipo", largura: "104px", val: a => a.tipo },
+      { rot: "Pri.", largura: "56px",
+        val: a => a.prioridade ? chip(a.prioridade, a.prioridade === "P1" ? "p1" : "") : "" },
+      { rot: "Cliente", largura: "92px", val: a => a.cliente || el("span", { class: "seg" }, "—") },
+      { rot: "HH", num: true, largura: "56px",
+        val: a => a.hh ? String(a.hh).replace(".", ",") : el("span", { class: "seg" }, "—"),
+        chave: a => Number(a.hh) || 0 },
+      { rot: "Situação", largura: "118px", val: a => M.situacaoDe(a) },
+    ], {
+      aoClicar: a => abrirFicha(a.id, ctx),
+      classeDaLinha: a => M.corDe(M.situacaoDe(a)),
+    });
+  }
+
+  function comoCartoes(itens) {
+    const n = el("div", {});
     let clienteAtual = null, frotaAtual = null, lista = null;
     for (const a of itens) {
       const cli = a.cliente || "Sem cliente";
       if (cli !== clienteAtual) {
         clienteAtual = cli; frotaAtual = null;
-        corpo.append(el("h2", { style: "font-size:12px;text-transform:uppercase;letter-spacing:.05em;color:var(--fraco);margin:18px 0 6px" }, cli));
+        n.append(el("h2", { class: "mini" }, cli));
       }
       if (a.frota !== frotaAtual) {
         frotaAtual = a.frota;
-        const n = itens.filter(x => x.frota === frotaAtual && (x.cliente || "Sem cliente") === cli).length;
-        corpo.append(el("div", { style: "display:flex;align-items:center;gap:8px;margin:10px 0 5px" },
-          el("b", { style: "font-size:14px" }, a.frota || "Sem frota"),
-          el("span", { class: "chip" }, `${n}`),
+        const q = itens.filter(x => x.frota === frotaAtual && (x.cliente || "Sem cliente") === cli).length;
+        n.append(el("div", { style: "display:flex;align-items:center;gap:8px;margin:10px 0 5px" },
+          el("b", { style: "font-size:13.5px" }, a.frota || "Sem frota"),
+          el("span", { class: "chip" }, String(q)),
           el("button", { class: "discreto", onclick: () => marcarFrota(cli, frotaAtual) }, "marcar todas")));
         lista = el("div", { class: "lista" });
-        corpo.append(lista);
+        n.append(lista);
       }
       lista.append(cartao(a, { ctx, compacto: true, seletor: caixinha(a) }));
     }
-    pintarBarra();
+    return n;
   }
 
   function caixinha(a) {

@@ -16,49 +16,82 @@ controle do PCM e o canal de resposta da operação.
 
 ---
 
-## Entrar, e o que isso protege (e o que não protege)
+## Entrar: nome e senha
 
-Entrar é escolher o nome numa lista de quatro. Sem senha, sem e-mail: no pátio,
-no celular, com a mão suja, qualquer atrito a mais é um apontamento que não
-acontece.
+Cada um entra com **nome e senha**. Ninguém precisa ter e-mail: quem digita
+"Pedro" entra como `pedro@makro.local`, e isso é detalhe que não aparece em
+tela nenhuma. A senha é guardada e conferida pelo Supabase — nunca por este
+código, nunca neste repositório.
 
-**O limite entre PCM e operação é combinado, não trancado.** O site esconde do
-Pedro o que não é dele, mas quem abrir o endereço e trocar o nome consegue
-lançar como PCM. Para quatro pessoas da mesma equipe, é troca aceitável.
+- **Primeiro acesso da equipe**: na tela de entrar, o botão de baixo cria os
+  quatro acessos, um de cada vez.
+- **Esqueceu a senha**: no painel do Supabase, Authentication → Users.
+- **Sem rede**: o site continua aberto com a sessão guardada e a fila local;
+  as renovações acontecem quando a rede volta.
 
-**O que é trancado de verdade**, no banco: a tabela de eventos é **só-insere**.
-Nem o site, nem um erro meu, nem alguém com a chave apaga ou reescreve um
-lançamento. É política do Postgres (`sql/01_esquema.sql`), não disciplina.
+### O limite entre PCM e operação é parede, não combinado
 
-Se um dia precisar de parede de verdade (auditoria, gente de fora), trocar para
-e-mail com link mexe só na tela de entrar e nas políticas do banco.
+Antes, o site escondia do Pedro o que não era dele — mas quem trocasse o nome
+na tela lançava como PCM. Agora quem recusa é o **Postgres**:
+
+```sql
+autor = nome_atual()          -- não dá para assinar como outra pessoa
+and ( papel_atual() = 'pcm'   -- PCM faz tudo
+      or (alvo_tipo in ('movimentacao','preventiva') and tipo in (...)) )
+```
+
+O papel mora na tabela `pessoas`, **que o site não consegue escrever** — não
+existe política de insert nem de update nela. E a fita continua só-insere para
+todo mundo: nada se apaga, nada se reescreve, nem pelo PCM.
+
+Para provar isso em vez de prometer, `bash testes/politicas.sh` sobe um
+Postgres de verdade, roda as duas migrações e tenta oito coisas — duas que têm
+de passar e seis que têm de ser recusadas.
 
 ## Ligar o lugar comum (Supabase)
 
-Sem isso o site funciona, mas só no seu navegador — e aí o Pedro não vê o que
-você lança, nem você o que ele aponta.
+São **dois passos no painel**, uma vez só:
 
-1. No seu projeto Supabase: **SQL Editor → New query**, cole
-   `sql/01_esquema.sql` e rode.
-2. Em **Settings → API**, copie a *Project URL* e a chave **anon public**.
-3. No site: aba **Importar → O lugar comum dos quatro**, cole as duas e clique
-   em Ligar.
+1. **SQL Editor → New query**: cole `sql/01_esquema.sql`, rode; depois
+   `sql/02_acesso.sql`, rode.
+2. **Authentication → Providers → Email**: desligue **Confirm email**. Sem
+   isso o Supabase manda confirmação para endereços `@makro.local` que não
+   existem, e ninguém entra.
 
-A chave anon é pública por desenho — pode ficar no site. Quem protege é a
-política do banco, não o segredo dela.
+Depois, em **Settings → API**, copie a *Project URL* e a chave **anon public**
+e ponha em `js/config.js`:
 
-**Como as telas se atualizam:** por consulta a cada dez segundos, não por
-WebSocket. O realtime do Supabase fala um protocolo de canais com batimento e
-reconexão — duzentas linhas que quebram justamente onde este site vive: celular
-que dorme, sinal que cai, aba em segundo plano. Perguntar "o que há de novo
-depois do número X" resolve o mesmo em cinco linhas e volta sozinho de qualquer
-queda. Para quatro pessoas, dez segundos ninguém percebe.
+```js
+export const NUVEM = {
+  url:  "https://xxxx.supabase.co",
+  anon: "eyJhbGciOi…",
+};
+```
 
-**Sem sinal:** o que é lançado fica numa fila local e sobe quando a rede volta.
-Reenviar o mesmo evento não duplica — cada um nasce com um `id` gerado no
-aparelho, e o banco ignora o repetido.
+Com isso ninguém nunca cola chave nenhuma — os quatro abrem o endereço e já
+estão no lugar certo. Essa chave é pública por desenho: quem protege os dados é
+a política do banco, não o segredo dela. Enquanto `config.js` estiver vazio, a
+aba Importar continua oferecendo colar à mão.
 
----
+## O visual
+
+Padrão de sistema de manutenção, **escuro por padrão** (o claro continua no
+botão do alto):
+
+- **menu lateral fixo** com os módulos agrupados e o número do que está aberto
+  em cada um;
+- **tabela densa e ordenável** no computador — a carteira tem 263 linhas, e
+  cartão empilhado não deixa comparar duzentas;
+- **cartão no celular**, porque tabela densa em 414px não se lê e é no celular,
+  em pé no pátio, que a operação aponta. É a mesma tela nas duas formas, e quem
+  escolhe é a largura;
+- a **situação como tarja** na primeira coluna, não como balão no meio do texto.
+
+As cores de dado não foram escolhidas no olho: saem de uma paleta validada para
+fundo escuro (faixa de luminosidade, piso de croma, separação para daltonismo e
+contraste contra a superfície). As quatro cores de estado são fixas e nunca
+viram cor de série, e toda barra leva rótulo direto — cor nenhuma carrega
+sozinha o que a coisa quer dizer.
 
 ## O modelo de dados: o registro É o estado
 
@@ -242,6 +275,10 @@ porque toda escrita já passa por `aplicar()`.
 | `js/nuvem.js` | o Supabase por `fetch`: ler desde um ponto, enviar, consultar de tempos em tempos |
 | `js/pessoas.js` | quem está usando, o papel, o que esse papel pode |
 | `js/tela/*.js` | entrar, operacao, hoje, semana, carteira, movimentacoes, preventivas, frota, indicadores, historico, importar |
+| `js/config.js` | o endereço e a chave do projeto — o único lugar a preencher |
+| `js/ui.js` | `tabela()` ordenável e `listaDupla()`, as duas formas da mesma lista |
+| `sql/02_acesso.sql` | tabela `pessoas`, papel, e as políticas por papel |
+| `testes/politicas.sh` | sobe um Postgres e prova que o banco recusa |
 | `sql/01_esquema.sql` | a tabela de eventos e a política de só-insere |
 | `sw.js` | offline: rede primeiro, cache como reserva |
 | `testes/rodar.js` | os testes do núcleo |

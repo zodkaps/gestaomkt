@@ -12,7 +12,7 @@ import * as ev from "../eventos.js";
 import * as M from "../modelo.js";
 import * as pessoas from "../pessoas.js";
 import { el, limpar, br, brCurto, chip, caixa, campo, selecao, comSugestoes,
-  avisar, erro, confirmar, vazio, cartaoNumero, medidor } from "../ui.js";
+  avisar, erro, confirmar, vazio, cartaoNumero, medidor, tabela, listaDupla } from "../ui.js";
 import { secao, frotas, valoresDe } from "./comum.js";
 import { busca as semAcento } from "../texto.js";
 
@@ -235,13 +235,34 @@ export async function montar(raiz, ctx, params) {
       String(b.chegou_em || "").localeCompare(String(a.chegou_em || "")));
 
     if (!itens.length) { corpo.append(vazio("Nada aqui.")); return; }
+
+    const botao = m => M.movimentacaoAberta(m) && pessoas.pode("movimentar")
+      ? el("button", { class: "primario",
+        onclick: e => { e.stopPropagation(); apontarChegada(m, ctx); } }, "Chegou")
+      : null;
+
+    const emTabela = tabela(itens, [
+      { rot: "Frota", principal: true, largura: "88px", val: m => m.frota },
+      { rot: "Destino / fornecedor", val: m => m.destino || el("span", { class: "seg" }, "—") },
+      { rot: "Para quê", val: m => m.para_que || el("span", { class: "seg" }, "—") },
+      { rot: "Pedida", largura: "80px", val: m => brCurto(m.pedida_em), chave: m => m.pedida_em || "" },
+      { rot: "Prometida", largura: "88px", val: m => brCurto(m.prometida_para), chave: m => m.prometida_para || "" },
+      { rot: "Chegou", largura: "80px", val: m => brCurto(m.chegou_em), chave: m => m.chegou_em || "" },
+      { rot: "Atraso", num: true, largura: "68px",
+        val: m => { const d = M.atrasoMovimentacao(m); return d ? `${d}d` : el("span", { class: "seg" }, "—"); },
+        chave: m => M.atrasoMovimentacao(m) },
+      { rot: "Situação", largura: "132px", val: m => M.situacaoMovimentacao(m) },
+      { rot: "", largura: "92px", val: m => botao(m) },
+    ], {
+      aoClicar: m => abrirFichaMov(m.id, ctx),
+      classeDaLinha: m => M.corDe(M.situacaoMovimentacao(m)),
+    });
+
+    const emCartoes = el("div", { class: "lista" },
+      itens.map(m => cartaoMov(m, ctx, { acoes: [botao(m)].filter(Boolean) })));
+
     corpo.append(secao(aba === "abertas" ? "Fora agora" : aba === "entregues" ? "Já voltaram" : "Todas",
-      el("div", { class: "lista" }, itens.map(m => cartaoMov(m, ctx, {
-        acoes: M.movimentacaoAberta(m) && pessoas.pode("movimentar")
-          ? [el("button", { class: "primario",
-            onclick: e => { e.stopPropagation(); apontarChegada(m, ctx); } }, "Chegou")]
-          : [],
-      }))), itens.length));
+      listaDupla(emTabela, emCartoes), itens.length));
   }
 
   pintar();

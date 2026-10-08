@@ -1,0 +1,52 @@
+#!/usr/bin/env bash
+# Prova que o BANCO recusa o que a tela esconde.
+#
+#     bash testes/politicas.sh
+#
+# Sobe um Postgres de verdade, roda as duas migrações como elas serão rodadas
+# no Supabase, e tenta sete coisas: três que têm de passar e quatro que têm de
+# ser recusadas. Sem isto, "o limite virou parede" é só uma frase.
+#
+# O `auth.email()` daqui é o mesmo mecanismo do Supabase: lê o e-mail de
+# `request.jwt.claims`, a variável de sessão que o PostgREST preenche a partir
+# do token de quem chamou.
+set -euo pipefail
+
+BIN=/usr/lib/postgresql/16/bin
+D=${PGTESTE:-/var/lib/postgresql/mkt-teste}
+AQUI=$(cd "$(dirname "$0")/.." && pwd)
+
+[ -x "$BIN/initdb" ] || { echo "Postgres não instalado — pulando."; exit 0; }
+
+limpar() { su postgres -s /bin/bash -c "$BIN/pg_ctl -D $D/dados stop -m immediate" >/dev/null 2>&1 || true; }
+trap limpar EXIT
+
+limpar; rm -rf "$D"; mkdir -p "$D/dados" "$D/sock"; chown -R postgres:postgres "$D"
+su postgres -s /bin/bash -c "$BIN/initdb -D $D/dados -U postgres --auth=trust -E UTF8" >/dev/null
+su postgres -s /bin/bash -c "$BIN/pg_ctl -D $D/dados -o '-k $D/sock -c listen_addresses=' -l $D/pg.log start" >/dev/null
+sleep 2
+
+psql -h "$D/sock" -U postgres -q -v ON_ERROR_STOP=1 <<'SQL'
+-- o mínimo do Supabase que as políticas usam
+create role anon nologin;
+create role authenticated nologin;
+create schema if not exists auth;
+create or replace function auth.email() returns text language sql stable as $$
+  select nullif(current_setting('request.jwt.claims', true)::json ->> 'email', '')
+$$;
+grant usage on schema public to anon, authenticated;
+SQL
+
+psql -h "$D/sock" -U postgres -q -v ON_ERROR_STOP=1 -f "$AQUI/sql/01_esquema.sql" 2>&1 | grep -v NOTICE || true
+psql -h "$D/sock" -U postgres -q -v ON_ERROR_STOP=1 -f "$AQUI/sql/02_acesso.sql"  2>&1 | grep -v NOTICE || true
+echo "✓ as duas migrações rodam limpas"
+
+saida=$(psql -h "$D/sock" -U postgres -q -f "$AQUI/testes/politicas.sql" 2>&1)
+echo "$saida" | grep -E "──|→ passou|ERROR" | sed 's/psql:.*ERROR:/   ✓ recusado:/'
+
+passou=$(echo "$saida" | grep -c "→ passou" || true)
+recusado=$(echo "$saida" | grep -c "ERROR" || true)
+echo
+echo "$passou de 2 permitidas passaram · $recusado de 6 proibidas foram recusadas"
+[ "$passou" = "2" ] && [ "$recusado" = "6" ] || { echo "FALHOU"; exit 1; }
+echo "tudo como projetado"

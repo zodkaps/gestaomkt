@@ -1,36 +1,50 @@
-// A casca: carrega a fita, descobre quem está usando, escolhe a tela.
+// A casca: carrega a fita, descobre quem entrou, escolhe o módulo.
 
 import * as ev from "./eventos.js";
 import * as dados from "./dados.js";
 import * as nuvem from "./nuvem.js";
 import * as pessoas from "./pessoas.js";
+import * as M from "./modelo.js";
 import * as bk from "./backup.js";
 import { el, $, limpar, avisar, erro } from "./ui.js";
 
+// Agrupadas como um sistema de manutenção agrupa: o que se faz hoje, o que se
+// planeja, o que depende de outra área, e o que se olha depois.
 const TELAS = [
-  { id: "operacao", icone: "✋", nome: "Para você", papeis: ["operacao"],
-    carregar: () => import("./tela/operacao.js") },
-  { id: "hoje", icone: "☀", nome: "Hoje", papeis: ["pcm"],
+  { id: "operacao", icone: "✋", nome: "Para você", grupo: "Operação", papeis: ["operacao"],
+    carregar: () => import("./tela/operacao.js"),
+    contar: () => contagemOperacao() },
+  { id: "hoje", icone: "☀", nome: "Hoje", grupo: "Programação", papeis: ["pcm"],
     carregar: () => import("./tela/hoje.js") },
-  { id: "semana", icone: "▦", nome: "Semana", papeis: ["pcm"],
+  { id: "semana", icone: "▦", nome: "Semana", grupo: "Programação", papeis: ["pcm"],
     carregar: () => import("./tela/semana.js") },
-  { id: "carteira", icone: "☰", nome: "Carteira", papeis: ["pcm"],
-    carregar: () => import("./tela/carteira.js") },
-  { id: "movimentacoes", icone: "⇄", nome: "Movimentação", papeis: ["pcm", "operacao"],
-    carregar: () => import("./tela/movimentacoes.js") },
-  { id: "preventivas", icone: "⏱", nome: "Preventivas", papeis: ["pcm", "operacao"],
-    carregar: () => import("./tela/preventivas.js") },
-  { id: "frota", icone: "▤", nome: "Frota", papeis: ["pcm", "operacao"],
+  { id: "carteira", icone: "☰", nome: "Carteira", grupo: "Programação", papeis: ["pcm"],
+    carregar: () => import("./tela/carteira.js"),
+    contar: () => ev.lista().filter(a => !a.semana && M.aberta(a)).length },
+  { id: "movimentacoes", icone: "⇄", nome: "Movimentação", grupo: "Frota", papeis: ["pcm", "operacao"],
+    carregar: () => import("./tela/movimentacoes.js"),
+    contar: () => ev.lista("movimentacao").filter(M.movimentacaoAberta).length },
+  { id: "preventivas", icone: "⏱", nome: "Preventivas", grupo: "Frota", papeis: ["pcm", "operacao"],
+    carregar: () => import("./tela/preventivas.js"),
+    contar: () => ev.lista("preventiva").filter(M.preventivaAberta).length },
+  { id: "frota", icone: "▤", nome: "Frota", grupo: "Frota", papeis: ["pcm", "operacao"],
     carregar: () => import("./tela/frota.js") },
-  { id: "indicadores", icone: "◔", nome: "Números", papeis: ["pcm"],
+  { id: "indicadores", icone: "◔", nome: "Números", grupo: "Gestão", papeis: ["pcm"],
     carregar: () => import("./tela/indicadores.js") },
-  { id: "historico", icone: "⟲", nome: "Registro", papeis: ["pcm", "operacao"],
+  { id: "historico", icone: "⟲", nome: "Registro", grupo: "Gestão", papeis: ["pcm", "operacao"],
     carregar: () => import("./tela/historico.js") },
-  { id: "importar", icone: "⇪", nome: "Importar", papeis: ["pcm"],
+  { id: "importar", icone: "⇪", nome: "Importar", grupo: "Gestão", papeis: ["pcm"],
     carregar: () => import("./tela/importar.js") },
-  { id: "entrar", icone: "👤", nome: "Entrar", papeis: [], oculta: true,
+  { id: "entrar", icone: "", nome: "Entrar", grupo: "", papeis: [], oculta: true,
     carregar: () => import("./tela/entrar.js") },
 ];
+
+function contagemOperacao() {
+  const hoje = M.hoje();
+  return ev.lista("movimentacao").filter(M.movimentacaoAberta).length +
+    ev.lista("preventiva").filter(p => M.preventivaAberta(p) &&
+      M.esperandoQuem(p) === "Operação").length;
+}
 
 const ctx = {
   ir(id, params = "") { location.hash = "#/" + id + (params ? "?" + params : ""); },
@@ -40,38 +54,66 @@ const ctx = {
 let atual = null;
 let pararDeOuvirNuvem = null;
 
-function telasDoPapel() {
-  const p = pessoas.papel();
-  return TELAS.filter(t => !t.oculta && t.papeis.includes(p));
-}
+const telasDoPapel = () =>
+  TELAS.filter(t => !t.oculta && t.papeis.includes(pessoas.papel()));
 
-function inicial() {
-  return pessoas.ehOperacao() ? "operacao" : "hoje";
-}
+const inicial = () => pessoas.ehOperacao() ? "operacao" : "hoje";
 
 function alvo() {
   const h = (location.hash || "").replace(/^#\/?/, "");
   const [id, q] = h.split("?");
   const params = new URLSearchParams(q || "");
   if (!pessoas.quem()) return { id: "entrar", params };
-  const permitida = TELAS.find(t => t.id === id && (t.oculta || t.papeis.includes(pessoas.papel())));
-  return { id: permitida ? id : inicial(), params };
+  const ok = TELAS.find(t => t.id === id && (t.oculta || t.papeis.includes(pessoas.papel())));
+  return { id: ok ? id : inicial(), params };
 }
 
-function pintarNav(id) {
-  const nav = $("#nav");
+function pintarMenu(id) {
+  const nav = $("#menu nav");
   limpar(nav);
   if (!pessoas.quem()) return;
+  let grupoAtual = null;
   for (const t of telasDoPapel()) {
+    if (t.grupo !== grupoAtual) {
+      grupoAtual = t.grupo;
+      nav.append(el("div", { class: "grupo" }, t.grupo));
+    }
+    let n = null;
+    try { n = t.contar ? t.contar() : null; } catch (e) { n = null; }
     nav.append(el("a", { href: "#/" + t.id, class: t.id === id ? "ativo" : "" },
-      el("b", {}, t.icone), el("span", {}, t.nome)));
+      el("b", {}, t.icone), el("span", {}, t.nome),
+      n ? el("span", { class: "cont" }, String(n)) : null));
   }
+}
+
+function pintarPessoa() {
+  const q = $("#quem");
+  limpar(q);
+  const p = pessoas.quem();
+  if (!p) return;
+  const iniciais = p.nome.split(/\s+/).slice(0, 2).map(x => x[0]).join("").toUpperCase();
+  q.append(el("button", {
+    class: "discreto chip-pessoa", title: "Sair",
+    onclick: async () => {
+      await pessoas.sair();
+      location.hash = "#/entrar";
+      pintar();
+    },
+  },
+    el("span", { class: "av" }, iniciais),
+    el("span", { class: "quem" },
+      el("b", {}, p.nome),
+      el("small", {}, (pessoas.PAPEIS[p.papel] || {}).rotulo || "sem papel"))));
 }
 
 async function pintar() {
   const { id, params } = alvo();
-  pintarNav(id);
   const tela = TELAS.find(t => t.id === id);
+  pintarMenu(id);
+  pintarPessoa();
+  $("#topo .titulo").textContent = tela.oculta ? "" : tela.nome;
+  limpar($("#acoes-topo"));
+
   const raiz = $("#tela");
   if (atual && atual.desmontar) { try { atual.desmontar(); } catch (e) { /* segue */ } }
   limpar(raiz);
@@ -82,34 +124,17 @@ async function pintar() {
     console.error(e);
     limpar(raiz).append(el("p", { class: "nada" }, "Não consegui abrir esta tela: " + e.message));
   }
-  pintarTopo();
   await faixa();
   window.scrollTo(0, 0);
 }
 
-// ── topo ────────────────────────────────────────────────────────────────────
-
-function pintarTopo() {
-  const q = $("#quem");
-  limpar(q);
-  const p = pessoas.quem();
-  if (!p) return;
-  q.append(el("button", {
-    class: "discreto chip-pessoa",
-    title: "Trocar de pessoa",
-    onclick: () => ctx.ir("entrar"),
-  }, el("b", {}, p.nome.split(" ")[0]),
-    el("small", {}, pessoas.ehOperacao() ? "operação" : "PCM")));
-}
-
 // ── a faixa de avisos ───────────────────────────────────────────────────────
-// Só aparece quando há o que dizer: onde os dados estão sendo guardados quando
-// não é o lugar bom, quanto falta subir, e há quanto tempo não há cópia.
 
 async function faixa() {
   const f = $("#faixa");
   limpar(f);
   f.className = "";
+  if (!pessoas.quem()) return;
 
   if (dados.modo === "memória") {
     f.append(el("span", {}, "⚠ Este navegador não deixa guardar dados. " +
@@ -121,7 +146,7 @@ async function faixa() {
   if (nuvem.ligada() && fila.length) {
     f.className = "morna";
     f.append(el("span", {}, `${fila.length} lançamento${fila.length === 1 ? "" : "s"} ` +
-      "ainda não subiu — sem rede, ou a nuvem não respondeu. Fica guardado aqui e sobe sozinho."),
+      "ainda não subiu — sem rede, ou o banco não respondeu. Fica guardado aqui e sobe sozinho."),
       el("button", { class: "discreto", onclick: async () => {
         const r = await ev.sincronizar();
         avisar(r.erro ? "Ainda não: " + r.erro : `Subiu ${r.subiram}, desceu ${r.desceram}.`,
@@ -131,15 +156,13 @@ async function faixa() {
     return;
   }
 
-  // Sem nuvem ligada, o único seguro é o arquivo de backup — e aí o aviso de
-  // cópia volta a ser o aviso importante.
   if (!nuvem.ligada() && ev.log.length && !pessoas.ehOperacao()) {
     const b = await bk.estado();
     const perigo = b.nunca ? b.desde > 30 : (b.desde > 50 || b.dias > 7);
     if (!perigo && !(b.nunca || b.desde > 0)) return;
     f.className = perigo ? "" : "morna";
     f.append(el("span", {}, b.nunca
-      ? `Sem nuvem e sem cópia: ${b.desde} lançamentos só existem neste navegador.`
+      ? `Sem banco e sem cópia: ${b.desde} lançamentos só existem neste navegador.`
       : `Última cópia há ${b.dias === 0 ? "menos de um dia" : b.dias + (b.dias === 1 ? " dia" : " dias")}` +
         (b.desde ? `, com ${b.desde} lançamento${b.desde === 1 ? "" : "s"} depois dela.` : ".")),
       el("button", { class: "discreto", onclick: salvarBackup }, "Salvar agora"));
@@ -157,43 +180,34 @@ async function salvarBackup() {
 
 async function ligarNuvem() {
   if (pararDeOuvirNuvem) { pararDeOuvirNuvem(); pararDeOuvirNuvem = null; }
-  if (!await nuvem.carregarConfig()) return;
+  if (!nuvem.ligada() || !nuvem.autenticado()) return;
   await ev.sincronizar();
   pararDeOuvirNuvem = nuvem.observar(async novos => {
     const n = await ev.receber(novos);
-    if (n) avisar(`${n} lançamento${n === 1 ? "" : "s"} de outra pessoa.`);
+    if (n) { avisar(`${n} lançamento${n === 1 ? "" : "s"} de outra pessoa.`); pintarMenu(alvo().id); }
   });
-}
-
-// ── tema ────────────────────────────────────────────────────────────────────
-
-async function aplicarTema() {
-  document.documentElement.dataset.tema = await dados.lerMeta("tema", "");
 }
 
 // ── começo ──────────────────────────────────────────────────────────────────
 
 async function comecar() {
   await dados.abrir();
+  await nuvem.carregarConfig();
   await pessoas.carregar();
   await ev.carregar();
-  await aplicarTema();
+  document.documentElement.dataset.tema = await dados.lerMeta("tema", "");
 
   $("#btema").addEventListener("click", async () => {
-    const agora = document.documentElement.dataset.tema;
-    const novo = agora === "escuro" ? "claro" : agora === "claro" ? "" : "escuro";
+    const novo = document.documentElement.dataset.tema === "claro" ? "" : "claro";
     document.documentElement.dataset.tema = novo;
     await dados.gravarMeta("tema", novo);
   });
 
   window.addEventListener("hashchange", pintar);
-  ev.ouvir(() => { faixa(); });
+  ev.ouvir(() => { faixa(); pintarMenu(alvo().id); });
+  nuvem.aoLigar(() => { ligarNuvem(); });
 
   if (!pessoas.quem()) location.hash = "#/entrar";
-  else if (!ev.log.length && !location.hash && !pessoas.ehOperacao()) location.hash = "#/importar";
-
-  // Religa a escuta sempre que a nuvem for ligada ou desligada pela tela.
-  nuvem.aoLigar(() => { ligarNuvem(); });
 
   await pintar();
   await ligarNuvem();
@@ -211,6 +225,5 @@ comecar().catch(e => {
   limpar($("#tela")).append(el("p", { class: "nada" }, "Não consegui começar: " + e.message));
 });
 
-// À mão, para conferência pelo console.
-globalThis.mkt = { ev, dados, bk, nuvem, pessoas, ctx,
+globalThis.mkt = { ev, dados, bk, nuvem, pessoas, ctx, M,
   conferir: () => ev.conferir(), ligarNuvem };

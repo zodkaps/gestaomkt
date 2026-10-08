@@ -25,6 +25,28 @@ const pl = await import("../js/planilha.js");
 const bk = await import("../js/backup.js");
 const dados = await import("../js/dados.js");
 const pessoas = await import("../js/pessoas.js");
+const nuvem = await import("../js/nuvem.js");
+
+// Entrar, nos testes, sem um Supabase de verdade: finge a sessão e a cópia
+// local da tabela `pessoas` — que é exatamente o caminho que o site percorre
+// quando o celular está sem sinal. Testar por aí exercita o código real em vez
+// de um atalho que só existe no teste.
+const ELENCO = [
+  { email: "mateus@makro.local", nome: "Mateus", papel: "pcm" },
+  { email: "lucas@makro.local", nome: "Lucas", papel: "pcm" },
+  { email: "pedro@makro.local", nome: "Pedro", papel: "operacao" },
+  { email: "joao.victor@makro.local", nome: "João Victor", papel: "operacao" },
+];
+async function entrarComo(nome) {
+  const p = ELENCO.find(x => x.nome === nome);
+  await dados.gravarMeta("elenco", ELENCO);
+  await dados.gravarMeta("sessao", {
+    access_token: "token-de-teste", refresh_token: "r",
+    expira_em: Date.now() + 3600e3, email: p.email, nome: p.nome,
+  });
+  await nuvem.carregarConfig();
+  await pessoas.carregar();
+}
 
 let passou = 0, falhou = 0;
 const falhas = [];
@@ -98,7 +120,7 @@ igual("sem semana, está na carteira",
 titulo("eventos.js — o registro é o estado");
 
 await dados.abrir();
-await pessoas.entrar("Mateus");
+await entrarComo("Mateus");
 await ev.carregar();
 const [criada] = await ev.aplicar(ev.criar({
   frota: "F-999", atividade: "Trocar pneus", servico: "Pneus", tipo: "Corretiva",
@@ -296,7 +318,7 @@ if (abas) {
 
   // ── quem pode o quê ───────────────────────────────────────────────────────
   titulo("pessoas.js — o que a operação faz e o que não faz");
-  await pessoas.entrar("Pedro");
+  await entrarComo("Pedro");
   igual("Pedro é operação", pessoas.papel(), "operacao");
 
   const umaAberta = ev.lista().find(x => x.semana && !x.concluida_em && !x.cancelada);
@@ -324,7 +346,7 @@ if (abas) {
   catch (e) { barrou3 = e.message; }
   ok("mas não marca o dia da parada", !!barrou3, barrou3);
 
-  await pessoas.entrar("Mateus");
+  await entrarComo("Mateus");
   await ev.aplicar(ev.marcarParada(ev.porId(prevSemData.id, "preventiva"), "2026-10-20"));
   igual("o PCM marca, e aí ninguém está travando",
     modelo.esperandoQuem(ev.porId(prevSemData.id, "preventiva")), "");
