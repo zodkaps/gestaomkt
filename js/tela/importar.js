@@ -14,6 +14,8 @@ import * as bk from "../backup.js";
 import { el, limpar, br, campo, selecao, avisar, erro, confirmar, caixa,
   cartaoNumero, vazio, chip } from "../ui.js";
 import { valoresDe } from "./comum.js";
+import * as nuvem from "../nuvem.js";
+import * as pessoas from "../pessoas.js";
 
 export async function montar(raiz, ctx) {
   const corpo = el("div", {});
@@ -31,6 +33,8 @@ export async function montar(raiz, ctx) {
           "O sistema está vazio. Comece pela planilha da programação — " +
           "ela traz o acervo inteiro, com as reprogramações que já existem."),
       areaArquivo(),
+      el("div", { style: "height:18px" }),
+      painelNuvem(),
       el("div", { style: "height:18px" }),
       painelBackup());
   }
@@ -79,18 +83,22 @@ export async function montar(raiz, ctx) {
           "A planilha guarda o número da semana, mas não o ano. É esse ano que " +
           "transforma 'semana 37' em datas — e eu não vou adivinhá-lo."),
         ev.lista().length
-          ? el("p", { style: "color:var(--vencida)" },
-            `⚠ Já existem ${ev.lista().length} atividades aqui. Importar de novo ` +
-            "criaria cópias de tudo. Se a ideia é recomeçar, apague antes, no fim desta tela.")
+          ? el("p", { style: "color:var(--fraco)" },
+            `Já existem ${ev.lista().length} atividades aqui. Pode importar à ` +
+            "vontade: a planilha carrega um ID por linha, então o que já existe " +
+            "é ATUALIZADO e não duplicado.")
           : null),
       acoes: [{ rotulo: "Cancelar", valor: false },
         { rotulo: "Ler a planilha", classe: "primario", valor: true }],
     });
     if (r !== true) return;
 
-    let lido;
-    try { lido = imp.lerPlanilhaMakro(abas, Number(eAno.value) || agora.ano); }
-    catch (e) { return erro(e.message); }
+    let lido, movs = { movimentacoes: [], divergencias: [] }, prevs = { preventivas: [], mes: "" };
+    try {
+      lido = imp.lerPlanilhaMakro(abas, Number(eAno.value) || agora.ano);
+      movs = imp.lerMovimentacoes(abas);
+      prevs = imp.lerPreventivas(abas);
+    } catch (e) { return erro(e.message); }
 
     const { atividades, avisos } = lido;
     const semData = avisos.filter(a => a.tipo === "marcada_sem_data");
@@ -102,10 +110,20 @@ export async function montar(raiz, ctx) {
       corpo: el("div", { class: "previa" },
         el("div", { class: "numeros" },
           cartaoNumero(atividades.length, "atividades"),
-          cartaoNumero(atividades.filter(a => !a.semana && !a.concluida_em).length, "na carteira"),
+          cartaoNumero(atividades.filter(a => !a.semana && !a.concluida_em && !a.cancelada).length, "na carteira"),
           cartaoNumero(atividades.filter(a => a.concluida_em).length, "já fechadas"),
           cartaoNumero(atividades.filter(a => a.os).length, "com OS"),
-          cartaoNumero(atividades.filter(a => a.semana_orig).length, "reprogramadas")),
+          cartaoNumero(movs.movimentacoes.length, "movimentações"),
+          cartaoNumero(prevs.preventivas.length, "preventivas", prevs.mes)),
+
+        movs.divergencias.length ? grupo(
+          `${movs.divergencias.length} movimentação(ões) com a situação divergindo das datas`,
+          movs.divergencias.map(d => el("div", { style: "font-size:13px;padding:3px 0" },
+            el("b", {}, d.frota), " · ", d.destino, " — escrito ",
+            chip(d.escrita), " mas as datas dizem ", chip(d.calculada, "andando"))),
+          "Na planilha a situação é digitada à mão, então pode discordar das " +
+          "datas na mesma linha. Aqui ela passa a ser calculada — a data é o " +
+          "fato. Estou mostrando as diferenças em vez de escolher calado.", true) : null,
 
         semData.length ? grupo(
           `${semData.length} marcada${semData.length === 1 ? "" : "s"} como concluída, sem data`,
@@ -123,13 +141,22 @@ export async function montar(raiz, ctx) {
           "e é por isso que a cobertura de OS aqui vai dar menor que na planilha: " +
           "lá esse recado contava como ordem aberta.", true) : null),
       acoes: [{ rotulo: "Cancelar", valor: false },
-        { rotulo: `Importar ${atividades.length}`, classe: "primario", valor: true }],
+        { rotulo: "Importar tudo", classe: "primario", valor: true }],
     });
     if (conf !== true) return;
 
-    await ev.aplicar(atividades.map(a => ev.criar(a, "planilha", nome)), { silencioso: true });
+    // As três abas entram na mesma fita. Cada uma com o seu tipo de alvo, e
+    // cada linha com o ID que a planilha já carrega: reimportar amanhã
+    // ATUALIZA o que mudou em vez de criar 754 cópias.
+    const eventos = [
+      ...atividades.map(a => ev.criar(a, "planilha", nome, "atividade")),
+      ...movs.movimentacoes.map(m => ev.criar(m, "planilha", nome, "movimentacao")),
+      ...prevs.preventivas.map(x => ev.criar(x, "planilha", nome, "preventiva")),
+    ];
+    await ev.aplicar(eventos, { silencioso: true });
     ev.forcarAviso();
-    avisar(`${atividades.length} atividades importadas.`);
+    avisar(`${atividades.length} atividades, ${movs.movimentacoes.length} movimentações ` +
+      `e ${prevs.preventivas.length} preventivas.`);
     ctx.ir("carteira");
   }
 
@@ -330,6 +357,60 @@ export async function montar(raiz, ctx) {
       el("summary", {}, titulo),
       obs ? el("p", { style: "font-size:12.5px;color:var(--fraco);margin:8px 0 0" }, obs) : null,
       el("div", { class: "corpo" }, itens.length ? itens : vazio("—")));
+  }
+
+
+  // ── nuvem ─────────────────────────────────────────────────────────────────
+
+  function painelNuvem() {
+    const ligada = nuvem.ligada();
+    const eUrl = el("input", { placeholder: "https://xxxx.supabase.co",
+      value: nuvem.endereco() });
+    const eChave = el("input", { placeholder: "chave anon (pública)", type: "password" });
+
+    return el("div", { class: "painel" },
+      el("h2", {}, "O lugar comum dos quatro"),
+      ligada
+        ? el("p", { style: "font-size:13px;color:var(--ok)" },
+          "✓ Ligado em ", el("b", {}, nuvem.endereco()),
+          ". Tudo que vocês lançam aparece na tela dos outros em poucos segundos.")
+        : el("p", { style: "font-size:13px;color:var(--fraco)" },
+          "Ainda não ligado. Enquanto isso o site funciona, mas só neste " +
+          "navegador — o Pedro e o João Victor não veem nada do que você lança, " +
+          "nem você o que eles apontam."),
+      ligada ? null : el("div", {},
+        el("ol", { style: "font-size:13px;color:var(--fraco);padding-left:20px;margin:10px 0" },
+          el("li", {}, "Abra seu projeto no Supabase → SQL Editor → New query"),
+          el("li", {}, "Cole o conteúdo de ", el("code", {}, "sql/01_esquema.sql"), " e rode"),
+          el("li", {}, "Em Settings → API, copie a Project URL e a chave ", el("b", {}, "anon public")),
+          el("li", {}, "Cole aqui embaixo")),
+        campo("Endereço do projeto", eUrl),
+        campo("Chave anon", eChave,
+          "Esta chave é pública por desenho — ela pode ficar no site. Quem " +
+          "protege os dados é a política do banco, não o segredo dela."),
+        el("button", { class: "primario", onclick: async () => {
+          try {
+            await nuvem.configurar(eUrl.value, eChave.value);
+            avisar("Ligado. Subindo o que está aqui…");
+            const r = await ev.sincronizar();
+            avisar(`Subiu ${r.subiram}, desceu ${r.desceram}.`);
+            pintar();
+          } catch (e) { erro(e.message); }
+        } }, "Ligar")),
+      ligada ? el("div", { style: "display:flex;gap:8px;flex-wrap:wrap;margin-top:10px" },
+        el("button", { onclick: async () => {
+          const r = await ev.sincronizar();
+          avisar(r.erro ? "Não consegui: " + r.erro : `Subiu ${r.subiram}, desceu ${r.desceram}.`,
+            r.erro ? "ruim" : "");
+          pintar();
+        } }, "Sincronizar agora"),
+        el("button", { class: "perigo", onclick: async () => {
+          if (!await confirmar("Desligar a nuvem",
+            "O site volta a guardar só neste navegador. O que já subiu continua lá.",
+            "Desligar")) return;
+          await nuvem.desligar();
+          avisar("Desligado."); pintar();
+        } }, "Desligar")) : null);
   }
 
   // ── backup ────────────────────────────────────────────────────────────────

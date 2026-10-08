@@ -8,6 +8,8 @@ import * as ev from "../eventos.js";
 import * as M from "../modelo.js";
 import { el, limpar, br, cartaoNumero, vazio, selecao } from "../ui.js";
 import { cartao, botaoConcluir, secao, criarNova, frotas, descreverEvento } from "./comum.js";
+import { cartaoMov } from "./movimentacoes.js";
+import { cartaoPrev } from "./preventivas.js";
 
 export async function montar(raiz, ctx, params) {
   let frota = params.get("f") || "";
@@ -53,7 +55,9 @@ export async function montar(raiz, ctx, params) {
       cartaoNumero(vencidas.length, "passaram do prazo", "", vencidas.length ? "alerta" : ""),
       cartaoNumero(feitas.length, "já fechadas", ultima ? "última em " + br(ultima) : ""),
       cartaoNumero(reprog, "reprogramações", "somando todas as atividades"),
-      cartaoNumero(`${comOS}/${todas.length}`, "com OS aberta", cliente || "")));
+      cartaoNumero(`${comOS}/${todas.length}`, "com OS aberta", cliente || ""),
+      cartaoNumero(ev.lista("movimentacao").filter(m => m.frota === frota &&
+        M.movimentacaoAberta(m)).length, "fora do pátio")));
 
     if (programadas.length) {
       corpo.append(secao("Programadas",
@@ -81,7 +85,27 @@ export async function montar(raiz, ctx, params) {
         canceladas.length));
     }
 
-    const ids = new Set(todas.map(a => a.id));
+    // A história do caminhão não é só o que a oficina fez nele: é também cada
+    // vez que ele saiu do pátio e cada preventiva esperando. Separado em três
+    // telas, ninguém junta — e a pergunta "por que a 815 não anda?" quase
+    // sempre se responde com as três juntas.
+    const movs = ev.lista("movimentacao").filter(m => m.frota === frota);
+    const movAbertas = movs.filter(M.movimentacaoAberta);
+    const prevs = ev.lista("preventiva").filter(p => p.frota === frota);
+    const prevAbertas = prevs.filter(M.preventivaAberta);
+
+    if (movAbertas.length) {
+      corpo.append(secao("Fora do pátio agora",
+        el("div", { class: "lista" }, movAbertas.map(m => cartaoMov(m, ctx))),
+        movAbertas.length));
+    }
+    if (prevAbertas.length) {
+      corpo.append(secao("Preventivas em aberto",
+        el("div", { class: "lista" }, prevAbertas.map(p => cartaoPrev(p, ctx))),
+        prevAbertas.length));
+    }
+
+    const ids = new Set([...todas.map(a => a.id), ...movs.map(m => m.id), ...prevs.map(p => p.id)]);
     const registro = ev.log.filter(e => ids.has(e.alvo)).slice(-60).reverse();
     corpo.append(secao("Registro da frota",
       registro.length ? el("div", {}, registro.map(e => descreverEvento(e, true)))

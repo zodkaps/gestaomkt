@@ -7,7 +7,8 @@
 
 import { acharCabecalho, texto, numero, paraISO } from "./planilha.js";
 import { chave, indexarPorChave } from "./texto.js";
-import { molde, DIAS, semanaISO } from "./modelo.js";
+import { molde, moldeMovimentacao, moldePreventiva, situacaoMovimentacao,
+  DIAS, semanaISO } from "./modelo.js";
 
 /** OS do Protheus é campo de seis dígitos. A planilha acumulou OS digitadas
  *  com quatro e cinco — é a mesma ordem, escrita curta. Comparar sem completar
@@ -44,7 +45,10 @@ export function recadoDeOS(v) {
 function localizador(cab) {
   const ix = new Map();
   cab.forEach((t, i) => {
-    const s = texto(t);
+    // Cabeçalho com quebra de linha dentro ("Prazo do\nService") é comum em
+    // planilha feita à mão. Sem achatar o espaço em branco, a busca por
+    // prefixo não casa e a coluna some calada.
+    const s = texto(t).replace(/\s+/g, " ");
     if (s && !ix.has(s)) ix.set(s, i);
   });
   return titulo => {
@@ -65,10 +69,11 @@ export function lerPlanilhaMakro(abas, ano) {
   const iCab = acharCabecalho(aba.linhas);
   const achar = localizador(aba.linhas[iCab] || []);
   const col = {};
-  for (const t of ["OS", "Frota", "Serviço", "Atividade", "Tipo", "Origem",
+  for (const t of ["ID", "OS", "Frota", "Serviço", "Atividade", "Tipo", "Origem",
     "Executante 1", "Executante 2", "Executante 3", "Semana", "Dia",
-    "Dias prev.", "Concluída em", "Marcar", "Semana orig.", "Motivo",
-    "Obs.", "Prioridade", "Cliente"]) col[t] = achar(t);
+    "HH prev.", "Início", "Prazo", "FOI FEITO EM", "Concluída em",
+    "Marcar", "Semana orig.", "SE NÃO FOI, POR QUÊ", "Motivo",
+    "Obs.", "Prioridade", "Cliente", "Oficina", "Categoria HH"]) col[t] = achar(t);
 
   const clientes = clientesPorFrota(abas);
   const atividades = [], avisos = [];
@@ -78,29 +83,40 @@ export function lerPlanilhaMakro(abas, ano) {
     const v = t => (col[t] >= 0 ? L[col[t]] : null);
     const ativ = texto(v("Atividade"));
     const frota = texto(v("Frota"));
-    // Linha reservada — frota lançada, serviço ainda por escrever — também
-    // conta. Só se descarta a que não tem nem uma coisa nem outra.
     if (!ativ && !frota) continue;
 
     const marcar = texto(v("Marcar"));
-    const concluida = paraISO(v("Concluída em"));
+    // A coluna mudou de nome entre versões da planilha ("Concluída em" virou
+    // "FOI FEITO EM"); ler as duas evita perder 341 datas por causa de um
+    // cabeçalho reescrito.
+    const concluida = paraISO(v("FOI FEITO EM")) || paraISO(v("Concluída em"));
     const semana = numero(v("Semana"));
     const semOrig = numero(v("Semana orig."));
-
-    // "Marcar não é datar." Linha marcada como concluída sem data ficaria
-    // concluída na tela e invisível na aderência, que conta por data. Entra
-    // como ABERTA e sai na lista de avisos para ele datar — o sistema não
-    // inventa o dia em que o serviço saiu.
-    if (marcar === "Concluída" && !concluida) {
-      avisos.push({ tipo: "marcada_sem_data", frota, atividade: ativ, linha: r + 1 });
-    }
-
     const oss = normalizarOSLista(v("OS"));
     const recado = recadoDeOS(v("OS"));
     if (recado) avisos.push({ tipo: "os_a_abrir", frota, atividade: ativ, texto: recado, linha: r + 1 });
 
+    if (marcar === "Concluída" && !concluida) {
+      avisos.push({ tipo: "marcada_sem_data", frota, atividade: ativ, linha: r + 1 });
+    }
+
+    // HH mede CARGA (horas × pessoas); a duração em dias continua vindo das
+    // datas que a planilha já calculou. Não derivo uma da outra: nos dados
+    // reais, 548 das 754 atividades estão com HH zerado e as de mesmo HH
+    // ocupam de um a cinco dias — a relação simplesmente não existe, e inventá-la
+    // mudaria prazo de serviço que já está programado.
+    const ini = paraISO(v("Início")), pz = paraISO(v("Prazo"));
+    let dias = null;
+    if (ini && pz) {
+      const d = Math.round((Date.parse(pz) - Date.parse(ini)) / 86400000) + 1;
+      if (d >= 1 && d <= 60) dias = d;
+    }
+
     const a = {
       ...molde(),
+      // O ID da planilha é a identidade: reimportar passa a ATUALIZAR em vez de
+      // duplicar, que é o que deixa planilha e site conviverem na transição.
+      id: texto(v("ID")),
       os: oss[0] || "",
       os_outras: oss.slice(1),
       frota,
@@ -109,19 +125,20 @@ export function lerPlanilhaMakro(abas, ano) {
       atividade: ativ,
       tipo: texto(v("Tipo")) || "Corretiva",
       origem: texto(v("Origem")) || "Programada",
+      oficina: texto(v("Oficina")) === "Terceirizada" ? "Terceirizada" : "Interna",
+      categoria_hh: texto(v("Categoria HH")),
       prioridade: texto(v("Prioridade")).toUpperCase(),
       obs: texto(v("Obs.")),
       ano: semana ? ano : (concluida ? Number(concluida.slice(0, 4)) : null),
       semana: semana || null,
       dia: DIAS.includes(texto(v("Dia"))) ? texto(v("Dia")) : "",
-      dias: numero(v("Dias prev.")),
+      dias,
+      hh: Number(v("HH prev.")) || 0,
       executantes: ["Executante 1", "Executante 2", "Executante 3"]
         .map(t => texto(v(t))).filter(Boolean),
       concluida_em: concluida,
       cancelada: marcar === "Cancelada",
-      motivo: texto(v("Motivo")),
-      // Semana original igual à semana não é reprogramação nenhuma; escrita,
-      // só faz parecer que tudo foi empurrado.
+      motivo: texto(v("SE NÃO FOI, POR QUÊ")) || texto(v("Motivo")),
       semana_orig: (semOrig && semOrig !== semana) ? semOrig : null,
       reprogramacoes: (semOrig && semOrig !== semana) ? 1 : 0,
     };
@@ -131,7 +148,113 @@ export function lerPlanilhaMakro(abas, ano) {
   return { atividades, avisos, clientes };
 }
 
-/** A aba Listas guarda o cliente de cada frota em duas colunas paralelas. */
+// ── movimentações ───────────────────────────────────────────────────────────
+
+export function lerMovimentacoes(abas) {
+  const aba = abas.find(a => a.nome === "Movimentações");
+  if (!aba) return { movimentacoes: [], divergencias: [] };
+  const iCab = acharCabecalho(aba.linhas);
+  const achar = localizador(aba.linhas[iCab] || []);
+  const col = {};
+  for (const t of ["Frota", "Destino", "Pedida em", "Prometida para", "Chegou em",
+    "Situação", "Para quê", "Quem prometeu", "Obs"]) col[t] = achar(t);
+
+  const movimentacoes = [], divergencias = [];
+  let n = 0;
+  for (let r = iCab + 1; r < aba.linhas.length; r++) {
+    const L = aba.linhas[r] || [];
+    const v = t => (col[t] >= 0 ? L[col[t]] : null);
+    const frota = texto(v("Frota"));
+    const destino = texto(v("Destino"));
+    if (!frota || frota === "Frota") continue;
+    if (!destino && !texto(v("Pedida em"))) continue;
+
+    const m = {
+      ...moldeMovimentacao(),
+      id: `M-${String(++n).padStart(4, "0")}`,
+      frota,
+      destino,
+      para_que: texto(v("Para quê")),
+      pedida_em: paraISO(v("Pedida em")),
+      prometida_para: paraISO(v("Prometida para")),
+      chegou_em: paraISO(v("Chegou em")),
+      quem_prometeu: texto(v("Quem prometeu")) || "Operação",
+      obs: texto(v("Obs")),
+    };
+
+    // A situação da planilha é digitada à mão. Em vez de confiar nela ou
+    // descartá-la calado, comparo com o que as datas dizem e guardo a
+    // diferença para ele ver — é como se descobre que a coluna vinha mentindo.
+    const escrita = texto(v("Situação"));
+    const calculada = situacaoMovimentacao(m);
+    if (escrita && escrita.toLowerCase() !== calculada.toLowerCase()) {
+      divergencias.push({ frota, destino, escrita, calculada, linha: r + 1 });
+    }
+    movimentacoes.push(m);
+  }
+  return { movimentacoes, divergencias };
+}
+
+// ── preventivas do mês ──────────────────────────────────────────────────────
+
+export function lerPreventivas(abas) {
+  const aba = abas.find(a => /^Preventivas/i.test(a.nome));
+  if (!aba) return { preventivas: [], mes: "" };
+  const iCab = acharCabecalho(aba.linhas);
+  const achar = localizador(aba.linhas[iCab] || []);
+  const col = {};
+  for (const t of ["Frota", "Equipamento", "Local", "Preventivas", "Qtd.", "Vence",
+    "Prazo do Service", "Disponível em", "Dia da parada", "Onde fazer",
+    "Situação", "Status", "Realizada em", "OS", "Pendências", "HH prev.",
+    "Se não sair", "Observação"]) col[t] = achar(t);
+
+  const preventivas = [];
+  let n = 0;
+  for (let r = iCab + 1; r < aba.linhas.length; r++) {
+    const L = aba.linhas[r] || [];
+    const v = t => (col[t] >= 0 ? L[col[t]] : null);
+    const frota = texto(v("Frota"));
+    if (!frota || frota === "Frota") continue;
+
+    // "Agora" e uma data moram na mesma coluna da planilha, e por isso ela não
+    // pode ser ordenada nem comparada. Aqui viram duas coisas: uma marca e uma
+    // data.
+    const disp = v("Disponível em");
+    const dispTexto = texto(disp);
+    const dispData = paraISO(disp);
+    const agora = !dispData && /agora|dispon|livre|j[áa]/i.test(dispTexto);
+
+    // A coluna Status virou campo livre ("feita na DAF · OS 022187 · 07–08/10:
+    // buscar…"). Vira observação, não situação: situação o site calcula.
+    const status = texto(v("Status"));
+    const obs = [texto(v("Observação")), status].filter(Boolean).join(" · ");
+
+    preventivas.push({
+      ...moldePreventiva(),
+      id: `P-${String(++n).padStart(4, "0")}`,
+      frota,
+      equipamento: texto(v("Equipamento")),
+      local: texto(v("Local")),
+      plano: texto(v("Preventivas")),
+      qtd: numero(v("Qtd.")) || 1,
+      vence: paraISO(v("Vence")),
+      prazo_service: paraISO(v("Prazo do Service")),
+      mes: (aba.nome.match(/([A-Za-z]{3})-?(\d{2})/) || [, "", ""]).slice(1).join("-"),
+      disponivel_agora: agora,
+      disponivel_em: dispData,
+      dia_parada: paraISO(v("Dia da parada")),
+      onde_fazer: texto(v("Onde fazer")),
+      os: normalizarOS(v("OS")),
+      hh: Number(v("HH prev.")) || 0,
+      pendencias: numero(v("Pendências")) || 0,
+      realizada_em: paraISO(v("Realizada em")),
+      motivo: texto(v("Se não sair")),
+      obs,
+    });
+  }
+  return { preventivas, mes: preventivas.length ? preventivas[0].mes : "" };
+}
+
 function clientesPorFrota(abas) {
   const m = new Map();
   const aba = abas.find(a => a.nome === "Listas");

@@ -7,7 +7,7 @@
 // A estratégia é rede primeiro, cache como rede reserva: assim uma versão nova
 // do site chega sem precisar de truque, e a falta de rede não trava nada.
 
-const VERSAO = "mkt-v1";
+const VERSAO = "mkt-v2";
 const ARQUIVOS = [
   "./",
   "./index.html",
@@ -31,6 +31,12 @@ const ARQUIVOS = [
   "./js/tela/indicadores.js",
   "./js/tela/historico.js",
   "./js/tela/importar.js",
+  "./js/tela/entrar.js",
+  "./js/tela/operacao.js",
+  "./js/tela/movimentacoes.js",
+  "./js/tela/preventivas.js",
+  "./js/nuvem.js",
+  "./js/pessoas.js",
 ];
 
 self.addEventListener("install", e => {

@@ -13,9 +13,9 @@ import { el, br, brCurto, quando, caixa, campo, selecao, comSugestoes, chip,
 // Nada aqui é cadastro: a lista de executantes é quem já apareceu em alguma
 // atividade. Cadastro separado envelhece e passa a mentir.
 
-export function valoresDe(campoNome) {
+export function valoresDe(campoNome, tipo = "atividade") {
   const s = new Set();
-  for (const a of ev.lista()) {
+  for (const a of ev.lista(tipo)) {
     if (campoNome === "executantes") (a.executantes || []).forEach(x => x && s.add(x));
     else if (a[campoNome]) s.add(a[campoNome]);
   }
@@ -39,6 +39,7 @@ export function cartao(a, { ctx, acoes = [], seletor = null, compacto = false } 
   else if (a.prioridade) tags.push(chip(a.prioridade));
   if (a.origem === "Extra") tags.push(chip("Extra"));
   if (a.reprogramacoes > 0) tags.push(chip(`reprogramada ${a.reprogramacoes}×`, "reprog"));
+  if (a.oficina === "Terceirizada") tags.push(chip("terceirizada"));
   if (!compacto && a.tipo && a.tipo !== "Corretiva") tags.push(chip(a.tipo));
 
   const sub = [];
@@ -102,6 +103,8 @@ export async function reprogramar(a, ctx, sugestao = {}) {
     sugestao.dia ?? a.dia ?? "");
   const entradaDias = el("input", { type: "number", min: 1, max: 30,
     value: sugestao.dias ?? a.dias ?? 1 });
+  const entradaHH = el("input", { type: "number", step: "0.5", min: "0",
+    value: sugestao.hh ?? a.hh ?? 0 });
   const entradaMotivo = selecao([{ v: "", t: "— escolha —" }, ...M.MOTIVOS], "");
   const entradaOutro = el("input", { type: "text", placeholder: "Escreva o motivo" });
   const linhaOutro = campo("Qual?", entradaOutro);
@@ -119,7 +122,9 @@ export async function reprogramar(a, ctx, sugestao = {}) {
         `Hoje está na semana ${a.semana}, ${a.dia || "sem dia"}.`) : null,
       el("div", { class: "tripla" },
         campo("Semana", entradaSemana), campo("Ano", entradaAno), campo("Dia", entradaDia)),
-      campo("Duração em dias", entradaDias),
+      el("div", { class: "dupla" },
+        campo("Duração em dias", entradaDias),
+        campo("HH previsto", entradaHH, "horas × pessoas")),
       jaEstava ? campo("Motivo da mudança", entradaMotivo,
         "Obrigatório. É este campo que transforma um empurrão em número — " +
         "sem ele não dá para dizer por que a semana não fechou.") : null,
@@ -136,6 +141,7 @@ export async function reprogramar(a, ctx, sugestao = {}) {
     semana: Number(entradaSemana.value) || null,
     dia: entradaDia.value,
     dias: Number(entradaDias.value) || 1,
+    hh: Number(entradaHH.value) || 0,
   };
   try {
     const e = ev.reprogramar(a, para, motivo);
@@ -186,6 +192,13 @@ export async function editar(a, ctx) {
       campo("Tipo", f("tipo", selecao(M.TIPOS, a.tipo))),
       campo("Origem", f("origem", selecao(M.ORIGENS, a.origem))),
       campo("Prioridade", f("prioridade", selecao(M.PRIORIDADES, a.prioridade)))),
+    el("div", { class: "dupla" },
+      campo("Oficina", f("oficina", selecao(M.OFICINAS, a.oficina))),
+      // HH é hora-homem: horas × pessoas. Mede carga de equipe, não prazo — o
+      // prazo continua vindo da duração em dias. Zero quer dizer "ninguém
+      // estimou", e é assim que ele é contado nos números.
+      campo("HH previsto", f("hh", el("input", { type: "number", step: "0.5",
+        min: "0", value: a.hh || 0 })), "horas × pessoas")),
     campo("Executantes", comSugestoes(
       f("executantes", el("input", { value: (a.executantes || []).join(", "),
         placeholder: "separe por vírgula" })), executantes(), "dl-exec-e")),
@@ -200,6 +213,7 @@ export async function editar(a, ctx) {
   for (const [k, entrada] of Object.entries(c)) {
     let v = entrada.value;
     if (k === "executantes") v = v.split(",").map(x => x.trim()).filter(Boolean);
+    if (k === "hh") v = Number(v) || 0;
     if (k === "os") v = v.replace(/\D+/g, "") ? v.replace(/\D+/g, "").padStart(6, "0") : "";
     campos[k] = v;
   }
@@ -240,6 +254,7 @@ export async function criarNova(ctx, sugestao = {}) {
   for (const [k, entrada] of Object.entries(c)) {
     let v = entrada.value;
     if (k === "executantes") v = v.split(",").map(x => x.trim()).filter(Boolean);
+    if (k === "hh") v = Number(v) || 0;
     if (k === "os") v = v.replace(/\D+/g, "") ? v.replace(/\D+/g, "").padStart(6, "0") : "";
     campos[k] = v;
   }
@@ -273,14 +288,17 @@ export async function abrirFicha(id, ctx) {
     linha("Cliente", a.cliente),
     linha("OS", [a.os, ...a.os_outras].filter(Boolean).join(", ")),
     linha("Serviço", a.servico),
-    linha("Tipo", `${a.tipo} · ${a.origem}`),
+    linha("Tipo", `${a.tipo} · ${a.origem} · oficina ${a.oficina || "Interna"}`),
+    linha("HH previsto", a.hh ? `${a.hh} (horas × pessoas)` : null),
     linha("Prioridade", a.prioridade),
     linha("Semana", a.semana ? `${a.semana}/${a.ano} · ${a.dia || "sem dia"} · ${a.dias || 1} dia(s)` : null),
     linha("Janela", a.semana ? `${br(M.inicioDe(a))} a ${br(M.prazoDe(a))}` : null),
     linha("Concluída em", a.concluida_em ? br(a.concluida_em) : null),
     linha("Semana original", a.semana_orig && a.semana_orig !== a.semana ? String(a.semana_orig) : null),
     linha("Reprogramações", a.reprogramacoes ? String(a.reprogramacoes) : null),
-    linha("Motivo", a.motivo),
+    linha("Motivo", a.motivo
+      ? `${a.motivo}${M.areaDoMotivo(a.motivo) ? " — " + M.areaDoMotivo(a.motivo) : ""}`
+      : null),
     linha("Executantes", (a.executantes || []).join(", ")),
     linha("Observação", a.obs));
 

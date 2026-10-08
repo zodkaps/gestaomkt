@@ -50,6 +50,12 @@ export async function montar(raiz, ctx, params) {
     const mx = M.mix(todas);
     const os = M.coberturaOS(todas);
     const bl = M.backlogEmSemanas(todas, ano, semana);
+    const cg = M.cargaHH(todas, ano, semana);
+    const fn = M.fechadasNaSemana(todas, ano, semana);
+    const pt = M.pontualidade(ev.lista("movimentacao"), M.hoje());
+    const ar = M.atrasoPorArea(todas);
+    const prevs = ev.lista("preventiva");
+    const prevAbertas = prevs.filter(M.preventivaAberta);
     const abertas = todas.filter(M.aberta);
     const vencidas = abertas.filter(a => M.situacaoDe(a) === "VENCIDA");
 
@@ -81,6 +87,20 @@ export async function montar(raiz, ctx, params) {
         `Extra fica fora da conta: ${ad.extras} lançada${ad.extras === 1 ? "" : "s"}` +
         `${ad.extras ? `, ${ad.extras_feitos} fechada${ad.extras_feitos === 1 ? "" : "s"}` : ""}. ` +
         "Contar o que ninguém planejou premiaria a oficina justamente onde o número mede o planejamento."),
+
+      painel("O que saiu nestes sete dias",
+        el("div", {},
+          el("div", { class: "medidor neutro" },
+            el("div", { class: "num" }, String(fn.total)),
+            el("div", { class: "rot" }, "serviços fechados na semana")),
+          el("div", { class: "numeros", style: "margin-top:12px" },
+            cartaoNumero(fn.programadas, "programados"),
+            cartaoNumero(fn.extras, "extras"),
+            cartaoNumero(fn.de_outras_semanas, "atrasados de outras semanas"),
+            cartaoNumero(String(fn.hh).replace(".", ","), "HH entregues"))),
+        "Pergunta diferente da aderência: ali é 'do que planejei, quanto saiu?'; " +
+        "aqui é 'quanto trabalho saiu?'. Uma semana pode ter aderência baixa e " +
+        "muito serviço entregue — e as duas coisas precisam aparecer."),
 
       painel("Corretiva × preventiva",
         // A cor é do tipo, não da posição na lista: amarrar ao índice faria a
@@ -119,6 +139,48 @@ export async function montar(raiz, ctx, params) {
           : vazio("Nenhuma nesta semana."),
         `${reprogSemana.length} lançamento${reprogSemana.length === 1 ? "" : "s"} no registro. ` +
         "É por aqui que se responde por que a semana não fechou."),
+
+      painel("Carga de mão de obra",
+        el("div", {},
+          el("div", { class: "medidor neutro" },
+            el("div", { class: "num" }, String(cg.total).replace(".", ",")),
+            el("div", { class: "rot" }, "HH programados na semana (oficina interna)")),
+          el("div", { class: "numeros", style: "margin-top:12px" },
+            cartaoNumero(String(cg.feito).replace(".", ","), "HH fechados"),
+            cartaoNumero(String(cg.aberto).replace(".", ","), "HH em aberto"),
+            cartaoNumero(String(cg.terceirizada).replace(".", ","), "HH na terceirizada"))),
+        `HH é hora-homem: horas × pessoas. A terceirizada fica fora da conta ` +
+        `porque não disputa a equipe. ${cg.sem_estimativa} de ${cg.atividades} ` +
+        "atividades estão sem HH estimado — o número real é maior que este."),
+
+      painel("Pontualidade da operação",
+        el("div", {},
+          medidor(pt.pct, `${pt.no_prazo} de ${pt.entregues} entregas no prazo`),
+          el("div", { class: "numeros", style: "margin-top:12px" },
+            cartaoNumero(pt.atrasadas, "fora, já atrasadas", "", pt.atrasadas ? "alerta" : ""),
+            cartaoNumero(pt.dias_perdidos, "dias de frota perdidos", "", pt.dias_perdidos ? "alerta" : ""))),
+        "Cada dia além do prometido é um dia em que a oficina não pôde " +
+        "trabalhar naquele caminhão."),
+
+      painel("De quem é o atraso",
+        Object.keys(ar.por).length
+          ? barras(Object.entries(ar.por)
+            .sort((a, b) => b[1].total - a[1].total)
+            .map(([area, d]) => ({ rotulo: area, valor: d.total,
+              cor: { "Suprimentos": "c", "Operação": "d", "Manutenção": "",
+                "Terceiro": "e", "Gestão / prioridade": "b" }[area] || "" })))
+          : vazio("Nenhuma atividade em aberto com motivo escrito."),
+        `Lido do motivo escrito em cada atividade em aberto. ${ar.sem_motivo} ` +
+        "ainda não têm motivo — e sem motivo o atraso não tem endereço."),
+
+      prevs.length ? painel("Preventivas do mês",
+        el("div", { class: "numeros" },
+          cartaoNumero(prevAbertas.length, "abertas"),
+          cartaoNumero(prevs.filter(p => M.preventivaAberta(p) && p.vence && p.vence < M.hoje()).length,
+            "vencidas", "", "alerta"),
+          cartaoNumero(prevAbertas.filter(p => M.esperandoQuem(p) === "Operação").length, "com a operação"),
+          cartaoNumero(prevAbertas.filter(p => M.esperandoQuem(p) === "PCM").length, "com o PCM")),
+        "Preventiva parada esperando resposta vira corretiva depois.") : null,
 
       painel("Onde está o trabalho em aberto",
         barras(["VENCIDA", "Fecha hoje", "Em execução", "Programada", "Na carteira"]

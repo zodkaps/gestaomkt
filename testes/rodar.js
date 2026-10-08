@@ -24,6 +24,7 @@ const imp = await import("../js/importar.js");
 const pl = await import("../js/planilha.js");
 const bk = await import("../js/backup.js");
 const dados = await import("../js/dados.js");
+const pessoas = await import("../js/pessoas.js");
 
 let passou = 0, falhou = 0;
 const falhas = [];
@@ -96,6 +97,8 @@ igual("sem semana, está na carteira",
 // ── o log ───────────────────────────────────────────────────────────────────
 titulo("eventos.js — o registro é o estado");
 
+await dados.abrir();
+await pessoas.entrar("Mateus");
 await ev.carregar();
 const [criada] = await ev.aplicar(ev.criar({
   frota: "F-999", atividade: "Trocar pneus", servico: "Pneus", tipo: "Corretiva",
@@ -142,7 +145,7 @@ ok("tocar a fita de novo dá o mesmo estado", c.ok,
 titulo("importar.js — a planilha da programação");
 
 const caminho = process.argv[2] ||
-  "/root/.claude/uploads/3a385572-107b-54f9-9b46-4352cfa98089/79ecac08-Programacao_Servicos_Makro_26.xlsx";
+  "/root/.claude/uploads/3a385572-107b-54f9-9b46-4352cfa98089/6f140278-Programacao_Servicos_Makro_83_1.xlsx";
 let abas = null;
 try {
   abas = await pl.ler(arquivoFalso(caminho, await readFile(caminho)));
@@ -153,20 +156,28 @@ try {
 if (abas) {
   ok("reconheceu a planilha da Makro", imp.ehPlanilhaMakro(abas));
   const { atividades, avisos, clientes } = imp.lerPlanilhaMakro(abas, 2026);
-  igual("867 atividades", atividades.length, 867);
-  igual("194 com data de conclusão", atividades.filter(x => x.concluida_em).length, 194);
-  igual("11 canceladas", atividades.filter(x => x.cancelada).length, 11);
-  igual("619 na carteira, sem semana", atividades.filter(x => !x.semana).length, 619);
+  igual("754 atividades", atividades.length, 754);
+  igual("341 com data de conclusão", atividades.filter(x => x.concluida_em).length, 341);
+  igual("31 canceladas", atividades.filter(x => x.cancelada).length, 31);
+  // 263 é o mesmo número que a aba Hoje da planilha dele mostra em "na carteira".
+  igual("263 na carteira",
+    atividades.filter(x => !x.semana && !x.concluida_em && !x.cancelada).length, 263);
   // 434, e não as 459 células preenchidas: 25 delas dizem "ABRIR OS", que é
   // recado e não ordem — o indicador de cobertura da planilha as contava.
-  igual("434 com OS de verdade", atividades.filter(x => x.os).length, 434);
-  igual("25 recados de 'abrir OS' separados",
-    avisos.filter(x => x.tipo === "os_a_abrir").length, 25);
+  igual("362 com OS", atividades.filter(x => x.os).length, 362);
+  igual("2 recados de 'abrir OS' separados",
+    avisos.filter(x => x.tipo === "os_a_abrir").length, 2);
   ok("toda OS ficou com seis dígitos",
     atividades.every(x => [x.os, ...x.os_outras].every(o => !o || o.length === 6)));
-  ok("a atividade que cobre três OS guardou as três",
-    atividades.some(x => x.os_outras.length === 2));
-  igual("77 frotas", new Set(atividades.map(x => x.frota).filter(Boolean)).size, 77);
+  igual("754 IDs, todos únicos", new Set(atividades.map(x => x.id)).size, 754);
+  igual("640,5 HH somados",
+    Math.round(atividades.reduce((s, x) => s + x.hh, 0) * 10) / 10, 640.5);
+  igual("66 na oficina terceirizada",
+    atividades.filter(x => x.oficina === "Terceirizada").length, 66);
+  igual("25 categorias de HH",
+    new Set(atividades.map(x => x.categoria_hh).filter(Boolean)).size, 25);
+  igual("173 com motivo escrito", atividades.filter(x => x.motivo).length, 173);
+  igual("64 frotas", new Set(atividades.map(x => x.frota).filter(Boolean)).size, 64);
   ok("achou o cliente de alguma frota", clientes.size > 0);
   console.log(`  · avisos de 'marcada sem data': ${avisos.length}`);
 
@@ -177,7 +188,7 @@ if (abas) {
   await ev.aplicar(
     atividades.map(x => ev.criar(x, "planilha", caminho.split("/").pop())),
     { silencioso: true });
-  igual("as 867 entraram pelo log", ev.lista().length, 867);
+  igual("as 754 entraram pelo log", ev.lista().length, 754);
   const c2 = ev.conferir();
   ok("com a carga real, a fita continua fechando", c2.ok);
 
@@ -187,7 +198,7 @@ if (abas) {
   const arquivo = JSON.parse(JSON.stringify(await bk.exportar()));
   await bk.restaurar(arquivo);
   igual("o backup volta idêntico", bk.assinatura() === antes, true);
-  igual("e com as mesmas atividades", ev.lista().length, 867);
+  igual("e com as mesmas atividades", ev.lista().length, 754);
 
   // ── Protheus ──────────────────────────────────────────────────────────────
   titulo("importar.js — cruzamento com a base do Protheus");
@@ -222,6 +233,142 @@ if (abas) {
   ok("linha sem OS é separada e não some calada", rec.sem_os.length === 1);
   const div = rec.divergentes.length;
   console.log(`  · divergências de frota encontradas: ${div}`);
+
+
+  // ── movimentações ─────────────────────────────────────────────────────────
+  titulo("importar.js — movimentações");
+  const { movimentacoes, divergencias } = imp.lerMovimentacoes(abas);
+  igual("51 movimentações", movimentacoes.length, 51);
+  const pt = modelo.pontualidade(movimentacoes, "2026-10-08");
+  igual("33 entregues, 17 no prazo", [pt.entregues, pt.no_prazo], [33, 17]);
+  igual("2 voltaram sem ninguém ter prometido data", pt.sem_promessa, 2);
+  igual("18 ainda fora", pt.aguardando + pt.atrasadas, 18);
+  igual("e a conta fecha com as 51",
+    pt.entregues + pt.aguardando + pt.atrasadas, 51);
+  ok("conta dias de frota perdidos", pt.dias_perdidos > 0);
+  // A planilha traz a situação DIGITADA. Em vez de confiar ou descartar calado,
+  // o importador lista o que discorda das datas — e essa lista não pode sumir.
+  ok("lista o que a coluna digitada diz diferente das datas", divergencias.length > 0);
+  console.log(`  · divergências entre a situação digitada e as datas: ${divergencias.length}`);
+
+  const m1 = { ...modelo.moldeMovimentacao(), frota: "F-1",
+    prometida_para: "2026-10-01", chegou_em: "2026-10-03" };
+  igual("chegou depois do prometido", modelo.situacaoMovimentacao(m1), "Entregue com atraso");
+  igual("e o atraso é de 2 dias", modelo.atrasoMovimentacao(m1), 2);
+  const m2 = { ...modelo.moldeMovimentacao(), prometida_para: "2026-10-01" };
+  igual("não voltou e o prazo passou", modelo.situacaoMovimentacao(m2, "2026-10-08"), "ATRASADA");
+  igual("o atraso cresce contra hoje", modelo.atrasoMovimentacao(m2, "2026-10-08"), 7);
+
+  // ── preventivas ───────────────────────────────────────────────────────────
+  titulo("importar.js — preventivas e o aperto de mão");
+  const { preventivas, mes } = imp.lerPreventivas(abas);
+  igual("37 preventivas", preventivas.length, 37);
+  igual("do mês Out-26", mes, "Out-26");
+  igual("6 com 'disponível agora' separado da data",
+    preventivas.filter(p => p.disponivel_agora).length, 6);
+  igual("13 com data da operação",
+    preventivas.filter(p => p.disponivel_em).length, 13);
+  const espera = preventivas.filter(modelo.preventivaAberta)
+    .reduce((m, p) => { const q = modelo.esperandoQuem(p) || "—"; m[q] = (m[q] || 0) + 1; return m; }, {});
+  console.log("  · esperando:", JSON.stringify(espera));
+  ok("a bola está dividida entre as duas áreas", espera["Operação"] > 0 && espera.PCM > 0);
+
+  const p0 = { ...modelo.moldePreventiva(), frota: "F-9", vence: "2026-10-20" };
+  igual("sem resposta da operação, a bola é dela", modelo.esperandoQuem(p0), "Operação");
+  const p1 = { ...p0, disponivel_agora: true };
+  igual("respondida, a bola passa para o PCM", modelo.esperandoQuem(p1), "PCM");
+  const p2 = { ...p1, dia_parada: "2026-10-15" };
+  igual("com parada marcada, ninguém está travando", modelo.esperandoQuem(p2), "");
+  igual("e a situação é parada marcada", modelo.situacaoPreventiva(p2, "2026-10-08"), "Parada marcada");
+
+  // ── reimportar não duplica ────────────────────────────────────────────────
+  titulo("eventos.js — reimportar a mesma planilha");
+  const antesDeReimportar = ev.lista().length;
+  await ev.aplicar([
+    ...atividades.map(x => ev.criar(x, "planilha", "de novo", "atividade")),
+    ...movimentacoes.map(x => ev.criar(x, "planilha", "de novo", "movimentacao")),
+    ...preventivas.map(x => ev.criar(x, "planilha", "de novo", "preventiva")),
+  ], { silencioso: true });
+  igual("continua com as mesmas atividades", ev.lista().length, antesDeReimportar);
+  igual("e com as mesmas movimentações", ev.lista("movimentacao").length, 51);
+  igual("e com as mesmas preventivas", ev.lista("preventiva").length, 37);
+  ok("a fita continua fechando depois de reimportar", ev.conferir().ok);
+
+  // ── quem pode o quê ───────────────────────────────────────────────────────
+  titulo("pessoas.js — o que a operação faz e o que não faz");
+  await pessoas.entrar("Pedro");
+  igual("Pedro é operação", pessoas.papel(), "operacao");
+
+  const umaAberta = ev.lista().find(x => x.semana && !x.concluida_em && !x.cancelada);
+  let barrou = "";
+  try { ev.reprogramar(umaAberta, { ano: 2026, semana: 45, dia: "Seg", dias: 1 }, "qualquer"); }
+  catch (e) { barrou = e.message; }
+  ok("a operação não reprograma a oficina", !!barrou, barrou);
+  let barrou2 = "";
+  try { ev.concluir(umaAberta, "2026-10-08"); } catch (e) { barrou2 = e.message; }
+  ok("nem dá baixa em serviço", !!barrou2, barrou2);
+
+  const movAberta = ev.lista("movimentacao").find(modelo.movimentacaoAberta);
+  await ev.aplicar(ev.chegou(movAberta, "2026-10-08"));
+  igual("mas aponta a chegada da frota",
+    ev.porId(movAberta.id, "movimentacao").chegou_em, "2026-10-08");
+  igual("e o registro guarda que foi o Pedro",
+    ev.historicoDe(movAberta.id)[0].autor, "Pedro");
+
+  const prevSemData = ev.lista("preventiva").find(x => modelo.esperandoQuem(x) === "Operação");
+  await ev.aplicar(ev.informarDisponibilidade(prevSemData, "agora"));
+  igual("e informa quando a frota fica livre",
+    modelo.esperandoQuem(ev.porId(prevSemData.id, "preventiva")), "PCM");
+  let barrou3 = "";
+  try { ev.marcarParada(ev.porId(prevSemData.id, "preventiva"), "2026-10-20"); }
+  catch (e) { barrou3 = e.message; }
+  ok("mas não marca o dia da parada", !!barrou3, barrou3);
+
+  await pessoas.entrar("Mateus");
+  await ev.aplicar(ev.marcarParada(ev.porId(prevSemData.id, "preventiva"), "2026-10-20"));
+  igual("o PCM marca, e aí ninguém está travando",
+    modelo.esperandoQuem(ev.porId(prevSemData.id, "preventiva")), "");
+  ok("a fita fecha com os três tipos de objeto dentro", ev.conferir().ok);
+
+  // ── de quem é o atraso ────────────────────────────────────────────────────
+  titulo("modelo.js — o atraso tem endereço");
+  igual("peça não chegou é de suprimentos",
+    modelo.areaDoMotivo("Peça não chegou"), "Suprimentos");
+  igual("frota não chegou é da operação",
+    modelo.areaDoMotivo("Frota não chegou na oficina"), "Operação");
+  const ar = modelo.atrasoPorArea(ev.lista());
+  ok("as áreas aparecem com contagem", Object.keys(ar.por).length >= 3,
+    JSON.stringify(Object.keys(ar.por)));
+  console.log("  · atraso por área:",
+    JSON.stringify(Object.fromEntries(Object.entries(ar.por).map(([k, v]) => [k, v.total]))));
+
+  // ── aderência e vazão são perguntas diferentes ───────────────────────────
+  titulo("modelo.js — do que planejei × do que saiu");
+  const ad41 = modelo.aderencia(ev.lista(), 2026, 41);
+  const fn41 = modelo.fechadasNaSemana(ev.lista(), 2026, 41);
+  const fn40 = modelo.fechadasNaSemana(ev.lista(), 2026, 40);
+  console.log(`  · semana 41: aderência ${ad41.pct}% (${ad41.concluidas}/${ad41.programadas}), ` +
+    `fechados na semana ${fn41.total}`);
+  console.log(`  · semana 40: fechados na semana ${fn40.total}, ` +
+    `sendo ${fn40.extras} extras e ${fn40.de_outras_semanas} de semanas anteriores`);
+  ok("a vazão conta o extra que a aderência deixa de fora", fn40.extras > 0);
+  ok("e enxerga o atrasado que fechou fora da semana dele", fn40.de_outras_semanas > 0);
+  ok("aderência e vazão dão números diferentes na mesma semana",
+    fn40.total !== ad41.concluidas);
+
+  // ── carga em HH ───────────────────────────────────────────────────────────
+  titulo("modelo.js — HH mede carga, não prazo");
+  const cg = modelo.cargaHH(ev.lista(), 2026, 41);
+  ok("a semana 41 tem HH somado", cg.total > 0, JSON.stringify(cg));
+  ok("a terceirizada fica fora do total da equipe",
+    cg.total === Math.round((cg.feito + cg.aberto) * 10) / 10,
+    `${cg.total} ≠ ${cg.feito} + ${cg.aberto}`);
+  ok("e diz quantas atividades estão sem HH estimado",
+    Number.isInteger(cg.sem_estimativa) && cg.sem_estimativa <= cg.atividades,
+    `${cg.sem_estimativa} de ${cg.atividades}`);
+  const cg36 = modelo.cargaHH(ev.lista(), 2026, 36);
+  ok("numa semana antiga, há atividade sem HH estimado", cg36.sem_estimativa > 0,
+    JSON.stringify(cg36));
 }
 
 // ── CSV ─────────────────────────────────────────────────────────────────────
