@@ -1,17 +1,23 @@
-// Onde os dados moram.
+// Onde os dados moram — no aparelho, e na nuvem quando ela está ligada.
 //
 // Só duas coisas são gravadas: a fita de eventos e um punhado de preferências.
-// As atividades NÃO são gravadas — elas são o resultado de tocar a fita, e
-// guardar o resultado ao lado da causa é como as duas versões se separam sem
-// ninguém perceber. Ler é sempre reconstruir.
+// As atividades, movimentações e preventivas NÃO são gravadas — elas são o
+// resultado de tocar a fita, e guardar o resultado ao lado da causa é como as
+// duas versões se separam sem ninguém perceber. Ler é sempre reconstruir.
+//
+// Com quatro pessoas, o aparelho deixa de ser o dono do dado e passa a ser
+// **cache e fila de saída**: o que é lançado aqui fica marcado como não
+// enviado até o Supabase confirmar, e o que vem de lá entra misturado pela
+// chave `id`. É por isso que o celular do pátio pode ficar sem sinal a manhã
+// inteira sem perder um apontamento nem criar um repetido.
 //
 // IndexedDB é o lugar certo: aguenta dezenas de milhares de eventos e não
-// tranca a aba. Quando o navegador nega (aba anônima, política de privacidade),
-// cai para localStorage em vez de quebrar — com menos espaço, e dizendo isso
-// em voz alta na tela.
+// tranca a aba. Quando o navegador nega (aba anônima, política de
+// privacidade), cai para localStorage; se nem isso, segue só na memória — e
+// diz isso em voz alta na tela.
 
 const BANCO = "mkt";
-const VERSAO = 1;
+const VERSAO = 2;
 
 let db = null;
 export let modo = "indisponível";
@@ -59,61 +65,99 @@ function localStorageVivo() {
 }
 
 // Último recurso: se nem localStorage responde, o site ainda abre e funciona
-// até fechar a aba. Melhor do que uma tela branca — e a faixa de aviso diz
-// exatamente isso para ninguém trabalhar meio dia achando que gravou.
+// até fechar a aba. Melhor do que tela branca — e a faixa de aviso diz
+// exatamente isso, para ninguém trabalhar meio dia achando que gravou.
 const memoria = { eventos: [], meta: new Map() };
+
+// ── ordem ───────────────────────────────────────────────────────────────────
+// A fita é dobrada nesta ordem, e ela não pode depender de quem gravou
+// primeiro: o `seq` do banco só existe depois que o evento sobe, e o celular
+// offline não tem nenhum. Ordenar por instante, com o `id` desempatando, dá o
+// MESMO resultado nos quatro aparelhos, estejam eles sincronizados ou não.
+export function ordem(a, b) {
+  return String(a.ts).localeCompare(String(b.ts)) ||
+    String(a.id).localeCompare(String(b.id));
+}
 
 // ── eventos ─────────────────────────────────────────────────────────────────
 
 export async function lerEventos() {
+  let evs;
   if (modo === "indexeddb") {
     const tx = db.transaction("eventos", "readonly");
-    return await pedido(tx.objectStore("eventos").getAll());
+    evs = await pedido(tx.objectStore("eventos").getAll());
+  } else if (modo === "localstorage") {
+    try { evs = JSON.parse(localStorage.getItem("mkt:eventos") || "[]"); }
+    catch (e) { evs = []; }
+  } else {
+    evs = memoria.eventos.slice();
   }
-  if (modo === "localstorage") {
-    try { return JSON.parse(localStorage.getItem("mkt:eventos") || "[]"); }
-    catch (e) { return []; }
-  }
-  return memoria.eventos.slice();
+  return evs.sort(ordem);
 }
 
-/** Grava eventos novos. Devolve-os com o `seq` que receberam. */
-export async function gravarEventos(evs) {
-  if (!evs.length) return evs;
+async function escrever(evs) {
   if (modo === "indexeddb") {
     const tx = db.transaction("eventos", "readwrite");
     const st = tx.objectStore("eventos");
-    for (const ev of evs) {
-      const { seq, ...resto } = ev;
-      ev.seq = await pedido(st.add(resto));
-    }
-    await new Promise((ok, erro) => {
+    for (const ev of evs) st.put(ev);
+    return new Promise((ok, erro) => {
       tx.oncomplete = ok;
       tx.onerror = () => erro(tx.error);
       tx.onabort = () => erro(tx.error);
     });
-    return evs;
   }
   const todos = await lerEventos();
-  let n = todos.length ? todos[todos.length - 1].seq : 0;
-  for (const ev of evs) ev.seq = ++n;
-  const juntos = todos.concat(evs);
-  if (modo === "localstorage") {
-    localStorage.setItem("mkt:eventos", JSON.stringify(juntos));
-  } else {
-    memoria.eventos = juntos;
+  const porId = new Map(todos.map(e => [e.id, e]));
+  for (const ev of evs) porId.set(ev.id, ev);
+  const juntos = [...porId.values()].sort(ordem);
+  if (modo === "localstorage") localStorage.setItem("mkt:eventos", JSON.stringify(juntos));
+  else memoria.eventos = juntos;
+}
+
+/** Grava eventos novos, nascidos aqui. Entram na fila de saída. */
+export async function gravarEventos(evs) {
+  if (!evs.length) return evs;
+  const todos = await lerEventos();
+  let n = todos.reduce((m, e) => Math.max(m, e.seq || 0), 0);
+  for (const ev of evs) {
+    if (ev.seq == null) ev.seq = ++n;
+    ev.enviado = false;
   }
+  await escrever(evs);
   return evs;
+}
+
+/** Mistura o que veio da nuvem. O `id` manda: o que já existe não entra duas
+ *  vezes, e o que eu mesmo mandei volta marcado como enviado. */
+export async function mesclarDaNuvem(evs) {
+  if (!evs.length) return 0;
+  const todos = await lerEventos();
+  const conhecidos = new Set(todos.map(e => e.id));
+  const paraGravar = evs.map(e => ({ ...e, enviado: true }));
+  await escrever(paraGravar);
+  return paraGravar.filter(e => !conhecidos.has(e.id)).length;
+}
+
+/** O que ainda não subiu. */
+export async function pendentes() {
+  return (await lerEventos()).filter(e => e.enviado === false);
+}
+
+export async function marcarEnviados(ids) {
+  if (!ids.length) return;
+  const alvo = new Set(ids);
+  const todos = await lerEventos();
+  await escrever(todos.filter(e => alvo.has(e.id)).map(e => ({ ...e, enviado: true })));
 }
 
 /** Substitui a fita inteira. Só a restauração de backup usa isto. */
 export async function trocarEventos(evs) {
-  const limpos = evs.map((e, i) => ({ ...e, seq: i + 1 }));
+  const limpos = evs.map((e, i) => ({ ...e, seq: e.seq ?? i + 1 })).sort(ordem);
   if (modo === "indexeddb") {
     const tx = db.transaction("eventos", "readwrite");
     const st = tx.objectStore("eventos");
     st.clear();
-    for (const ev of limpos) st.add(ev);
+    for (const ev of limpos) st.put(ev);
     await new Promise((ok, erro) => {
       tx.oncomplete = ok;
       tx.onerror = () => erro(tx.error);
@@ -129,22 +173,17 @@ export async function trocarEventos(evs) {
 
 export async function apagarTudo() {
   await trocarEventos([]);
+  await gravarMeta("nuvem_seq", 0);
   if (modo === "indexeddb") {
     const tx = db.transaction("meta", "readwrite");
-    tx.objectStore("meta").clear();
+    tx.objectStore("meta").delete("nuvem_seq");
     await new Promise(ok => { tx.oncomplete = ok; });
-  } else if (modo === "localstorage") {
-    for (const k of Object.keys(localStorage)) {
-      if (k.startsWith("mkt:meta:")) localStorage.removeItem(k);
-    }
-  } else {
-    memoria.meta.clear();
   }
 }
 
 // ── preferências ────────────────────────────────────────────────────────────
-// Mapa de colunas do Protheus, data do último backup, tema. Nada aqui é dado
-// de manutenção: tudo pode ser perdido sem perder trabalho.
+// Quem está usando, endereço da nuvem, mapa de colunas do Protheus, tema. Nada
+// aqui é dado de manutenção: tudo pode ser perdido sem perder trabalho.
 
 export async function lerMeta(k, padrao = null) {
   if (modo === "indexeddb") {

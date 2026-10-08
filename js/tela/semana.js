@@ -87,9 +87,11 @@ export async function montar(raiz, ctx, params) {
     const todas = ev.lista();
     const daSemana = todas.filter(a => a.semana === semana && a.ano === ano && !a.cancelada);
     const ad = M.aderencia(todas, ano, semana);
+    const cg = M.cargaHH(todas, ano, semana);
 
     corpo.append(el("p", { style: "color:var(--fraco);font-size:13px;margin-bottom:12px" },
       `${br(datas[0])} a ${br(datas[6])} · ${daSemana.length} atividade${daSemana.length === 1 ? "" : "s"}` +
+      (cg.total ? ` · ${String(cg.total).replace(".", ",")} HH` : "") +
       ` · ${ad.concluidas} de ${ad.programadas} programadas fechadas` +
       (ad.pct == null ? "" : ` (${ad.pct}%)`) +
       (ad.extras ? ` · ${ad.extras} extra${ad.extras === 1 ? "" : "s"}` : "")));

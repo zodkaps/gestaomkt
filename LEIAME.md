@@ -1,46 +1,62 @@
-# Programação Makro — programação e realização de OS
+# Programação Makro — carteira, OS, movimentação e preventiva
 
-Controle de PCM da manutenção, Makro Transportes (Mossoró/RN). Um site estático
-que roda no navegador, guarda os dados no próprio navegador e funciona sem
-internet. **Qualquer mudança fica registrada** — reprogramação em primeiro
-lugar, com motivo obrigatório.
+Controle de PCM da manutenção, Makro Transportes (Mossoró/RN). Site estático
+que roda no navegador, guarda a fita de eventos no Supabase e funciona sem
+internet. **Qualquer mudança fica registrada**, com quem fez e por quê.
 
-A equipe continua fechando OS direto no Protheus. Este site é o controle do
-PCM: é aqui que se programa a semana, se acompanha a execução e se responde
-por que uma semana não fechou.
+São quatro pessoas, com dois papéis:
+
+| quem | papel | o que faz |
+|---|---|---|
+| Mateus, Lucas | **PCM** | programa a oficina, dá baixa, marca parada, importa o Protheus |
+| Pedro, João Victor | **Operação** | aponta movimentação de frota e diz quando o caminhão fica livre |
+
+A equipe da oficina continua fechando OS direto no Protheus. Este site é o
+controle do PCM e o canal de resposta da operação.
 
 ---
 
-## Como abrir
+## Entrar, e o que isso protege (e o que não protege)
 
-O site precisa ser **servido**, não aberto com duplo clique. É isso que dá ao
-navegador uma origem própria para guardar os dados e para o modo offline
-funcionar.
+Entrar é escolher o nome numa lista de quatro. Sem senha, sem e-mail: no pátio,
+no celular, com a mão suja, qualquer atrito a mais é um apontamento que não
+acontece.
 
-```bash
-python3 -m http.server 8000      # na pasta do projeto
-```
+**O limite entre PCM e operação é combinado, não trancado.** O site esconde do
+Pedro o que não é dele, mas quem abrir o endereço e trocar o nome consegue
+lançar como PCM. Para quatro pessoas da mesma equipe, é troca aceitável.
 
-e abrir <http://localhost:8000>. Para usar do celular ou do tablet da oficina,
-o caminho é publicar no **GitHub Pages** deste mesmo repositório (Settings →
-Pages → branch, pasta `/`) — é HTTPS, que o modo offline exige.
+**O que é trancado de verdade**, no banco: a tabela de eventos é **só-insere**.
+Nem o site, nem um erro meu, nem alguém com a chave apaga ou reescreve um
+lançamento. É política do Postgres (`sql/01_esquema.sql`), não disciplina.
 
-Depois da primeira abertura o site fica disponível mesmo sem rede, e dá para
-adicioná-lo à tela de início do celular como aplicativo.
+Se um dia precisar de parede de verdade (auditoria, gente de fora), trocar para
+e-mail com link mexe só na tela de entrar e nas políticas do banco.
 
-Não há passo de build, não há `npm install`. Os arquivos em `js/` são módulos
-ES servidos como estão. A única biblioteca é o SheetJS, embarcado em `vendor/`
-(ler XLSX na mão não vale o risco de não conseguir ler o export do Protheus).
+## Ligar o lugar comum (Supabase)
 
-## Como começar a usar
+Sem isso o site funciona, mas só no seu navegador — e aí o Pedro não vê o que
+você lança, nem você o que ele aponta.
 
-1. Abra a aba **Importar** e solte o `.xlsx` da programação. Ele reconhece a
-   aba `Programação` sozinho, pergunta o ano e mostra a prévia.
-2. Confira a prévia e importe. O acervo inteiro entra, com as reprogramações
-   que a planilha já registrava.
-3. A partir daí: **Carteira** para montar a semana, **Semana** para acompanhar,
-   **Hoje** para dar baixa.
-4. **Salve uma cópia de segurança** (botão no topo). Leia a seção sobre isso.
+1. No seu projeto Supabase: **SQL Editor → New query**, cole
+   `sql/01_esquema.sql` e rode.
+2. Em **Settings → API**, copie a *Project URL* e a chave **anon public**.
+3. No site: aba **Importar → O lugar comum dos quatro**, cole as duas e clique
+   em Ligar.
+
+A chave anon é pública por desenho — pode ficar no site. Quem protege é a
+política do banco, não o segredo dela.
+
+**Como as telas se atualizam:** por consulta a cada dez segundos, não por
+WebSocket. O realtime do Supabase fala um protocolo de canais com batimento e
+reconexão — duzentas linhas que quebram justamente onde este site vive: celular
+que dorme, sinal que cai, aba em segundo plano. Perguntar "o que há de novo
+depois do número X" resolve o mesmo em cinco linhas e volta sozinho de qualquer
+queda. Para quatro pessoas, dez segundos ninguém percebe.
+
+**Sem sinal:** o que é lançado fica numa fila local e sobe quando a rede volta.
+Reenviar o mesmo evento não duplica — cada um nasce com um `id` gerado no
+aparelho, e o banco ignora o repetido.
 
 ---
 
@@ -61,6 +77,16 @@ A prova disso é o botão **Conferir o registro**, na aba Registro: ele
 reconstrói tudo do zero a partir dos eventos e compara com o que está na
 memória. Divergência ali é bug, não opinião.
 
+### Três coisas vivem na mesma fita
+
+`alvo_tipo` diz de qual delas o evento fala:
+
+| | o que é | quem mexe |
+|---|---|---|
+| **atividade** | a pendência do caminhão, com OS, semana e HH | PCM |
+| **movimentação** | a frota saiu do pátio e tem de voltar | os dois |
+| **preventiva** | o plano do mês, com o aperto de mão entre as áreas | os dois |
+
 ### Os eventos
 
 | tipo | quando | exige |
@@ -75,6 +101,11 @@ memória. Divergência ali é bug, não opinião.
 | `restaurada` | desfaz o cancelamento | — |
 | `editada` | mudou texto, OS, executante, tipo… | — |
 | `excluida` | sai das telas; o registro fica | — |
+| `mov_prometida` | a operação prometeu data | a data |
+| `mov_chegou` | a frota voltou | a data |
+| `prev_disponivel` | a operação disse quando a frota fica livre | "agora" ou data |
+| `prev_parada` | o PCM marcou o dia da parada | o dia |
+| `prev_realizada` | a preventiva saiu | a data |
 
 ### As três regras que o sistema impõe
 
@@ -86,6 +117,35 @@ memória. Divergência ali é bug, não opinião.
    contornar a regra acima sem querer. Programação se muda por `reprogramar()`.
 3. **A semana original nunca muda.** É a da primeira programação, e é contra
    ela que se mede o quanto uma atividade foi empurrada.
+
+### HH mede carga, não prazo
+
+`HH` é hora-homem: horas × pessoas. Ele diz **quanto custa de mão de obra**, e
+a duração em dias continua dizendo **quando fecha**. Os dois convivem porque os
+dados mostram que não há relação entre eles: nos 754 registros, atividades com o
+mesmo HH ocupam de um a cinco dias, e **548 estão com HH zerado**. Zero aqui
+quer dizer "ninguém estimou ainda", e os painéis dizem quantas são — somar isso
+como zero hora faria a semana parecer mais leve do que é.
+
+A oficina **terceirizada** fica fora da carga da equipe: 66 das 754 atividades
+estão lá, e elas não disputam o mecânico.
+
+### Aderência e vazão são perguntas diferentes
+
+- **Aderência**: *do que planejei para esta semana, quanto saiu?* Pune o que
+  ficou para trás, ignora o extra.
+- **Fechados na semana**: *quanto trabalho saiu nestes sete dias?* Conta o
+  extra e o atrasado que fechou fora da semana dele.
+
+Uma semana pode ter 0% de aderência e muito serviço entregue. Os dois aparecem
+lado a lado em Números, porque mostrar só um deixa metade da conversa de fora.
+
+### O atraso tem endereço
+
+Cada motivo da planilha tem uma área dona — peça não chegou é Suprimentos,
+frota não chegou é Operação, box bloqueado é Manutenção. O painel *De quem é o
+atraso* lê o motivo escrito em cada atividade em aberto e soma por área. É o que
+tira a conversa do "a manutenção não entrega".
 
 ### Concluir é datar
 
@@ -179,7 +239,10 @@ porque toda escrita já passa por `aplicar()`.
 | `js/backup.js` | exportar, restaurar, CSV, aviso de última cópia |
 | `js/ui.js` | criar elemento, caixa de diálogo, aviso, barra, medidor |
 | `js/tela/comum.js` | o cartão e a ficha — um lugar só onde atividade é desenhada e alterada |
-| `js/tela/*.js` | hoje, semana, carteira, frota, indicadores, historico, importar |
+| `js/nuvem.js` | o Supabase por `fetch`: ler desde um ponto, enviar, consultar de tempos em tempos |
+| `js/pessoas.js` | quem está usando, o papel, o que esse papel pode |
+| `js/tela/*.js` | entrar, operacao, hoje, semana, carteira, movimentacoes, preventivas, frota, indicadores, historico, importar |
+| `sql/01_esquema.sql` | a tabela de eventos e a política de só-insere |
 | `sw.js` | offline: rede primeiro, cache como reserva |
 | `testes/rodar.js` | os testes do núcleo |
 | `planilha/` | **o processo antigo, que continua funcionando** até o site assumir |
@@ -198,16 +261,30 @@ cruzamento com um export do Protheus.
 
 ---
 
-## Três coisas que a planilha escondia
+## O que a planilha escondia
 
-Achadas ao carregar os dados reais, e que mudam números que já foram usados:
+Achado ao carregar os dados reais, e que muda números já usados:
 
-1. **25 células da coluna OS não são OS** — dizem "ABRIR OS" ou "PENDENTE ABRIR
-   OS". São recado, não ordem. A cobertura de OS da planilha as contava como
-   ordem aberta: são **434 atividades com OS**, não 459. O recado não se perde,
-   vira aviso na importação.
-2. **Uma atividade cobre três ordens** (`007381,007382,007383`). Juntar os
-   dígitos criaria a OS inventada `007381007382007383`; aqui as três ficam
-   guardadas e o cruzamento com o Protheus responde por todas.
-3. **6 das 140 "reprogramadas" não eram** — tinham semana original igual à
-   semana. São **134**.
+1. **A situação das movimentações é digitada à mão** e pode discordar das datas
+   na mesma linha — são **16 divergências** hoje. No site ela é calculada: a
+   data é o fato, a palavra era opinião. A importação lista as diferenças em vez
+   de escolher calado.
+2. **Duas frotas voltaram sem ninguém ter prometido data.** Elas não entram no
+   percentual de pontualidade (não há prazo para julgar), mas contam como
+   entregues — senão o total não fecha com 51.
+3. **"Agora" e uma data moram na mesma coluna** de disponibilidade, o que impede
+   ordenar. Viraram duas coisas: uma marca e uma data.
+4. **A coluna `Status` das preventivas virou campo livre** ("feita na DAF · OS
+   022187 · 07–08/10: buscar…"). Virou observação; situação o site calcula.
+5. **19 atividades marcadas como concluídas sem data.** Entram abertas e saem
+   numa lista para datar — o sistema não inventa o dia em que o serviço saiu.
+
+## Uma divergência que só você resolve
+
+Na **semana 41**, a aba Semana da sua planilha mostra 35 programadas, 13
+concluídas e **37% de aderência**. Lendo as mesmas linhas eu encontro **37
+programadas, nenhuma com data de conclusão** — e 7 extras fechados nos sete
+dias. Confira o que a aba Semana está medindo: pode ser valor calculado num
+outro momento (o arquivo veio sem recalcular), ou uma definição diferente de
+"concluída". Preferi mostrar os dois números a escolher um e te dar um
+indicador errado com cara de certo.
