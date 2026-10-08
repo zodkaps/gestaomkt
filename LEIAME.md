@@ -50,28 +50,57 @@ de passar e seis que têm de ser recusadas.
 
 ## Ligar o lugar comum (Supabase)
 
-São **dois passos no painel**, uma vez só:
+Projeto: `https://qektypjhagoktpvvaxel.supabase.co` — o mesmo do site antigo.
 
-1. **SQL Editor → New query**: cole `sql/01_esquema.sql`, rode; depois
+São **três passos no painel**, uma vez só:
+
+1. **SQL Editor → New query**: rode `sql/00_conferir_rls.sql` primeiro. Toda
+   linha tem de voltar `ok`. Leia a seção abaixo antes de seguir.
+2. Ainda no SQL Editor: cole `sql/01_esquema.sql`, rode; depois
    `sql/02_acesso.sql`, rode.
-2. **Authentication → Providers → Email**: desligue **Confirm email**. Sem
+3. **Authentication → Providers → Email**: desligue **Confirm email**. Sem
    isso o Supabase manda confirmação para endereços `@makro.local` que não
    existem, e ninguém entra.
 
-Depois, em **Settings → API**, copie a *Project URL* e a chave **anon public**
-e ponha em `js/config.js`:
+Depois, em **Settings → API**, copie a chave do navegador e ponha em
+`js/config.js`:
 
 ```js
 export const NUVEM = {
-  url:  "https://xxxx.supabase.co",
-  anon: "eyJhbGciOi…",
+  url:   "https://qektypjhagoktpvvaxel.supabase.co",
+  chave: "sb_publishable_…",
 };
 ```
 
-Com isso ninguém nunca cola chave nenhuma — os quatro abrem o endereço e já
-estão no lugar certo. Essa chave é pública por desenho: quem protege os dados é
-a política do banco, não o segredo dela. Enquanto `config.js` estiver vazio, a
-aba Importar continua oferecendo colar à mão.
+Serve tanto a **publishable** nova (`sb_publishable_…`) quanto a **anon**
+legada (um JWT): o Supabase trocou o sistema de chaves e as duas vão no mesmo
+cabeçalho. O campo tem nome genérico de propósito — um campo chamado `anon`
+guardando uma publishable seria mentira na primeira leitura.
+
+Com as duas metades preenchidas, **ninguém cola nada**: os quatro abrem o
+endereço e já estão no lugar certo. Faltando qualquer metade, vale o que for
+colado à mão na aba Importar, e o site continua funcionando guardando só no
+navegador. `node testes/config.mjs` prova isso: monta uma cópia do site com o
+config preenchido e confere que ele nasce ligado e que a senha é aceita de
+primeira.
+
+### Antes de gravar a chave: confira o RLS
+
+**Este repositório é público.** A chave do navegador é feita para ficar à vista
+— mas o que ela alcança é decidido pelo RLS, tabela por tabela. Sem RLS numa
+tabela, essa chave lê a tabela inteira, de qualquer lugar do mundo.
+
+As tabelas deste site têm RLS e política (vem do `sql/02_acesso.sql`, provado
+contra Postgres de verdade em `testes/politicas.sh`). Mas este é o **mesmo
+projeto do site antigo**, e ele ainda carrega as tabelas daquele app —
+`tarefas`, `registros_falha`, `profiles`, `motoristas`, `componentes` e outras.
+Essas eu não criei e não sei como estão.
+
+Por isso `sql/00_conferir_rls.sql` vem antes de tudo. Qualquer linha que volte
+`⚠ ABERTA` é tabela que qualquer pessoa com o endereço do site conseguiria ler.
+Fecha com `alter table … enable row level security`, ou apaga o que não serve
+mais — ou, se o acervo antigo não interessa, um projeto novo só para este site
+é o mais limpo.
 
 ## O visual
 
@@ -276,6 +305,9 @@ porque toda escrita já passa por `aplicar()`.
 | `js/pessoas.js` | quem está usando, o papel, o que esse papel pode |
 | `js/tela/*.js` | entrar, operacao, hoje, semana, carteira, movimentacoes, preventivas, frota, indicadores, historico, importar |
 | `js/config.js` | o endereço e a chave do projeto — o único lugar a preencher |
+| `sql/00_conferir_rls.sql` | que tabela do projeto está aberta — rode antes de publicar a chave |
+| `testes/config.mjs` | prova que o config preenchido conecta sem ninguém colar nada |
+| `testes/supabase_falso.mjs` | um PostgREST + Auth de mentira, com as mesmas regras do banco |
 | `js/ui.js` | `tabela()` ordenável e `listaDupla()`, as duas formas da mesma lista |
 | `sql/02_acesso.sql` | tabela `pessoas`, papel, e as políticas por papel |
 | `testes/politicas.sh` | sobe um Postgres e prova que o banco recusa |

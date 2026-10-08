@@ -17,7 +17,7 @@ import { NUVEM, emailDe } from "./config.js";
 const TABELA = "eventos";
 
 let url = NUVEM.url || "";
-let chave = NUVEM.anon || "";
+let chave = NUVEM.chave || "";
 let sessao = null;          // { access_token, refresh_token, expira_em, email, nome }
 let ligadoEm = 0;
 
@@ -32,9 +32,12 @@ export function emailAtual() { return sessao ? sessao.email : ""; }
 
 export async function carregarConfig() {
   const c = await dados.lerMeta("nuvem", null);
-  // O que está no config.js manda: é o endereço que vale para os quatro. O que
-  // foi colado à mão só serve enquanto o config.js estiver vazio.
-  if (!NUVEM.url && c && c.url && c.chave) { url = c.url; chave = c.chave; }
+  // O config.js manda quando está COMPLETO — é o endereço que vale para os
+  // quatro. Faltando qualquer metade (hoje: a URL está lá e a chave não,
+  // esperando a conferência de RLS), vale o que foi colado à mão; senão o site
+  // ficaria preso num meio-termo que não conecta e não deixa colar.
+  const completo = !!(NUVEM.url && NUVEM.chave);
+  if (!completo && c && c.url && c.chave) { url = c.url; chave = c.chave; }
   sessao = await dados.lerMeta("sessao", null);
   return ligada();
 }
@@ -46,7 +49,12 @@ export async function configurar(novaUrl, novaChave) {
   if (!local && !/^https:\/\/[a-z0-9-]+\.[a-z0-9.-]+$/i.test(u)) {
     throw new Error("O endereço tem de ser o do projeto, assim: https://xxxx.supabase.co");
   }
-  if (k.length < 20) throw new Error("Essa chave parece curta demais.");
+  // Serve tanto a publishable nova (sb_publishable_…) quanto a anon legada
+  // (um JWT, bem mais longo). As duas vão no mesmo cabeçalho.
+  if (k.length < 20) {
+    throw new Error("Essa chave parece curta demais — espero a publishable " +
+      "(sb_publishable_…) ou a anon legada, de Settings → API.");
+  }
   const antes = [url, chave];
   url = u; chave = k;
   // Confere contra o Auth, não contra a tabela: a tabela agora exige estar
@@ -66,7 +74,7 @@ export async function configurar(novaUrl, novaChave) {
 }
 
 export async function desligar() {
-  url = NUVEM.url || ""; chave = NUVEM.anon || "";
+  url = NUVEM.url || ""; chave = NUVEM.chave || "";
   await dados.gravarMeta("nuvem", null);
   anunciar();
 }

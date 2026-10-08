@@ -1,16 +1,24 @@
 // O endereço do lugar comum.
 //
-// Estes dois valores são PÚBLICOS por desenho — a chave anon é feita para ficar
-// no navegador de quem usa, e quem protege os dados é a política do banco, não
-// o segredo dela. Deixá-los aqui é o que faz ninguém nunca mais colar nada: os
-// quatro abrem o endereço e já estão ligados.
+// Estes valores são PÚBLICOS por desenho — a chave do navegador é feita para
+// ficar no navegador de quem usa, e quem protege os dados é a política do
+// banco, não o segredo dela. Deixá-los aqui é o que faz ninguém nunca mais
+// colar nada: os quatro abrem o endereço e já estão ligados.
 //
-// Enquanto estiverem vazios, o site funciona guardando só no navegador, e a
-// tela Importar continua oferecendo colar à mão.
+// **Mas isso só é verdade se TODA tabela do projeto tiver RLS ligada.** Este
+// repositório é público, e este projeto ainda carrega as tabelas do site
+// antigo. Antes de gravar a chave aqui, rode `sql/00_conferir_rls.sql` e
+// confira que nenhuma volta como ABERTA. Com a chave em branco o site continua
+// funcionando: guarda só no navegador, e a aba Importar oferece colar à mão.
 
 export const NUVEM = {
-  url: "",      // https://xxxx.supabase.co
-  anon: "",     // a chave "anon public", de Settings → API
+  url: "https://qektypjhagoktpvvaxel.supabase.co",
+
+  // O Supabase trocou o sistema de chaves: `sb_publishable_…` substituiu a
+  // antiga `anon`, e as duas funcionam igual para quem chama — vão no
+  // cabeçalho `apikey`. Por isso o campo tem nome genérico: um campo chamado
+  // `anon` guardando uma publishable seria mentira na primeira leitura.
+  chave: "",
 };
 
 // O domínio interno dos acessos. Ninguém precisa ter e-mail: quem digita
