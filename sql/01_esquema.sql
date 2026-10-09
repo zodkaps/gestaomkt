@@ -31,12 +31,14 @@ create index if not exists eventos_alvo_idx    on public.eventos (alvo_tipo, alv
 create index if not exists eventos_ts_idx      on public.eventos (ts);
 create index if not exists eventos_autor_idx   on public.eventos (autor);
 
--- ── a única coisa que é trancada de verdade ────────────────────────────────
--- Entrar no site é escolher o nome numa lista, sem senha: o limite entre PCM e
--- operação é combinado, não trancado. Isto aqui é diferente — é o banco
--- recusando, para qualquer um e para sempre, apagar ou reescrever um
--- lançamento. O histórico é imutável por política do Postgres, não por
--- disciplina de quem usa.
+-- ── o histórico é imutável ─────────────────────────────────────────────────
+-- O banco recusa, para qualquer um e para sempre, apagar ou reescrever um
+-- lançamento. Por política do Postgres, não por disciplina de quem usa.
+--
+-- As políticas abaixo são as de partida, abertas a quem tiver a chave. Quem
+-- fecha de verdade é o `02_acesso.sql`, que amarra cada lançamento a quem
+-- entrou e ao papel dessa pessoa — por isso os dois são rodados em sequência,
+-- e rodar só este deixa a porta aberta.
 
 alter table public.eventos enable row level security;
 
