@@ -17,7 +17,9 @@
 // diz isso em voz alta na tela.
 
 const BANCO = "mkt";
-const VERSAO = 2;
+// 3 porque a chave da fita mudou de `seq` para `id`, e isso é migração. Ver
+// `abrirIndexedDB()`: a chave velha perdia lançamento feito offline.
+const VERSAO = 3;
 
 let db = null;
 export let modo = "indisponível";
@@ -29,17 +31,41 @@ function pedido(req) {
   });
 }
 
+/** A chave da fita é o `id`, e isso não é detalhe.
+ *
+ *  Era `seq`, e `seq` significa duas coisas diferentes: no evento nascido aqui
+ *  é um contador local (o maior que existe, mais um); no evento que desce da
+ *  nuvem é o número da sequência do Postgres. São duas numerações que se
+ *  cruzam — e, sendo `seq` a chave, baixar o evento número 7 da nuvem
+ *  SUBSTITUÍA o lançamento local que por acaso tinha ficado com o 7. O
+ *  apontamento feito sem sinal desaparecia: não ficava na fila e não chegava
+ *  ao servidor. Some, calado, exatamente no caso para o qual a fila existe.
+ *
+ *  O `id` nasce no aparelho, é único, e já é por ele que o Postgres descarta
+ *  repetido (`on_conflict=id`). É a chave certa desde o começo — o comentário
+ *  no alto deste arquivo sempre disse isso; era o código que discordava. */
 async function abrirIndexedDB() {
   if (!globalThis.indexedDB) throw new Error("sem IndexedDB");
   const req = indexedDB.open(BANCO, VERSAO);
   req.onupgradeneeded = () => {
     const d = req.result;
-    if (!d.objectStoreNames.contains("eventos")) {
-      d.createObjectStore("eventos", { keyPath: "seq", autoIncrement: true });
-    }
+    const tx = req.transaction;
     if (!d.objectStoreNames.contains("meta")) {
       d.createObjectStore("meta", { keyPath: "k" });
     }
+    if (!d.objectStoreNames.contains("eventos")) {
+      d.createObjectStore("eventos", { keyPath: "id" });
+      return;
+    }
+    if (tx.objectStore("eventos").keyPath === "id") return;
+    // Troca a chave sem perder a fita de quem já estava usando: lê tudo,
+    // refaz o armazém com a chave certa e devolve os eventos.
+    const tudo = tx.objectStore("eventos").getAll();
+    tudo.onsuccess = () => {
+      d.deleteObjectStore("eventos");
+      const novo = d.createObjectStore("eventos", { keyPath: "id" });
+      for (const ev of tudo.result || []) if (ev && ev.id) novo.put(ev);
+    };
   };
   return pedido(req);
 }
