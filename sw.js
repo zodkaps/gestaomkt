@@ -7,7 +7,7 @@
 // A estratégia é rede primeiro, cache como rede reserva: assim uma versão nova
 // do site chega sem precisar de truque, e a falta de rede não trava nada.
 
-const VERSAO = "mkt-v3";
+const VERSAO = "mkt-v4";
 const ARQUIVOS = [
   "./",
   "./index.html",
@@ -35,9 +35,17 @@ const ARQUIVOS = [
   "./js/tela/operacao.js",
   "./js/tela/movimentacoes.js",
   "./js/tela/preventivas.js",
+  "./js/tela/diagnostico.js",
   "./js/nuvem.js",
   "./js/pessoas.js",
   "./js/config.js",
+  // Os arquivos SQL entram no cache porque o diagnóstico os mostra para copiar:
+  // quem está consertando a instalação é justamente quem não tem o site
+  // funcionando inteiro.
+  "./sql/01_esquema.sql",
+  "./sql/02_acesso.sql",
+  "./sql/03_liberar_acessos.sql",
+  "./sql/00_conferir_rls.sql",
 ];
 
 self.addEventListener("install", e => {

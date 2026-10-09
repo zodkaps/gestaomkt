@@ -35,9 +35,16 @@ const TELAS = [
     carregar: () => import("./tela/historico.js") },
   { id: "importar", icone: "⇪", nome: "Importar", grupo: "Gestão", papeis: ["pcm"],
     carregar: () => import("./tela/importar.js") },
+  { id: "diagnostico", icone: "✚", nome: "Diagnóstico", grupo: "Gestão", papeis: ["pcm"],
+    carregar: () => import("./tela/diagnostico.js") },
   { id: "entrar", icone: "", nome: "Entrar", grupo: "", papeis: [], oculta: true,
     carregar: () => import("./tela/entrar.js") },
 ];
+
+// As duas telas que valem SEM ninguém dentro. O diagnóstico está aqui porque é
+// exatamente quando não se consegue entrar que ele precisa abrir — trancá-lo
+// atrás do login seria guardar a chave dentro de casa.
+const PORTAS = new Set(["entrar", "diagnostico"]);
 
 function contagemOperacao() {
   const hoje = M.hoje();
@@ -66,7 +73,9 @@ function alvo() {
   // Entrou, mas o e-mail não está na tabela `pessoas`: sem papel não há tela
   // nenhuma que faça sentido, e um menu vazio não explica nada. Volta para a
   // porta, que agora sabe dizer o que houve.
-  if (!pessoas.quem() || !pessoas.papel()) return { id: "entrar", params };
+  if (!pessoas.quem() || !pessoas.papel()) {
+    return { id: PORTAS.has(id) ? id : "entrar", params };
+  }
   const ok = TELAS.find(t => t.id === id && (t.oculta || t.papeis.includes(pessoas.papel())));
   return { id: ok ? id : inicial(), params };
 }
@@ -106,10 +115,22 @@ function pintarPessoa() {
     el("span", { class: "av" }, iniciais),
     el("span", { class: "quem" },
       el("b", {}, p.nome),
-      el("small", {}, (pessoas.PAPEIS[p.papel] || {}).rotulo || "sem papel"))));
+      // No modo local o que mais importa saber não é o papel — é que o que se
+      // lança ainda não saiu daqui.
+      el("small", { title: (pessoas.PAPEIS[p.papel] || {}).rotulo || "" },
+        p.local ? "só neste aparelho"
+          : ((pessoas.PAPEIS[p.papel] || {}).rotulo || "sem papel")))));
 }
 
+// Carregar uma tela tem um `await` no meio (o módulo chega por rede), e duas
+// pinturas podiam se cruzar aí: a de começar e a do `hashchange` que ela mesma
+// provoca. As duas limpavam e as duas desenhavam — e a tela aparecia DUAS
+// VEZES, uma embaixo da outra. Um contador resolve: só a pintura mais nova
+// chega ao fim.
+let geracaoTela = 0;
+
 async function pintar() {
+  const minha = ++geracaoTela;
   const { id, params } = alvo();
   const tela = TELAS.find(t => t.id === id);
   pintarMenu(id);
@@ -119,12 +140,21 @@ async function pintar() {
 
   const raiz = $("#tela");
   if (atual && atual.desmontar) { try { atual.desmontar(); } catch (e) { /* segue */ } }
+  atual = null;
   limpar(raiz);
   try {
     const mod = await tela.carregar();
-    atual = (await mod.montar(raiz, ctx, params)) || null;
+    if (minha !== geracaoTela) return;
+    limpar(raiz);
+    const montado = (await mod.montar(raiz, ctx, params)) || null;
+    if (minha !== geracaoTela) {
+      if (montado && montado.desmontar) { try { montado.desmontar(); } catch (e) { /* segue */ } }
+      return;
+    }
+    atual = montado;
   } catch (e) {
     console.error(e);
+    if (minha !== geracaoTela) return;
     limpar(raiz).append(el("p", { class: "nada" }, "Não consegui abrir esta tela: " + e.message));
   }
   await faixa();
@@ -133,43 +163,89 @@ async function pintar() {
 
 // ── a faixa de avisos ───────────────────────────────────────────────────────
 
+// Duas passadas da faixa podiam se atropelar: `pintar()` chama uma, o
+// `ev.ouvir` chama outra, e as duas limpavam e escreviam no mesmo lugar com um
+// `await` no meio — o texto saía duplicado na tela. Agora quem monta não
+// escreve: devolve o que deve aparecer, e só a passada mais nova chega à tela.
+let geracaoFaixa = 0;
+
 async function faixa() {
+  const minha = ++geracaoFaixa;
+  const r = await montarFaixa();
+  if (minha !== geracaoFaixa) return;
   const f = $("#faixa");
   limpar(f);
-  f.className = "";
-  if (!pessoas.quem()) return;
+  f.className = (r && r.classe) || "";
+  if (r) f.append(...r.nos);
+}
+
+async function montarFaixa() {
+  if (!pessoas.quem()) return null;
 
   if (dados.modo === "memória") {
-    f.append(el("span", {}, "⚠ Este navegador não deixa guardar dados. " +
-      "Enquanto esta aba estiver aberta funciona, mas nada fica salvo."));
-    return;
+    return { classe: "", nos: [el("span", {},
+      "⚠ Este navegador não deixa guardar dados. " +
+      "Enquanto esta aba estiver aberta funciona, mas nada fica salvo.")] };
   }
 
   const fila = await dados.pendentes();
+
+  // Trabalhando sem sessão: isto não pode ficar discreto. Sem senha não há
+  // escrita no banco, então o que está sendo lançado existe só aqui — e dizer
+  // isso com o número na frente é o que faz alguém entrar e destravar a fila.
+  if (pessoas.local()) {
+    return { classe: "morna", nos: [
+      el("span", {}, "Você está trabalhando só neste aparelho, como " +
+        `${pessoas.nome()}. ` + (fila.length
+          ? `${fila.length} lançamento${fila.length === 1 ? "" : "s"} espera${fila.length === 1 ? "" : "m"} ` +
+            `a senha de ${pessoas.nome()} para a equipe ver.`
+          : "Nada sobe para a equipe até você entrar com senha.")),
+      el("button", { class: "discreto", onclick: () => { location.hash = "#/entrar"; } },
+        "Entrar com senha"),
+    ] };
+  }
+
   if (nuvem.ligada() && fila.length) {
-    f.className = "morna";
-    f.append(el("span", {}, `${fila.length} lançamento${fila.length === 1 ? "" : "s"} ` +
-      "ainda não subiu — sem rede, ou o banco não respondeu. Fica guardado aqui e sobe sozinho."),
-      el("button", { class: "discreto", onclick: async () => {
-        const r = await ev.sincronizar();
-        avisar(r.erro ? "Ainda não: " + r.erro : `Subiu ${r.subiram}, desceu ${r.desceram}.`,
-          r.erro ? "ruim" : "");
-        faixa();
-      } }, "Tentar agora"));
-    return;
+    const autores = await ev.autoresNaFila();
+    // De outra pessoa é outra história: não é falta de rede, é falta da senha
+    // de quem assinou. A política do banco recusaria o lançamento, e por isso
+    // ele fica parado — dizer de quem é o único jeito de resolver.
+    const meus = autores.filter(a => a.autor === pessoas.nome())
+      .reduce((s, a) => s + a.quantos, 0);
+    const outros = autores.filter(a => a.autor !== pessoas.nome());
+    const nos = [];
+    if (meus) {
+      nos.push(el("span", {}, `${meus} lançamento${meus === 1 ? "" : "s"} seu${meus === 1 ? "" : "s"} ` +
+        "ainda não subiu — sem rede, ou o banco não respondeu. Fica guardado aqui e sobe sozinho."));
+    }
+    if (outros.length) {
+      nos.push(el("span", {}, (meus ? " E " : "") +
+        outros.map(a => `${a.quantos} de ${a.autor}`).join(", ") +
+        (outros.length === 1 && outros[0].quantos === 1 ? " espera" : " esperam") +
+        " a senha de quem assinou, neste aparelho."));
+    }
+    nos.push(el("button", { class: "discreto", onclick: async () => {
+      const r = await ev.sincronizar();
+      avisar(r.erro ? "Ainda não: " + r.erro : `Subiu ${r.subiram}, desceu ${r.desceram}.`,
+        r.erro ? "ruim" : "");
+      faixa();
+    } }, "Tentar agora"));
+    return { classe: "morna", nos };
   }
 
   if (!nuvem.ligada() && ev.log.length && !pessoas.ehOperacao()) {
     const b = await bk.estado();
     const perigo = b.nunca ? b.desde > 30 : (b.desde > 50 || b.dias > 7);
-    if (!perigo && !(b.nunca || b.desde > 0)) return;
-    f.className = perigo ? "" : "morna";
-    f.append(el("span", {}, b.nunca
-      ? `Sem banco e sem cópia: ${b.desde} lançamentos só existem neste navegador.`
-      : `Última cópia há ${b.dias === 0 ? "menos de um dia" : b.dias + (b.dias === 1 ? " dia" : " dias")}` +
-        (b.desde ? `, com ${b.desde} lançamento${b.desde === 1 ? "" : "s"} depois dela.` : ".")),
-      el("button", { class: "discreto", onclick: salvarBackup }, "Salvar agora"));
+    if (!perigo && !(b.nunca || b.desde > 0)) return null;
+    return { classe: perigo ? "" : "morna", nos: [
+      el("span", {}, b.nunca
+        ? `Sem banco e sem cópia: ${b.desde} lançamentos só existem neste navegador.`
+        : `Última cópia há ${b.dias === 0 ? "menos de um dia" : b.dias + (b.dias === 1 ? " dia" : " dias")}` +
+          (b.desde ? `, com ${b.desde} lançamento${b.desde === 1 ? "" : "s"} depois dela.` : ".")),
+      el("button", { class: "discreto", onclick: salvarBackup }, "Salvar agora"),
+    ] };
   }
+  return null;
 }
 
 async function salvarBackup() {
@@ -210,7 +286,13 @@ async function comecar() {
   ev.ouvir(() => { faixa(); pintarMenu(alvo().id); });
   nuvem.aoLigar(() => { ligarNuvem(); });
 
-  if (!pessoas.quem()) location.hash = "#/entrar";
+  // Sem ninguém dentro a URL tem de ser uma das portas — mas se já FOR uma, não
+  // se troca: mandar quem abriu o link do diagnóstico para a tela de entrar é
+  // exatamente o que ele não consegue fazer agora.
+  if (!pessoas.quem()) {
+    const porta = alvo().id;
+    if (!location.hash.startsWith("#/" + porta)) location.hash = "#/" + porta;
+  }
 
   await pintar();
   await ligarNuvem();

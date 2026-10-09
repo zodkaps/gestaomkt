@@ -9,7 +9,7 @@
 // Precisa do servidor de mentira (`testes/supabase_falso.mjs`) e do site
 // servido (`python3 -m http.server 8123`).
 import pw from "/opt/node-tools/node_modules/playwright/index.js";
-import { servirCopia, entrarComo } from "./sitefalso.mjs";
+import { servirCopia, entrarComo, entrarLocalComo } from "./sitefalso.mjs";
 const { chromium } = pw;
 
 const NUVEM = process.env.NUVEM_FALSA || "http://127.0.0.1:8124";
@@ -120,6 +120,120 @@ const fechou = await p.evaluate(() => ({
 }));
 ok("Enter num campo confirma, sem precisar mirar o botão",
   fechou.caixas === 0 && fechou.em === "2026-10-09", JSON.stringify(fechou));
+
+// ── a nuvem cai e o site continua ─────────────────────────────────────────
+// O defeito que isto cobre era de desenho: com o endereço do projeto no
+// código, a única entrada era a senha do Supabase. Provedor de e-mail
+// desligado — que foi o que aconteceu de verdade — e ninguém entrava num site
+// que funciona inteiro com os dados locais.
+const falhar = async modo => {
+  await fetch(`${NUVEM}/__falha`, { method: "POST",
+    headers: { "content-type": "application/json" }, body: JSON.stringify({ modo }) });
+};
+
+await p.evaluate(async () => { await mkt.pessoas.sair(); location.hash = "#/entrar"; });
+await falhar("provedor_off");
+await p.reload({ waitUntil: "networkidle" });
+await p.waitForSelector('button:has-text("Trabalhar neste aparelho")', { timeout: 8000 });
+const motivo = await p.evaluate(() =>
+  (document.querySelector(".alternativa .obs") || {}).textContent || "");
+ok("a porta descobre sozinha que a senha não vai funcionar",
+  /desligado/i.test(motivo), motivo);
+
+// A porta tinha de aparecer UMA vez. Carregar o módulo da tela tem um `await`
+// no meio, e a pintura de começar cruzava com a do `hashchange` que ela mesma
+// provocava: as duas desenhavam, e o cartão de entrar saía duplicado.
+ok("a porta aparece uma vez só",
+  (await p.$$("#entrar-tela")).length === 1,
+  String((await p.$$("#entrar-tela")).length));
+
+await entrarLocalComo(p, "Pedro");
+const local = await p.evaluate(() => ({
+  nome: mkt.pessoas.nome(), local: mkt.pessoas.local(),
+  papel: mkt.pessoas.papel(),
+  faixa: (document.querySelector("#faixa") || {}).textContent || "",
+}));
+ok("com a nuvem caída, dá para entrar e trabalhar",
+  local.nome === "Pedro" && local.local && local.papel === "operacao",
+  JSON.stringify(local));
+ok("e a faixa diz, sem rodeio, que nada sobe sem senha",
+  /só neste aparelho/i.test(local.faixa), local.faixa.slice(0, 120));
+
+const FROTA = "F-SEMNUVEM-" + Date.now().toString(36);
+const movLocal = await p.evaluate(async frota => {
+  const [e] = await mkt.ev.aplicar(mkt.ev.pedirMovimentacao({
+    frota, motivo_mov: "nuvem caída" }));
+  return { alvo: e.alvo, autor: e.autor };
+}, FROTA);
+const fila1 = await p.evaluate(() => mkt.ev.autoresNaFila());
+ok("o que a operação lança fica na fila, assinado por ela",
+  movLocal.autor === "Pedro" && fila1.some(a => a.autor === "Pedro"),
+  JSON.stringify({ movLocal, fila1 }));
+
+// ── a fila de um não tranca a do outro ────────────────────────────────────
+// O envio é um lote só, e a política do banco recusa lançamento assinado por
+// outra pessoa: sem separar por autor, o evento do Pedro no meio faria o lote
+// inteiro do Mateus voltar — e a fila travava para os dois.
+await falhar("");
+await p.click('#faixa button:has-text("Entrar com senha")');
+await p.waitForSelector('input[placeholder="Seu nome"]', { timeout: 8000 });
+const porta = await p.evaluate(() => ({
+  nome: document.querySelector('input[placeholder="Seu nome"]').value,
+  aviso: (document.querySelector("#entrar-tela .morno") || {}).textContent || "",
+}));
+ok("a porta já vem com o nome de quem tem lançamento parado",
+  porta.nome === "Pedro" && /Pedro/.test(porta.aviso), JSON.stringify(porta));
+
+await entrarComo(p, "Mateus");
+const ATIV = "F-PCM-" + Date.now().toString(36);
+const doPcm = await p.evaluate(async frota => {
+  const [e] = await mkt.ev.aplicar(mkt.ev.criar({
+    frota, atividade: "Revisar freio depois da nuvem voltar", tipo: "Corretiva" }));
+  return e.alvo;
+}, ATIV);
+await p.evaluate(() => mkt.ev.sincronizar());
+await p.waitForTimeout(1500);
+const depois = await p.evaluate(async alvos => {
+  const noServidor = (await mkt.nuvem.baixarDesde(0)).map(e => e.alvo);
+  return {
+    fila: await mkt.ev.autoresNaFila(),
+    // O evento do Pedro tem de continuar EXISTINDO aqui, não enviado. A chave
+    // velha da fita o apagava: baixar da nuvem o evento de número igual
+    // substituía o dele, e o apontamento sumia sem subir.
+    oDoPedro: (await mkt.dados.lerEventos())
+      .filter(e => e.alvo === alvos.mov).map(e => `${e.autor}:enviado=${e.enviado}`),
+    pcmSubiu: noServidor.includes(alvos.pcm),
+    operacaoSubiu: noServidor.includes(alvos.mov),
+    faixa: (document.querySelector("#faixa") || {}).textContent || "",
+  };
+}, { pcm: doPcm, mov: movLocal.alvo });
+ok("o lançamento do Mateus sobe mesmo com o do Pedro parado na frente",
+  depois.pcmSubiu && !depois.operacaoSubiu, JSON.stringify(depois).slice(0, 240));
+ok("e o do Pedro continua guardado aqui, inteiro, esperando a senha dele",
+  depois.oDoPedro.length === 1 && depois.oDoPedro[0] === "Pedro:enviado=false",
+  JSON.stringify(depois.oDoPedro));
+ok("e a faixa diz de quem é o que está esperando",
+  /Pedro/.test(depois.faixa), depois.faixa.slice(0, 160));
+ok("e diz uma vez só, sem texto duplicado",
+  depois.faixa.split("de Pedro").length === 2, depois.faixa.slice(0, 200));
+
+// ── e sobe quando a pessoa certa entra ────────────────────────────────────
+await p.evaluate(async () => { await mkt.pessoas.sair(); });
+await p.reload({ waitUntil: "networkidle" });
+await p.waitForSelector('input[placeholder="Seu nome"]', { timeout: 8000 });
+await entrarComo(p, "Pedro", "makro2026", "operacao");
+await p.waitForTimeout(1800);
+const fim = await p.evaluate(async alvo => {
+  await mkt.ev.sincronizar();
+  const noServidor = (await mkt.nuvem.baixarDesde(0)).map(e => e.alvo);
+  return {
+    fila: await mkt.ev.autoresNaFila(),
+    subiu: noServidor.includes(alvo),
+    local: mkt.pessoas.local(),
+  };
+}, movLocal.alvo);
+ok("entrando com a senha dele, o que ficou guardado sobe e a fila esvazia",
+  fim.subiu && fim.fila.length === 0 && !fim.local, JSON.stringify(fim));
 
 await nav.close();
 site.fechar();

@@ -18,6 +18,9 @@ const TIPOS_OPERACAO = new Set(["criada", "importada", "editada",
 //   permissao  → tabela existe, mas sem GRANT (falta o 02_acesso.sql)
 //   sem_pessoa → autentica, mas o e-mail não está na tabela `pessoas`
 //   confirmacao → projeto com "Confirm email" ligado, como vem de fábrica
+//   provedor_off → provedor Email DESLIGADO: ninguém entra com senha, e foi
+//                  isto que trancou a equipe inteira para fora do site
+//   projeto_fora → o projeto não responde nada, como num banco pausado
 let falha = "";
 
 const contas = new Map();      // email → senha
@@ -48,13 +51,24 @@ createServer(async (req, res) => {
     return json(res, 200, { falha });
   }
 
+  // Projeto pausado ou fora do ar: nem o Auth responde. É o caso em que o site
+  // tem de oferecer trabalhar neste aparelho — antes, aqui ele simplesmente
+  // não deixava entrar.
+  if (falha === "projeto_fora") {
+    return json(res, 503, { message: "service unavailable" });
+  }
+
   // ── auth ──
   if (u.pathname === "/auth/v1/settings") {
-    return json(res, 200, { external: {}, disable_signup: false,
-      mailer_autoconfirm: falha !== "confirmacao" });
+    return json(res, 200, { external: { email: falha !== "provedor_off" },
+      disable_signup: false, mailer_autoconfirm: falha !== "confirmacao" });
   }
   if (u.pathname === "/auth/v1/signup") {
     const b = await corpo(req);
+    if (falha === "provedor_off") {
+      return json(res, 422, { error_code: "email_provider_disabled",
+        msg: "Email signups are disabled" });
+    }
     if (contas.has(b.email)) return json(res, 400, { msg: "User already registered" });
     contas.set(b.email, b.password);
     const t = "tok" + (++n);
@@ -64,6 +78,10 @@ createServer(async (req, res) => {
   }
   if (u.pathname === "/auth/v1/token") {
     const b = await corpo(req);
+    if (falha === "provedor_off") {
+      return json(res, 422, { error_code: "email_provider_disabled",
+        msg: "Email logins are disabled" });
+    }
     if (u.searchParams.get("grant_type") === "refresh_token") {
       const t = "tok" + (++n);
       const email = [...tokens.values()][0];

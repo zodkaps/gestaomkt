@@ -26,8 +26,16 @@ export const NUVEM = {
 // não aparece em tela nenhuma.
 export const DOMINIO = "makro.local";
 
+/** O que foi digitado vira o e-mail da conta.
+ *
+ *  Quem digita "Pedro" vira pedro@makro.local. Mas o campo se chama "Nome" e
+ *  as pessoas digitam o e-mail delas assim mesmo — e aí "fulano@gmail.com"
+ *  virava "fulano.gmail.com@makro.local", que não é conta de ninguém e dá
+ *  "nome ou senha não conferem" sem explicar nada. Tendo @, vai como está.
+ */
 export function emailDe(nome) {
-  return String(nome || "").trim().toLowerCase()
-    .normalize("NFD").replace(/[̀-ͯ]/g, "")
+  const t = String(nome || "").trim().toLowerCase();
+  if (t.includes("@")) return t;
+  return t.normalize("NFD").replace(/\p{Diacritic}/gu, "")
     .replace(/[^a-z0-9]+/g, ".").replace(/^\.|\.$/g, "") + "@" + DOMINIO;
 }

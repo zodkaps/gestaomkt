@@ -20,14 +20,41 @@ controle do PCM e o canal de resposta da operação.
 
 Cada um entra com **nome e senha**. Ninguém precisa ter e-mail: quem digita
 "Pedro" entra como `pedro@makro.local`, e isso é detalhe que não aparece em
-tela nenhuma. A senha é guardada e conferida pelo Supabase — nunca por este
-código, nunca neste repositório.
+tela nenhuma. Quem digitar o e-mail inteiro no campo Nome também entra — o
+campo aceita os dois. A senha é guardada e conferida pelo Supabase — nunca por
+este código, nunca neste repositório.
 
 - **Primeiro acesso da equipe**: na tela de entrar, o botão de baixo cria os
   quatro acessos, um de cada vez.
 - **Esqueceu a senha**: no painel do Supabase, Authentication → Users.
 - **Sem rede**: o site continua aberto com a sessão guardada e a fila local;
   as renovações acontecem quando a rede volta.
+
+### Trabalhar neste aparelho, quando o banco não responde
+
+Este site nasceu local-first: ele funciona inteiro com os dados do próprio
+navegador, e a nuvem é o que o torna **compartilhado**, não o que o torna
+utilizável. Mesmo assim, por um erro de desenho, bastava o projeto não
+responder — provedor de e-mail desligado, projeto pausado — para não haver
+entrada nenhuma.
+
+Agora, quando a autenticação falha por qualquer motivo, a tela de entrar
+oferece **trabalhar neste aparelho**: escolher quem é entre os quatro e seguir
+usando o site. O papel vem da mesma lista de sempre, e tudo que for lançado
+entra na fila de saída.
+
+Isso não abre buraco nenhum. **Sem sessão não há como escrever no banco**: o
+que é lançado fica guardado aqui até alguém entrar com senha de verdade, e aí o
+Postgres confere `autor = nome_atual()` como sempre. Duas consequências que a
+tela deixa explícitas:
+
+- a faixa no alto diz, enquanto durar, *"você está trabalhando só neste
+  aparelho"* — com o número de lançamentos parados;
+- a fila **sobe só o que é do autor que entrou**. O envio é um lote só e o
+  banco recusa lançamento assinado por outra pessoa: sem separar por autor, um
+  evento do Pedro no meio faria o lote inteiro do Mateus voltar, e a fila
+  travava para os dois. O que é de outro espera a senha de quem assinou, e a
+  faixa diz de quem é.
 
 ### O limite entre PCM e operação é parede, não combinado
 
@@ -58,9 +85,16 @@ São **três passos no painel**, uma vez só:
    linha tem de voltar `ok`. Leia a seção abaixo antes de seguir.
 2. Ainda no SQL Editor: cole `sql/01_esquema.sql`, rode; depois
    `sql/02_acesso.sql`, rode.
-3. **Authentication → Providers → Email**: desligue **Confirm email**. Sem
-   isso o Supabase manda confirmação para endereços `@makro.local` que não
-   existem, e ninguém entra.
+3. **Authentication → Sign In / Providers**. São **dois interruptores
+   diferentes**, e confundi-los tranca a equipe inteira para fora:
+   - o provedor **Email** fica **LIGADO** (desligá-lo dá *"Email logins are
+     disabled"* e ninguém entra com senha);
+   - dentro dele, **Confirm email** fica **DESLIGADO** (ligado, o Supabase
+     manda confirmação para endereços `@makro.local` que não existem, e os
+     acessos nascem presos).
+
+   Se acessos já foram criados com o Confirm email ligado, desligar não solta
+   os que já existem: rode `sql/03_liberar_acessos.sql`.
 
 Depois, em **Settings → API**, copie a chave do navegador e ponha em
 `js/config.js`:
@@ -99,6 +133,34 @@ Os erros de instalação chegam traduzidos, com o passo que resolve:
 
 `node testes/config.mjs` prova cada uma dessas telas contra um Supabase de
 mentira que finge a falha.
+
+### A tela de Diagnóstico
+
+Uma passada, uma lista. A instalação tem seis coisas que podem faltar, e
+descobri-las uma por vez — cada uma por um erro em inglês na hora de entrar —
+custou dias. A tela **Diagnóstico** confere todas de uma vez:
+
+| confere | quando falha, mostra |
+|---|---|
+| o endereço e a chave respondem | o que está em `js/config.js` |
+| o provedor **Email** está ligado | onde ligar, e que é diferente de *Confirm email* |
+| o **Confirm email** está desligado | onde desligar, e o SQL que solta quem já travou |
+| a tabela `eventos` existe | `sql/01_esquema.sql`, com botão de copiar |
+| a tabela `pessoas` existe e está protegida | `sql/02_acesso.sql`, com botão de copiar |
+| o seu acesso tem papel | qual e-mail o site usou |
+
+Cada ✗ traz o passo exato e o arquivo SQL pronto para copiar — buscado de
+`sql/` na hora, para a instrução nunca divergir do que está versionado.
+
+Ela fica no menu, em Gestão, **e abre sem ninguém estar dentro**: é justamente
+quando não se consegue entrar que ela precisa abrir, e trancá-la atrás do login
+seria guardar a chave dentro de casa. A tela de entrar tem o atalho — *"O que
+falta no banco"*.
+
+As tabelas se leem de dois jeitos, e qual vale depende de haver sessão: **sem
+entrar**, "sem permissão" é o certo (prova que a tabela existe e que o anônimo
+não alcança); **já dentro**, o certo é ler — "sem permissão" com sessão quer
+dizer que o `02_acesso.sql` não rodou.
 
 ### Antes de gravar a chave: confira o RLS
 
@@ -310,7 +372,7 @@ porque toda escrita já passa por `aplicar()`.
 | `js/app.js` | carrega a fita, escolhe a tela, cuida do aviso de backup |
 | `js/eventos.js` | **a única porta de escrita**: `aplicar`, `reconstruir`, `conferir` |
 | `js/modelo.js` | contas puras: semana ISO, prazo, situação, aderência, mix, backlog |
-| `js/dados.js` | IndexedDB → localStorage → memória, nessa ordem de queda |
+| `js/dados.js` | IndexedDB → localStorage → memória, nessa ordem de queda; a fita é chaveada pelo `id` |
 | `js/texto.js` | identidade de atividade (esqueleto + posição) |
 | `js/planilha.js` | XLSX e CSV viram linhas; datas em qualquer formato viram ISO |
 | `js/importar.js` | leitura da planilha, mapeamento do Protheus, reconciliação |
@@ -319,12 +381,13 @@ porque toda escrita já passa por `aplicar()`.
 | `js/tela/comum.js` | o cartão e a ficha — um lugar só onde atividade é desenhada e alterada |
 | `js/nuvem.js` | o Supabase por `fetch`: ler desde um ponto, enviar, consultar de tempos em tempos |
 | `js/pessoas.js` | quem está usando, o papel, o que esse papel pode |
-| `js/tela/*.js` | entrar, operacao, hoje, semana, carteira, movimentacoes, preventivas, frota, indicadores, historico, importar |
+| `js/tela/*.js` | entrar, operacao, hoje, semana, carteira, movimentacoes, preventivas, frota, indicadores, historico, importar, diagnostico |
+| `js/tela/diagnostico.js` | o que falta para o site funcionar em equipe, com o SQL para copiar |
 | `js/config.js` | o endereço e a chave do projeto — o único lugar a preencher |
 | `sql/00_conferir_rls.sql` | que tabela do projeto está aberta — rode antes de publicar a chave |
 | `sql/03_liberar_acessos.sql` | solta acessos presos na confirmação de e-mail |
 | `testes/config.mjs` | prova que o config preenchido conecta sem ninguém colar nada |
-| `testes/interacao.mjs` | o comportamento do mouse: selecionar texto não abre nem fecha nada |
+| `testes/interacao.mjs` | o mouse, e entrar e trabalhar com a nuvem caída |
 | `testes/sitefalso.mjs` | serve uma cópia do site apontada para o Supabase de mentira |
 | `testes/supabase_falso.mjs` | um PostgREST + Auth de mentira, com as mesmas regras do banco |
 | `js/ui.js` | `tabela()` ordenável e `listaDupla()`, as duas formas da mesma lista |
@@ -344,8 +407,17 @@ node testes/rodar.js caminho/da/sua.xlsx
 
 Rodam em node contra a **planilha de verdade**: teste que só passa com dado
 inventado não prova que a carga funciona. Conferem a identidade de atividade,
-semana ISO e prazo, as regras do log, a carga inteira, o backup ida e volta e o
-cruzamento com um export do Protheus.
+semana ISO e prazo, as regras do log, a carga inteira, o backup ida e volta, o
+cruzamento com um export do Protheus e o modo de trabalhar sem banco.
+
+As outras três precisam do Supabase de mentira em pé:
+
+```bash
+node testes/supabase_falso.mjs &     # PostgREST + Auth, com as regras do banco
+node testes/config.mjs               # nasce ligado, diagnóstico, nome ou e-mail
+node testes/interacao.mjs            # o mouse, e a nuvem caindo e voltando
+bash testes/politicas.sh             # sobe um Postgres e prova que ele recusa
+```
 
 ---
 

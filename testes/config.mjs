@@ -120,6 +120,96 @@ const criou = await p.evaluate(async n => {
 }, "Teste " + Date.now().toString(36));
 ok("com a confirmação desligada, cria normalmente", criou === "criou", criou);
 
+// ── nome ou e-mail, a mesma conta ─────────────────────────────────────────
+// O campo se chama "Nome" e ele digitou o e-mail dele. Virava
+// "fulano.gmail.com@makro.local" e dava "nome ou senha não conferem" sem
+// explicar nada — o pior tipo de erro, o que não aponta para lugar nenhum.
+await p.evaluate(() => mkt.pessoas.sair());
+await p.goto(site.endereco, { waitUntil: "networkidle" });
+await p.waitForTimeout(400);
+await p.fill('input[placeholder="Seu nome"]', "mateus@makro.local");
+await p.fill('input[placeholder="Senha"]', "makro2026");
+await p.click('button[type=submit]');
+await p.waitForTimeout(2200);
+const porEmail = await p.evaluate(() => ({ nome: mkt.pessoas.nome(), papel: mkt.pessoas.papel() }));
+ok("quem digita o e-mail inteiro no campo Nome entra na mesma conta",
+  porEmail.nome === "Mateus" && porEmail.papel === "pcm", JSON.stringify(porEmail));
+
+// ── o diagnóstico aponta o item certo ─────────────────────────────────────
+// Uma tela, uma passada. O que isto prova é que cada falha acende o SEU item e
+// não acende os outros — um diagnóstico que acusa tudo junto não serve.
+const diag = () => p.evaluate(async () => {
+  const itens = await mkt.nuvem.diagnostico();
+  return Object.fromEntries(itens.map(i => [i.nome, i.estado]));
+});
+
+const bom = await diag();
+ok("com tudo de pé, nada é acusado",
+  Object.values(bom).every(v => v === "ok"), JSON.stringify(bom));
+
+await falhar("provedor_off");
+const d1 = await diag();
+ok("provedor Email desligado acende só o provedor",
+  d1.provedor === "falta" && d1.config === "ok" && d1.confirmacao === "ok" &&
+  d1.eventos === "ok" && d1.pessoas === "ok" && d1.eu === "ok", JSON.stringify(d1));
+
+await falhar("confirmacao");
+const d2 = await diag();
+ok("Confirm email ligado acende só a confirmação",
+  d2.confirmacao === "falta" && d2.provedor === "ok" && d2.eventos === "ok",
+  JSON.stringify(d2));
+
+await falhar("tabela");
+const d3 = await diag();
+ok("tabelas faltando acendem as duas tabelas",
+  d3.eventos === "falta" && d3.pessoas === "falta" && d3.provedor === "ok",
+  JSON.stringify(d3));
+
+await falhar("permissao");
+const d4 = await diag();
+ok("banco recusando com a sessão aberta aponta o 02_acesso.sql",
+  d4.eventos === "falta" && d4.pessoas === "falta", JSON.stringify(d4));
+
+await falhar("projeto_fora");
+const d5 = await diag();
+ok("projeto fora do ar acende o endereço e não finge conferir o resto",
+  d5.config === "falta" && Object.keys(d5).length === 1, JSON.stringify(d5));
+
+// ── e a tela desenha o que ele precisa ler ────────────────────────────────
+await falhar("provedor_off");
+const naTela = await p.evaluate(async () => {
+  location.hash = "#/diagnostico";
+  await new Promise(r => setTimeout(r, 1600));
+  const itens = [...document.querySelectorAll(".diag-item")].map(n => ({
+    classe: n.className, texto: n.textContent,
+  }));
+  return { itens, resumo: (document.querySelector(".diag-resumo") || {}).textContent || "" };
+});
+const oProvedor = naTela.itens.find(i => i.texto.includes("Provedor Email"));
+ok("a tela marca o provedor em vermelho e diz onde ligar",
+  !!oProvedor && oProvedor.classe.includes("ruim") &&
+  oProvedor.texto.includes("Sign In / Providers") &&
+  naTela.resumo.toLowerCase().includes("falta"),
+  JSON.stringify(naTela.itens.map(i => i.classe)) + " · " + naTela.resumo);
+ok("e os arquivos SQL são servidos para o botão de copiar",
+  (await (await fetch(site.endereco + "sql/02_acesso.sql")).text()).includes("create policy"));
+
+// ── a porta não tranca: o diagnóstico abre sem ninguém dentro ─────────────
+// `reload`, não `goto`: a aba já estava nesta mesma URL com este mesmo hash, e
+// navegar para onde já se está não recarrega nada — o teste leria a tela velha.
+await p.evaluate(async () => { await mkt.pessoas.sair(); location.hash = "#/diagnostico"; });
+await p.reload({ waitUntil: "networkidle" });
+await p.waitForTimeout(1600);
+const deFora = await p.evaluate(() => ({
+  hash: location.hash,
+  cartao: !!document.querySelector("#entrar-tela .cartao-entrar.larga"),
+  itens: document.querySelectorAll(".diag-item").length,
+}));
+ok("sem ninguém entrado, o diagnóstico ainda abre",
+  deFora.hash === "#/diagnostico" && deFora.cartao && deFora.itens > 0,
+  JSON.stringify(deFora));
+
+await falhar("");
 await nav.close();
 site.fechar();
 console.log(falhou ? `\n${falhou} falharam` : "\ntudo como projetado");

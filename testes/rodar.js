@@ -48,6 +48,11 @@ async function entrarComo(nome) {
   await pessoas.carregar();
 }
 
+// Nenhum teste fala com a rede. O `js/config.js` aponta para o projeto de
+// verdade, e `aplicar()` tenta subir em segundo plano — sem este bloqueio,
+// rodar os testes mandaria evento de mentira para o banco da equipe.
+globalThis.fetch = async () => { throw new Error("rede bloqueada nos testes"); };
+
 let passou = 0, falhou = 0;
 const falhas = [];
 
@@ -392,6 +397,64 @@ if (abas) {
   ok("numa semana antiga, há atividade sem HH estimado", cg36.sem_estimativa > 0,
     JSON.stringify(cg36));
 }
+
+// ── nunca ficar trancado para fora ──────────────────────────────────────────
+// Um problema de nuvem chegou a trancar a porta de um site que funciona sem
+// nuvem: com o endereço no código, a única entrada era a senha do Supabase, e
+// projeto fora do ar ou provedor desligado significava não entrar de jeito
+// nenhum. Estas verificações cobrem as duas metades do conserto.
+titulo("config.js e pessoas.js — nunca ficar trancado para fora");
+const cfg = await import("../js/config.js");
+igual("quem digita o nome entra no domínio interno",
+  cfg.emailDe("Pedro"), "pedro@makro.local");
+igual("acento e espaço viram um e-mail previsível",
+  cfg.emailDe("João Victor"), "joao.victor@makro.local");
+igual("quem digita o e-mail inteiro entra com ele",
+  cfg.emailDe("mateusedvaoli@gmail.com"), "mateusedvaoli@gmail.com");
+igual("e o e-mail digitado com maiúscula também",
+  cfg.emailDe("  Mateus@Gmail.com "), "mateus@gmail.com");
+igual("nome com espaço em volta não deixa ponto sobrando",
+  cfg.emailDe("  Mateus  "), "mateus@makro.local");
+
+const antesDaFila = await ev.autoresNaFila();
+const naFila = (lista, n) => (lista.find(a => a.autor === n) || { quantos: 0 }).quantos;
+const pedroAntes = naFila(antesDaFila, "Pedro");
+
+await nuvem.sair();                 // é este o estado de um projeto fora do ar
+await pessoas.carregar();
+ok("sem sessão e sem ninguém escolhido, não há quem", !pessoas.quem());
+
+await pessoas.entrarLocal("Pedro");
+ok("quem escolhe o nome entra, mesmo sem banco", pessoas.local());
+igual("e o papel vem da lista de sempre", pessoas.papel(), "operacao");
+ok("a operação continua não programando a oficina", !pessoas.pode("programar"));
+ok("mas aponta movimentação como sempre", pessoas.pode("movimentar"));
+
+const movLocal = await ev.aplicar(ev.pedirMovimentacao({
+  frota: "F-LOCAL", motivo_mov: "teste do modo local" }));
+igual("o lançamento feito sem senha é assinado por quem o fez",
+  movLocal[0].autor, "Pedro");
+igual("e fica na fila, esperando a senha dele",
+  naFila(await ev.autoresNaFila(), "Pedro"), pedroAntes + 1);
+
+const tentativa = await ev.sincronizar();
+ok("a fila não sobe sem senha, e a resposta diz por quê e de quem é",
+  tentativa.subiram === 0 && /senha/i.test(tentativa.erro) &&
+  tentativa.esperando.some(a => a.autor === "Pedro"), JSON.stringify(tentativa));
+
+await pessoas.carregar();
+ok("ao reabrir o site, continua sendo a mesma pessoa",
+  pessoas.local() && pessoas.nome() === "Pedro");
+igual("e o nome guardado é de quem a senha será pedida",
+  await pessoas.nomeLocalGuardado(), "Pedro");
+
+let recusouLocal = "";
+try { await pessoas.entrarLocal("Fulano"); } catch (e) { recusouLocal = e.message; }
+ok("nome de fora da equipe não entra nem local", !!recusouLocal, recusouLocal);
+
+await pessoas.sair();
+ok("sair apaga a escolha deste aparelho",
+  !pessoas.quem() && !(await pessoas.nomeLocalGuardado()));
 
 // ── CSV ─────────────────────────────────────────────────────────────────────
 titulo("planilha.js — CSV");

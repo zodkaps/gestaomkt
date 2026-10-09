@@ -45,6 +45,8 @@ let atual = null;
 let elenco = [];
 
 export function quem() { return atual; }
+/** Está trabalhando só neste aparelho, sem sessão no banco? */
+export function local() { return !!(atual && atual.local); }
 export function nome() { return atual ? atual.nome : ""; }
 export function papel() { return atual ? atual.papel : ""; }
 export function ehOperacao() { return papel() === "operacao"; }
@@ -77,6 +79,10 @@ export async function carregar() {
       elenco = await nuvem.lerPessoas() || [];
       await dados.gravarMeta("elenco", elenco);
     } catch (e) { /* sem rede: segue com a cópia local */ }
+    // Entrou com senha: o modo local cumpriu o papel e sai de cena. Guardá-lo
+    // faria o site voltar a "trabalhando só neste aparelho" no próximo
+    // recarregamento, que é o contrário do que acabou de acontecer.
+    if (await dados.lerMeta("quem_local", "")) await dados.gravarMeta("quem_local", "");
     const email = nuvem.emailAtual();
     atual = elenco.find(p => p.email === email) || null;
     if (!atual) {
@@ -87,12 +93,39 @@ export async function carregar() {
       atual = { email, nome: email.split("@")[0], papel: "", semPapel: true };
     }
   } else {
-    atual = null;
+    // Sem sessão no banco. Antes isto virava porta trancada: com o endereço
+    // configurado, a única entrada era a senha, e um projeto fora do ar deixava
+    // ninguém usar um site que funciona inteiro com os dados locais.
+    //
+    // Agora, quem escolheu trabalhar neste aparelho continua entrando. O papel
+    // vem da lista de sugestão, como era antes de existir banco — e isso não
+    // abre buraco nenhum: sem sessão não há como escrever no banco, então o
+    // que for lançado fica na fila até alguém entrar com senha de verdade, e
+    // aí o Postgres confere tudo como sempre.
+    const nomeLocal = await dados.lerMeta("quem_local", "");
+    const sug = SUGESTAO.find(x => x.nome === nomeLocal);
+    atual = sug ? { email: "", nome: sug.nome, papel: sug.papel, local: true } : null;
   }
+  return atual;
+}
+
+/** Trabalhar só neste aparelho, enquanto a nuvem não responde. */
+export async function entrarLocal(nome) {
+  const sug = SUGESTAO.find(x => x.nome === nome);
+  if (!sug) throw new Error("Não conheço essa pessoa.");
+  await dados.gravarMeta("quem_local", sug.nome);
+  atual = { email: "", nome: sug.nome, papel: sug.papel, local: true };
   return atual;
 }
 
 export async function sair() {
   await nuvem.sair();
+  await dados.gravarMeta("quem_local", "");
   atual = null;
+}
+
+/** Quem estava trabalhando local — é de quem o site vai pedir a senha, para a
+ *  fila de saída casar com o autor dos lançamentos que estão nela. */
+export async function nomeLocalGuardado() {
+  return dados.lerMeta("quem_local", "");
 }

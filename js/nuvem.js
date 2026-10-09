@@ -116,6 +116,18 @@ function traduzir(m) {
     return "Já existe acesso com esse nome.";
   }
   if (s.includes("password should be")) return "A senha precisa ter pelo menos 6 caracteres.";
+  // Dois interruptores diferentes, e confundi-los foi o que travou a equipe:
+  // o PROVEDOR Email precisa estar ligado, e o Confirm email dentro dele,
+  // desligado. A mensagem tem de deixar isso explícito.
+  if (s.includes("email logins are disabled")) {
+    return "O login por e-mail está desligado no projeto. Em Authentication → " +
+      "Sign In / Providers, LIGUE o provedor Email — e, dentro dele, deixe " +
+      "'Confirm email' DESLIGADO. São dois interruptores diferentes.";
+  }
+  if (s.includes("email signups are disabled")) {
+    return "A criação de acesso por e-mail está desligada. Em Authentication → " +
+      "Sign In / Providers → Email, ligue o provedor e deixe 'Confirm email' desligado.";
+  }
   if (s.includes("signups not allowed") || s.includes("signup is disabled")) {
     return "O projeto está com criação de acesso desligada (Authentication → Providers → Email → Allow new users).";
   }
@@ -330,5 +342,125 @@ export function observar(aoChegar, { intervalo = 10000 } = {}) {
     if (typeof window !== "undefined") window.removeEventListener("online", volta);
   };
 }
+
+
+// ── diagnóstico ─────────────────────────────────────────────────────────────
+
+/** Confere, em sequência, tudo que precisa estar de pé — e devolve o que falta
+ *  com o passo exato.
+ *
+ *  Existe porque a instalação tem seis coisas que podem faltar, e descobrir
+ *  uma por vez (cada uma com um erro em inglês na cara) custou dias. Uma
+ *  passada, uma lista.
+ *
+ *  As tabelas se leem de dois jeitos, e qual deles vale depende de haver
+ *  sessão — confundir isso faria o diagnóstico mentir nos dois sentidos:
+ *
+ *    sem entrar   "sem permissão" é o CERTO: prova que a tabela existe e que o
+ *                 02_acesso.sql tirou o acesso do anônimo. Responder 200 aqui é
+ *                 o estado meio-instalado perigoso — aberta a quem tiver a chave.
+ *    já dentro    o certo é 200. "Sem permissão" com sessão é falta de GRANT ou
+ *                 de política, ou seja: o 02_acesso.sql não rodou. */
+export async function diagnostico() {
+  const itens = [];
+  // `arquivo` guarda o NOME do .sql, não o conteúdo: a tela busca o arquivo de
+  // verdade na hora de mostrar, e assim a instrução nunca envelhece em relação
+  // ao que está versionado.
+  const juntar = (nome, titulo, estado, detalhe, resolver = "", arquivo = "") =>
+    itens.push({ nome, titulo, estado, detalhe, resolver, arquivo });
+
+  if (!ligada()) {
+    juntar("config", "Endereço e chave do projeto", "falta",
+      "O js/config.js está vazio.",
+      "Preencha url e chave com os valores de Settings → API.");
+    return itens;
+  }
+
+  // 1. o projeto responde
+  let cfg = null;
+  try {
+    cfg = await opcoes();
+    juntar("config", "Endereço e chave do projeto", "ok", url);
+  } catch (e) {
+    juntar("config", "Endereço e chave do projeto", "falta",
+      `${url} não respondeu: ${e.message}`,
+      "Confira a URL e a chave em Settings → API do seu projeto.");
+    return itens;   // sem isto, o resto não dá para conferir
+  }
+
+  // 2. o provedor de e-mail
+  const provedor = !cfg.external || cfg.external.email !== false;
+  juntar("provedor", "Provedor Email ligado", provedor ? "ok" : "falta",
+    provedor ? "ligado" : "desligado — ninguém consegue entrar",
+    provedor ? "" : "Authentication → Sign In / Providers → LIGUE o provedor Email. " +
+      "É um interruptor diferente do 'Confirm email'.");
+
+  // 3. a confirmação por e-mail
+  const autoconfirma = cfg.mailer_autoconfirm !== false;
+  juntar("confirmacao", "Confirm email desligado", autoconfirma ? "ok" : "falta",
+    autoconfirma ? "desligado, como tem de ser"
+      : "ligado — os acessos nascem presos esperando um e-mail que nunca chega",
+    autoconfirma ? "" : "Authentication → Sign In / Providers → Email → desligue " +
+      "'Confirm email'. Depois rode o SQL abaixo para soltar quem já travou.",
+    autoconfirma ? "" : "sql/03_liberar_acessos.sql");
+
+  // 4 e 5. as tabelas
+  const dentro = autenticado();
+  for (const [nome, tabela, titulo, arquivo] of [
+    ["eventos", "eventos", "Tabela de lançamentos", "sql/01_esquema.sql"],
+    ["pessoas", "pessoas", "Tabela de pessoas e papéis", "sql/02_acesso.sql"],
+  ]) {
+    try {
+      const r = await fetch(`${url}/rest/v1/${tabela}?select=*&limit=1`,
+        { headers: cabecalhos() });
+      const t = await r.text().catch(() => "");
+      const naoExiste = r.status === 404 || /does not exist|42P01/i.test(t);
+      const recusou = r.status === 401 || r.status === 403 || /permission denied|42501/i.test(t);
+      if (naoExiste) {
+        juntar(nome, titulo, "falta", "a tabela não existe no banco",
+          "Rode este arquivo no SQL Editor:", arquivo);
+      } else if (recusou) {
+        if (dentro) {
+          juntar(nome, titulo, "falta",
+            "a tabela existe, mas o banco recusou o acesso mesmo com você dentro",
+            "Falta o arquivo que concede a permissão e cria as políticas:",
+            "sql/02_acesso.sql");
+        } else {
+          juntar(nome, titulo, "ok", "existe e está protegida, como deve ser");
+        }
+      } else if (r.ok) {
+        if (dentro) juntar(nome, titulo, "ok", "existe e você lê");
+        else {
+          juntar(nome, titulo, "aviso",
+            "existe, mas está aberta a quem tiver a chave do site",
+            "Falta rodar o arquivo que fecha:", "sql/02_acesso.sql");
+        }
+      } else {
+        juntar(nome, titulo, "naosei", `${r.status} ${r.statusText}`);
+      }
+    } catch (e) {
+      juntar(nome, titulo, "naosei", e.message);
+    }
+  }
+
+  // 6. e eu, estou cadastrado?
+  if (autenticado()) {
+    try {
+      const eu = (await lerPessoas()).find(p => p.email === emailAtual());
+      juntar("eu", "Seu acesso tem papel", eu ? "ok" : "falta",
+        eu ? `${eu.nome} · ${eu.papel}` : `${emailAtual()} não está na tabela pessoas`,
+        eu ? "" : "Rode o 02_acesso.sql, ou confira se o nome digitado é o mesmo " +
+          "que está cadastrado lá.", eu ? "" : "sql/02_acesso.sql");
+    } catch (e) {
+      juntar("eu", "Seu acesso tem papel", "naosei", e.message);
+    }
+  } else {
+    juntar("eu", "Seu acesso tem papel", "naosei",
+      "só dá para conferir depois de entrar");
+  }
+
+  return itens;
+}
+
 
 export function ultimaConversa() { return ligadoEm; }

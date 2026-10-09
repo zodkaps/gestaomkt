@@ -224,14 +224,24 @@ function refazer() {
 
 /** Sobe o que está na fila e desce o que é novo. Devolve o que mexeu. */
 export async function sincronizar() {
-  if (!nuvem.ligada()) return { subiram: 0, desceram: 0, erro: "" };
+  if (!nuvem.ligada()) return { subiram: 0, desceram: 0, erro: "", esperando: [] };
+  if (!nuvem.autenticado()) {
+    return { subiram: 0, desceram: 0, esperando: await autoresNaFila(),
+      erro: "Sem senha não há como escrever no banco — entre para a fila subir." };
+  }
   let subiram = 0, desceram = 0, erro = "";
   try {
     const fila = await dados.pendentes();
-    if (fila.length) {
-      await nuvem.enviar(fila);
-      await dados.marcarEnviados(fila.map(e => e.id));
-      subiram = fila.length;
+    // Sobe só o que é DESTE autor. A política do banco recusa lançamento
+    // assinado por outra pessoa, e o envio é um lote só: um evento do Pedro no
+    // meio faria o lote inteiro do Mateus voltar, e a fila travaria para os
+    // dois. O que é de outro espera quem assinou entrar neste aparelho.
+    const meu = pessoas.nome();
+    const minhas = fila.filter(e => e.autor === meu);
+    if (minhas.length) {
+      await nuvem.enviar(minhas);
+      await dados.marcarEnviados(minhas.map(e => e.id));
+      subiram = minhas.length;
     }
     const desde = await dados.lerMeta("nuvem_seq", 0);
     const novos = await nuvem.baixarDesde(desde);
@@ -247,7 +257,18 @@ export async function sincronizar() {
   } catch (e) {
     erro = e.message;
   }
-  return { subiram, desceram, erro };
+  return { subiram, desceram, erro, esperando: await autoresNaFila() };
+}
+
+/** Quem assinou o que ainda não subiu. A faixa precisa disso para dizer de
+ *  quem é a fila: "3 lançamentos do Pedro" é acionável; "3 lançamentos" não. */
+export async function autoresNaFila() {
+  const conta = new Map();
+  for (const e of await dados.pendentes()) {
+    conta.set(e.autor, (conta.get(e.autor) || 0) + 1);
+  }
+  return [...conta].map(([autor, quantos]) => ({ autor, quantos }))
+    .sort((a, b) => b.quantos - a.quantos);
 }
 
 /** Recebe o que a consulta periódica trouxe. */

@@ -1,8 +1,20 @@
-// Entrar: nome e senha.
+// Entrar: nome e senha — e, quando o banco não responde, trabalhar sem ele.
 //
 // Ninguém precisa ter e-mail — "Pedro" vira `pedro@makro.local` por baixo, e
 // isso não aparece em tela nenhuma. A senha é guardada e conferida pelo
 // Supabase, nunca por este código e nunca neste repositório.
+//
+// **Por que existe entrada sem senha.** Este site nasceu local-first: ele
+// funciona inteiro com os dados do próprio navegador, e a nuvem é o que o torna
+// compartilhado, não o que o torna utilizável. Mesmo assim, por um erro de
+// desenho meu, bastava o projeto não responder — provedor de e-mail desligado,
+// por exemplo — para não haver entrada nenhuma. Agora há: quem não consegue
+// autenticar escolhe o próprio nome e segue trabalhando neste aparelho.
+//
+// E isso não abre buraco: sem sessão não há como escrever no banco. O que for
+// lançado fica na fila de saída até alguém entrar com senha de verdade — e aí
+// o Postgres confere `autor = nome_atual()` como sempre. Por isso a fila só
+// sobe o que é do autor que entrou, e a tela diz de quem é o que está parado.
 
 import * as nuvem from "../nuvem.js";
 import * as pessoas from "../pessoas.js";
@@ -20,8 +32,16 @@ export async function montar(raiz, ctx) {
   const p = pessoas.quem();
   if (p && p.semPapel) return semPapel(raiz, ctx, p);
 
-  const eNome = el("input", { placeholder: "Seu nome", autocomplete: "username" });
-  const eSenha = el("input", { type: "password", placeholder: "Senha", autocomplete: "current-password" });
+  const fila = await ev.autoresNaFila();
+  const guardado = await pessoas.nomeLocalGuardado();
+  // De quem o site pede a senha primeiro: de quem tem lançamento parado na
+  // fila, porque é a senha dele que faz a fila andar.
+  const sugerido = (fila[0] && fila[0].autor) || guardado || "";
+
+  const eNome = el("input", { placeholder: "Seu nome", autocomplete: "username",
+    value: sugerido });
+  const eSenha = el("input", { type: "password", placeholder: "Senha",
+    autocomplete: "current-password" });
   const aviso = el("div", {});
   const botao = el("button", { type: "submit", class: "primario grande" }, "Entrar");
 
@@ -43,6 +63,10 @@ export async function montar(raiz, ctx) {
         ctx.ir(pessoas.ehOperacao() ? "operacao" : "hoje");
       } catch (x) {
         aviso.append(el("div", { class: "erro" }, x.message));
+        // Falhou por qualquer motivo: a saída local passa a aparecer. Pode ser
+        // senha errada — e aí ele tenta de novo —, mas pode ser o projeto fora
+        // do ar, e nesse caso ficar olhando o formulário não resolve nada.
+        mostrarAlternativa();
         botao.disabled = false;
         botao.textContent = "Entrar";
       }
@@ -52,29 +76,110 @@ export async function montar(raiz, ctx) {
     campo("Senha", eSenha),
     botao);
 
+  // A saída de emergência, escondida até fazer falta: enquanto a nuvem
+  // responde, oferecê-la só convidaria a trabalhar separado sem precisar.
+  const alternativa = el("div", { class: "alternativa", hidden: true });
+  let alternativaPronta = false;
+
+  function mostrarAlternativa(motivo = "") {
+    if (!alternativaPronta) {
+      alternativaPronta = true;
+      alternativa.append(
+        el("div", { class: "risca" }, el("span", {}, "ou")),
+        el("p", { class: "obs" }, motivo ||
+          "Se o banco não responde, o site funciona neste aparelho do mesmo " +
+          "jeito. O que você lançar fica guardado aqui e sobe sozinho quando " +
+          "você entrar com senha."),
+        el("button", { class: "grande", style: "width:100%;justify-content:center",
+          onclick: () => entrarLocal(ctx) }, "Trabalhar neste aparelho"));
+    }
+    alternativa.hidden = false;
+  }
+
   const cartao = el("div", { class: "cartao-entrar" },
     el("div", { class: "logo" }, el("i", {}, "M"), "Programação Makro"),
     el("p", { class: "dica" }, "manutenção · Mossoró/RN"),
-    aviso, form);
+    aviso, form, alternativa);
+
+  if (fila.length) {
+    const quem = fila.map(f => `${f.quantos} de ${f.autor}`).join(", ");
+    aviso.append(el("div", { class: "morno" },
+      `Tem lançamento feito neste aparelho que ainda não subiu (${quem}). ` +
+      "Cada um sobe quando quem o assinou entrar com senha aqui."));
+  }
 
   if (!nuvem.ligada()) {
-    limpar(aviso).append(el("div", { class: "erro" },
-      "O site ainda não está ligado ao banco. Enquanto isso não acontecer, " +
-      "não há como entrar com senha."));
+    aviso.append(el("div", { class: "erro" },
+      "Este site ainda não está ligado a um banco. Dá para trabalhar neste " +
+      "aparelho; para a equipe ver o que você lança, falta ligar o banco."));
     form.querySelectorAll("input, button").forEach(n => { n.disabled = true; });
+    mostrarAlternativa("Sem banco configurado, esta é a única entrada.");
   }
 
   // A criação dos acessos é um caminho à parte, para não virar porta aberta na
   // tela de entrada. Só serve na primeira vez, e o banco ainda confere tudo.
-  cartao.append(el("button", {
-    class: "discreto", style: "width:100%;justify-content:center;margin-top:14px;font-size:12px",
-    onclick: () => criarAcesso(),
-  }, "Primeiro acesso da equipe"));
+  cartao.append(el("div", { class: "pe-entrar" },
+    el("button", { class: "discreto", onclick: () => criarAcesso() },
+      "Primeiro acesso da equipe"),
+    el("button", { class: "discreto", onclick: () => ctx.ir("diagnostico") },
+      "O que falta no banco")));
 
   raiz.append(el("div", { id: "entrar-tela" }, cartao));
-  setTimeout(() => eNome.focus(), 60);
+  setTimeout(() => (sugerido ? eSenha : eNome).focus(), 60);
+
+  // Pergunta ao projeto, em segundo plano, se ele consegue autenticar — uma
+  // chamada, sem bloquear a tela. Descobrir que o provedor está desligado DEPOIS
+  // de digitar a senha é o que mais custou tempo da equipe.
+  if (nuvem.ligada()) sondar(mostrarAlternativa);
 
   return { desmontar: () => document.body.classList.remove("entrando") };
+}
+
+/** Uma chamada só, e nunca derruba a tela: na dúvida, o formulário fica. */
+async function sondar(mostrarAlternativa) {
+  try {
+    const o = await nuvem.opcoes();
+    const provedor = !o.external || o.external.email !== false;
+    if (!provedor) {
+      mostrarAlternativa("O login por e-mail está desligado neste projeto, " +
+        "então a senha não vai funcionar até alguém ligar o provedor Email " +
+        "em Authentication → Sign In / Providers. Até lá, trabalhe neste aparelho.");
+    }
+  } catch (e) {
+    mostrarAlternativa("O banco não respondeu agora. Trabalhe neste aparelho: " +
+      "o que você lançar sobe sozinho quando ele voltar e você entrar com senha.");
+  }
+}
+
+/** Escolher quem é, entre os quatro, e seguir sem sessão. */
+async function entrarLocal(ctx) {
+  let escolhido = "";
+  const botoes = pessoas.SUGESTAO.map(s => el("button", {
+    class: "escolha-pessoa", type: "button",
+    onclick: () => { escolhido = s.nome; },
+  },
+    el("b", {}, s.nome),
+    el("small", {}, (pessoas.PAPEIS[s.papel] || {}).rotulo || s.papel)));
+
+  const r = await caixa({
+    titulo: "Quem está usando este aparelho?",
+    corpo: ({ fechar }) => {
+      botoes.forEach(b => b.addEventListener("click", () => fechar(true)));
+      return el("div", {},
+        el("p", { style: "font-size:13px;color:var(--fraco)" },
+          "O nome importa: é ele que assina o que você lançar, e o banco só " +
+          "aceita o lançamento quando quem entrar com senha for a mesma pessoa."),
+        el("div", { class: "escolha-pessoas" }, botoes));
+    },
+    acoes: [{ rotulo: "Cancelar", valor: false }],
+  });
+  if (r !== true || !escolhido) return;
+  try {
+    await pessoas.entrarLocal(escolhido);
+    await ev.carregar();
+    avisar(`Trabalhando neste aparelho como ${escolhido.split(" ")[0]}.`);
+    ctx.ir(pessoas.ehOperacao() ? "operacao" : "hoje");
+  } catch (e) { erro(e.message); }
 }
 
 async function criarAcesso() {
@@ -123,12 +228,13 @@ function semPapel(raiz, ctx, p) {
         "Duas causas, nesta ordem: ou falta rodar ",
         el("code", {}, "sql/02_acesso.sql"), " no SQL Editor do Supabase, ",
         "ou o nome foi digitado diferente do que está cadastrado lá."),
-      el("div", { style: "display:flex;gap:8px;margin-top:16px" },
+      el("div", { style: "display:flex;gap:8px;margin-top:16px;flex-wrap:wrap" },
         el("button", { class: "primario", onclick: async () => {
           await pessoas.carregar();
           if (pessoas.papel()) { ctx.ir(pessoas.ehOperacao() ? "operacao" : "hoje"); }
           else avisar("Ainda não — o papel continua faltando.");
         } }, "Tentar de novo"),
+        el("button", { onclick: () => ctx.ir("diagnostico") }, "Ver o diagnóstico"),
         el("button", { onclick: async () => { await pessoas.sair(); ctx.atualizar(); } },
           "Sair e entrar com outro nome")))));
   return { desmontar: () => document.body.classList.remove("entrando") };

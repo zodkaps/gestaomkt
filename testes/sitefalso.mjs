@@ -12,23 +12,24 @@ import { fileURLToPath } from "node:url";
 
 const RAIZ = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const TIPOS = { ".html": "text/html", ".js": "text/javascript",
-  ".css": "text/css", ".json": "application/json" };
+  ".css": "text/css", ".json": "application/json", ".sql": "text/plain" };
 
 export function servirCopia({ nuvem, porta = 8125, pasta = "/tmp/mkt-copia-teste" }) {
   rmSync(pasta, { recursive: true, force: true });
   mkdirSync(pasta, { recursive: true });
-  for (const d of ["index.html", "manifest.json", "css", "js", "vendor"]) {
+  for (const d of ["index.html", "manifest.json", "css", "js", "vendor", "sql"]) {
     cpSync(join(RAIZ, d), join(pasta, d), { recursive: true });
   }
-  writeFileSync(join(pasta, "js/config.js"), `
-export const NUVEM = { url: ${JSON.stringify(nuvem)}, chave: "chave-de-teste-com-mais-de-trinta-caracteres" };
-export const DOMINIO = "makro.local";
-export function emailDe(nome) {
-  return String(nome || "").trim().toLowerCase()
-    .normalize("NFD").replace(/[\\u0300-\\u036f]/g, "")
-    .replace(/[^a-z0-9]+/g, ".").replace(/^\\.|\\.$/g, "") + "@" + DOMINIO;
-}
-`);
+  // Troca SÓ o endereço, no config de verdade. Escrever um config inteiro aqui
+  // significaria manter uma segunda cópia do `emailDe()` — e foi exatamente uma
+  // divergência dessas que deixou passar o e-mail virando
+  // "fulano.gmail.com@makro.local". O que o teste dirige tem de ser o código
+  // que vai para o ar.
+  const real = readFileSync(join(RAIZ, "js/config.js"), "utf8");
+  const trocado = real.replace(/export const NUVEM = \{[\s\S]*?\n\};/,
+    `export const NUVEM = { url: ${JSON.stringify(nuvem)},\n  chave: "chave-de-teste-com-mais-de-trinta-caracteres" };`);
+  if (trocado === real) throw new Error("não achei o bloco NUVEM em js/config.js");
+  writeFileSync(join(pasta, "js/config.js"), trocado);
   // Sem service worker na cópia: ele guardaria os arquivos entre uma execução
   // e outra e o teste passaria a medir o cache, não o código de agora.
   writeFileSync(join(pasta, "sw.js"), "// vazio de propósito nos testes\n");
@@ -44,6 +45,14 @@ export function emailDe(nome) {
     endereco: `http://127.0.0.1:${porta}/`,
     fechar() { srv.close(); rmSync(pasta, { recursive: true, force: true }); },
   };
+}
+
+/** Trabalhar neste aparelho, sem senha — o caminho de quando a nuvem cai. */
+export async function entrarLocalComo(p, nome) {
+  await p.click('button:has-text("Trabalhar neste aparelho")');
+  await p.waitForSelector(".escolha-pessoa", { timeout: 5000 });
+  await p.click(`.escolha-pessoa:has-text("${nome}")`);
+  await p.waitForTimeout(900);
 }
 
 /** Entra no site como alguém, criando o acesso se ainda não existir. */
