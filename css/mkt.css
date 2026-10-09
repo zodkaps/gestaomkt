@@ -403,25 +403,6 @@ h2.mini {
 
 /* ── grade da semana ───────────────────────────────────────────────────── */
 
-.semana { display: grid; gap: 9px; grid-template-columns: 1fr; }
-@media (min-width: 861px) { .semana { grid-template-columns: repeat(5, 1fr); } }
-.dia {
-  background: var(--papel); border: 1px solid var(--linha);
-  border-radius: var(--raio); padding: 8px; min-height: 60px;
-}
-.dia > h3 {
-  font-size: 11.5px; color: var(--fraco); margin-bottom: 7px;
-  display: flex; justify-content: space-between; align-items: baseline; gap: 6px;
-}
-.dia > h3 i { font-style: normal; color: var(--muito-fraco); font-weight: 400; }
-.dia.e-hoje { border-color: var(--marca); }
-.dia.e-hoje > h3 { color: var(--marca); }
-.dia.alvo { outline: 2px dashed var(--marca); outline-offset: -3px; }
-.dia .lista { gap: 6px; }
-.dia .at { padding: 7px 9px; background: var(--papel2); }
-.dia .at .tit { font-size: 12.5px; }
-.dia .at .sub { font-size: 11px; }
-
 /* ── painéis e gráficos ────────────────────────────────────────────────── */
 
 /* `start` para o painel curto não esticar até a altura do mais alto da fila e
@@ -672,7 +653,7 @@ textarea.sql {
 
 /* larguras: a atividade fica com o que sobrar */
 .grade .c-sel   { width: 30px; text-align: center; padding-left: 4px; padding-right: 4px; }
-.grade .c-sit   { width: 158px; }
+.grade .c-sit   { width: 182px; }
 .grade .c-os    { width: 74px; }
 .grade .c-quem  { width: 150px; }
 .grade td.c-quem { color: var(--fraco); font-size: 12px; }

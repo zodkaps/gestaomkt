@@ -7,7 +7,7 @@
 // A estratégia é rede primeiro, cache como rede reserva: assim uma versão nova
 // do site chega sem precisar de truque, e a falta de rede não trava nada.
 
-const VERSAO = "mkt-v9";
+const VERSAO = "mkt-v10";
 const ARQUIVOS = [
   "./",
   "./index.html",
