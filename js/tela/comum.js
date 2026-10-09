@@ -7,7 +7,7 @@
 import * as ev from "../eventos.js";
 import * as M from "../modelo.js";
 import { el, br, brCurto, quando, caixa, campo, selecao, comSugestoes, chip,
-  avisar, erro, confirmar, vazio } from "../ui.js";
+  avisar, erro, confirmar, vazio, cliqueLimpo } from "../ui.js";
 
 // ── listas que o próprio acervo alimenta ────────────────────────────────────
 // Nada aqui é cadastro: a lista de executantes é quem já apareceu em alguma
@@ -54,7 +54,7 @@ export function cartao(a, { ctx, acoes = [], seletor = null, compacto = false } 
     dataset: { id: a.id },
   },
     seletor,
-    el("div", { class: "meio", onclick: () => abrirFicha(a.id, ctx),
+    el("div", { class: "meio", onclick: cliqueLimpo(() => abrirFicha(a.id, ctx)),
       style: "cursor:pointer" },
       el("div", { class: "tit" }, (a.frota ? a.frota + " · " : "") + (a.atividade || "—")),
       sub.length ? el("div", { class: "sub" }, sub.join(" · ")) : null,

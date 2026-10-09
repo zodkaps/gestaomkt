@@ -8,13 +8,8 @@
 // resolve" é só uma frase no LEIAME.
 //
 // Precisa do servidor de mentira em pé — `testes/supabase_falso.mjs`.
-import { cpSync, writeFileSync, rmSync, mkdirSync, readFileSync, existsSync, statSync } from "node:fs";
-import { createServer } from "node:http";
-import { extname, join, dirname, resolve } from "node:path";
-import { fileURLToPath } from "node:url";
+import { servirCopia } from "./sitefalso.mjs";
 
-const RAIZ = resolve(dirname(fileURLToPath(import.meta.url)), "..");
-const COPIA = "/tmp/mkt-copia-teste";
 const NUVEM = process.env.NUVEM_FALSA || "http://127.0.0.1:8124";
 const PORTA = 8125;
 
@@ -22,29 +17,7 @@ let chromium;
 try { ({ chromium } = (await import("/opt/node-tools/node_modules/playwright/index.js")).default); }
 catch (e) { console.log("Playwright não disponível — pulando."); process.exit(0); }
 
-rmSync(COPIA, { recursive: true, force: true });
-mkdirSync(COPIA, { recursive: true });
-for (const d of ["index.html", "manifest.json", "css", "js", "vendor"]) {
-  cpSync(join(RAIZ, d), join(COPIA, d), { recursive: true });
-}
-// O config preenchido vai só na cópia: o repositório não é tocado.
-writeFileSync(join(COPIA, "js/config.js"), `
-export const NUVEM = { url: ${JSON.stringify(NUVEM)}, chave: "chave-de-teste-com-mais-de-trinta-caracteres" };
-export const DOMINIO = "makro.local";
-export function emailDe(nome) {
-  return String(nome || "").trim().toLowerCase()
-    .normalize("NFD").replace(/[\\u0300-\\u036f]/g, "")
-    .replace(/[^a-z0-9]+/g, ".").replace(/^\\.|\\.$/g, "") + "@" + DOMINIO;
-}
-`);
-
-const TIPOS = { ".html": "text/html", ".js": "text/javascript", ".css": "text/css", ".json": "application/json" };
-const srv = createServer((req, res) => {
-  let p = join(COPIA, decodeURIComponent(req.url.split("?")[0]));
-  if (!existsSync(p) || statSync(p).isDirectory()) p = join(COPIA, "index.html");
-  res.writeHead(200, { "content-type": TIPOS[extname(p)] || "application/octet-stream" });
-  res.end(readFileSync(p));
-}).listen(PORTA);
+const site = servirCopia({ nuvem: NUVEM, porta: PORTA });
 
 let falhou = 0;
 const ok = (nome, cond, detalhe = "") => {
@@ -57,7 +30,7 @@ const p = await (await nav.newContext({ viewport: { width: 1280, height: 860 } }
 const erros = [];
 p.on("pageerror", e => erros.push(e.message));
 
-await p.goto(`http://127.0.0.1:${PORTA}/`, { waitUntil: "networkidle" });
+await p.goto(site.endereco, { waitUntil: "networkidle" });
 await p.waitForTimeout(600);
 
 const estado = await p.evaluate(() => ({
@@ -111,7 +84,7 @@ await p.evaluate(async () => {
   await mkt.pessoas.sair();
   await mkt.dados.gravarMeta("elenco", []);   // navegador novo, sem cópia local
 });
-await p.goto(`http://127.0.0.1:${PORTA}/`, { waitUntil: "networkidle" });
+await p.goto(site.endereco, { waitUntil: "networkidle" });
 await p.waitForTimeout(400);
 await p.fill('input[placeholder="Seu nome"]', "Mateus");
 await p.fill('input[placeholder="Senha"]', "makro2026");
@@ -139,14 +112,15 @@ ok("recusa criar acesso com a confirmação ligada",
   recusa.includes("confirmação de e-mail ligada") && recusa.includes("Confirm email"), recusa);
 
 await falhar("");
-const criou = await p.evaluate(async () => {
-  try { await mkt.nuvem.criarAcesso("Teste Solto", "makro2026", "pcm"); return "criou"; }
+// Nome único por execução: o servidor de mentira guarda as contas entre uma
+// execução e outra, e repetir o nome faria o teste falhar por "já existe".
+const criou = await p.evaluate(async n => {
+  try { await mkt.nuvem.criarAcesso(n, "makro2026", "pcm"); return "criou"; }
   catch (e) { return e.message; }
-});
+}, "Teste " + Date.now().toString(36));
 ok("com a confirmação desligada, cria normalmente", criou === "criou", criou);
 
 await nav.close();
-srv.close();
-rmSync(COPIA, { recursive: true, force: true });
+site.fechar();
 console.log(falhou ? `\n${falhou} falharam` : "\ntudo como projetado");
 process.exit(falhou ? 1 : 0);

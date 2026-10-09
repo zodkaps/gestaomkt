@@ -12,7 +12,7 @@ import * as ev from "../eventos.js";
 import * as M from "../modelo.js";
 import * as pessoas from "../pessoas.js";
 import { el, limpar, br, brCurto, chip, caixa, campo, selecao, comSugestoes,
-  avisar, erro, confirmar, vazio, cartaoNumero, medidor, tabela, listaDupla } from "../ui.js";
+  avisar, erro, confirmar, vazio, cartaoNumero, medidor, tabela, listaDupla, cliqueLimpo } from "../ui.js";
 import { secao, frotas, valoresDe } from "./comum.js";
 import { busca as semAcento } from "../texto.js";
 
@@ -33,7 +33,7 @@ export function cartaoMov(m, ctx, { acoes = [], compacto = false } = {}) {
 
   return el("div", { class: `at ${M.corDe(s)}${m.chegou_em ? " feito" : ""}` },
     el("div", { class: "meio", style: "cursor:pointer",
-      onclick: () => abrirFichaMov(m.id, ctx) },
+      onclick: cliqueLimpo(() => abrirFichaMov(m.id, ctx)) },
       el("div", { class: "tit" }, `${m.frota} · ${m.destino || "—"}`),
       sub.length ? el("div", { class: "sub" }, sub.join(" · ")) : null,
       el("div", { class: "tags" }, tags)),

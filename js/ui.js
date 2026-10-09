@@ -25,6 +25,26 @@ export function el(tag, props = {}, ...filhos) {
 export const $ = (s, r = document) => r.querySelector(s);
 export const $$ = (s, r = document) => [...r.querySelectorAll(s)];
 
+/** Há texto selecionado agora?
+ *
+ *  Existe para corrigir um incômodo que aparece o tempo todo: o evento `click`
+ *  dispara no ANCESTRAL COMUM de onde o botão desceu e onde subiu. Quem arrasta
+ *  o mouse para copiar o número de uma OS começa dentro do cartão e larga fora
+ *  dele — e o navegador entende isso como um clique no que estiver em volta.
+ *  Resultado: selecionar texto abria a ficha, ou fechava a caixa de diálogo.
+ *
+ *  Então todo clique que ABRE ou FECHA alguma coisa pergunta isto antes. */
+export function selecionando() {
+  const s = window.getSelection && window.getSelection();
+  return !!(s && String(s).trim().length);
+}
+
+/** Envolve um clique para que ele não dispare quando a pessoa está só
+ *  selecionando texto. */
+export function cliqueLimpo(fn) {
+  return e => { if (!selecionando()) fn(e); };
+}
+
 export function limpar(n) { while (n.firstChild) n.removeChild(n.firstChild); return n; }
 
 // ── datas na tela ───────────────────────────────────────────────────────────
@@ -72,7 +92,19 @@ export function caixa({ titulo, corpo, acoes = [], largura = "" }) {
       aberta = null;
       resolve(v);
     };
-    const tecla = e => { if (e.key === "Escape") fechar(undefined); };
+    const tecla = e => {
+      if (e.key === "Escape") return fechar(undefined);
+      // Enter num campo de uma linha faz o que o botão azul faz. Quem lança
+      // baixa o dia inteiro digita data e aperta Enter sem olhar para a tela;
+      // obrigar a mirar o botão a cada vez é atrito que se paga caro.
+      if (e.key === "Enter" && !e.shiftKey) {
+        const alvo = e.target;
+        const campo = alvo && alvo.tagName;
+        if (campo === "TEXTAREA" || campo === "BUTTON") return;
+        const principal = cx.querySelector("footer button.primario");
+        if (principal) { e.preventDefault(); principal.click(); }
+      }
+    };
 
     const conteudo = typeof corpo === "function" ? corpo({ fechar }) : corpo;
     cx.append(
@@ -90,7 +122,14 @@ export function caixa({ titulo, corpo, acoes = [], largura = "" }) {
         }, a.rotulo))) : null);
 
     fundo.append(cx);
-    fundo.addEventListener("click", e => { if (e.target === fundo) fechar(undefined); });
+    // Fecha só quando o clique COMEÇOU e TERMINOU no fundo. Sem guardar onde
+    // começou, soltar o mouse no fundo depois de selecionar texto lá dentro
+    // fechava a caixa e perdia o que estava digitado.
+    let comecouNoFundo = false;
+    fundo.addEventListener("pointerdown", e => { comecouNoFundo = e.target === fundo; });
+    fundo.addEventListener("click", e => {
+      if (e.target === fundo && comecouNoFundo && !selecionando()) fechar(undefined);
+    });
     document.body.append(fundo);
     document.body.classList.add("travado");
     document.addEventListener("keydown", tecla);
@@ -235,7 +274,10 @@ export function tabela(itens, colunas, { aoClicar, classeDaLinha, ordem } = {}) 
             aoClicar && i === 0 ? "cliq" : ""].filter(Boolean).join(" "),
         }, v == null ? "" : v));
       });
-      if (aoClicar) { tr.classList.add("cliq"); tr.addEventListener("click", () => aoClicar(it)); }
+      if (aoClicar) {
+        tr.classList.add("cliq");
+        tr.addEventListener("click", cliqueLimpo(() => aoClicar(it)));
+      }
       corpo.append(tr);
     }
   }

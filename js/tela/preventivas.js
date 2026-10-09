@@ -14,7 +14,7 @@ import * as ev from "../eventos.js";
 import * as M from "../modelo.js";
 import * as pessoas from "../pessoas.js";
 import { el, limpar, br, brCurto, chip, caixa, campo, selecao, comSugestoes,
-  avisar, erro, vazio, cartaoNumero } from "../ui.js";
+  avisar, erro, vazio, cartaoNumero, cliqueLimpo } from "../ui.js";
 import { secao, frotas } from "./comum.js";
 import { busca as semAcento } from "../texto.js";
 
@@ -37,7 +37,8 @@ export function cartaoPrev(p, ctx, { acoes = [] } = {}) {
   if (p.dia_parada) sub.push("para " + brCurto(p.dia_parada));
 
   return el("div", { class: `at ${M.corDe(s)}${p.realizada_em ? " feito" : ""}` },
-    el("div", { class: "meio", style: "cursor:pointer", onclick: () => abrirFichaPrev(p.id, ctx) },
+    el("div", { class: "meio", style: "cursor:pointer",
+      onclick: cliqueLimpo(() => abrirFichaPrev(p.id, ctx)) },
       el("div", { class: "tit" }, p.frota),
       sub.length ? el("div", { class: "sub" }, sub.join(" · ")) : null,
       el("div", { class: "tags" }, tags)),

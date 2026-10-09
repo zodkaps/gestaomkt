@@ -324,6 +324,8 @@ porque toda escrita já passa por `aplicar()`.
 | `sql/00_conferir_rls.sql` | que tabela do projeto está aberta — rode antes de publicar a chave |
 | `sql/03_liberar_acessos.sql` | solta acessos presos na confirmação de e-mail |
 | `testes/config.mjs` | prova que o config preenchido conecta sem ninguém colar nada |
+| `testes/interacao.mjs` | o comportamento do mouse: selecionar texto não abre nem fecha nada |
+| `testes/sitefalso.mjs` | serve uma cópia do site apontada para o Supabase de mentira |
 | `testes/supabase_falso.mjs` | um PostgREST + Auth de mentira, com as mesmas regras do banco |
 | `js/ui.js` | `tabela()` ordenável e `listaDupla()`, as duas formas da mesma lista |
 | `sql/02_acesso.sql` | tabela `pessoas`, papel, e as políticas por papel |
