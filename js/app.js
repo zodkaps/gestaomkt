@@ -110,25 +110,40 @@ function pintarMenu(id) {
   }
 }
 
-/** O nome no alto abre isto: trocar a própria senha, ou sair. */
+/** O nome abre isto: trocar de usuário, trocar a própria senha, ou sair. No
+ *  celular o menu lateral some, e com ele o nome — por isso o nome também mora
+ *  no alto da tela, e é o mesmo menu. */
 async function menuPessoa(p) {
-  const acoes = [{ rotulo: "Fechar", valor: false }];
-  if (!p.local && nuvem.autenticado()) {
-    acoes.push({ rotulo: "Trocar minha senha", valor: "senha" });
-  }
-  acoes.push({ rotulo: "Sair", classe: "perigo", valor: "sair" });
+  const fila = (await ev.autoresNaFila()).find(f => f.autor === p.nome);
+  const botao = (rotulo, valor, explica, classe = "") => el("button", {
+    class: "opcao-pessoa " + classe, type: "button", dataset: { v: valor } },
+    el("b", {}, rotulo), explica ? el("small", {}, explica) : null);
   const r = await caixa({
     titulo: p.nome,
-    corpo: el("div", {},
-      el("p", { style: "font-size:13px;color:var(--fraco)" },
-        p.local ? "Trabalhando só neste aparelho."
-          : `${(pessoas.PAPEIS[p.papel] || {}).rotulo || "sem papel"}` +
-            (p.email ? ` · ${p.email}` : ""))),
-    acoes,
+    corpo: ({ fechar }) => {
+      const opcoes = [
+        botao("Trocar de usuário", "trocar", "sai só deste aparelho e entra com outro e-mail"),
+        !p.local && nuvem.autenticado() ? botao("Trocar minha senha", "senha", "") : null,
+        botao("Sair", "sair", "sai só deste aparelho", "perigo"),
+      ].filter(Boolean);
+      opcoes.forEach(b => b.addEventListener("click", () => fechar(b.dataset.v)));
+      return el("div", {},
+        el("p", { style: "font-size:13px;color:var(--fraco);margin-top:0" },
+          p.local ? "Trabalhando só neste aparelho."
+            : `${(pessoas.PAPEIS[p.papel] || {}).rotulo || "sem papel"}` +
+              (p.email ? ` · ${p.email}` : "")),
+        fila ? el("p", { class: "morno-texto" },
+          `Você tem ${fila.quantos} lançamento${fila.quantos === 1 ? "" : "s"} que ainda não ` +
+          "subi" + (fila.quantos === 1 ? "u" : "ram") + ". Fica" + (fila.quantos === 1 ? "" : "m") +
+          " guardado" + (fila.quantos === 1 ? "" : "s") + " aqui e sobe" + (fila.quantos === 1 ? "" : "m") +
+          " quando você entrar de novo.") : null,
+        el("div", { class: "opcoes-pessoa" }, opcoes));
+    },
+    acoes: [{ rotulo: "Fechar", valor: false }],
   });
-  if (r === "sair") {
+  if (r === "sair" || r === "trocar") {
     await pessoas.sair();
-    location.hash = "#/entrar";
+    location.hash = r === "trocar" ? "#/entrar?trocar=1" : "#/entrar";
     pintar();
   } else if (r === "senha") {
     trocarSenha();
@@ -160,8 +175,18 @@ async function trocarSenha() {
 function pintarPessoa() {
   const q = $("#quem");
   limpar(q);
+  const qt = $("#quem-topo");
+  if (qt) limpar(qt);
   const p = pessoas.quem();
   if (!p) return;
+  const iniciaisTopo = p.nome.split(/\s+/).slice(0, 2).map(x => x[0]).join("").toUpperCase();
+  // No alto, para o celular: as iniciais e o primeiro nome. Toque abre o menu.
+  if (qt) {
+    qt.append(el("button", { class: "discreto chip-topo", title: `${p.nome} — trocar de usuário, senha ou sair`,
+      onclick: () => menuPessoa(p) },
+      el("span", { class: "av" }, iniciaisTopo),
+      el("span", { class: "nome" }, p.nome.split(" ")[0])));
+  }
   const iniciais = p.nome.split(/\s+/).slice(0, 2).map(x => x[0]).join("").toUpperCase();
   q.append(el("button", {
     class: "discreto chip-pessoa", title: "Trocar a senha ou sair",
@@ -260,6 +285,22 @@ async function montarFaixa() {
     ] };
   }
 
+  // Faz tempo que o banco não responde: o que os outros lançam não está
+  // chegando. Isto tem de aparecer — olhar dado velho sem saber é pior que
+  // não ter o dado.
+  if (nuvem.ligada() && nuvem.autenticado() && !fila.length) {
+    const c = nuvem.estadoConversa();
+    const parado = Date.now() - Math.max(c.em, inicioDoApp) > 45000;
+    if (parado) {
+      const hora = c.em ? new Date(c.em).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" }) : "";
+      return { classe: "morna", nos: [
+        el("span", {}, (hora ? `Sem contato com o banco desde ${hora}` : "Ainda sem contato com o banco") +
+          " — o que os outros lançarem aparece quando voltar." + (c.erro ? ` (${c.erro})` : "")),
+        el("button", { class: "discreto", onclick: atualizarAgora }, "Atualizar agora"),
+      ] };
+    }
+  }
+
   if (nuvem.ligada() && fila.length) {
     const autores = await ev.autoresNaFila();
     // De outra pessoa é outra história: não é falta de rede, é falta da senha
@@ -303,6 +344,25 @@ async function montarFaixa() {
   return null;
 }
 
+const inicioDoApp = Date.now();
+
+/** Sobe o que está na fila e busca as novidades já, sem esperar a próxima
+ *  volta — o "não apareceu ainda?" se resolve aqui. */
+async function atualizarAgora() {
+  if (!nuvem.ligada() || !nuvem.autenticado()) {
+    avisar("Sem sessão no banco: entre com a sua senha para atualizar.", "ruim");
+    return;
+  }
+  const antes = ev.log.length;
+  const r = await ev.sincronizar();
+  await nuvem.consultarAgora();
+  const veio = ev.log.length - antes;
+  const c = nuvem.estadoConversa();
+  if (r.erro || c.erro) avisar("Não deu: " + (r.erro || c.erro), "ruim");
+  else avisar(veio ? `Atualizado — ${veio} novidade${veio === 1 ? "" : "s"}.` : "Atualizado — nada novo.");
+  faixa();
+}
+
 async function salvarBackup() {
   bk.baixar(await bk.exportar(), bk.nomeDoArquivo());
   await bk.marcarFeito();
@@ -331,6 +391,11 @@ async function comecar() {
   await ev.carregar();
   document.documentElement.dataset.tema = await dados.lerMeta("tema", "");
 
+  const bAtualizar = $("#batualizar");
+  if (bAtualizar) bAtualizar.addEventListener("click", atualizarAgora);
+  // A faixa de "sem contato" depende do relógio, não só de lançamento novo.
+  setInterval(() => { if (pessoas.quem()) faixa(); }, 15000);
+
   $("#btema").addEventListener("click", async () => {
     const novo = document.documentElement.dataset.tema === "claro" ? "" : "claro";
     document.documentElement.dataset.tema = novo;
@@ -339,7 +404,19 @@ async function comecar() {
 
   window.addEventListener("hashchange", pintar);
   ev.ouvir(() => { faixa(); pintarMenu(alvo().id); });
-  nuvem.aoLigar(() => { ligarNuvem(); });
+  nuvem.aoLigar(async () => {
+    // O banco disse que a sessão deste aparelho acabou: quem estava dentro
+    // volta para a porta, com o porquê, em vez de ficar numa tela que só
+    // recebe recusa. O que foi lançado aqui fica na fila.
+    if (nuvem.ligada() && !nuvem.autenticado() && nuvem.motivoDaSaida() &&
+        pessoas.quem() && !pessoas.local()) {
+      await pessoas.carregar();
+      const naUrl = (location.hash || "").replace(/^#\/?/, "").split("?")[0];
+      if (!pessoas.quem() && !PORTAS.has(naUrl)) location.hash = "#/entrar";
+      pintar();
+    }
+    ligarNuvem();
+  });
 
   // Sem ninguém dentro a URL tem de ser uma das portas — mas se já FOR uma, não
   // se troca: mandar quem abriu o link do diagnóstico para a tela de entrar é

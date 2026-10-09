@@ -444,6 +444,20 @@ if (abas) {
     chegou_em: "2026-10-08", aprovada: true }));
   ok("nem criar uma já aprovada",
     !ev.porId(criadaJa.alvo, "movimentacao").aprovada);
+  // A justificativa: quem está no pátio diz por que a frota atrasou.
+  await ev.aplicar(ev.justificar(ev.porId(movAberta.id, "movimentacao"),
+    { motivo: "A frota estava em viagem para Natal", quem: "Operação", texto: "" }, "movimentacao"));
+  const justificada = ev.porId(movAberta.id, "movimentacao");
+  igual("a operação justifica a movimentação: por quê e quem",
+    [justificada.motivo_atraso, justificada.quem_atrasou],
+    ["A frota estava em viagem para Natal", "Operação"]);
+  let barrouJust = "";
+  try { ev.justificar(umaAberta, { motivo: "Peça não chegou" }); } catch (e) { barrouJust = e.message; }
+  ok("mas não justifica atividade (OS) — isso é do PCM", !!barrouJust, barrouJust);
+  let semPorque = "";
+  try { ev.justificar(justificada, { quem: "Operação" }, "movimentacao"); } catch (e) { semPorque = e.message; }
+  ok("justificar sem dizer por quê é recusado", !!semPorque, semPorque);
+
   let barrouAprovar = "";
   try { ev.aprovarMovimentacao(ev.porId(movAberta.id, "movimentacao")); }
   catch (e) { barrouAprovar = e.message; }
@@ -483,6 +497,23 @@ if (abas) {
   await ev.aplicar(ev.chegou(terceiraMov, "2026-10-09"));
   ok("quando o próprio PCM conclui, já vai aprovada",
     ev.porId(terceiraMov.id, "movimentacao").aprovada);
+
+  // O PCM justifica a OS: o porquê vai para o "SE NÃO FOI, POR QUÊ", e quem
+  // atrasou, quando dito, manda no "de quem é o atraso".
+  const osAtrasada = ev.lista().find(x => modelo.aberta(x) && !x.motivo);
+  await ev.aplicar(ev.justificar(osAtrasada, { motivo: "Peça não chegou", quem: "Terceiro",
+    texto: "fornecedor atrasou a entrega" }));
+  const osJust = ev.porId(osAtrasada.id);
+  igual("a OS ganha o porquê, quem atrasou e o detalhe",
+    [osJust.motivo, osJust.quem_atrasou, osJust.justificativa],
+    ["Peça não chegou", "Terceiro", "fornecedor atrasou a entrega"]);
+  ok("quem atrasou informado vale mais que o deduzido do motivo (Peça → Suprimentos)",
+    modelo.atrasoPorArea([osJust]).por.Terceiro && !modelo.atrasoPorArea([osJust]).por.Suprimentos);
+  const soTexto = ev.lista().find(x => modelo.aberta(x) && !x.motivo);
+  await ev.aplicar(ev.justificar(soTexto, { texto: "cliente pediu para segurar" }));
+  igual("sem motivo da lista, o que foi escrito é o porquê", ev.porId(soTexto.id).motivo,
+    "cliente pediu para segurar");
+  ok("a fita fecha com as justificativas", ev.conferir().ok);
 
   await ev.aplicar(ev.marcarParada(ev.porId(prevSemData.id, "preventiva"), "2026-10-20"));
   igual("o PCM marca, e aí ninguém está travando",

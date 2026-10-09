@@ -6,6 +6,7 @@
 
 import * as ev from "../eventos.js";
 import * as M from "../modelo.js";
+import * as pessoas from "../pessoas.js";
 import { normalizarOSLista } from "../importar.js";
 import { el, br, brCurto, quando, caixa, campo, selecao, comSugestoes, chip,
   avisar, erro, confirmar, vazio, cliqueLimpo } from "../ui.js";
@@ -74,23 +75,84 @@ export function botaoConcluir(a, ctx) {
   }, "Concluir");
 }
 
+// ── a justificativa: por que atrasou e quem atrasou ─────────────────────────
+
+/** Os campos da justificativa, em texto livre: o porquê e quem atrasou são
+ *  digitados — cada atraso tem a sua história, e lista pronta empurrava tudo
+ *  para "Outro". */
+export function camposJustificativa(tipo = "atividade", atual = {}) {
+  const ePorque = el("textarea", { rows: 2,
+    placeholder: tipo === "movimentacao"
+      ? "ex.: a frota estava em viagem para Natal e só voltou quinta"
+      : "ex.: a peça só chegou na sexta; o fornecedor atrasou a entrega" });
+  ePorque.value = [atual.motivo, atual.texto && atual.texto !== atual.motivo ? atual.texto : ""]
+    .filter(Boolean).join(" — ");
+  const eQuem = el("input", { value: atual.quem || "",
+    placeholder: "ex.: Operação, fornecedor Cardan, Suprimentos, motorista…" });
+  const no = el("div", { class: "justificar" },
+    campo("Por que atrasou / não foi feita", ePorque),
+    campo("Quem atrasou", eQuem));
+  return {
+    no,
+    valores: () => ({ motivo: ePorque.value.trim(), quem: eQuem.value.trim(), texto: "" }),
+    preenchido: () => !!ePorque.value.trim(),
+  };
+}
+
+/** Justificar uma atividade (OS) ou uma movimentação. */
+export async function justificar(alvo, tipo = "atividade") {
+  const atual = tipo === "movimentacao"
+    ? { motivo: alvo.motivo_atraso, quem: alvo.quem_atrasou, texto: alvo.justificativa }
+    : { motivo: alvo.motivo, quem: alvo.quem_atrasou, texto: alvo.justificativa };
+  const j = camposJustificativa(tipo, atual);
+  const titulo = tipo === "movimentacao"
+    ? `${alvo.frota} · ${alvo.destino || "movimentação"}`
+    : `${alvo.frota} · ${alvo.atividade || "atividade"}`;
+  const r = await caixa({
+    titulo: "Justificar",
+    corpo: el("div", {}, el("p", {}, el("b", {}, titulo)), j.no),
+    acoes: [{ rotulo: "Cancelar", valor: false },
+      { rotulo: "Gravar", classe: "primario", valor: true }],
+  });
+  if (r !== true) return false;
+  try {
+    await ev.aplicar(ev.justificar(alvo, j.valores(), tipo));
+    avisar("Justificativa registrada.");
+    return true;
+  } catch (e) { erro(e.message); return false; }
+}
+
 // ── as operações ────────────────────────────────────────────────────────────
 
 export async function concluir(a, ctx, quandoPadrao) {
   const entrada = el("input", { type: "date", value: quandoPadrao || M.hoje() });
+  // Saiu depois do prazo? Então o porquê é pedido aqui mesmo — é o momento em
+  // que quem dá a baixa sabe o que aconteceu. Não é obrigatório.
+  const prazo = M.prazoDe(a);
+  const j = camposJustificativa("atividade",
+    { motivo: a.motivo, quem: a.quem_atrasou, texto: a.justificativa });
+  const caixaAtraso = el("div", { class: "bloco-atraso" },
+    el("p", { class: "nada" }, "Saiu depois do prazo — por quê? (opcional)"), j.no);
+  const verAtraso = () => { caixaAtraso.hidden = !(prazo && entrada.value && entrada.value > prazo); };
+  entrada.addEventListener("change", verAtraso);
+  entrada.addEventListener("input", verAtraso);
+  verAtraso();
   const r = await caixa({
     titulo: "Dar baixa",
     corpo: el("div", {},
       el("p", {}, el("b", {}, a.frota), " · ", a.atividade),
       campo("Concluída em", entrada,
         "O dia em que o serviço saiu. É por esta data que a aderência conta — " +
-        "marcar sem datar deixa o serviço fechado na tela e invisível no número.")),
+        "marcar sem datar deixa o serviço fechado na tela e invisível no número."),
+      caixaAtraso),
     acoes: [{ rotulo: "Cancelar", valor: false },
       { rotulo: "Confirmar baixa", classe: "primario", valor: true }],
   });
   if (r !== true) return false;
   if (!entrada.value) { erro("Falta a data."); return false; }
-  await ev.aplicar(ev.concluir(a, entrada.value));
+  const eventos = [ev.concluir(a, entrada.value)];
+  if (!caixaAtraso.hidden && j.preenchido()) eventos.push(ev.justificar(a, j.valores(), "atividade"));
+  await ev.aplicar(eventos);
   avisar(`${a.frota} · baixa em ${br(entrada.value)}`);
   return true;
 }
@@ -108,14 +170,8 @@ export async function reprogramar(a, ctx, sugestao = {}) {
     value: sugestao.dias ?? a.dias ?? 1 });
   const entradaHH = el("input", { type: "number", step: "0.5", min: "0",
     value: sugestao.hh ?? a.hh ?? 0 });
-  const entradaMotivo = selecao([{ v: "", t: "— escolha —" }, ...M.MOTIVOS], "");
-  const entradaOutro = el("input", { type: "text", placeholder: "Escreva o motivo" });
-  const linhaOutro = campo("Qual?", entradaOutro);
-  linhaOutro.style.display = "none";
-  entradaMotivo.addEventListener("change", () => {
-    linhaOutro.style.display = entradaMotivo.value === "Outro" ? "" : "none";
-    if (entradaMotivo.value === "Outro") entradaOutro.focus();
-  });
+  const entradaMotivo = el("input", { type: "text",
+    placeholder: "por que mudou — ex.: frota não chegou, peça atrasou" });
 
   const r = await caixa({
     titulo: jaEstava ? "Reprogramar" : "Programar",
@@ -130,15 +186,13 @@ export async function reprogramar(a, ctx, sugestao = {}) {
         campo("HH previsto", entradaHH, "horas × pessoas")),
       jaEstava ? campo("Motivo da mudança", entradaMotivo,
         "Obrigatório. É este campo que transforma um empurrão em número — " +
-        "sem ele não dá para dizer por que a semana não fechou.") : null,
-      jaEstava ? linhaOutro : null),
+        "sem ele não dá para dizer por que a semana não fechou.") : null),
     acoes: [{ rotulo: "Cancelar", valor: false },
       { rotulo: jaEstava ? "Reprogramar" : "Programar", classe: "primario", valor: true }],
   });
   if (r !== true) return false;
 
-  const motivo = entradaMotivo.value === "Outro"
-    ? entradaOutro.value.trim() : entradaMotivo.value;
+  const motivo = entradaMotivo.value.trim();
   const para = {
     ano: Number(entradaAno.value) || null,
     semana: Number(entradaSemana.value) || null,
@@ -156,19 +210,18 @@ export async function reprogramar(a, ctx, sugestao = {}) {
 }
 
 export async function devolverParaCarteira(a, ctx) {
-  const entradaMotivo = selecao([{ v: "", t: "— escolha —" }, ...M.MOTIVOS], "");
-  const entradaOutro = el("input", { type: "text", placeholder: "Escreva o motivo" });
+  const entradaMotivo = el("input", { type: "text", placeholder: "por que sai da semana" });
   const r = await caixa({
     titulo: "Tirar da semana",
     corpo: el("div", {},
       el("p", {}, "A atividade volta para a carteira, sem semana e sem dia. " +
         "Continua sendo reprogramação, e por isso pede motivo."),
-      campo("Motivo", entradaMotivo), campo("Ou escreva", entradaOutro)),
+      campo("Motivo", entradaMotivo)),
     acoes: [{ rotulo: "Cancelar", valor: false },
       { rotulo: "Tirar da semana", classe: "primario", valor: true }],
   });
   if (r !== true) return false;
-  const motivo = entradaOutro.value.trim() || entradaMotivo.value;
+  const motivo = entradaMotivo.value.trim();
   try {
     await ev.aplicar(ev.devolverParaCarteira(a, motivo));
   } catch (e) { erro(e.message); return false; }
@@ -317,7 +370,7 @@ export async function programarEmLote(alvos) {
   const eDia = selecao([{ v: "", t: "— sem dia —" }, ...M.DIAS], "");
   const eDias = el("input", { type: "number", min: 1, max: 30, value: 1 });
   const eExec = el("input", { placeholder: "separe por vírgula" });
-  const eMotivo = selecao([{ v: "", t: "— escolha —" }, ...M.MOTIVOS], "");
+  const eMotivo = el("input", { type: "text", placeholder: "por que mudou de semana" });
 
   const r = await caixa({
     titulo: `Programar ${alvos.length} atividade${alvos.length === 1 ? "" : "s"}`,
@@ -347,7 +400,7 @@ export async function programarEmLote(alvos) {
   const eventos = [];
   try {
     for (const a of alvos) {
-      const e = ev.reprogramar(a, para, eMotivo.value);
+      const e = ev.reprogramar(a, para, eMotivo.value.trim());
       if (e) eventos.push(e);
       if (equipe.length) {
         const ed = ev.editar(a, { executantes: equipe });
@@ -385,9 +438,11 @@ export async function abrirFicha(id, ctx) {
       : (a.feita_sem_data ? "marcada Concluída na planilha, sem a data" : null)),
     linha("Semana original", a.semana_orig && a.semana_orig !== a.semana ? String(a.semana_orig) : null),
     linha("Reprogramações", a.reprogramacoes ? String(a.reprogramacoes) : null),
-    linha("Motivo", a.motivo
-      ? `${a.motivo}${M.areaDoMotivo(a.motivo) ? " — " + M.areaDoMotivo(a.motivo) : ""}`
+    linha("Por quê", a.motivo || a.justificativa
+      ? [a.motivo, a.justificativa && a.justificativa !== a.motivo ? a.justificativa : ""]
+        .filter(Boolean).join(" · ")
       : null),
+    linha("Quem atrasou", a.quem_atrasou || M.areaDoMotivo(a.motivo) || null),
     linha("Executantes", (a.executantes || []).join(", ")),
     linha("Observação", a.obs));
 
@@ -415,6 +470,10 @@ export async function abrirFicha(id, ctx) {
       await ev.aplicar(ev.reabrir(a));
       avisar("Reaberta.");
     } });
+  }
+  if (pessoas.pode("editar_atividade") && !a.cancelada) {
+    acoes.push({ rotulo: a.motivo ? "Mudar justificativa" : "Justificar",
+      acao: async () => { await justificar(a, "atividade"); } });
   }
   acoes.push({ rotulo: "Editar", acao: async () => { await editar(a, ctx); } });
   acoes.push({ rotulo: "Mais", acao: async () => { await maisAcoes(a, ctx); } });
@@ -511,6 +570,10 @@ export function descreverEvento(e, comAtividade = false) {
     case "prev_disponivel": txt = `disponível ${d.quando === "agora" ? "agora" : "em " + br(d.quando)}`; break;
     case "prev_parada": txt = `parada marcada para ${br(d.dia)}`; break;
     case "prev_realizada": txt = `preventiva realizada em ${br(d.em)}`; break;
+    case "justificada":
+      txt = "justificou: " + [d.motivo || d.texto, d.quem && `quem atrasou: ${d.quem}`,
+        d.motivo && d.texto ? d.texto : ""].filter(Boolean).join(" · ");
+      break;
     default: txt = ev.TIPOS[e.tipo] || e.tipo;
   }
   q.push(txt);

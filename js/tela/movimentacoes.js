@@ -17,7 +17,7 @@ import * as M from "../modelo.js";
 import * as pessoas from "../pessoas.js";
 import { el, limpar, br, brCurto, chip, caixa, campo, selecao, comSugestoes,
   avisar, erro, confirmar, vazio, cliqueLimpo } from "../ui.js";
-import { frotas, valoresDe } from "./comum.js";
+import { frotas, valoresDe, justificar, camposJustificativa } from "./comum.js";
 import { busca as semAcento } from "../texto.js";
 
 const QUEM = ["Operação", "Makro Engenharia", "Terceiro", "Manutenção"];
@@ -47,6 +47,9 @@ export function cartaoMov(m, ctx, { acoes = [] } = {}) {
       sub.length ? el("div", { class: "sub" }, sub.join(" · ")) : null,
       m.devolvida && !m.chegou_em && m.motivo_devolucao
         ? el("div", { class: "sub", style: "color:var(--hoje)" }, "devolvida: " + m.motivo_devolucao) : null,
+      m.motivo_atraso || m.quem_atrasou
+        ? el("div", { class: "sub" }, "por quê: " + [m.motivo_atraso || m.justificativa,
+          m.quem_atrasou].filter(Boolean).join(" · ")) : null,
       el("div", { class: "tags" }, tags)),
     acoes.length ? el("div", { class: "acoes" }, acoes) : null);
 }
@@ -55,8 +58,8 @@ export function cartaoMov(m, ctx, { acoes = [] } = {}) {
 
 export async function novaMovimentacao(ctx, sugestao = {}) {
   const eFrota = el("input", { value: sugestao.frota || "" });
-  const eDestino = el("input", { placeholder: "Para onde / qual fornecedor" });
-  const eParaQue = el("input", { placeholder: "Para quê" });
+  const eDestino = el("input", { placeholder: "digite para onde vai ou o fornecedor" });
+  const eParaQue = el("input", { placeholder: "digite para quê" });
   const ePedida = el("input", { type: "date", value: M.hoje() });
   const ePrometida = el("input", { type: "date" });
   const eQuem = selecao(QUEM, "Operação");
@@ -67,8 +70,9 @@ export async function novaMovimentacao(ctx, sugestao = {}) {
       el("div", { class: "dupla" },
         campo("Frota", comSugestoes(eFrota, frotas(), "dl-mov-frota")),
         campo("Para quê", eParaQue)),
-      campo("Destino / fornecedor",
-        comSugestoes(eDestino, valoresDe("destino", "movimentacao"), "dl-mov-dest")),
+      // Texto livre: cada movimentação tem o seu destino, e lista pronta
+      // virava "padrão" onde não devia.
+      campo("Destino / fornecedor", eDestino),
       el("div", { class: "tripla" },
         campo("Pedida em", ePedida),
         campo("Prazo (prometida para)", ePrometida),
@@ -98,6 +102,15 @@ export async function concluirMov(m) {
   const eData = el("input", { type: "date", value: M.hoje() });
   const prazo = m.prometida_para;
   const vaiAprovada = pessoas.pode("aprovar");
+  // Passou do prazo: o porquê é pedido aqui — quem conclui é quem sabe.
+  const j = camposJustificativa("movimentacao",
+    { motivo: m.motivo_atraso, quem: m.quem_atrasou, texto: m.justificativa });
+  const caixaAtraso = el("div", { class: "bloco-atraso" },
+    el("p", { class: "nada" }, "Passou do prazo — por quê? (opcional, mas ajuda o PCM a aprovar)"), j.no);
+  const verAtraso = () => { caixaAtraso.hidden = !(prazo && eData.value && eData.value > prazo); };
+  eData.addEventListener("change", verAtraso);
+  eData.addEventListener("input", verAtraso);
+  verAtraso();
   const r = await caixa({
     titulo: "Concluir movimentação",
     corpo: el("div", {},
@@ -105,6 +118,7 @@ export async function concluirMov(m) {
         m.para_que ? ` — ${m.para_que}` : ""),
       el("p", { class: "nada" }, prazo ? `O prazo era ${br(prazo)}.` : "Não tinha prazo."),
       campo("Concluída em", eData),
+      caixaAtraso,
       el("p", { class: "nada" }, vaiAprovada
         ? "Você é do PCM: ela já entra aprovada."
         : "Ela fica Aguardando aprovação até o PCM conferir.")),
@@ -113,7 +127,9 @@ export async function concluirMov(m) {
   });
   if (r !== true) return false;
   try {
-    await ev.aplicar(ev.concluirMovimentacao(m, eData.value));
+    const eventos = [ev.concluirMovimentacao(m, eData.value)];
+    if (!caixaAtraso.hidden && j.preenchido()) eventos.push(ev.justificar(m, j.valores(), "movimentacao"));
+    await ev.aplicar(eventos);
     const atraso = prazo ? Math.max(0, M.difDias(prazo, eData.value) || 0) : 0;
     avisar(`${m.frota}: concluída${atraso ? ` com ${atraso} dia(s) de atraso` : ""}` +
       (vaiAprovada ? "." : " — aguardando aprovação."));
@@ -188,6 +204,8 @@ const ROTULO_EVENTO = e => {
     mov_aprovada: "aprovou",
     mov_devolvida: "devolveu",
     mov_cancelada: "cancelou", editada: "editou",
+    justificada: "justificou: " + [d.motivo || d.texto, d.quem && `quem atrasou: ${d.quem}`]
+      .filter(Boolean).join(" · "),
   })[e.tipo] || ev.TIPOS[e.tipo] || e.tipo;
 };
 
@@ -215,6 +233,9 @@ export async function abrirFichaMov(id, ctx) {
         : null),
       linha("Devolvida", m.devolvida && !m.chegou_em ? (m.motivo_devolucao || "sim") : null),
       linha("Atraso", atraso ? `${atraso} dia(s)` : null),
+      linha("Por que atrasou", [m.motivo_atraso, m.justificativa && m.justificativa !== m.motivo_atraso
+        ? m.justificativa : ""].filter(Boolean).join(" · ") || null),
+      linha("Quem atrasou", m.quem_atrasou || null),
       linha("Observação", m.obs)),
     el("h2", { class: "mini" }, `Registro · ${hist.length}`),
     el("div", {}, hist.map(e => el("div", { class: "evento" },
@@ -228,6 +249,10 @@ export async function abrirFichaMov(id, ctx) {
     acoes.push({ rotulo: "Concluir", classe: "primario", acao: async () => { await concluirMov(m); } });
     acoes.push({ rotulo: m.prometida_para ? "Mudar prazo" : "Dar prazo", acao: async () => { await prometerData(m); } });
     acoes.push({ rotulo: "Cancelar movimentação", classe: "perigo", acao: async () => { await cancelarMov(m); } });
+  }
+  if (!m.cancelada && pessoas.pode("movimentar") && (atraso > 0 || m.motivo_atraso)) {
+    acoes.push({ rotulo: m.motivo_atraso ? "Mudar justificativa" : "Justificar",
+      acao: async () => { await justificar(m, "movimentacao"); } });
   }
   if (m.chegou_em && !m.cancelada && pessoas.pode("aprovar")) {
     if (!m.aprovada) acoes.push({ rotulo: "Aprovar", classe: "primario", acao: async () => { await aprovar(m); } });
@@ -253,6 +278,23 @@ function acaoDaLinha(m) {
   }
   if (m.chegou_em) return el("span", { class: "feito-em" }, "✓ " + brCurto(m.chegou_em));
   return "";
+}
+
+/** O porquê do atraso na linha — clicável para mudar — ou, quando atrasou e
+ *  ninguém disse por quê, o atalho para justificar. */
+function linhaJustificativa(m, ref) {
+  const pode = pessoas.pode("movimentar");
+  const abrir = e => { e.stopPropagation(); justificar(m, "movimentacao"); };
+  if (m.motivo_atraso || m.quem_atrasou) {
+    return el("div", { class: "porque" + (pode ? " editavel" : ""), onclick: pode ? abrir : null,
+      title: pode ? "Mudar a justificativa" : "" },
+      m.motivo_atraso || m.justificativa || "—",
+      m.quem_atrasou ? el("span", { class: "quem-atrasou" }, " · " + m.quem_atrasou) : null);
+  }
+  if (pode && M.movimentacaoSemJustificativa(m, ref)) {
+    return el("button", { class: "mini justificar", onclick: abrir }, "+ justificar");
+  }
+  return null;
 }
 
 function tabelaMov(itens, ctx, ref) {
@@ -281,7 +323,8 @@ function tabelaMov(itens, ctx, ref) {
         el("div", { class: "t" }, m.destino || "—"),
         m.para_que ? el("div", { class: "seg" }, m.para_que) : null,
         m.devolvida && !m.chegou_em && m.motivo_devolucao
-          ? el("div", { class: "porque" }, "devolvida: " + m.motivo_devolucao) : null),
+          ? el("div", { class: "porque" }, "devolvida: " + m.motivo_devolucao) : null,
+        linhaJustificativa(m, ref)),
       el("td", { class: "c-dt num" }, d(m.pedida_em)),
       el("td", { class: "c-dt num" + (s === "Atrasada" ? " venceu" : "") }, d(m.prometida_para)),
       el("td", { class: "c-dt num" }, d(m.chegou_em)),
@@ -305,7 +348,7 @@ function tabelaMov(itens, ctx, ref) {
 
 // ── a tela ──────────────────────────────────────────────────────────────────
 
-const estado = { recorte: "", busca: "" };
+const estado = { recorte: "", busca: "", quem: "" };
 
 export async function montar(raiz, ctx, params) {
   // O PCM abre na fila de aprovação quando há o que aprovar; a operação, no
@@ -383,10 +426,31 @@ export async function montar(raiz, ctx, params) {
       }, rot, el("span", { class: "n" }, ` ${l.length}`)));
     }
 
-    const base = (OPCOES.find(([id]) => id === estado.recorte) || OPCOES[0])[2];
+    // Quem atrasou: as atrasadas e as concluídas com atraso, por responsável.
+    // Clicar filtra; "sem justificativa" é a fila do que falta explicar.
+    const atrasadas = todas.filter(m => !m.cancelada && M.atrasoMovimentacao(m, ref) > 0);
+    if (atrasadas.length) {
+      const por = new Map();
+      for (const m of atrasadas) {
+        const k = m.quem_atrasou || (m.motivo_atraso || m.justificativa ? "não informado" : "__sem");
+        por.set(k, (por.get(k) || 0) + 1);
+      }
+      const ordem = [...por].sort((a, b) => (a[0] === "__sem") - (b[0] === "__sem") || b[1] - a[1]);
+      corpo.append(el("div", { class: "faixa-sit quem-faixa" },
+        el("span", { class: "rot-faixa" }, "Atrasos por quem atrasou:"),
+        ordem.map(([k, n]) => el("button", {
+          class: "fsit " + (k === "__sem" ? "hoje" : "programada") + (estado.quem === k ? " on" : ""),
+          onclick: () => { estado.quem = estado.quem === k ? "" : k; pintar(); },
+        }, el("b", {}, String(n)), " ", k === "__sem" ? "sem justificativa" : k))));
+    } else estado.quem = "";
+
+    const base = estado.quem
+      ? atrasadas.filter(m => (m.quem_atrasou || (m.motivo_atraso || m.justificativa ? "não informado" : "__sem")) === estado.quem)
+      : (OPCOES.find(([id]) => id === estado.recorte) || OPCOES[0])[2];
     const q = semAcento(estado.busca.trim());
     const itens = base.filter(m => !q ||
-      semAcento([m.frota, m.destino, m.para_que, m.quem_prometeu, m.concluida_por, m.obs].join(" ")).includes(q));
+      semAcento([m.frota, m.destino, m.para_que, m.quem_prometeu, m.concluida_por, m.obs,
+        m.motivo_atraso, m.quem_atrasou, m.justificativa].join(" ")).includes(q));
     const peso = m => { const i = ORDEM.indexOf(M.situacaoMovimentacao(m, ref)); return i < 0 ? 99 : i; };
     itens.sort((a, b) => peso(a) - peso(b) ||
       (a.chegou_em || b.chegou_em

@@ -23,6 +23,10 @@ const ok = (nome, cond, detalhe = "") => {
 
 const nav = await chromium.launch({ executablePath: "/opt/pw-browsers/chromium-1194/chrome-linux/chrome" });
 const p = await (await nav.newContext({ viewport: { width: 1280, height: 860 } })).newPage();
+// Erro dentro da página aparece aqui: um teste que falha sem dizer por quê
+// custa uma tarde.
+p.on("pageerror", e => console.log("  [erro na página]", e.message));
+p.on("console", m => { if (m.type() === "error" && !/Failed to load resource/.test(m.text())) console.log("  [console]", m.text()); });
 
 await p.goto(site.endereco, { waitUntil: "networkidle" });
 await p.waitForTimeout(400);
@@ -125,6 +129,17 @@ const fechou = await p.evaluate(() => ({
   caixas: document.querySelectorAll(".caixa").length,
   em: mkt.ev.porId(window.__alvo).concluida_em,
 }));
+if (fechou.em !== "2026-10-09") {
+  console.log("  [depuração]", JSON.stringify(await p.evaluate(async () => {
+    const id = window.__alvo;
+    return {
+      memoria: mkt.ev.log.filter(e => e.alvo === id).map(e => `${e.tipo}@${e.ts}`),
+      disco: (await mkt.dados.lerEventos()).filter(e => e.alvo === id).map(e => `${e.tipo}@${e.ts}:${e.enviado}`),
+      refeito: (mkt.ev.reconstruir(mkt.ev.log).atividade.get(id) || {}).concluida_em,
+      total: mkt.ev.log.length, pessoa: mkt.pessoas.nome(), papel: mkt.pessoas.papel(),
+    };
+  })));
+}
 ok("Enter num campo confirma, sem precisar mirar o botão",
   fechou.caixas === 0 && fechou.em === "2026-10-09", JSON.stringify(fechou));
 
@@ -376,12 +391,23 @@ await p.waitForTimeout(500);
 await p.click(`.so-tabela tr.lin[data-id="${idMovAprovar}"] button.concluir`);
 await p.waitForSelector(".caixa input[type=date]", { timeout: 5000 });
 await p.fill(".caixa input[type=date]", "2026-10-07");
-await p.press(".caixa input[type=date]", "Enter");
-await p.waitForTimeout(1200);
-const doPedro = await p.evaluate(id => ({
-  sit: mkt.M.situacaoMovimentacao(mkt.ev.porId(id, "movimentacao")),
-  aprovarVisivel: !!document.querySelector("button.aprovar"),
-}), idMovAprovar);
+// Passou do prazo (05/10): o diálogo pede o porquê ali mesmo, e escolher o
+// motivo já sugere quem atrasou.
+const pedePorque = await p.evaluate(() => !document.querySelector(".caixa .bloco-atraso").hidden);
+// Tudo digitado: o porquê e quem atrasou são texto livre, sem lista pronta.
+await p.fill(".caixa .bloco-atraso textarea", "A frota estava em viagem para Natal");
+await p.fill(".caixa .bloco-atraso input", "Operação");
+await p.click('.caixa footer button.primario');
+await p.waitForFunction(id => mkt.ev.porId(id, "movimentacao").chegou_em, idMovAprovar, { timeout: 5000 })
+  .catch(() => {});
+const doPedro = await p.evaluate(id => {
+  const m = mkt.ev.porId(id, "movimentacao");
+  return { sit: mkt.M.situacaoMovimentacao(m), por: m.motivo_atraso, quem: m.quem_atrasou,
+    aprovarVisivel: !!document.querySelector("button.aprovar") };
+}, idMovAprovar);
+ok("concluindo depois do prazo, o diálogo pede o porquê — e grava com quem atrasou",
+  pedePorque && doPedro.por === "A frota estava em viagem para Natal" && doPedro.quem === "Operação",
+  JSON.stringify({ pedePorque, ...doPedro }));
 ok("o Pedro conclui e ela fica aguardando aprovação",
   doPedro.sit === "Aguardando aprovação", JSON.stringify(doPedro));
 ok("e o Pedro não vê botão de aprovar", !doPedro.aprovarVisivel);
@@ -410,6 +436,120 @@ const aprovada = await p.evaluate(id => {
 ok("um clique aprova: Concluída com atraso, concluída pelo Pedro, aprovada pelo Mateus",
   aprovada.sit === "Concluída com atraso" && aprovada.quem === "Pedro" && aprovada.por === "Mateus",
   JSON.stringify(aprovada));
+
+// ── o que um lança, os outros veem — mesmo fora de ordem ───────────────────
+// O pedido de movimentação que o Mateus abriu chegou ao banco mas não apareceu
+// para os outros. Uma das causas: dois lançamentos gravados quase juntos podem
+// ficar visíveis fora de ordem, e quem lia no meio pulava um deles para
+// sempre. Aqui o servidor segura um lançamento enquanto o seguinte já aparece.
+{
+  const lucas = await (await nav.newContext({ viewport: { width: 1280, height: 860 } })).newPage();
+  await lucas.goto(site.endereco, { waitUntil: "networkidle" });
+  await entrarComo(lucas, "Lucas");
+  const segura = (rota, corpo = {}) => fetch(`${NUVEM}/${rota}`, { method: "POST",
+    headers: { "content-type": "application/json" }, body: JSON.stringify(corpo) });
+  await segura("__segurar", { quantos: 1 });
+  const FR1 = "F-FORA-" + Date.now().toString(36), FR2 = FR1 + "-B";
+  await lucas.evaluate(async ([f1, f2]) => {
+    await mkt.ev.aplicar(mkt.ev.pedirMovimentacao({ frota: f1, destino: "Cardan" }));
+    await mkt.ev.sincronizar();
+    await mkt.ev.aplicar(mkt.ev.pedirMovimentacao({ frota: f2, destino: "Borracharia" }));
+    await mkt.ev.sincronizar();
+  }, [FR1, FR2]);
+  await p.waitForTimeout(11000);                       // uma volta da escuta: pega só o 2º
+  const meio = await p.evaluate(([f1, f2]) => ({
+    primeira: !!mkt.ev.lista("movimentacao").find(m => m.frota === f1),
+    segunda: !!mkt.ev.lista("movimentacao").find(m => m.frota === f2),
+  }), [FR1, FR2]);
+  await segura("__soltar");
+  await p.evaluate(() => mkt.nuvem.consultarAgora());  // o mesmo que a conferência de 1 em 1 minuto
+  await p.waitForTimeout(800);
+  const fim = await p.evaluate(f1 => !!mkt.ev.lista("movimentacao").find(m => m.frota === f1), FR1);
+  ok("o lançamento que ficou visível fora de ordem não se perde: a conferência o busca",
+    meio.segunda && !meio.primeira && fim, JSON.stringify({ meio, fim }));
+  await lucas.close();
+}
+
+// ── trocar de usuário pelo celular ─────────────────────────────────────────
+// No celular o menu lateral some, e com ele o nome e o "Sair": não havia como
+// trocar de usuário. Agora o nome fica no alto, e tocar nele troca.
+const fone = await (await nav.newContext({ viewport: { width: 390, height: 800 } })).newPage();
+await fone.goto(site.endereco, { waitUntil: "networkidle" });
+await entrarComo(fone, "Mateus");
+const noAlto = await fone.evaluate(() => {
+  const b = document.querySelector("#quem-topo .chip-topo");
+  return !!b && b.offsetParent !== null && b.textContent.includes("Mateus");
+});
+ok("no celular, o nome de quem entrou aparece no alto", noAlto);
+await fone.click("#quem-topo .chip-topo");
+await fone.click('.caixa .opcao-pessoa:has-text("Trocar de usuário")');
+await fone.waitForSelector('input[placeholder="Seu e-mail"]', { timeout: 8000 });
+await fone.waitForTimeout(400);
+const portaTroca = await fone.evaluate(() => ({
+  hash: location.hash,
+  email: document.querySelector('input[placeholder="Seu e-mail"]').value,
+  nomes: [...document.querySelectorAll(".atalhos-equipe button")].map(b => b.textContent),
+}));
+ok("trocar de usuário abre a porta em branco, com os nomes da equipe para tocar",
+  portaTroca.hash.includes("trocar=1") && portaTroca.email === "" && portaTroca.nomes.includes("Pedro"),
+  JSON.stringify(portaTroca));
+await fone.click('.atalhos-equipe button:has-text("Pedro")');
+const preenchido = await fone.evaluate(() => document.querySelector('input[placeholder="Seu e-mail"]').value);
+ok("tocar no nome preenche o e-mail", preenchido === emailDoTeste("Pedro"), preenchido);
+await fone.fill('input[placeholder="Senha"]', "makro2026");
+await fone.click("button[type=submit]");
+await fone.waitForTimeout(2200);
+const virou = await fone.evaluate(() => ({ nome: mkt.pessoas.nome(),
+  alto: (document.querySelector("#quem-topo") || {}).textContent || "" }));
+ok("e entra como Pedro, com o nome dele no alto", virou.nome === "Pedro" && virou.alto.includes("Pedro"),
+  JSON.stringify(virou));
+
+// ── sair num aparelho não derruba o outro ─────────────────────────────────
+// O que aconteceu em 09/10: o Mateus saiu no computador para testar os outros
+// acessos, e o "Sair" encerrava a sessão dele em TODOS os aparelhos. Uma hora
+// depois o celular não renovava mais, ficava recusado a cada 10 segundos, e o
+// Diagnóstico mandava rodar o 02_acesso.sql — que não tinha nada a ver.
+const celular = await (await nav.newContext({ viewport: { width: 390, height: 800 } })).newPage();
+await celular.goto(site.endereco, { waitUntil: "networkidle" });
+await entrarComo(celular, "Mateus");
+await celular.waitForTimeout(800);
+await p.click(".chip-pessoa");
+await p.click('.caixa button:has-text("Sair")');
+await p.waitForTimeout(800);
+const expirar = () => fetch(`${NUVEM}/__expirar`, { method: "POST",
+  headers: { "content-type": "application/json" }, body: JSON.stringify({ email: emailDoTeste("Mateus") }) });
+await expirar();                                   // a hora do celular passou
+const continua = await celular.evaluate(async () => ({
+  leu: await mkt.nuvem.contar().then(() => "leu", e => e.message),
+  dentro: mkt.nuvem.autenticado(),
+}));
+ok("sair no computador não derruba o celular: ele renova e continua lendo",
+  continua.leu === "leu" && continua.dentro, JSON.stringify(continua));
+
+// E quando a sessão acaba de verdade (saiu em todos os aparelhos, senha
+// trocada, painel), o celular volta para a porta dizendo por quê — em vez de
+// ficar tentando para sempre.
+await celular.evaluate(async () => {
+  const s = await mkt.dados.lerMeta("sessao", null);
+  await fetch(mkt.nuvem.endereco() + "/auth/v1/logout", { method: "POST",
+    headers: { apikey: "x", Authorization: "Bearer " + s.access_token } });
+});
+await expirar();
+await celular.evaluate(() => mkt.ev.sincronizar());
+await celular.waitForTimeout(1200);
+const caiu = await celular.evaluate(() => ({
+  hash: location.hash,
+  aviso: (document.querySelector("#entrar-tela .morno") || {}).textContent || "",
+  email: (document.querySelector('input[placeholder="Seu e-mail"]') || {}).value || "",
+}));
+ok("sessão encerrada pelo banco: volta para a porta com o porquê e o e-mail preenchido",
+  caiu.hash.startsWith("#/entrar") && /encerrada/.test(caiu.aviso) && caiu.email === emailDoTeste("Mateus"),
+  JSON.stringify(caiu));
+await celular.goto(site.endereco + "#/diagnostico", { waitUntil: "networkidle" });
+await celular.waitForTimeout(1500);
+const diag = await celular.evaluate(() => document.body.innerText);
+ok("e o Diagnóstico não manda rodar SQL por causa de sessão",
+  !/recusou o acesso mesmo com você dentro/.test(diag), diag.slice(0, 200));
 
 await nav.close();
 site.fechar();

@@ -154,6 +154,32 @@ code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: .
 .chip-pessoa .quem b { display: block; font-size: 13px; font-weight: 600; }
 .chip-pessoa .quem small { display: block; font-size: 10.5px; color: var(--muito-fraco); }
 
+/* o nome no alto: só no celular, onde o menu lateral some */
+#quem-topo { display: none; }
+.chip-topo { display: inline-flex; align-items: center; gap: 7px; padding: 4px 8px 4px 4px; border-radius: 999px; }
+.chip-topo .av {
+  width: 28px; height: 28px; border-radius: 50%; background: var(--marca); color: #fff;
+  display: grid; place-items: center; font-size: 12px; font-weight: 700;
+}
+.chip-topo .nome { font-size: 13px; font-weight: 600; color: var(--texto); }
+
+/* o menu da pessoa: opções grandes, para o dedo */
+.opcoes-pessoa { display: flex; flex-direction: column; gap: 8px; }
+.opcao-pessoa {
+  display: flex; flex-direction: column; align-items: flex-start; gap: 2px; width: 100%;
+  padding: 11px 14px; text-align: left; border-radius: var(--raio);
+}
+.opcao-pessoa b { font-size: 14px; font-weight: 600; }
+.opcao-pessoa small { font-size: 12px; color: var(--fraco); font-weight: 400; }
+.opcao-pessoa.perigo b { color: var(--vencida); }
+.morno-texto { font-size: 12.5px; color: var(--hoje); background: var(--hoje-fundo);
+  border-radius: 6px; padding: 8px 10px; }
+
+/* trocar de usuário: os nomes da equipe que este aparelho conhece */
+.atalhos-equipe { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin-bottom: 12px; }
+.atalhos-equipe span { font-size: 12.5px; color: var(--fraco); width: 100%; }
+.atalhos-equipe button { border: 1px solid var(--borda); border-radius: 999px; padding: 5px 12px; font-size: 13px; }
+
 /* ── corpo ─────────────────────────────────────────────────────────────── */
 
 #corpo { margin-left: var(--menu); min-height: 100vh; display: flex; flex-direction: column; }
@@ -198,6 +224,7 @@ main { padding: 16px 18px 28px; flex: 1 1 auto; max-width: 1500px; width: 100%; 
      está onde o olho cai. A barra de cima guarda só os botões. */
   #topo { padding: 0 14px; }
   #topo .titulo { display: none; }
+  #quem-topo { display: inline-flex; }
   main { padding: 14px 14px 22px; }
 }
 
@@ -710,6 +737,14 @@ textarea.sql {
 .grade .c-ativ .fr { font-weight: 650; }
 .grade .porque { font-size: 11.5px; color: var(--hoje); margin-top: 2px; }
 .grade .porque::before { content: "por quê: "; color: var(--muito-fraco); }
+.grade .porque.editavel { cursor: pointer; }
+.grade .porque.editavel:hover { text-decoration: underline; }
+.porque .quem-atrasou { color: var(--fraco); font-weight: 600; }
+button.mini.justificar { margin-top: 3px; color: var(--hoje); border-color: var(--hoje);
+  background: transparent; border-style: dashed; }
+button.mini.justificar:hover { background: var(--hoje-fundo); }
+.bloco-atraso { border-top: 1px solid var(--linha); margin-top: 10px; padding-top: 8px; }
+.bloco-atraso[hidden] { display: none; }
 .tag {
   display: inline-block; font-size: 10.5px; font-weight: 600; padding: 0 6px;
   border-radius: 4px; background: var(--papel3); color: var(--fraco);
@@ -775,6 +810,8 @@ button.mini.sem-data { border-color: var(--hoje); background: var(--hoje-fundo);
 .fsit.carteira { color: var(--carteira); } .fsit.carteira.on { background: var(--carteira-fundo); }
 .fsit.cancelada { color: var(--cancelada); } .fsit.cancelada.on { background: var(--cancelada-fundo); }
 .fsit.todas.on { color: var(--texto); background: var(--papel2); }
+.quem-faixa { align-items: center; margin-top: 0; }
+.quem-faixa .rot-faixa { font-size: 12px; color: var(--muito-fraco); margin-right: 2px; }
 
 /* o progresso grande: o número que se olha primeiro */
 .progresso {

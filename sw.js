@@ -7,7 +7,7 @@
 // A estratégia é rede primeiro, cache como rede reserva: assim uma versão nova
 // do site chega sem precisar de truque, e a falta de rede não trava nada.
 
-const VERSAO = "mkt-v7";
+const VERSAO = "mkt-v8";
 const ARQUIVOS = [
   "./",
   "./index.html",
@@ -72,7 +72,13 @@ self.addEventListener("fetch", e => {
   if (req.method !== "GET" || new URL(req.url).origin !== location.origin) return;
   e.respondWith((async () => {
     try {
-      const resp = await fetch(req);
+      // `no-cache`: confere com o servidor antes de usar a cópia do navegador.
+      // Sem isto, o GitHub Pages deixa cada arquivo valer 10 minutos, e logo
+      // depois de uma publicação o aparelho podia montar o site com metade dos
+      // arquivos novos e metade velhos.
+      const resp = req.mode === "navigate"
+        ? await fetch(req.url, { cache: "no-cache", credentials: "same-origin" })
+        : await fetch(new Request(req, { cache: "no-cache" }));
       if (resp && resp.ok) {
         const c = await caches.open(VERSAO);
         c.put(req, resp.clone());

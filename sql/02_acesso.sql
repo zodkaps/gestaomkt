@@ -85,7 +85,7 @@ create policy eventos_insere on public.eventos
         -- à mão poderia chegar já "aprovado" e pular a conferência do PCM.
         and tipo in ('criada', 'editada',
                      'mov_prometida', 'mov_chegou', 'mov_cancelada',
-                     'prev_disponivel')
+                     'justificada', 'prev_disponivel')
       )
     )
 

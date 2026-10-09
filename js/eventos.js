@@ -35,6 +35,7 @@ export const TIPOS = {
   mov_aprovada: "movimentação aprovada",
   mov_devolvida: "movimentação devolvida",
   mov_cancelada: "movimentação cancelada",
+  justificada: "justificativa registrada",
   prev_disponivel: "disponibilidade informada",
   prev_parada: "dia da parada marcado",
   prev_andamento: "preventiva em andamento",
@@ -200,6 +201,15 @@ function aplicarNoAlvo(a, ev, d) {
       break;
     case "restaurada":
       a.cancelada = false;
+      break;
+
+    // ── justificativa: por que atrasou e quem atrasou ──
+    case "justificada":
+      // Sem motivo da lista, o que foi escrito É o porquê.
+      if (ev.alvo_tipo === "movimentacao") a.motivo_atraso = d.motivo || d.texto || "";
+      else a.motivo = d.motivo || d.texto || "";
+      a.quem_atrasou = d.quem || "";
+      a.justificativa = d.texto || "";
       break;
 
     // ── movimentação ──
@@ -481,6 +491,17 @@ export function restaurar(a) {
 export function excluir(a, motivo = "", alvoTipo = "atividade") {
   pessoas.exigir(alvoTipo === "atividade" ? "editar_atividade" : "movimentar");
   return { tipo: "excluida", alvo: a.id, alvo_tipo: alvoTipo, motivo };
+}
+
+/** Por que atrasou (ou não foi feita) e quem atrasou. Na atividade é do PCM —
+ *  a operação não escreve em atividade —; na movimentação, dos dois lados: é
+ *  a operação quem melhor sabe por que a frota não chegou. */
+export function justificar(alvo, { motivo = "", quem = "", texto = "" }, alvoTipo = "atividade") {
+  pessoas.exigir(alvoTipo === "atividade" ? "editar_atividade" : "movimentar");
+  motivo = String(motivo || "").trim(); texto = String(texto || "").trim();
+  if (!motivo && !texto) throw new Error("Diga por quê — escolha o motivo ou escreva.");
+  return { tipo: "justificada", alvo: alvo.id, alvo_tipo: alvoTipo,
+    dados: { motivo, quem: String(quem || "").trim(), texto } };
 }
 
 /** Edição comum de campos. Só entra no log o que realmente mudou. */

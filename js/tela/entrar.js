@@ -24,7 +24,7 @@ import * as pessoas from "../pessoas.js";
 import * as ev from "../eventos.js";
 import { el, limpar, campo, avisar, erro, caixa, senhaComOlho } from "../ui.js";
 
-export async function montar(raiz, ctx) {
+export async function montar(raiz, ctx, params = new URLSearchParams()) {
   // Esta tela não usa a casca: ela é a porta.
   document.body.classList.add("entrando");
 
@@ -41,8 +41,11 @@ export async function montar(raiz, ctx) {
   // fila, porque é a senha dele que faz a fila andar. Depois, de quem entrou
   // por último neste aparelho.
   const deQuem = (fila[0] && fila[0].autor) || guardado || "";
-  const sugerido = (deQuem && await pessoas.emailPorNome(deQuem)) ||
-    await pessoas.ultimoEmail() || "";
+  // Trocando de usuário: a porta vem em branco, com os nomes da equipe para
+  // tocar — no celular compartilhado, digitar o e-mail do colega é o atrito.
+  const trocando = params.get("trocar") === "1";
+  const sugerido = trocando ? "" : ((deQuem && await pessoas.emailPorNome(deQuem)) ||
+    await pessoas.ultimoEmail() || "");
 
   const eNome = el("input", { placeholder: "Seu e-mail", autocomplete: "username",
     inputmode: "email", autocapitalize: "off", value: sugerido });
@@ -110,15 +113,26 @@ export async function montar(raiz, ctx) {
     alternativa.hidden = false;
   }
 
+  // A equipe que este aparelho já conhece: um toque preenche o e-mail.
+  const conhecidos = trocando ? await pessoas.conhecidos() : [];
+  const atalhos = conhecidos.length ? el("div", { class: "atalhos-equipe" },
+    el("span", {}, "Quem vai entrar?"),
+    conhecidos.map(c => el("button", { type: "button", class: "discreto",
+      onclick: () => { eNome.value = c.email; eSenha.value = ""; eSenha.focus(); } }, c.nome))) : null;
+
   const cartao = el("div", { class: "cartao-entrar" },
     el("div", { class: "logo" }, el("i", {}, "M"), "Programação Makro"),
     el("p", { class: "dica" }, "manutenção · Mossoró/RN"),
-    aviso, form,
+    aviso, atalhos, form,
     el("p", { class: "obs esqueci" },
       "Esqueceu a senha? Ninguém consegue vê-la — nem o PCM, nem o banco: ela é ",
       "guardada embaralhada. Fale com o Mateus para criar uma nova. Depois de ",
       "entrar, dá para trocar pela sua clicando no seu nome, no alto da tela."),
     alternativa);
+
+  // A sessão caiu pelo banco (venceu, ou saíram desta conta em outro aparelho):
+  // dizer isso poupa a pessoa de achar que o site quebrou.
+  if (nuvem.motivoDaSaida()) aviso.append(el("div", { class: "morno" }, nuvem.motivoDaSaida()));
 
   if (fila.length) {
     const quem = fila.map(f => `${f.quantos} de ${f.autor}`).join(", ");

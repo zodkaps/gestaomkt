@@ -10,7 +10,7 @@ import * as ev from "../eventos.js";
 import * as M from "../modelo.js";
 import * as pessoas from "../pessoas.js";
 import { el, limpar, br, brCurto, chip, avisar, vazio, cartaoNumero } from "../ui.js";
-import { secao } from "./comum.js";
+import { secao, justificar } from "./comum.js";
 import { concluirMov, novaMovimentacao, cartaoMov } from "./movimentacoes.js";
 import { informarDisponibilidade, cartaoPrev } from "./preventivas.js";
 
@@ -64,7 +64,11 @@ export async function montar(raiz, ctx) {
       corpo.append(secao("Movimentações em aberto — conclua quando terminar",
         el("div", { class: "lista" }, normais.map(m => cartaoMov(m, ctx, {
           acoes: [el("button", { class: "primario",
-            onclick: e => { e.stopPropagation(); concluirMov(m); } }, "Concluir")],
+            onclick: e => { e.stopPropagation(); concluirMov(m); } }, "Concluir"),
+          // Atrasou e ninguém disse por quê: quem está no pátio é quem sabe.
+          M.movimentacaoSemJustificativa(m, hoje)
+            ? el("button", { onclick: e => { e.stopPropagation(); justificar(m, "movimentacao"); } },
+              "Justificar") : null].filter(Boolean),
         }))), normais.length));
     }
 
@@ -81,7 +85,7 @@ export async function montar(raiz, ctx) {
     // corrigir um toque errado sem precisar procurar a frota numa lista longa.
     const hojeFeito = ev.log.filter(e => e.ts.slice(0, 10) === hoje &&
       e.autor === pessoas.nome() &&
-      ["mov_chegou", "prev_disponivel", "mov_prometida", "criada"].includes(e.tipo));
+      ["mov_chegou", "prev_disponivel", "mov_prometida", "criada", "justificada"].includes(e.tipo));
     if (hojeFeito.length) {
       corpo.append(secao("Você lançou hoje",
         el("div", { class: "lista" }, hojeFeito.slice(-8).reverse().map(e => {
@@ -90,6 +94,7 @@ export async function montar(raiz, ctx) {
           const oq = e.tipo === "mov_chegou" ? `concluída em ${br(e.dados.em)}`
             : e.tipo === "prev_disponivel" ? `disponível ${e.dados.quando === "agora" ? "agora" : "em " + br(e.dados.quando)}`
             : e.tipo === "mov_prometida" ? `prazo ${br(e.dados.para)}`
+            : e.tipo === "justificada" ? `justificou: ${e.dados.motivo || e.dados.texto}`
             : "lançada";
           return el("div", { class: "at ok" },
             el("div", { class: "meio" },

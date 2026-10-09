@@ -130,6 +130,15 @@ export async function sair() {
   atual = null;
 }
 
+/** A equipe que este aparelho já viu (nome e e-mail), sem os cadastros de
+ *  teste. Serve à troca de usuário: tocar no nome preenche o e-mail. */
+export async function conhecidos() {
+  const lista = (await dados.lerMeta("elenco", [])) || [];
+  return lista.filter(p => p && p.nome && p.email && !dominioDeTeste(p.email))
+    .map(p => ({ nome: p.nome, email: p.email }))
+    .sort((a, b) => a.nome.localeCompare(b.nome, "pt-BR"));
+}
+
 /** O e-mail de quem tem esse nome, se este aparelho já souber.
  *
  *  Quem digita "Lucas" em vez do e-mail ainda entra, desde que alguém com

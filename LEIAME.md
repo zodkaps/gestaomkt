@@ -50,6 +50,16 @@ por e-mail, quem criasse a conta primeiro com aquele endereço herdaria o papel.
 - **Depois que todos tiverem conta**: desligue *Allow new users to sign up* em
   Authentication → Sign In / Providers. Ninguém de fora cria conta, e quem
   entrar novo é cadastrado pelo painel.
+- **Trocar de usuário** (também no celular): toque no seu nome, no alto da
+  tela → *Trocar de usuário*. Sai só deste aparelho e abre a porta em branco,
+  com os nomes da equipe que o aparelho já conhece — um toque preenche o
+  e-mail. O que você lançou e ainda não subiu fica guardado e sobe quando você
+  entrar de novo.
+- **Sair sai só deste aparelho.** Antes, sair no computador encerrava a sessão
+  da pessoa em todos os aparelhos, e uma hora depois o celular parava de
+  receber sem dizer nada. Se o banco encerrar a sessão de verdade (senha
+  trocada, painel), o site volta para a porta dizendo por quê, com o e-mail
+  preenchido.
 - **Ver a senha ao digitar**: o botão *Mostrar* dentro do campo de senha.
 - **Trocar a própria senha**: clique no seu nome, no alto da tela → *Trocar
   minha senha*. Só dá para trocar a sua.
@@ -273,6 +283,15 @@ fórmulas (ver *Os números são os da planilha*, abaixo).
   andamento), *fechadas no mês* (realizada, mês seguinte, cancelada) e, à
   parte, o quadro *fora do plano*. O Status da planilha (Em andamento,
   Realizada, Reprogramada, Cancelada) entra como está e também se marca aqui.
+- **Justificativa — por que atrasou e quem atrasou.** Em atividade (OS) e em
+  movimentação. É **texto livre**, digitado: cada atraso tem a sua história.
+  A linha atrasada sem porquê mostra *+ justificar*; a justificada mostra o
+  porquê e quem atrasou, e um clique muda. Concluir depois do prazo pede o
+  porquê no próprio diálogo (opcional). Na movimentação, quem justifica é quem
+  faz — o Pedro diz por que a frota não chegou; na OS, o PCM. A faixa *Atrasos
+  por quem atrasou*, em Movimentações, conta e filtra (inclusive *sem
+  justificativa*). Destino/fornecedor, para quê e os motivos de reprogramar e
+  de adiar também são digitados — nenhuma lista pronta.
 - **Movimentações**: as situações têm nomes genéricos — **Em aberto, Vence
   hoje, Atrasada, Sem prazo, Aguardando aprovação, Concluída, Concluída com
   atraso, Cancelada**. Quem faz a movimentação é quem a conclui: o Pedro marca
@@ -347,6 +366,7 @@ memória. Divergência ali é bug, não opinião.
 | `mov_chegou` | a movimentação foi concluída — fica aguardando aprovação | a data |
 | `mov_aprovada` | o PCM conferiu e aprovou (só o PCM) | — |
 | `mov_devolvida` | o PCM devolveu para a operação (só o PCM) | **motivo** |
+| `justificada` | por que atrasou / não foi feita, e quem atrasou (OS: PCM; movimentação: os dois) | **o porquê** |
 | `prev_disponivel` | a operação disse quando a frota fica livre | "agora" ou data |
 | `prev_parada` | o PCM marcou o dia da parada | o dia |
 | `prev_andamento` | a preventiva está sendo feita (Status Em andamento) | — |
@@ -373,6 +393,27 @@ memória. Divergência ali é bug, não opinião.
    reimportação atualiza só o resto. Conferido com os lançamentos reais do
    banco: as 8 chegadas e a promessa apontadas em 09/10 continuam depois de
    reimportar a planilha 83.
+
+### O que um lança, os outros veem
+
+Cada aparelho consulta o banco a cada 10 segundos (e na hora em que a tela
+volta a aparecer) e mostra o que os outros lançaram, sem recarregar. Três
+coisas faziam um lançamento não aparecer para os outros, e as três foram
+consertadas:
+
+- **consulta pendurada**: sinal ruim deixava uma consulta sem resposta para
+  sempre, e a escuta esperava por ela — o aparelho parava de receber até
+  alguém recarregar. Agora toda chamada ao banco tem tempo limite;
+- **fora de ordem**: dois lançamentos gravados quase juntos podem ficar
+  visíveis no banco fora de ordem, e quem lia no meio pulava um deles para
+  sempre. Uma vez por minuto o aparelho confere os últimos 100 e busca o que
+  faltar;
+- **releitura antiga por cima da nova**: uma consulta que começou antes podia
+  apagar da tela o que tinha acabado de chegar.
+
+E agora isso aparece: sem contato com o banco por mais de 45 s, a faixa diz
+desde quando, e o botão **⟳** no alto (ou *Atualizar agora*, na faixa) busca
+as novidades na hora.
 
 ### Dois caminhos para alimentar o site: a planilha e os pedidos ao Claude
 

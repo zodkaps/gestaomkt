@@ -15,7 +15,7 @@ const dominioDeTeste = email => {
   return /\.(local|test|example|invalid|localhost)$/.test(d) || /^example\.(com|net|org)$/.test(d);
 };
 const TIPOS_OPERACAO = new Set(["criada", "editada",
-  "mov_prometida", "mov_chegou", "mov_cancelada", "prev_disponivel"]);
+  "mov_prometida", "mov_chegou", "mov_cancelada", "justificada", "prev_disponivel"]);
 
 // Modos de falha, para provar que as mensagens de instalação aparecem.
 // Ligados em tempo de execução por POST /__falha {modo}.
@@ -29,9 +29,34 @@ const TIPOS_OPERACAO = new Set(["criada", "editada",
 let falha = "";
 
 const contas = new Map();      // email → senha
-const tokens = new Map();      // token → email
+const tokens = new Map();      // token de acesso → email
+// Como no Supabase: cada entrada é uma sessão; a credencial de renovação gira
+// a cada uso; sair com scope=local derruba só a sessão daquele aparelho, e sem
+// scope (o padrão do Supabase) derruba TODAS as sessões da pessoa.
+const renovacoes = new Map();  // credencial de renovação → { email, sessao }
+const acessoDaSessao = new Map(); // token de acesso → sessao
+let nSessao = 0;
+function abrirSessao(email, sessao = "s" + (++nSessao)) {
+  const t = "tok" + (++n), r = "r" + n + "-" + sessao;
+  tokens.set(t, email);
+  acessoDaSessao.set(t, sessao);
+  renovacoes.set(r, { email, sessao });
+  return { access_token: t, refresh_token: r, expires_in: 3600, user: { email } };
+}
 const eventos = [];
 const porId = new Map();
+// Como no Postgres de verdade: dois lançamentos gravados quase juntos podem
+// ficar visíveis fora de ordem (o de seq menor aparece depois). /__segurar faz
+// os próximos N lançamentos ficarem invisíveis até /__soltar.
+let segurarProximos = 0;
+const segurados = new Set();
+// O PostgREST devolve o instante no formato do Postgres: "+00:00", sem os
+// zeros do fim dos milissegundos.
+const tsDoBanco = ts => {
+  const d = new Date(ts);
+  if (isNaN(d)) return ts;
+  return d.toISOString().replace(/\.?0+Z$/, "Z").replace("Z", "+00:00");
+};
 let n = 0;
 
 const json = (res, cod, o) => res.writeHead(cod, { "content-type": "application/json" }).end(JSON.stringify(o));
@@ -82,6 +107,7 @@ createServer(async (req, res) => {
     contas.set(b.email, b.password);
     const t = "tok" + (++n);
     tokens.set(t, b.email);
+    renovacoes.set("r" + n, { email: b.email, sessao: "s" + (++nSessao) });
     return json(res, 200, { access_token: t, refresh_token: "r" + n, expires_in: 3600,
       user: { email: b.email, user_metadata: b.data || {} } });
   }
@@ -92,23 +118,52 @@ createServer(async (req, res) => {
         msg: "Email logins are disabled" });
     }
     if (u.searchParams.get("grant_type") === "refresh_token") {
-      const t = "tok" + (++n);
-      const email = [...tokens.values()][0];
-      tokens.set(t, email);
-      return json(res, 200, { access_token: t, refresh_token: "r" + n, expires_in: 3600, user: { email } });
+      const s = renovacoes.get(b.refresh_token);
+      if (!s) {
+        return json(res, 400, { error_code: "refresh_token_not_found",
+          msg: "Invalid Refresh Token: Refresh Token Not Found" });
+      }
+      renovacoes.delete(b.refresh_token);
+      return json(res, 200, abrirSessao(s.email, s.sessao));
     }
     if (contas.get(b.email) !== b.password) {
       return json(res, 400, { error_description: "Invalid login credentials" });
     }
-    const t = "tok" + (++n);
-    tokens.set(t, b.email);
-    return json(res, 200, { access_token: t, refresh_token: "r" + n, expires_in: 3600, user: { email: b.email } });
+    return json(res, 200, abrirSessao(b.email));
   }
-  if (u.pathname === "/auth/v1/logout") return res.writeHead(204).end();
+  if (u.pathname === "/auth/v1/logout") {
+    const a = (req.headers.authorization || "").replace("Bearer ", "");
+    const email = tokens.get(a), sessao = acessoDaSessao.get(a);
+    const local = u.searchParams.get("scope") === "local";
+    for (const [r, v] of [...renovacoes]) {
+      if (v.email === email && (!local || v.sessao === sessao)) renovacoes.delete(r);
+    }
+    return res.writeHead(204).end();
+  }
+  if (u.pathname === "/__segurar" && req.method === "POST") {
+    segurarProximos = (await corpo(req)).quantos || 1;
+    return json(res, 200, { ok: true });
+  }
+  if (u.pathname === "/__soltar" && req.method === "POST") {
+    segurados.clear();
+    return json(res, 200, { ok: true });
+  }
+  // Para os testes: o token de acesso de alguém vence (passou a hora), como no
+  // celular que ficou uma hora parado.
+  if (u.pathname === "/__expirar" && req.method === "POST") {
+    const b = await corpo(req);
+    for (const [t, e] of [...tokens]) if (e === b.email) tokens.delete(t);
+    return json(res, 200, { ok: true });
+  }
 
   // ── dados: sem entrar, nada ──
   const email = quem(req);
-  if (!email) return json(res, 401, { message: "permission denied" });
+  if (!email) {
+    const a = (req.headers.authorization || "").replace("Bearer ", "");
+    // Credencial que já existiu e venceu responde como o PostgREST: JWT expired.
+    if (/^tok\d+$/.test(a)) return json(res, 401, { code: "PGRST301", message: "JWT expired" });
+    return json(res, 401, { message: "permission denied" });
+  }
   // Ter conta não basta, como no banco de verdade: o cadastro é aberto e a
   // chave é pública, então quem não está em `pessoas` lê as tabelas vazias.
   const eu = falha === "sem_pessoa" ? null : PESSOAS.find(p => p.email === email);
@@ -130,7 +185,7 @@ createServer(async (req, res) => {
     if (falha === "permissao") {
       return json(res, 403, { code: "42501", message: "permission denied for table eventos" });
     }
-    const visiveis = eu ? eventos : [];
+    const visiveis = eu ? eventos.filter(e => !segurados.has(e.id)) : [];
     if (req.method === "GET") {
       if ((req.headers.prefer || "").includes("count=exact")) {
         res.setHeader("content-range", `0-0/${visiveis.length}`);
@@ -138,7 +193,17 @@ createServer(async (req, res) => {
       }
       const g = Number((u.searchParams.get("seq") || "gt.0").replace("gt.", ""));
       const lim = Number(u.searchParams.get("limit") || 1000);
-      return json(res, 200, visiveis.filter(e => e.seq > g).slice(0, lim));
+      const filtroId = u.searchParams.get("id");
+      const ids = filtroId && filtroId.startsWith("in.(")
+        ? new Set(filtroId.slice(4, -1).split(",").map(x => x.replace(/^"|"$/g, ""))) : null;
+      let lista = visiveis.filter(e => e.seq > g && (!ids || ids.has(e.id))).slice(0, lim)
+        .map(e => ({ ...e, ts: tsDoBanco(e.ts) }));
+      const sel = u.searchParams.get("select") || "*";
+      if (sel !== "*") {
+        const cols = sel.split(",");
+        lista = lista.map(e => Object.fromEntries(cols.map(c => [c, e[c]])));
+      }
+      return json(res, 200, lista);
     }
     if (req.method === "POST") {
       const lote = await corpo(req);
@@ -158,6 +223,7 @@ createServer(async (req, res) => {
         }
         const g = { ...e, seq: eventos.length + 1 };
         eventos.push(g); porId.set(e.id, g); add++;
+        if (segurarProximos > 0) { segurados.add(e.id); segurarProximos--; }
       }
       process.stderr.write(`[falso] ${eu.nome}: +${add} (total ${eventos.length})\n`);
       return res.writeHead(201).end("");

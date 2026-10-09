@@ -14,7 +14,7 @@ import * as ev from "../eventos.js";
 import * as M from "../modelo.js";
 import * as pessoas from "../pessoas.js";
 import { el, brCurto, cliqueLimpo, vazio } from "../ui.js";
-import { abrirFicha, concluir, cartao, botaoConcluir, gravarOS } from "./comum.js";
+import { abrirFicha, concluir, cartao, botaoConcluir, gravarOS, justificar } from "./comum.js";
 
 // A ordem dentro do bloco: primeiro o que pede ação, por último o que já saiu.
 // Assim as cores se agrupam e o bloco se lê de cima para baixo.
@@ -154,9 +154,23 @@ function celulaAtividade(a, o) {
     tags.push(el("span", { class: "tag reprog", title: "mudou de semana" },
       `↻ ${a.reprogramacoes > 1 ? a.reprogramacoes + "×" : "reprog."}`));
   }
-  // O "SE NÃO FOI, POR QUÊ" da planilha: só aparece enquanto não saiu.
-  const porque = !M.feita(a) && !a.cancelada && a.motivo
-    ? el("div", { class: "porque" }, a.motivo) : null;
+  // O "SE NÃO FOI, POR QUÊ" da planilha, com quem atrasou ao lado. Aparece
+  // enquanto não saiu, e também na que saiu com atraso. Vencida sem porquê
+  // ganha o atalho "+ justificar" — o porquê se escreve onde se vê o atraso.
+  const s = M.situacaoDe(a, o.ref);
+  const atrasou = s === "VENCIDA" || s === "Concluída com atraso";
+  const pode = pessoas.pode("editar_atividade");
+  const quem = a.quem_atrasou || M.areaDoMotivo(a.motivo);
+  const abrirJust = e => { e.stopPropagation(); justificar(a, "atividade"); };
+  let porque = null;
+  if ((a.motivo || a.quem_atrasou) && !a.cancelada && (!M.feita(a) || atrasou)) {
+    porque = el("div", { class: "porque" + (pode ? " editavel" : ""),
+      title: pode ? "Mudar a justificativa" : "", onclick: pode ? abrirJust : null },
+      a.motivo || a.justificativa || "—",
+      quem ? el("span", { class: "quem-atrasou" }, " · " + quem) : null);
+  } else if (atrasou && pode) {
+    porque = el("button", { class: "mini justificar", onclick: abrirJust }, "+ justificar");
+  }
   return [
     el("div", { class: "t" },
       o.mostrarFrota && a.frota ? el("b", { class: "fr" }, a.frota + " ") : null,

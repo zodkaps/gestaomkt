@@ -7,6 +7,21 @@ begin;
   select '   → passou' as resultado;
 commit;
 
+\echo '── 1b. Pedro justifica o atraso de uma movimentação — TEM de passar'
+begin;
+  set local role authenticated;
+  set local request.jwt.claims = '{"email":"pedro@makroteste.com.br"}';
+  insert into eventos (id,autor,tipo,alvo_tipo,alvo,dados) values ('t1b','Pedro','justificada','movimentacao','M-0001','{"motivo":"Frota em viagem / operando","quem":"Operação"}');
+  select '   → passou' as resultado;
+commit;
+
+\echo '── 1c. Pedro tenta justificar uma ATIVIDADE (OS) — tem de ser RECUSADO'
+begin;
+  set local role authenticated;
+  set local request.jwt.claims = '{"email":"pedro@makroteste.com.br"}';
+  insert into eventos (id,autor,tipo,alvo_tipo,alvo) values ('t1c','Pedro','justificada','atividade','A-0001');
+rollback;
+
 \echo '── 2. Pedro tenta dar baixa numa ATIVIDADE — tem de ser RECUSADO'
 begin;
   set local role authenticated;

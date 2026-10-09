@@ -159,7 +159,13 @@ export async function mesclarDaNuvem(evs) {
   if (!evs.length) return 0;
   const todos = await lerEventos();
   const conhecidos = new Set(todos.map(e => e.id));
-  const paraGravar = evs.map(e => ({ ...e, enviado: true }));
+  // O banco devolve o instante no formato dele ("…+00:00", sem os zeros do
+  // fim), e a fita é ordenada pelo texto do instante: sem normalizar, o mesmo
+  // evento ordenaria diferente aqui e num aparelho que ainda tem a cópia local.
+  const paraGravar = evs.map(e => {
+    const d = new Date(e.ts);
+    return { ...e, ts: isNaN(d) ? e.ts : d.toISOString(), enviado: true };
+  });
   await escrever(paraGravar);
   return paraGravar.filter(e => !conhecidos.has(e.id)).length;
 }

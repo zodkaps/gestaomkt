@@ -120,6 +120,9 @@ export function molde() {
     // uma: a linha mostra "sem data" até alguém dar a baixa com o dia.
     feita_sem_data: false,
     semana_orig: null, motivo: "", reprogramacoes: 0,
+    // A justificativa: o porquê fica em `motivo` (é a coluna SE NÃO FOI, POR
+    // QUÊ da planilha); quem atrasou e o detalhe ficam ao lado.
+    quem_atrasou: "", justificativa: "",
     criada_em: "", fonte: "",
   };
 }
@@ -211,6 +214,8 @@ export function moldeMovimentacao() {
     // feita; `aprovada` diz se o PCM já conferiu.
     concluida_por: "", aprovada: false, aprovada_por: "", aprovada_em: "",
     devolvida: false, motivo_devolucao: "",
+    // Por que atrasou ou não saiu, e quem atrasou.
+    motivo_atraso: "", quem_atrasou: "", justificativa: "",
     cancelada: false, excluida: false, motivo: "",
     criada_em: "", fonte: "",
   };
@@ -262,6 +267,14 @@ export function atrasoMovimentacao(m, ref) {
  *  da operação e entra na fila do PCM. */
 export function movimentacaoAberta(m) {
   return !m.excluida && !m.cancelada && !m.chegou_em;
+}
+
+/** Atrasou (ou está atrasando) e ninguém disse por quê. */
+export function movimentacaoSemJustificativa(m, ref) {
+  const s = situacaoMovimentacao(m, ref);
+  return (s === "Atrasada" || s === "Concluída com atraso" ||
+    (s === "Aguardando aprovação" && atrasoMovimentacao(m, ref) > 0)) &&
+    !m.motivo_atraso && !m.justificativa;
 }
 
 export function movimentacaoParaAprovar(m) {
@@ -666,11 +679,13 @@ export function atrasoPorArea(ats) {
   let semMotivo = 0;
   for (const a of ats) {
     if (a.excluida || a.cancelada || feita(a)) continue;
-    if (!a.motivo) { semMotivo++; continue; }
-    const area = areaDoMotivo(a.motivo) || "Outro";
+    if (!a.motivo && !a.quem_atrasou) { semMotivo++; continue; }
+    // Quem atrasou, quando alguém disse, vale mais que o deduzido do motivo.
+    const area = a.quem_atrasou || areaDoMotivo(a.motivo) || "Outro";
     por[area] = por[area] || { total: 0, motivos: {} };
     por[area].total++;
-    por[area].motivos[a.motivo] = (por[area].motivos[a.motivo] || 0) + 1;
+    const m = a.motivo || a.justificativa || "sem motivo escrito";
+    por[area].motivos[m] = (por[area].motivos[m] || 0) + 1;
   }
   return { por, sem_motivo: semMotivo };
 }

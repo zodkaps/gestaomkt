@@ -134,8 +134,20 @@ export function caixa({ titulo, corpo, acoes = [], largura = "" }) {
     document.body.classList.add("travado");
     document.addEventListener("keydown", tecla);
     aberta = fechar;
-    const foco = cx.querySelector("input, select, textarea, button");
-    if (foco) setTimeout(() => foco.focus(), 30);
+    // O cursor vai para o primeiro CAMPO do corpo — não para o primeiro botão
+    // da caixa, que é o "×" do cabeçalho. Com o foco no "×", quem abria "Dar
+    // baixa" e apertava Enter para aceitar a data de hoje FECHAVA a caixa sem
+    // gravar a baixa. E se a pessoa já clicou num campo antes disto rodar, o
+    // foco fica onde ela está.
+    const foco = cx.querySelector(".corpo input:not([type=hidden]), .corpo select, .corpo textarea") ||
+      cx.querySelector("footer button.primario") || cx.querySelector("footer button");
+    if (foco) {
+      setTimeout(() => {
+        const atual = document.activeElement;
+        if (atual && atual !== document.body && cx.contains(atual)) return;
+        foco.focus();
+      }, 30);
+    }
   });
 }
 

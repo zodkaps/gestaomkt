@@ -19,11 +19,35 @@ const TABELA = "eventos";
 let url = NUVEM.url || "";
 let chave = NUVEM.chave || "";
 let sessao = null;          // { access_token, refresh_token, expira_em, email, nome }
-let ligadoEm = 0;
+let ligadoEm = 0;           // a última vez que o banco respondeu a uma consulta
+let ultimoErro = "";        // e por que a última não deu certo, quando não deu
+
+/** `fetch` com tempo limite. Sinal ruim no pátio deixa uma consulta pendurada
+ *  para sempre — e a escuta do banco esperava ela terminar para tentar de
+ *  novo, ou seja, parava de receber os lançamentos dos outros até alguém
+ *  recarregar a página. */
+async function buscar(endereco, opcoes = {}, ms = 20000) {
+  const ctrl = typeof AbortController === "function" ? new AbortController() : null;
+  const t = ctrl ? setTimeout(() => ctrl.abort(), ms) : null;
+  try {
+    return await fetch(endereco, ctrl ? { ...opcoes, signal: ctrl.signal } : opcoes);
+  } catch (e) {
+    if (e && e.name === "AbortError") throw new Error(`O banco não respondeu em ${Math.round(ms / 1000)} s.`);
+    throw e;
+  } finally {
+    if (t) clearTimeout(t);
+  }
+}
 
 const aoMudar = new Set();
 export function aoLigar(fn) { aoMudar.add(fn); return () => aoMudar.delete(fn); }
 function anunciar() { for (const fn of aoMudar) { try { fn(ligada()); } catch (e) { /* segue */ } } }
+
+// Por que a sessão acabou, quando foi o banco que disse que ela acabou. A
+// tela de entrar mostra isto — "entre de novo" sem dizer por quê faz a pessoa
+// achar que o site quebrou.
+let motivoSaida = "";
+export function motivoDaSaida() { return motivoSaida; }
 
 export function ligada() { return !!(url && chave); }
 export function endereco() { return url; }
@@ -62,7 +86,7 @@ export async function configurar(novaUrl, novaChave) {
   // vez. Pedir a configuração de autenticação prova as duas coisas que
   // importam aqui — o endereço responde e a chave é aceita.
   try {
-    const r = await fetch(`${url}/auth/v1/settings`, { headers: { apikey: chave } });
+    const r = await buscar(`${url}/auth/v1/settings`, { headers: { apikey: chave } });
     if (!r.ok) throw new Error(`${r.status} ${r.statusText}`);
   } catch (e) {
     [url, chave] = antes;
@@ -86,13 +110,17 @@ function cabecalhosAuth() {
 }
 
 async function auth(caminho, corpo) {
-  const r = await fetch(`${url}/auth/v1/${caminho}`, {
+  const r = await buscar(`${url}/auth/v1/${caminho}`, {
     method: "POST", headers: cabecalhosAuth(), body: JSON.stringify(corpo),
   });
   const j = await r.json().catch(() => ({}));
   if (!r.ok) {
     const m = j.error_description || j.msg || j.message || j.error || `${r.status}`;
-    throw new Error(traduzir(m));
+    const e = new Error(traduzir(m));
+    // A resposta veio do servidor: diferente de "sem rede", que nem chega aqui.
+    e.status = r.status;
+    e.codigo = j.error_code || j.code || "";
+    throw e;
   }
   return j;
 }
@@ -185,6 +213,7 @@ export async function entrar(email, senha) {
   const e = emailDe(email);
   if (!e) throw new Error("Digite o seu e-mail — o mesmo da sua conta.");
   const j = await auth("token?grant_type=password", { email: e, password: senha });
+  motivoSaida = "";
   const s = await guardar(j, e);
   // O próximo acesso neste aparelho já começa com o e-mail preenchido: depois
   // da primeira vez, entrar é só a senha.
@@ -198,7 +227,7 @@ export async function entrar(email, senha) {
 
 /** O que o projeto diz sobre si mesmo. Não exige estar logado. */
 export async function opcoes() {
-  const r = await fetch(`${url}/auth/v1/settings`, { headers: { apikey: chave } });
+  const r = await buscar(`${url}/auth/v1/settings`, { headers: { apikey: chave } });
   if (!r.ok) throw new Error(`${r.status} ${r.statusText}`);
   return r.json();
 }
@@ -243,7 +272,7 @@ export async function trocarSenha(nova) {
   if (!autenticado()) throw new Error("Entre com a sua senha atual primeiro.");
   if (!nova || nova.length < 6) throw new Error("A senha precisa ter pelo menos 6 caracteres.");
   await renovarSePreciso();
-  const r = await fetch(`${url}/auth/v1/user`, {
+  const r = await buscar(`${url}/auth/v1/user`, {
     method: "PUT",
     headers: { ...cabecalhosAuth(), Authorization: "Bearer " + sessao.access_token },
     body: JSON.stringify({ password: nova }),
@@ -259,7 +288,11 @@ export async function trocarSenha(nova) {
 export async function sair() {
   try {
     if (sessao) {
-      await fetch(`${url}/auth/v1/logout`, {
+      // `scope=local`: sai SÓ deste aparelho. Sem isto o Supabase encerra a
+      // sessão da pessoa em TODOS os aparelhos — e foi assim que sair no
+      // computador para testar outro acesso derrubou o celular uma hora depois,
+      // com o Diagnóstico acusando permissão quando era a sessão.
+      await buscar(`${url}/auth/v1/logout?scope=local`, {
         method: "POST",
         headers: { apikey: chave, Authorization: "Bearer " + sessao.access_token },
       });
@@ -271,16 +304,43 @@ export async function sair() {
 }
 
 /** Renova antes de vencer. Sem rede, devolve a sessão velha: o site continua
- *  aberto mostrando o que já tem, que é o que o pátio precisa. */
-async function renovarSePreciso() {
+ *  aberto mostrando o que já tem, que é o que o pátio precisa.
+ *
+ *  Mas quando o BANCO responde que a credencial não existe mais (a pessoa saiu
+ *  em outro aparelho, trocou a senha, ou a sessão foi encerrada no painel), não
+ *  adianta insistir: antes o site tentava de novo a cada 10 segundos, para
+ *  sempre, e tudo voltava recusado. Agora a sessão cai, a tela de entrar
+ *  aparece dizendo por quê, e o que foi lançado aqui fica na fila até entrar. */
+let renovando = null;
+async function renovarSePreciso(forcar = false) {
   if (!sessao) return null;
-  if (Date.now() < sessao.expira_em - 60000) return sessao;
-  try {
-    const j = await auth("token?grant_type=refresh_token", { refresh_token: sessao.refresh_token });
-    return guardar(j, sessao.email);
-  } catch (e) {
-    return sessao;
-  }
+  if (!forcar && Date.now() < sessao.expira_em - 60000) return sessao;
+  // Uma renovação por vez: duas ao mesmo tempo gastariam a mesma credencial.
+  if (renovando) return renovando;
+  renovando = (async () => {
+    try {
+      const j = await auth("token?grant_type=refresh_token", { refresh_token: sessao.refresh_token });
+      return await guardar(j, sessao.email);
+    } catch (e) {
+      if (e.status >= 400 && e.status < 500) {
+        await derrubarSessao("Sua sessão neste aparelho foi encerrada — ela venceu, ou " +
+          "alguém saiu desta conta em outro aparelho. Entre de novo com a sua senha: o que " +
+          "você lançou aqui continua guardado e sobe quando entrar.");
+        return null;
+      }
+      return sessao;
+    } finally {
+      renovando = null;
+    }
+  })();
+  return renovando;
+}
+
+async function derrubarSessao(motivo) {
+  sessao = null;
+  motivoSaida = motivo;
+  await dados.gravarMeta("sessao", null);
+  anunciar();
 }
 
 // ── dados ───────────────────────────────────────────────────────────────────
@@ -291,9 +351,22 @@ function cabecalhos(extra = {}) {
     "Content-Type": "application/json", ...extra };
 }
 
-async function chamar(caminho, opcoes = {}) {
+async function chamar(caminho, opcoes = {}, deNovo = false) {
   await renovarSePreciso();
-  const r = await fetch(`${url}/rest/v1/${caminho}`, opcoes);
+  // O cabeçalho é montado por quem chama, ANTES da renovação: sem refazê-lo
+  // aqui, a primeira chamada depois de renovar ia com a credencial velha.
+  const headers = { ...(opcoes.headers || {}) };
+  if (headers.Authorization) headers.Authorization = "Bearer " + (sessao ? sessao.access_token : chave);
+  // 45 s: a primeira carga traz centenas de lançamentos de uma vez, e no 3G do
+  // pátio isso demora — mas não pode demorar para sempre.
+  const r = await buscar(`${url}/rest/v1/${caminho}`, { ...opcoes, headers }, 45000);
+  // 401 com sessão é credencial vencida antes da hora (relógio do aparelho
+  // adiantado, aba dormindo): renova à força e tenta uma vez mais.
+  if (r.status === 401 && sessao && !deNovo) {
+    await renovarSePreciso(true);
+    if (sessao) return chamar(caminho, opcoes, true);
+    throw new Error(motivoSaida || "Sua sessão foi encerrada. Entre de novo.");
+  }
   if (!r.ok) {
     const t = await r.text().catch(() => "");
     const claro = traduzir(t || `${r.status} ${r.statusText}`);
@@ -349,39 +422,75 @@ export async function lerPessoas() {
   return r.json();
 }
 
-export function observar(aoChegar, { intervalo = 10000 } = {}) {
-  let parado = false, rodando = false;
+/** Os lançamentos que estão no banco perto de `desde` e que este aparelho não
+ *  tem. O número de ordem (`seq`) é dado na hora de gravar, mas dois
+ *  lançamentos gravados quase juntos podem aparecer para a leitura fora de
+ *  ordem: quem lia no meio pegava o 865, guardava "já tenho até 865", e o 864
+ *  — que ficou visível um instante depois — nunca mais era pedido. Isto confere
+ *  os últimos 100 só pelo `id` (leve) e busca inteiro só o que faltar. */
+export async function faltantes(desde, conhecidos) {
+  const de = Math.max(0, Number(desde || 0) - 100);
+  const r = await chamar(`${TABELA}?select=id&seq=gt.${de}&order=seq.asc&limit=1000`,
+    { headers: cabecalhos(), method: "GET" });
+  const ids = (await r.json()).map(x => x.id).filter(id => !conhecidos.has(id));
+  if (!ids.length) return [];
+  const lista = ids.map(id => `"${String(id).replace(/"/g, "")}"`).join(",");
+  const r2 = await chamar(`${TABELA}?select=*&id=in.(${encodeURIComponent(lista)})&order=seq.asc`,
+    { headers: cabecalhos(), method: "GET" });
+  return r2.json();
+}
 
-  async function volta() {
+let consultar = null;
+/** Pede uma consulta já, sem esperar a próxima volta (o botão "Atualizar"). */
+export async function consultarAgora() { if (consultar) await consultar(true); }
+
+export function estadoConversa() { return { em: ligadoEm, erro: ultimoErro }; }
+
+export function observar(aoChegar, { intervalo = 10000 } = {}) {
+  let parado = false, rodando = false, voltas = 0;
+
+  async function volta(forcar = false) {
     if (parado || rodando || !ligada() || !autenticado()) return;
-    if (typeof document !== "undefined" && document.hidden) return;
+    if (!forcar && typeof document !== "undefined" && document.hidden) return;
     rodando = true;
     try {
       const desde = await dados.lerMeta("nuvem_seq", 0);
       const novos = await baixarDesde(desde);
       if (novos.length) {
-        await dados.gravarMeta("nuvem_seq", novos[novos.length - 1].seq);
+        await dados.gravarMeta("nuvem_seq", Math.max(desde, novos[novos.length - 1].seq));
         await aoChegar(novos);
       }
+      // Uma vez por minuto (e sempre que pedido), confere se ficou algum
+      // buraco para trás.
+      if (forcar || ++voltas % 6 === 0) {
+        const conhecidos = new Set((await dados.lerEventos()).map(e => e.id));
+        const perdidos = await faltantes(Math.max(desde, novos.length ? novos[novos.length - 1].seq : 0), conhecidos);
+        if (perdidos.length) await aoChegar(perdidos);
+      }
       ligadoEm = Date.now();
+      ultimoErro = "";
     } catch (e) {
       // Sem rede é o estado normal no pátio, não um erro para assustar
-      // ninguém: a fila local continua guardando e a próxima volta tenta.
+      // ninguém: a fila local continua guardando e a próxima volta tenta. Mas
+      // fica anotado — a faixa avisa quando faz tempo que não há contato.
+      ultimoErro = e.message;
       console.debug("nuvem: não respondeu —", e.message);
     } finally { rodando = false; }
   }
+  consultar = volta;
 
-  const t = setInterval(volta, intervalo);
+  const t = setInterval(() => volta(), intervalo);
   const aoVoltar = () => { if (!document.hidden) volta(); };
   if (typeof document !== "undefined") document.addEventListener("visibilitychange", aoVoltar);
-  if (typeof window !== "undefined") window.addEventListener("online", volta);
+  if (typeof window !== "undefined") window.addEventListener("online", aoVoltar);
   volta();
 
   return () => {
     parado = true;
+    if (consultar === volta) consultar = null;
     clearInterval(t);
     if (typeof document !== "undefined") document.removeEventListener("visibilitychange", aoVoltar);
-    if (typeof window !== "undefined") window.removeEventListener("online", volta);
+    if (typeof window !== "undefined") window.removeEventListener("online", aoVoltar);
   };
 }
 
@@ -446,19 +555,31 @@ export async function diagnostico() {
       "'Confirm email'. Depois rode o SQL abaixo para soltar quem já travou.",
     autoconfirma ? "" : "sql/03_liberar_acessos.sql");
 
-  // 4 e 5. as tabelas
+  // 4 e 5. as tabelas — com a sessão renovada antes: credencial vencida dá 401,
+  // e um 401 lido como "falta permissão" mandava rodar SQL que já foi rodado.
+  await renovarSePreciso();
+  if (motivoSaida && !autenticado()) {
+    juntar("sessao", "Sessão neste aparelho", "falta", "encerrada pelo banco",
+      motivoSaida);
+  }
   const dentro = autenticado();
   for (const [nome, tabela, titulo, arquivo] of [
     ["eventos", "eventos", "Tabela de lançamentos", "sql/01_esquema.sql"],
     ["pessoas", "pessoas", "Tabela de pessoas e papéis", "sql/02_acesso.sql"],
   ]) {
     try {
-      const r = await fetch(`${url}/rest/v1/${tabela}?select=*&limit=1`,
+      const r = await buscar(`${url}/rest/v1/${tabela}?select=*&limit=1`,
         { headers: cabecalhos() });
       const t = await r.text().catch(() => "");
       const naoExiste = r.status === 404 || /does not exist|42P01/i.test(t);
       const recusou = r.status === 401 || r.status === 403 || /permission denied|42501/i.test(t);
-      if (naoExiste) {
+      // Com sessão, falta de permissão vem como 403; 401 é a credencial.
+      const sessaoRuim = dentro && r.status === 401 && !/permission denied|42501/i.test(t);
+      if (sessaoRuim) {
+        juntar(nome, titulo, "naosei",
+          "o banco não aceitou a sua sessão (venceu, ou alguém saiu desta conta em outro aparelho)",
+          "Saia e entre de novo com a sua senha. Não é falta de permissão.");
+      } else if (naoExiste) {
         juntar(nome, titulo, "falta", "a tabela não existe no banco",
           "Rode este arquivo no SQL Editor:", arquivo);
       } else if (recusou) {

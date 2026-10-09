@@ -146,20 +146,19 @@ async function darPorFeita(p) {
 }
 
 async function passarParaOMesSeguinte(p) {
-  const e = selecao([{ v: "", t: "— escolha —" }, ...M.MOTIVOS], "");
-  const livre = el("input", { placeholder: "ou escreva" });
+  const livre = el("input", { placeholder: "por que não sai este mês" });
   const r = await caixa({
     titulo: "Passa para o mês seguinte",
     corpo: el("div", {},
       el("p", {}, el("b", {}, p.frota), " sai da conta deste mês (é o Status ",
         el("b", {}, "Reprogramada"), " da planilha) e fica registrado por quê."),
-      campo("Motivo", e), campo("Ou escreva", livre)),
+      campo("Motivo", livre)),
     acoes: [{ rotulo: "Voltar", valor: false },
       { rotulo: "Passar", classe: "perigo", valor: true }],
   });
   if (r !== true) return;
   try {
-    await ev.aplicar(ev.adiarPreventiva(p, livre.value.trim() || e.value));
+    await ev.aplicar(ev.adiarPreventiva(p, livre.value.trim()));
     avisar(`${p.frota}: passa para o mês seguinte.`);
   } catch (x) { erro(x.message); }
 }
