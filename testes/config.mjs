@@ -126,7 +126,25 @@ ok("quem entra sem papel vê a explicação, não um menu vazio",
   semPapel.texto.includes("mateus@makro.local") && semPapel.menu === 0,
   JSON.stringify(semPapel).slice(0, 140));
 
+// ── a armadilha da confirmação de e-mail ──────────────────────────────────
+// Com a confirmação ligada (que é como um projeto Supabase vem de fábrica), os
+// acessos nasceriam presos. O site tem de recusar ANTES de criar, não explicar
+// depois que os quatro já estão travados.
+await falhar("confirmacao");
+const recusa = await p.evaluate(async () => {
+  try { await mkt.nuvem.criarAcesso("Teste Preso", "makro2026", "pcm"); return ""; }
+  catch (e) { return e.message; }
+});
+ok("recusa criar acesso com a confirmação ligada",
+  recusa.includes("confirmação de e-mail ligada") && recusa.includes("Confirm email"), recusa);
+
 await falhar("");
+const criou = await p.evaluate(async () => {
+  try { await mkt.nuvem.criarAcesso("Teste Solto", "makro2026", "pcm"); return "criou"; }
+  catch (e) { return e.message; }
+});
+ok("com a confirmação desligada, cria normalmente", criou === "criou", criou);
+
 await nav.close();
 srv.close();
 rmSync(COPIA, { recursive: true, force: true });

@@ -92,7 +92,8 @@ Os erros de instalação chegam traduzidos, com o passo que resolve:
 |---|---|
 | "O banco ainda não tem as tabelas deste site" | rodar `sql/01_esquema.sql` e `sql/02_acesso.sql` |
 | "O banco recusou o acesso à tabela" | rodar `sql/02_acesso.sql`, que concede a permissão |
-| "esperando confirmação por e-mail" | Authentication → Providers → Email → desligar *Confirm email* |
+| "confirmação de e-mail ligada" (ao criar acesso) | desligar *Confirm email* em Authentication → Sign In / Providers → Email. O site recusa criar antes de travar os acessos |
+| "esperando confirmação por e-mail" (ao entrar) | duas coisas: desligar *Confirm email*, **e** rodar `sql/03_liberar_acessos.sql` — desligar não solta quem já foi criado |
 | "este acesso ainda não tem papel" | o e-mail não está na tabela `pessoas`: rodar `sql/02_acesso.sql`, ou conferir se o nome foi digitado igual ao cadastrado |
 | "O banco recusou este lançamento" | é do papel errado, ou assinado com outro nome — o Postgres recusando, como projetado |
 
@@ -321,6 +322,7 @@ porque toda escrita já passa por `aplicar()`.
 | `js/tela/*.js` | entrar, operacao, hoje, semana, carteira, movimentacoes, preventivas, frota, indicadores, historico, importar |
 | `js/config.js` | o endereço e a chave do projeto — o único lugar a preencher |
 | `sql/00_conferir_rls.sql` | que tabela do projeto está aberta — rode antes de publicar a chave |
+| `sql/03_liberar_acessos.sql` | solta acessos presos na confirmação de e-mail |
 | `testes/config.mjs` | prova que o config preenchido conecta sem ninguém colar nada |
 | `testes/supabase_falso.mjs` | um PostgREST + Auth de mentira, com as mesmas regras do banco |
 | `js/ui.js` | `tabela()` ordenável e `listaDupla()`, as duas formas da mesma lista |

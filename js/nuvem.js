@@ -103,8 +103,14 @@ function traduzir(m) {
   const s = String(m).toLowerCase();
   if (s.includes("invalid login")) return "Nome ou senha não conferem.";
   if (s.includes("email not confirmed")) {
+    // Duas coisas, e a segunda é a que trava: desligar a opção vale para os
+    // PRÓXIMOS cadastros; quem já foi criado continua preso. Dizer só a
+    // primeira metade manda a pessoa desligar, tentar de novo e continuar
+    // fora, sem ter o que fazer com a informação.
     return "O acesso existe mas está esperando confirmação por e-mail. " +
-      "No painel do Supabase, em Authentication → Providers → Email, desligue 'Confirm email'.";
+      "São duas coisas: (1) desligue 'Confirm email' em Authentication → " +
+      "Sign In / Providers → Email; e (2) rode sql/03_liberar_acessos.sql, " +
+      "porque desligar a opção não solta os acessos que já foram criados.";
   }
   if (s.includes("already registered") || s.includes("already been registered")) {
     return "Já existe acesso com esse nome.";
@@ -159,8 +165,36 @@ export async function entrar(nome, senha) {
   return s;
 }
 
+/** O que o projeto diz sobre si mesmo. Não exige estar logado. */
+export async function opcoes() {
+  const r = await fetch(`${url}/auth/v1/settings`, { headers: { apikey: chave } });
+  if (!r.ok) throw new Error(`${r.status} ${r.statusText}`);
+  return r.json();
+}
+
 export async function criarAcesso(nome, senha, papel) {
   if (!ligada()) throw new Error("A nuvem ainda não está ligada.");
+
+  // Pergunta antes de criar. Com a confirmação ligada — que é como um projeto
+  // Supabase vem de fábrica — os acessos nasceriam presos, esperando um e-mail
+  // que nunca chega, e descobrir isso só na hora de entrar custa uma consulta
+  // SQL para desfazer. Esta checagem custa uma chamada que já é feita.
+  try {
+    const o = await opcoes();
+    if (o && o.mailer_autoconfirm === false) {
+      throw new Error("CONFIRMACAO_LIGADA");
+    }
+  } catch (e) {
+    if (e.message === "CONFIRMACAO_LIGADA") {
+      throw new Error("Este projeto está com confirmação de e-mail ligada. " +
+        "Os acessos nasceriam presos, esperando um e-mail que nunca chega — " +
+        "ninguém tem caixa postal em @makro.local. Desligue em Authentication → " +
+        "Sign In / Providers → Email → 'Confirm email', e volte aqui.");
+    }
+    // Não deu para perguntar (sem rede, versão que não responde isso): segue e
+    // cria. Melhor tentar do que travar por causa da checagem.
+  }
+
   const j = await auth("signup", {
     email: emailDe(nome), password: senha,
     data: { nome, papel },           // guarda o nome; o PAPEL que vale é o da tabela `pessoas`

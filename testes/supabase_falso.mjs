@@ -17,6 +17,7 @@ const TIPOS_OPERACAO = new Set(["criada", "importada", "editada",
 //   tabela     → o banco responde como se as migrações não tivessem rodado
 //   permissao  → tabela existe, mas sem GRANT (falta o 02_acesso.sql)
 //   sem_pessoa → autentica, mas o e-mail não está na tabela `pessoas`
+//   confirmacao → projeto com "Confirm email" ligado, como vem de fábrica
 let falha = "";
 
 const contas = new Map();      // email → senha
@@ -49,7 +50,8 @@ createServer(async (req, res) => {
 
   // ── auth ──
   if (u.pathname === "/auth/v1/settings") {
-    return json(res, 200, { external: {}, disable_signup: false, mailer_autoconfirm: true });
+    return json(res, 200, { external: {}, disable_signup: false,
+      mailer_autoconfirm: falha !== "confirmacao" });
   }
   if (u.pathname === "/auth/v1/signup") {
     const b = await corpo(req);
