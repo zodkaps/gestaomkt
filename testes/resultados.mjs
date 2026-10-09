@@ -156,5 +156,58 @@ for (let lin = 18; lin <= 31; lin++) {
     p && Math.abs(p.total - totalPlanilha) < 0.05, `A${lin}`);
 }
 
+// ── a aba Preventivas ───────────────────────────────────────────────────────
+const abaPrev = abas.find(a => /^Preventivas/.test(a.nome));
+if (abaPrev) {
+  console.log(`\n${abaPrev.nome}`);
+  const { preventivas, fora } = imp.lerPreventivas(abas);
+  const rp = M.resumoPreventivas([...preventivas, ...fora], ref);
+  const linhas = abaPrev.linhas;
+  for (const [cel, campo, rot] of [
+    ["A4", "preventivas", "Preventivas a fazer no mês"],
+    ["C4", "frotas", "Frotas"],
+    ["E4", "com_data", "Com data da operação"],
+    ["G4", "sem_data", "Sem data da operação"],
+    ["I4", "parada_marcada", "Parada marcada"],
+    ["K4", "conflitos", "Conflitos de data"],
+    ["M4", "vencidas", "Vencidas"],
+    ["O4", "realizadas", "Realizadas"],
+    ["Q4", "hh", "HH previsto"],
+  ]) {
+    const planilha = celula(linhas, cel);
+    ok(`${rot.padEnd(36)} planilha ${mostra(planilha).padStart(7)} · site ${mostra(rp[campo])}`,
+      perto(planilha, rp[campo]), cel);
+  }
+  // A coluna Situação, linha a linha.
+  const iCab = linhas.findIndex(L => (L || [])[0] === "Frota");
+  const cs = (linhas[iCab] || []).findIndex(t => String(t || "").trim() === "Situação");
+  const diferentes = preventivas.filter(p => {
+    const L = linhas.find(x => x && x[0] === p.frota);
+    return L && L[cs] !== M.situacaoPreventiva(p, ref);
+  });
+  ok(`Situação igual nas ${preventivas.length} linhas do plano`, !diferentes.length,
+    diferentes.map(p => p.frota).join(", "));
+}
+
+// ── a aba Movimentações ─────────────────────────────────────────────────────
+const abaMov = abas.find(a => a.nome === "Movimentações");
+if (abaMov) {
+  console.log(`\nMovimentações`);
+  const { movimentacoes } = imp.lerMovimentacoes(abas);
+  const pt = M.pontualidade(movimentacoes, ref);
+  for (const [cel, campo, rot] of [
+    ["A4", "total", "Movimentações"],
+    ["C4", "concluidas", "Concluídas (entregues)"],
+    ["D4", "no_prazo", "No prazo"],
+    ["E4", "pct", "Pontualidade da operação"],
+    ["G4", "atraso_medio", "Atraso médio"],
+    ["I4", "dias_perdidos", "Dias perdidos"],
+  ]) {
+    const planilha = celula(abaMov.linhas, cel);
+    ok(`${rot.padEnd(36)} planilha ${mostra(planilha).padStart(7)} · site ${mostra(pt[campo])}`,
+      perto(planilha, pt[campo]), cel);
+  }
+}
+
 console.log(`\n${passou} passaram, ${falhou} falharam`);
 process.exit(falhou ? 1 : 0);

@@ -8,7 +8,7 @@
 import { acharCabecalho, texto, numero, paraISO } from "./planilha.js";
 import { chave, indexarPorChave } from "./texto.js";
 import { molde, moldeMovimentacao, moldePreventiva, situacaoMovimentacao,
-  DIAS, semanaISO } from "./modelo.js";
+  situacaoMovNova, DIAS, semanaISO } from "./modelo.js";
 
 /** OS do Protheus é campo de seis dígitos. A planilha acumulou OS digitadas
  *  com quatro e cinco — é a mesma ordem, escrita curta. Comparar sem completar
@@ -187,13 +187,16 @@ export function lerMovimentacoes(abas) {
       quem_prometeu: texto(v("Quem prometeu")) || "Operação",
       obs: texto(v("Obs")),
     };
+    // A planilha é o registro do próprio PCM: o que ela diz que chegou já foi
+    // conferido por ele. Só o que a operação concluir NO SITE espera aprovação.
+    m.aprovada = !!m.chegou_em;
 
     // A situação da planilha é digitada à mão. Em vez de confiar nela ou
     // descartá-la calado, comparo com o que as datas dizem e guardo a
     // diferença para ele ver — é como se descobre que a coluna vinha mentindo.
     const escrita = texto(v("Situação"));
     const calculada = situacaoMovimentacao(m);
-    if (escrita && escrita.toLowerCase() !== calculada.toLowerCase()) {
+    if (escrita && situacaoMovNova(escrita).toLowerCase() !== calculada.toLowerCase()) {
       divergencias.push({ frota, destino, escrita, calculada, linha: r + 1 });
     }
     movimentacoes.push(m);
@@ -202,11 +205,59 @@ export function lerMovimentacoes(abas) {
 }
 
 // ── preventivas do mês ──────────────────────────────────────────────────────
+//
+// A aba tem DUAS tabelas: o plano do mês, em cima, e no pé o quadro "FORA DO
+// PLANO", com frotas que estão no mapa mas não entram na conta (já realizada,
+// sem preventiva, vence no mês seguinte). Ler a aba até o fim como uma tabela
+// só trazia o título do quadro e as frotas de fora como preventivas a fazer —
+// era o 37 no lugar de 29 linhas. Aqui cada tabela é lida com o seu cabeçalho.
 
-export function lerPreventivas(abas) {
+const FORA_DO_PLANO = /^fora do plano/i;
+
+// O Status da planilha é lista fechada. O que vier diferente é texto livre de
+// versão antiga da aba: vira observação, como antes.
+const STATUS_PREV = {
+  "em andamento": { em_andamento: true },
+  "realizada": { realizada: true },
+  "reprogramada": { adiada: true },
+  "cancelada": { cancelada: true },
+};
+
+const chaveFrota = f => texto(f).toUpperCase().replace(/\s+/g, " ").trim();
+
+/** Lê a aba Preventivas.
+ *
+ *  `existentes` são as preventivas que o site já tem. Cada linha casa com a
+ *  do MESMO mês e da MESMA frota (a aba tem uma linha por frota), e reaproveita
+ *  o ID dela: inserir uma linha no meio da planilha não pode fazer a
+ *  disponibilidade que a operação deu para a F-745 cair na F-695. Devolve
+ *  também as do mês que vieram de planilha e não estão mais na aba (`sairam`):
+ *  a tela mostra antes de tirar. */
+export function lerPreventivas(abas, existentes = []) {
   const aba = abas.find(a => /^Preventivas/i.test(a.nome));
-  if (!aba) return { preventivas: [], mes: "" };
+  if (!aba) return { preventivas: [], fora: [], sairam: [], mes: "" };
+  const mes = (aba.nome.match(/([A-Za-zçÇ]{3})-?(\d{2})/) || [, "", ""]).slice(1).join("-");
   const iCab = acharCabecalho(aba.linhas);
+  const iFora = aba.linhas.findIndex((L, i) => i > iCab &&
+    (L || []).some(v => FORA_DO_PLANO.test(texto(v))));
+  const fimPlano = iFora >= 0 ? iFora : aba.linhas.length;
+
+  const doMes = existentes.filter(p => p.mes === mes && !p.excluida);
+  const porFrota = new Map();
+  for (const p of doMes) if (!porFrota.has(chaveFrota(p.frota))) porFrota.set(chaveFrota(p.frota), p.id);
+  const todosIds = new Set(existentes.map(p => p.id));
+  const usados = new Set();
+  const idDe = frota => {
+    const ja = porFrota.get(chaveFrota(frota));
+    if (ja && !usados.has(ja)) { usados.add(ja); return ja; }
+    const base = `P-${mes}-${texto(frota).replace(/\s+/g, "")}`;
+    let id = base, n = 2;
+    while (usados.has(id) || todosIds.has(id)) id = `${base}-${n++}`;
+    usados.add(id);
+    return id;
+  };
+
+  // ── o plano do mês
   const achar = localizador(aba.linhas[iCab] || []);
   const col = {};
   for (const t of ["Frota", "Equipamento", "Local", "Preventivas", "Qtd.", "Vence",
@@ -215,8 +266,7 @@ export function lerPreventivas(abas) {
     "Se não sair", "Observação"]) col[t] = achar(t);
 
   const preventivas = [];
-  let n = 0;
-  for (let r = iCab + 1; r < aba.linhas.length; r++) {
+  for (let r = iCab + 1; r < fimPlano; r++) {
     const L = aba.linhas[r] || [];
     const v = t => (col[t] >= 0 ? L[col[t]] : null);
     const frota = texto(v("Frota"));
@@ -230,22 +280,26 @@ export function lerPreventivas(abas) {
     const dispData = paraISO(disp);
     const agora = !dispData && /agora|dispon|livre|j[áa]/i.test(dispTexto);
 
-    // A coluna Status virou campo livre ("feita na DAF · OS 022187 · 07–08/10:
-    // buscar…"). Vira observação, não situação: situação o site calcula.
-    const status = texto(v("Status"));
-    const obs = [texto(v("Observação")), status].filter(Boolean).join(" · ");
+    const statusTexto = texto(v("Status"));
+    const status = STATUS_PREV[statusTexto.toLowerCase()] || {};
+    const obs = [texto(v("Observação"))].filter(Boolean);
+    if (statusTexto && !STATUS_PREV[statusTexto.toLowerCase()]) obs.push(statusTexto);
+
+    const prazo = v("Prazo do Service");
+    const realizada = paraISO(v("Realizada em"));
 
     preventivas.push({
       ...moldePreventiva(),
-      id: `P-${String(++n).padStart(4, "0")}`,
+      id: idDe(frota),
       frota,
       equipamento: texto(v("Equipamento")),
       local: texto(v("Local")),
       plano: texto(v("Preventivas")),
       qtd: numero(v("Qtd.")) || 1,
       vence: paraISO(v("Vence")),
-      prazo_service: paraISO(v("Prazo do Service")),
-      mes: (aba.nome.match(/([A-Za-z]{3})-?(\d{2})/) || [, "", ""]).slice(1).join("-"),
+      prazo_service: paraISO(prazo),
+      prazo_service_texto: paraISO(prazo) ? "" : texto(prazo),
+      mes,
       disponivel_agora: agora,
       disponivel_em: dispData,
       dia_parada: paraISO(v("Dia da parada")),
@@ -253,12 +307,54 @@ export function lerPreventivas(abas) {
       os: normalizarOS(v("OS")),
       hh: Number(v("HH prev.")) || 0,
       pendencias: numero(v("Pendências")) || 0,
-      realizada_em: paraISO(v("Realizada em")),
+      realizada_em: realizada,
+      // "Realizada" no Status sem a data: conta como feita, como na planilha,
+      // e a data continua faltando — ninguém a inventa.
+      realizada_sem_data: !!status.realizada && !realizada,
+      em_andamento: !!status.em_andamento,
+      adiada: !!status.adiada,
+      cancelada: !!status.cancelada,
       motivo: texto(v("Se não sair")),
-      obs,
+      obs: obs.join(" · "),
     });
   }
-  return { preventivas, mes: preventivas.length ? preventivas[0].mes : "" };
+
+  // ── o quadro do pé: está no mapa, não entra na conta
+  const fora = [];
+  if (iFora >= 0) {
+    let iCabFora = -1;
+    for (let r = iFora + 1; r < aba.linhas.length; r++) {
+      if ((aba.linhas[r] || []).some(v => texto(v) === "Frota")) { iCabFora = r; break; }
+    }
+    if (iCabFora >= 0) {
+      const acharF = localizador(aba.linhas[iCabFora] || []);
+      const cf = {};
+      for (const t of ["Frota", "Equipamento", "Local", "Preventivas", "Qtd.",
+        "Por que está fora", "Observação"]) cf[t] = acharF(t);
+      for (let r = iCabFora + 1; r < aba.linhas.length; r++) {
+        const L = aba.linhas[r] || [];
+        const v = t => (cf[t] >= 0 ? L[cf[t]] : null);
+        const frota = texto(v("Frota"));
+        if (!frota || frota === "Frota") continue;
+        fora.push({
+          ...moldePreventiva(),
+          id: idDe(frota),
+          frota,
+          equipamento: texto(v("Equipamento")),
+          local: texto(v("Local")),
+          plano: texto(v("Preventivas")),
+          qtd: numero(v("Qtd.")) || 1,
+          mes,
+          fora: true,
+          por_que_fora: texto(v("Por que está fora")),
+          obs: texto(v("Observação")),
+        });
+      }
+    }
+  }
+
+  const sairam = doMes.filter(p => p.fonte && !usados.has(p.id));
+  return { preventivas, fora, sairam, mes };
 }
 
 function clientesPorFrota(abas) {

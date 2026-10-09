@@ -21,6 +21,9 @@ export async function montar(raiz, ctx, params) {
   const fTipo = selecao([{ v: "", t: "Tipo: todos" },
     ...Object.entries(TIPOS).map(([v, t]) => ({ v, t }))], "", { onchange: reiniciar });
   const fFrota = el("select", { onchange: reiniciar });
+  const fOrigem = selecao([{ v: "", t: "Origem: todas" }, { v: "manual", t: "lançado no site" },
+    { v: "planilha", t: "da planilha" }, { v: "claude", t: "pedido ao Claude" }],
+    params.get("origem") || "", { onchange: reiniciar });
   const fDe = el("input", { type: "date", onchange: reiniciar, style: "width:auto" });
   const fAte = el("input", { type: "date", onchange: reiniciar, style: "width:auto" });
 
@@ -35,7 +38,7 @@ export async function montar(raiz, ctx, params) {
     el("p", { style: "color:var(--fraco);font-size:13px;margin-bottom:10px" },
       "Tudo que mudou, com data, hora e motivo. Nenhuma alteração entra no " +
       "sistema por fora daqui — é a mesma fita que monta as outras telas."),
-    el("div", { class: "filtros" }, fBusca, fTipo, fFrota,
+    el("div", { class: "filtros" }, fBusca, fTipo, fFrota, fOrigem,
       el("span", { style: "font-size:12.5px;color:var(--fraco)" }, "de"), fDe,
       el("span", { style: "font-size:12.5px;color:var(--fraco)" }, "até"), fAte),
     corpo);
@@ -46,14 +49,16 @@ export async function montar(raiz, ctx, params) {
     const q = semAcento(fBusca.value.trim());
     return ev.log.filter(e => {
       if (fTipo.value && e.tipo !== fTipo.value) return false;
+      if (fOrigem.value && (e.origem || "manual") !== fOrigem.value) return false;
       const d = e.ts.slice(0, 10);
       if (fDe.value && d < fDe.value) return false;
       if (fAte.value && d > fAte.value) return false;
-      const a = ev.porId(e.alvo);
+      const achado = ev.achar(e.alvo);
+      const a = achado && achado.item;
       if (fFrota.value && (!a || a.frota !== fFrota.value)) return false;
       if (q) {
-        const alvo = semAcento([a && a.frota, a && a.os, a && a.atividade,
-          e.motivo, e.tipo, e.origem].filter(Boolean).join(" "));
+        const alvo = semAcento([a && a.frota, a && a.os, a && a.atividade, a && a.destino,
+          e.motivo, e.tipo, e.origem, e.autor].filter(Boolean).join(" "));
         if (!alvo.includes(q)) return false;
       }
       return true;

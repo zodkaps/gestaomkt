@@ -124,6 +124,11 @@ function traduzir(m) {
     return "Já existe acesso com esse e-mail — é só entrar com a senha dele.";
   }
   if (s.includes("password should be")) return "A senha precisa ter pelo menos 6 caracteres.";
+  if (s.includes("should be different")) return "A senha nova é igual à atual — escolha outra.";
+  if (s.includes("reauthentication")) {
+    return "O projeto pede confirmação por e-mail para trocar a senha. Peça ao Mateus " +
+      "para trocar no painel do Supabase (Authentication → Users).";
+  }
   // Dois interruptores diferentes, e confundi-los foi o que travou a equipe:
   // o PROVEDOR Email precisa estar ligado, e o Confirm email dentro dele,
   // desligado. A mensagem tem de deixar isso explícito.
@@ -230,6 +235,25 @@ export async function criarAcesso(email, senha, nome = "") {
   // quem decide papel é a tabela `pessoas`, que o site não escreve.
   const j = await auth("signup", { email: e, password: senha, data: { nome } });
   return j;
+}
+
+/** Troca a senha de quem está logado. É o próprio Supabase que confere a
+ *  sessão: só dá para trocar a SUA. */
+export async function trocarSenha(nova) {
+  if (!autenticado()) throw new Error("Entre com a sua senha atual primeiro.");
+  if (!nova || nova.length < 6) throw new Error("A senha precisa ter pelo menos 6 caracteres.");
+  await renovarSePreciso();
+  const r = await fetch(`${url}/auth/v1/user`, {
+    method: "PUT",
+    headers: { ...cabecalhosAuth(), Authorization: "Bearer " + sessao.access_token },
+    body: JSON.stringify({ password: nova }),
+  });
+  const j = await r.json().catch(() => ({}));
+  if (!r.ok) {
+    const m = j.error_description || j.msg || j.message || j.error || `${r.status}`;
+    throw new Error(traduzir(m));
+  }
+  return true;
 }
 
 export async function sair() {

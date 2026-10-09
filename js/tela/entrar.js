@@ -22,7 +22,7 @@
 import * as nuvem from "../nuvem.js";
 import * as pessoas from "../pessoas.js";
 import * as ev from "../eventos.js";
-import { el, limpar, campo, avisar, erro, caixa } from "../ui.js";
+import { el, limpar, campo, avisar, erro, caixa, senhaComOlho } from "../ui.js";
 
 export async function montar(raiz, ctx) {
   // Esta tela não usa a casca: ela é a porta.
@@ -87,7 +87,7 @@ export async function montar(raiz, ctx) {
     },
   },
     campo("E-mail", eNome),
-    campo("Senha", eSenha),
+    campo("Senha", senhaComOlho(eSenha)),
     botao);
 
   // A saída de emergência, escondida até fazer falta: enquanto a nuvem
@@ -113,7 +113,12 @@ export async function montar(raiz, ctx) {
   const cartao = el("div", { class: "cartao-entrar" },
     el("div", { class: "logo" }, el("i", {}, "M"), "Programação Makro"),
     el("p", { class: "dica" }, "manutenção · Mossoró/RN"),
-    aviso, form, alternativa);
+    aviso, form,
+    el("p", { class: "obs esqueci" },
+      "Esqueceu a senha? Ninguém consegue vê-la — nem o PCM, nem o banco: ela é ",
+      "guardada embaralhada. Fale com o Mateus para criar uma nova. Depois de ",
+      "entrar, dá para trocar pela sua clicando no seu nome, no alto da tela."),
+    alternativa);
 
   if (fila.length) {
     const quem = fila.map(f => `${f.quantos} de ${f.autor}`).join(", ");
@@ -220,7 +225,7 @@ async function criarAcesso() {
       campo("E-mail", eEmail),
       sugestoes,
       campo("Nome", eNome),
-      campo("Senha", eSenha)),
+      campo("Senha", senhaComOlho(eSenha))),
     acoes: [{ rotulo: "Cancelar", valor: false },
       { rotulo: "Criar", classe: "primario", valor: true }],
   });

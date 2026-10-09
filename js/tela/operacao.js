@@ -2,16 +2,16 @@
 //
 // Pedro e João Victor abrem isto no celular, em pé, do lado de um caminhão. Não
 // precisam de carteira, de HH nem de aderência — precisam de duas perguntas:
-// que frota já foi e ainda não voltou, e que frota pode parar para preventiva.
-// Qualquer coisa a mais nesta tela é coisa para rolar antes de achar o que
-// importa.
+// que movimentação está em aberto (e concluir quando terminar), e que frota
+// pode parar para preventiva. Qualquer coisa a mais nesta tela é coisa para
+// rolar antes de achar o que importa.
 
 import * as ev from "../eventos.js";
 import * as M from "../modelo.js";
 import * as pessoas from "../pessoas.js";
 import { el, limpar, br, brCurto, chip, avisar, vazio, cartaoNumero } from "../ui.js";
 import { secao } from "./comum.js";
-import { apontarChegada, novaMovimentacao, cartaoMov } from "./movimentacoes.js";
+import { concluirMov, novaMovimentacao, cartaoMov } from "./movimentacoes.js";
 import { informarDisponibilidade, cartaoPrev } from "./preventivas.js";
 
 export async function montar(raiz, ctx) {
@@ -30,35 +30,49 @@ export async function montar(raiz, ctx) {
     const movs = ev.lista("movimentacao");
     const prevs = ev.lista("preventiva");
 
-    const fora = movs.filter(M.movimentacaoAberta)
-      .sort((a, b) => String(a.prometida_para || "9999").localeCompare(String(b.prometida_para || "9999")));
-    const atrasadas = fora.filter(m => M.situacaoMovimentacao(m, hoje) === "ATRASADA");
+    const peso = m => ({ Atrasada: 0, "Vence hoje": 1 })[M.situacaoMovimentacao(m, hoje)] ?? 2;
+    const abertas = movs.filter(M.movimentacaoAberta)
+      .sort((a, b) => peso(a) - peso(b) ||
+        String(a.prometida_para || "9999").localeCompare(String(b.prometida_para || "9999")));
+    const atrasadas = abertas.filter(m => M.situacaoMovimentacao(m, hoje) === "Atrasada");
+    const devolvidas = abertas.filter(m => m.devolvida);
+    const comPCM = movs.filter(M.movimentacaoParaAprovar);
     const semDisp = prevs.filter(p => M.preventivaAberta(p) && M.esperandoQuem(p) === "Operação")
-      .sort((a, b) => String(a.vence || "9999").localeCompare(String(b.vence || "9999")));
+      .sort((a, b) => String(M.venceEfetivo(a) || "9999").localeCompare(String(M.venceEfetivo(b) || "9999")));
 
     corpo.append(el("div", { class: "numeros", style: "margin-bottom:16px" },
-      cartaoNumero(fora.length, "frotas fora, sem voltar", "", fora.length ? "alerta" : ""),
-      cartaoNumero(atrasadas.length, "passaram do prometido", "", atrasadas.length ? "alerta" : ""),
+      cartaoNumero(abertas.length, "movimentações em aberto", "", abertas.length ? "alerta" : ""),
+      cartaoNumero(atrasadas.length, "atrasadas", "passou do prazo", atrasadas.length ? "alerta" : ""),
+      cartaoNumero(comPCM.length, "aguardando aprovação", "com o PCM"),
       cartaoNumero(semDisp.length, "esperando sua data", "para preventiva")));
 
-    if (!fora.length && !semDisp.length) {
+    if (!abertas.length && !semDisp.length) {
       corpo.append(el("p", { class: "nada", style: "font-size:15px;padding:26px 0;text-align:center" },
         "Nada esperando por você agora. 👍"));
     }
 
-    if (fora.length) {
-      corpo.append(secao("Frotas fora — aponte quando voltar",
-        el("div", { class: "lista" }, fora.map(m => cartaoMov(m, ctx, {
+    if (devolvidas.length) {
+      corpo.append(secao("Devolvidas pelo PCM — confira e conclua de novo",
+        el("div", { class: "lista" }, devolvidas.map(m => cartaoMov(m, ctx, {
           acoes: [el("button", { class: "primario",
-            onclick: e => { e.stopPropagation(); apontarChegada(m, ctx); } }, "Chegou")],
-        }))), fora.length));
+            onclick: e => { e.stopPropagation(); concluirMov(m); } }, "Concluir")],
+        }))), devolvidas.length));
+    }
+
+    const normais = abertas.filter(m => !m.devolvida);
+    if (normais.length) {
+      corpo.append(secao("Movimentações em aberto — conclua quando terminar",
+        el("div", { class: "lista" }, normais.map(m => cartaoMov(m, ctx, {
+          acoes: [el("button", { class: "primario",
+            onclick: e => { e.stopPropagation(); concluirMov(m); } }, "Concluir")],
+        }))), normais.length));
     }
 
     if (semDisp.length) {
       corpo.append(secao("Quando esta frota pode parar?",
         el("div", { class: "lista" }, semDisp.map(p => cartaoPrev(p, ctx, {
           acoes: [el("button", { class: "primario",
-            onclick: e => { e.stopPropagation(); informarDisponibilidade(p, ctx); } },
+            onclick: e => { e.stopPropagation(); informarDisponibilidade(p); } },
             "Informar")],
         }))), semDisp.length));
     }
@@ -73,9 +87,9 @@ export async function montar(raiz, ctx) {
         el("div", { class: "lista" }, hojeFeito.slice(-8).reverse().map(e => {
           const alvo = ev.achar(e.alvo);
           const nome = alvo ? (alvo.item.frota || "—") : "—";
-          const oq = e.tipo === "mov_chegou" ? `chegou em ${br(e.dados.em)}`
+          const oq = e.tipo === "mov_chegou" ? `concluída em ${br(e.dados.em)}`
             : e.tipo === "prev_disponivel" ? `disponível ${e.dados.quando === "agora" ? "agora" : "em " + br(e.dados.quando)}`
-            : e.tipo === "mov_prometida" ? `prometida para ${br(e.dados.para)}`
+            : e.tipo === "mov_prometida" ? `prazo ${br(e.dados.para)}`
             : "lançada";
           return el("div", { class: "at ok" },
             el("div", { class: "meio" },

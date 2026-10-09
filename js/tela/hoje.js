@@ -13,7 +13,7 @@ import * as M from "../modelo.js";
 import * as pessoas from "../pessoas.js";
 import { el, limpar, br } from "../ui.js";
 import { criarNova } from "./comum.js";
-import { grade } from "./grade.js";
+import { grade, repintarMantendoFoco } from "./grade.js";
 
 const NOMES = ["domingo", "segunda-feira", "terça-feira", "quarta-feira",
   "quinta-feira", "sexta-feira", "sábado"];
@@ -92,5 +92,5 @@ export async function montar(raiz, ctx, params) {
   }
 
   pintar();
-  return { desmontar: ev.ouvir(pintar) };
+  return { desmontar: ev.ouvir(() => repintarMantendoFoco(corpo, pintar)) };
 }

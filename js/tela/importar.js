@@ -93,12 +93,16 @@ export async function montar(raiz, ctx) {
     });
     if (r !== true) return;
 
-    let lido, movs = { movimentacoes: [], divergencias: [] }, prevs = { preventivas: [], mes: "" };
+    let lido, movs = { movimentacoes: [], divergencias: [] },
+      prevs = { preventivas: [], fora: [], sairam: [], mes: "" };
     try {
       lido = imp.lerPlanilhaMakro(abas, Number(eAno.value) || agora.ano);
       movs = imp.lerMovimentacoes(abas);
-      prevs = imp.lerPreventivas(abas);
+      // As preventivas casam pela frota com as que o site já tem do mesmo mês
+      // — inclusive as excluídas, para não reaproveitar o ID de uma delas.
+      prevs = imp.lerPreventivas(abas, [...ev.estado.preventiva.values()]);
     } catch (e) { return erro(e.message); }
+    const rp = M.resumoPreventivas(prevs.preventivas);
 
     const { atividades, avisos } = lido;
     const semData = avisos.filter(a => a.tipo === "marcada_sem_data");
@@ -115,7 +119,21 @@ export async function montar(raiz, ctx) {
           cartaoNumero(atividades.filter(a => a.concluida_em || a.feita_sem_data).length, "já fechadas"),
           cartaoNumero(atividades.filter(a => a.os).length, "com OS"),
           cartaoNumero(movs.movimentacoes.length, "movimentações"),
-          cartaoNumero(prevs.preventivas.length, "preventivas", prevs.mes)),
+          cartaoNumero(rp.preventivas, "preventivas", `${prevs.mes} · ${rp.frotas} frotas`)),
+
+        prevs.preventivas.length ? el("p", { class: "nota" },
+          `Preventivas de ${prevs.mes}: ${rp.preventivas} a fazer em ${rp.frotas} frotas` +
+          (rp.reprogramadas ? `, mais ${rp.reprogramadas} que passam para o mês seguinte` : "") +
+          (prevs.fora.length ? `. O quadro "fora do plano" (${prevs.fora.length} frotas) entra à parte, fora da conta` : "") +
+          " — como no alto da aba da planilha.") : null,
+
+        prevs.sairam.length ? grupo(
+          prevs.sairam.length === 1 ? `1 preventiva de ${prevs.mes} sai do mapa`
+            : `${prevs.sairam.length} preventivas de ${prevs.mes} saem do mapa`,
+          prevs.sairam.map(p => el("div", { style: "font-size:13px;padding:3px 0" },
+            el("b", {}, p.frota), p.plano ? " · " + p.plano : "")),
+          "Estão no site, vieram de uma importação anterior e não estão mais na aba " +
+          "Preventivas desta planilha. Saem do mapa, com o motivo no Registro.", true) : null,
 
         movs.divergencias.length ? grupo(
           `${movs.divergencias.length} movimentação(ões) com a situação divergindo das datas`,
@@ -153,12 +171,14 @@ export async function montar(raiz, ctx) {
     const eventos = [
       ...atividades.map(a => ev.criar(a, "planilha", nome, "atividade")),
       ...movs.movimentacoes.map(m => ev.criar(m, "planilha", nome, "movimentacao")),
-      ...prevs.preventivas.map(x => ev.criar(x, "planilha", nome, "preventiva")),
+      ...[...prevs.preventivas, ...prevs.fora].map(x => ev.criar(x, "planilha", nome, "preventiva")),
+      ...prevs.sairam.map(p => ({ tipo: "excluida", alvo: p.id, alvo_tipo: "preventiva",
+        origem: "planilha", motivo: `não está mais na aba Preventivas de ${nome}` })),
     ];
     await ev.aplicar(eventos, { silencioso: true });
     ev.forcarAviso();
     avisar(`${atividades.length} atividades, ${movs.movimentacoes.length} movimentações ` +
-      `e ${prevs.preventivas.length} preventivas.`);
+      `e ${rp.preventivas} preventivas em ${rp.frotas} frotas.`);
     ctx.ir("carteira");
   }
 

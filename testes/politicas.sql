@@ -60,6 +60,14 @@ begin;
   select public.nome_atual();
 rollback;
 
+\echo '── 8b. Pedro tenta APROVAR a movimentação que ele mesmo concluiu — RECUSADO'
+-- Quem faz não aprova: a aprovação é do PCM, e o banco garante, não a tela.
+begin;
+  set local role authenticated;
+  set local request.jwt.claims = '{"email":"pedro@makroteste.com.br"}';
+  insert into eventos (id,autor,tipo,alvo_tipo,alvo) values ('t8b','Pedro','mov_aprovada','movimentacao','M-0001');
+rollback;
+
 \echo '── 9. Conta criada por qualquer um, sem papel, não lê a fita — VAZIO'
 -- O cadastro do Supabase é aberto e a chave do site é pública: ter conta não
 -- pode bastar para ler a carteira. Quem não está em `pessoas` vê zero linhas.

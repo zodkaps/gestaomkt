@@ -267,29 +267,66 @@ if (abas) {
   const { movimentacoes, divergencias } = imp.lerMovimentacoes(abas);
   igual("51 movimentações", movimentacoes.length, 51);
   const pt = modelo.pontualidade(movimentacoes, "2026-10-08");
-  igual("33 entregues, 17 no prazo", [pt.entregues, pt.no_prazo], [33, 17]);
+  // As contas da planilha: concluída sem prazo prometido conta como no prazo.
+  igual("33 concluídas, 19 no prazo (como a planilha)", [pt.concluidas, pt.no_prazo], [33, 19]);
+  igual("48 dias perdidos (como a planilha)", pt.dias_perdidos, 48);
   igual("2 voltaram sem ninguém ter prometido data", pt.sem_promessa, 2);
   igual("18 ainda fora", pt.aguardando + pt.atrasadas, 18);
   igual("e a conta fecha com as 51",
-    pt.entregues + pt.aguardando + pt.atrasadas, 51);
-  ok("conta dias de frota perdidos", pt.dias_perdidos > 0);
+    pt.concluidas + pt.aguardando + pt.atrasadas, 51);
+  ok("e os dias das atrasadas em aberto aparecem à parte", pt.dias_correndo > 0);
   // A planilha traz a situação DIGITADA. Em vez de confiar ou descartar calado,
   // o importador lista o que discorda das datas — e essa lista não pode sumir.
   ok("lista o que a coluna digitada diz diferente das datas", divergencias.length > 0);
   console.log(`  · divergências entre a situação digitada e as datas: ${divergencias.length}`);
 
+  ok("o que a planilha diz que chegou entra aprovado (é o registro do PCM)",
+    movimentacoes.filter(x => x.chegou_em).every(x => x.aprovada));
+  {
+    // O banco de hoje tem movimentações importadas antes da aprovação existir:
+    // sem o campo, a concluída na planilha também conta como aprovada.
+    const velha = { ...movimentacoes.find(x => x.chegou_em) };
+    delete velha.aprovada;
+    const m0 = ev.reconstruir([{ id: "x1", ts: "2026-10-09T10:00:00Z", tipo: "importada",
+      alvo: "M-VELHA", alvo_tipo: "movimentacao", dados: velha }]).movimentacao.get("M-VELHA");
+    igual("importação antiga: concluída na planilha aparece Concluída, não 'aguardando'",
+      modelo.situacaoMovimentacao(m0).startsWith("Concluída"), true);
+  }
+  ok("e a troca de nome não vira divergência (Entregue → Concluída)",
+    !divergencias.some(d => modelo.situacaoMovNova(d.escrita) === d.calculada));
+
   const m1 = { ...modelo.moldeMovimentacao(), frota: "F-1",
     prometida_para: "2026-10-01", chegou_em: "2026-10-03" };
-  igual("chegou depois do prometido", modelo.situacaoMovimentacao(m1), "Entregue com atraso");
+  igual("concluída e ainda não conferida", modelo.situacaoMovimentacao(m1), "Aguardando aprovação");
+  igual("aprovada depois do prometido", modelo.situacaoMovimentacao({ ...m1, aprovada: true }),
+    "Concluída com atraso");
+  igual("aprovada no prazo", modelo.situacaoMovimentacao({ ...m1, aprovada: true,
+    chegou_em: "2026-10-01" }), "Concluída");
   igual("e o atraso é de 2 dias", modelo.atrasoMovimentacao(m1), 2);
   const m2 = { ...modelo.moldeMovimentacao(), prometida_para: "2026-10-01" };
-  igual("não voltou e o prazo passou", modelo.situacaoMovimentacao(m2, "2026-10-08"), "ATRASADA");
+  igual("não concluiu e o prazo passou", modelo.situacaoMovimentacao(m2, "2026-10-08"), "Atrasada");
+  igual("vence hoje", modelo.situacaoMovimentacao(m2, "2026-10-01"), "Vence hoje");
+  igual("antes do prazo, em aberto", modelo.situacaoMovimentacao(m2, "2026-09-30"), "Em aberto");
+  igual("sem data prometida, sem prazo",
+    modelo.situacaoMovimentacao(modelo.moldeMovimentacao()), "Sem prazo");
   igual("o atraso cresce contra hoje", modelo.atrasoMovimentacao(m2, "2026-10-08"), 7);
 
   // ── preventivas ───────────────────────────────────────────────────────────
   titulo("importar.js — preventivas e o aperto de mão");
-  const { preventivas, mes } = imp.lerPreventivas(abas);
-  igual("37 preventivas", preventivas.length, 37);
+  const { preventivas: noPlano, fora: foraDoPlano, mes } = imp.lerPreventivas(abas);
+  // A aba tem duas tabelas: o plano e, no pé, o quadro "FORA DO PLANO". Ler
+  // tudo como uma tabela só dava 37 — com o título do quadro virando frota.
+  igual("29 linhas no plano do mês", noPlano.length, 29);
+  igual("e 7 frotas no quadro de fora", foraDoPlano.length, 7);
+  ok("o título do quadro não vira frota",
+    ![...noPlano, ...foraDoPlano].some(p => /fora do plano/i.test(p.frota)));
+  const rp = modelo.resumoPreventivas([...noPlano, ...foraDoPlano], "2026-10-08");
+  igual("33 preventivas a fazer, como no alto da aba", rp.preventivas, 33);
+  igual("em 25 frotas", rp.frotas, 25);
+  igual("8 passam para o mês seguinte (Status Reprogramada)", rp.reprogramadas, 8);
+  igual("4 em andamento (Status)", rp.em_andamento, 4);
+  igual("ID pela frota e pelo mês, não pela linha", noPlano[0].id, "P-Out-26-F-745");
+  const preventivas = [...noPlano, ...foraDoPlano];
   igual("do mês Out-26", mes, "Out-26");
   igual("6 com 'disponível agora' separado da data",
     preventivas.filter(p => p.disponivel_agora).length, 6);
@@ -306,7 +343,7 @@ if (abas) {
   igual("respondida, a bola passa para o PCM", modelo.esperandoQuem(p1), "PCM");
   const p2 = { ...p1, dia_parada: "2026-10-15" };
   igual("com parada marcada, ninguém está travando", modelo.esperandoQuem(p2), "");
-  igual("e a situação é parada marcada", modelo.situacaoPreventiva(p2, "2026-10-08"), "Parada marcada");
+  igual("e a situação é Programada, como na planilha", modelo.situacaoPreventiva(p2, "2026-10-08"), "Programada");
 
   // ── reimportar não duplica ────────────────────────────────────────────────
   titulo("eventos.js — reimportar a mesma planilha");
@@ -318,8 +355,37 @@ if (abas) {
   ], { silencioso: true });
   igual("continua com as mesmas atividades", ev.lista().length, antesDeReimportar);
   igual("e com as mesmas movimentações", ev.lista("movimentacao").length, 51);
-  igual("e com as mesmas preventivas", ev.lista("preventiva").length, 37);
+  igual("e com as mesmas preventivas", ev.lista("preventiva").length, 36);
   ok("a fita continua fechando depois de reimportar", ev.conferir().ok);
+
+  // ── preventivas casam pela frota, não pela linha ──────────────────────────
+  titulo("importar.js — preventiva casa pela frota");
+  {
+    const existentes = [...ev.estado.preventiva.values()];
+    // A planilha ganha uma linha nova no TOPO do plano: tudo desce uma linha.
+    const aba = abas.find(a => /^Preventivas/.test(a.nome));
+    const iCab = aba.linhas.findIndex(L => (L || [])[0] === "Frota");
+    const comLinhaNova = abas.map(a => a !== aba ? a : { ...a, linhas: [
+      ...a.linhas.slice(0, iCab + 1), ["F-999", "Cavalo", "Matriz", "1 ano", 1],
+      ...a.linhas.slice(iCab + 1)] });
+    const r2 = imp.lerPreventivas(comLinhaNova, existentes);
+    const idDe = f => (r2.preventivas.find(p => p.frota === f) || {}).id;
+    igual("a F-745 continua com o mesmo ID", idDe("F-745"),
+      existentes.find(p => p.frota === "F-745").id);
+    igual("a nova ganha o seu", idDe("F-999"), "P-Out-26-F-999");
+    igual("e ninguém sai do mapa", r2.sairam.length, 0);
+
+    // O banco de hoje tem IDs pela posição (P-0001…) e a linha-título do
+    // quadro de fora (P-0030) como se fosse frota.
+    const velhas = [...noPlano, { ...modelo.moldePreventiva(), mes: "Out-26",
+      frota: "FORA DO PLANO DE OUTUBRO  ·  não entram na conta acima" }, ...foraDoPlano]
+      .map((p, i) => ({ ...p, fonte: "x.xlsx", id: `P-${String(i + 1).padStart(4, "0")}` }));
+    const r3 = imp.lerPreventivas(abas, velhas);
+    igual("reaproveita o ID que a F-745 já tinha", r3.preventivas[0].id, "P-0001");
+    igual("a frota de fora reaproveita o dela", r3.fora.find(p => p.frota === "F-818").id,
+      velhas.find(p => p.frota === "F-818").id);
+    igual("só a linha-título sai do mapa", r3.sairam.map(p => p.id), ["P-0030"]);
+  }
 
   // ── reimportar não apaga o que foi lançado no site ────────────────────────
   // Planilha e site convivem: ele reimporta a planilha enquanto a equipe
@@ -361,10 +427,27 @@ if (abas) {
 
   const movAberta = ev.lista("movimentacao").find(modelo.movimentacaoAberta);
   await ev.aplicar(ev.chegou(movAberta, "2026-10-08"));
-  igual("mas aponta a chegada da frota",
+  igual("mas conclui a movimentação",
     ev.porId(movAberta.id, "movimentacao").chegou_em, "2026-10-08");
   igual("e o registro guarda que foi o Pedro",
     ev.historicoDe(movAberta.id)[0].autor, "Pedro");
+  igual("concluída pela operação, espera o PCM aprovar",
+    modelo.situacaoMovimentacao(ev.porId(movAberta.id, "movimentacao")), "Aguardando aprovação");
+  ok("e entra na fila de aprovação",
+    modelo.movimentacaoParaAprovar(ev.porId(movAberta.id, "movimentacao")));
+  // Um "editada" (que a operação pode gravar) não serve de atalho para aprovar.
+  await ev.aplicar({ tipo: "editada", alvo: movAberta.id, alvo_tipo: "movimentacao",
+    dados: { de: {}, para: { aprovada: true, aprovada_por: "Pedro" } } });
+  ok("editar não aprova — aprovar é só do PCM",
+    modelo.movimentacaoParaAprovar(ev.porId(movAberta.id, "movimentacao")));
+  const [criadaJa] = await ev.aplicar(ev.pedirMovimentacao({ frota: "F-ATALHO",
+    chegou_em: "2026-10-08", aprovada: true }));
+  ok("nem criar uma já aprovada",
+    !ev.porId(criadaJa.alvo, "movimentacao").aprovada);
+  let barrouAprovar = "";
+  try { ev.aprovarMovimentacao(ev.porId(movAberta.id, "movimentacao")); }
+  catch (e) { barrouAprovar = e.message; }
+  ok("a operação não aprova o que ela mesma concluiu", !!barrouAprovar, barrouAprovar);
 
   const prevSemData = ev.lista("preventiva").find(x => modelo.esperandoQuem(x) === "Operação");
   await ev.aplicar(ev.informarDisponibilidade(prevSemData, "agora"));
@@ -376,6 +459,31 @@ if (abas) {
   ok("mas não marca o dia da parada", !!barrou3, barrou3);
 
   await entrarComo("Mateus");
+  await ev.aplicar(ev.aprovarMovimentacao(ev.porId(movAberta.id, "movimentacao")));
+  const aprovadaMov = ev.porId(movAberta.id, "movimentacao");
+  ok("o PCM aprova e ela sai da fila", !modelo.movimentacaoParaAprovar(aprovadaMov) &&
+    modelo.situacaoMovimentacao(aprovadaMov).startsWith("Concluída"));
+  igual("e fica dito quem aprovou", aprovadaMov.aprovada_por, "Mateus");
+
+  const outraMov = ev.lista("movimentacao").find(modelo.movimentacaoAberta);
+  await entrarComo("Pedro");
+  await ev.aplicar(ev.chegou(outraMov, "2026-10-08"));
+  await entrarComo("Mateus");
+  let semMotivo = "";
+  try { ev.devolverMovimentacao(ev.porId(outraMov.id, "movimentacao"), ""); }
+  catch (e) { semMotivo = e.message; }
+  ok("devolver exige o motivo", !!semMotivo, semMotivo);
+  await ev.aplicar(ev.devolverMovimentacao(ev.porId(outraMov.id, "movimentacao"),
+    "a frota ainda está no fornecedor"));
+  const devolvida = ev.porId(outraMov.id, "movimentacao");
+  ok("devolvida, volta a ficar em aberto", modelo.movimentacaoAberta(devolvida));
+  igual("com o porquê à vista", devolvida.motivo_devolucao, "a frota ainda está no fornecedor");
+
+  const terceiraMov = ev.lista("movimentacao").find(modelo.movimentacaoAberta);
+  await ev.aplicar(ev.chegou(terceiraMov, "2026-10-09"));
+  ok("quando o próprio PCM conclui, já vai aprovada",
+    ev.porId(terceiraMov.id, "movimentacao").aprovada);
+
   await ev.aplicar(ev.marcarParada(ev.porId(prevSemData.id, "preventiva"), "2026-10-20"));
   igual("o PCM marca, e aí ninguém está travando",
     modelo.esperandoQuem(ev.porId(prevSemData.id, "preventiva")), "");

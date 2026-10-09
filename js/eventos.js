@@ -31,15 +31,24 @@ export const TIPOS = {
   cancelada: "cancelada",
   restaurada: "restaurada",
   mov_prometida: "movimentação prometida",
-  mov_chegou: "frota chegou",
+  mov_chegou: "movimentação concluída",
+  mov_aprovada: "movimentação aprovada",
+  mov_devolvida: "movimentação devolvida",
   mov_cancelada: "movimentação cancelada",
   prev_disponivel: "disponibilidade informada",
   prev_parada: "dia da parada marcado",
+  prev_andamento: "preventiva em andamento",
   prev_realizada: "preventiva realizada",
-  prev_adiada: "preventiva adiada",
+  prev_adiada: "preventiva passada para o mês seguinte",
+  prev_cancelada: "preventiva cancelada",
+  prev_reaberta: "preventiva reaberta",
 };
 
 export const ALVOS = ["atividade", "movimentacao", "preventiva"];
+
+// Campos da aprovação de movimentação: só os eventos de concluir, aprovar e
+// devolver mexem neles.
+const DA_APROVACAO = ["aprovada", "aprovada_por", "aprovada_em", "concluida_por"];
 
 // Campos que, mudados, contam como reprogramação e por isso exigem motivo.
 const DE_PROGRAMACAO = ["semana", "ano", "dia", "dias", "hh"];
@@ -120,8 +129,20 @@ export function dobrar(mapas, ev) {
     const doSite = (antes && antes._site) || {};
     const daPlanilha = {};
     for (const [k, v] of Object.entries(d)) if (!doSite[k]) daPlanilha[k] = v;
-    m.set(ev.alvo, { ...base, ...(antes || {}), ...daPlanilha, id: ev.alvo,
-      criada_em: (antes && antes.criada_em) || ev.ts });
+    // Aprovação de movimentação só entra por `mov_aprovada`, que só o PCM
+    // grava. Movimentação criada à mão nasce sem aprovação, diga o que disser.
+    if (tipoAlvo === "movimentacao" && ev.tipo === "criada") {
+      for (const k of DA_APROVACAO) delete daPlanilha[k];
+    }
+    const novo = { ...base, ...(antes || {}), ...daPlanilha, id: ev.alvo,
+      criada_em: (antes && antes.criada_em) || ev.ts };
+    // Movimentação importada antes de existir a aprovação: o que a planilha diz
+    // que foi concluído é registro do próprio PCM — conta como aprovado.
+    if (tipoAlvo === "movimentacao" && ev.tipo === "importada" && !("aprovada" in d) &&
+        !doSite.chegou_em) {
+      novo.aprovada = !!novo.chegou_em;
+    }
+    m.set(ev.alvo, novo);
     return mapas;
   }
 
@@ -140,9 +161,14 @@ export function dobrar(mapas, ev) {
 
 function aplicarNoAlvo(a, ev, d) {
   switch (ev.tipo) {
-    case "editada":
-      Object.assign(a, d.para || {});
+    case "editada": {
+      const para = { ...(d.para || {}) };
+      // Editar não aprova: senão bastaria um "editada" com aprovada = true
+      // para pular o PCM.
+      if (ev.alvo_tipo === "movimentacao") for (const k of DA_APROVACAO) delete para[k];
+      Object.assign(a, para);
       break;
+    }
     case "excluida":
       a.excluida = true;
       break;
@@ -182,7 +208,24 @@ function aplicarNoAlvo(a, ev, d) {
       a.quem_prometeu = d.quem || a.quem_prometeu;
       break;
     case "mov_chegou":
+      // Concluir não é aprovar: fica esperando o PCM conferir.
       a.chegou_em = d.em || "";
+      a.concluida_por = ev.autor || "";
+      a.aprovada = false;
+      a.devolvida = false;
+      break;
+    case "mov_aprovada":
+      a.aprovada = true;
+      a.aprovada_por = ev.autor || "";
+      a.aprovada_em = (ev.ts || "").slice(0, 10);
+      break;
+    case "mov_devolvida":
+      // O PCM conferiu e não foi bem assim: volta a ficar em aberto, com o
+      // porquê à vista de quem tinha concluído.
+      a.chegou_em = "";
+      a.aprovada = false;
+      a.devolvida = true;
+      a.motivo_devolucao = ev.motivo || "";
       break;
     case "mov_cancelada":
       a.cancelada = true;
@@ -202,11 +245,27 @@ function aplicarNoAlvo(a, ev, d) {
       break;
     case "prev_realizada":
       a.realizada_em = d.em || "";
+      a.realizada_sem_data = false;
+      a.em_andamento = false;
       if (d.os) a.os = d.os;
+      break;
+    case "prev_andamento":
+      a.em_andamento = d.sim !== false;
       break;
     case "prev_adiada":
       a.adiada = true;
       a.motivo = ev.motivo || a.motivo;
+      break;
+    case "prev_cancelada":
+      a.cancelada = true;
+      a.motivo = ev.motivo || a.motivo;
+      break;
+    case "prev_reaberta":
+      // Desfaz a baixa, o adiamento ou o cancelamento: volta para o mapa.
+      a.realizada_em = "";
+      a.realizada_sem_data = false;
+      a.adiada = false;
+      a.cancelada = false;
       break;
   }
 }
@@ -247,10 +306,26 @@ function ordenado(o) {
 
 export async function carregar() {
   await dados.abrir();
-  log = await dados.lerEventos();
-  refazer();
+  await recarregar();
   avisar();
   return estado;
+}
+
+// Reler a fita do disco tem um `await` no meio, e duas releituras podiam se
+// cruzar: a consulta ao banco começava a ler ANTES de uma baixa ser gravada,
+// terminava DEPOIS, e aplicava a cópia velha por cima da nova — a baixa estava
+// gravada, mas sumia da tela até a próxima mudança. Cada releitura ganha um
+// número; uma que começou antes nunca passa por cima de uma que começou
+// depois (a que começou depois já viu tudo o que foi gravado antes dela).
+let releituras = 0, ultimaAplicada = 0;
+async function recarregar() {
+  const minha = ++releituras;
+  const lido = await dados.lerEventos();
+  if (minha < ultimaAplicada) return false;
+  ultimaAplicada = minha;
+  log = lido;
+  refazer();
+  return true;
 }
 
 function refazer() {
@@ -289,9 +364,7 @@ export async function sincronizar() {
       desceram = await dados.mesclarDaNuvem(novos);
     }
     if (subiram || desceram) {
-      log = await dados.lerEventos();
-      refazer();
-      avisar();
+      if (await recarregar()) avisar();
     }
   } catch (e) {
     erro = e.message;
@@ -314,9 +387,7 @@ export async function autoresNaFila() {
 export async function receber(novos) {
   const n = await dados.mesclarDaNuvem(novos);
   if (!n) return 0;
-  log = await dados.lerEventos();
-  refazer();
-  avisar();
+  if (await recarregar()) avisar();
   return n;
 }
 
@@ -324,7 +395,9 @@ export async function receber(novos) {
 
 /** A única porta de escrita. Tudo que muda qualquer coisa passa por aqui. */
 export async function aplicar(evs, { silencioso = false } = {}) {
-  const lista = (Array.isArray(evs) ? evs : [evs]).filter(Boolean).map(ev => ({
+  // Uma operação pode devolver mais de um evento (concluir e aprovar, quando é
+  // o PCM que conclui): a lista é achatada antes de gravar.
+  const lista = (Array.isArray(evs) ? evs : [evs]).flat().filter(Boolean).map(ev => ({
     id: novoId(),
     ts: agora(),
     autor: pessoas.nome() || "—",
@@ -337,8 +410,7 @@ export async function aplicar(evs, { silencioso = false } = {}) {
   if (!lista.length) return lista;
 
   await dados.gravarEventos(lista);
-  log = await dados.lerEventos();
-  refazer();
+  await recarregar();
   if (!silencioso) avisar();
 
   // Sobe em segundo plano: a tela não espera a rede para mostrar o que a
@@ -449,10 +521,27 @@ export function prometer(m, para, quem = "Operação") {
     dados: { para, quem } };
 }
 
+/** Concluir a movimentação. Quando é a operação, fica esperando o PCM
+ *  aprovar; quando é o próprio PCM, ele já está conferindo — vai aprovada. */
 export function chegou(m, em) {
   pessoas.exigir("movimentar");
-  if (!em) throw new Error("Apontar a chegada exige a data.");
-  return { tipo: "mov_chegou", alvo: m.id, alvo_tipo: "movimentacao", dados: { em } };
+  if (!em) throw new Error("Concluir exige a data.");
+  const feito = { tipo: "mov_chegou", alvo: m.id, alvo_tipo: "movimentacao", dados: { em } };
+  if (!pessoas.pode("aprovar")) return feito;
+  return [feito, { tipo: "mov_aprovada", alvo: m.id, alvo_tipo: "movimentacao" }];
+}
+export const concluirMovimentacao = chegou;
+
+export function aprovarMovimentacao(m) {
+  pessoas.exigir("aprovar");
+  if (!m.chegou_em) throw new Error("Só se aprova o que já foi concluído.");
+  return { tipo: "mov_aprovada", alvo: m.id, alvo_tipo: "movimentacao" };
+}
+
+export function devolverMovimentacao(m, motivo) {
+  pessoas.exigir("aprovar");
+  if (!String(motivo || "").trim()) throw new Error("Devolver exige o motivo.");
+  return { tipo: "mov_devolvida", alvo: m.id, alvo_tipo: "movimentacao", motivo };
 }
 
 export function cancelarMovimentacao(m, motivo) {
@@ -495,6 +584,22 @@ export function adiarPreventiva(p, motivo) {
   pessoas.exigir("parada");
   if (!String(motivo || "").trim()) throw new Error("Adiar exige motivo.");
   return { tipo: "prev_adiada", alvo: p.id, alvo_tipo: "preventiva", motivo };
+}
+
+export function preventivaEmAndamento(p, sim = true) {
+  pessoas.exigir("parada");
+  return { tipo: "prev_andamento", alvo: p.id, alvo_tipo: "preventiva", dados: { sim } };
+}
+
+export function cancelarPreventiva(p, motivo) {
+  pessoas.exigir("parada");
+  if (!String(motivo || "").trim()) throw new Error("Cancelar exige motivo.");
+  return { tipo: "prev_cancelada", alvo: p.id, alvo_tipo: "preventiva", motivo };
+}
+
+export function reabrirPreventiva(p) {
+  pessoas.exigir("parada");
+  return { tipo: "prev_reaberta", alvo: p.id, alvo_tipo: "preventiva" };
 }
 
 // ── leitura ─────────────────────────────────────────────────────────────────

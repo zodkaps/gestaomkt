@@ -117,7 +117,10 @@ await p.evaluate(async () => {
 await p.waitForSelector(".caixa input[type=date]", { timeout: 5000 });
 await p.fill(".caixa input[type=date]", "2026-10-09");
 await p.press(".caixa input[type=date]", "Enter");
-await p.waitForTimeout(1200);
+// Espera o resultado, não um tempo fixo: logo depois de entrar, com a fita
+// inteira descendo do banco, gravar pode levar mais que um segundo.
+await p.waitForFunction(() => mkt.ev.porId(window.__alvo).concluida_em, null, { timeout: 5000 })
+  .catch(() => {});
 const fechou = await p.evaluate(() => ({
   caixas: document.querySelectorAll(".caixa").length,
   em: mkt.ev.porId(window.__alvo).concluida_em,
@@ -173,6 +176,72 @@ ok("a rolagem não volta para o topo", Math.abs(aposBaixa.y - antesDaBaixa.y) <=
 ok("e a linha muda na hora, verde, com a data", aposBaixa.feita && /09\/10/.test(aposBaixa.texto),
   JSON.stringify(aposBaixa));
 
+// ── digitar a OS direto na linha ───────────────────────────────────────────
+// O pedido: "selecionar as atividades que estão sem OS e simplesmente digitar
+// o número". Com o filtro "sem OS", a coluna OS vira campos: digita, Enter, e
+// o foco desce para a próxima — preenche-se a coluna sem tirar a mão do
+// teclado.
+const ALVO_OS = "F-OS-" + Date.now().toString(36);
+// OS que não existe em nenhuma outra frota: com uma repetida, o site pergunta
+// antes de gravar (e é para perguntar) — aqui se quer provar o caminho direto.
+const OS1 = String(100000 + Date.now() % 800000);
+const OS2 = String(Number(OS1) + 1), OS3 = String(Number(OS1) + 2);
+const idsOS = await p.evaluate(async frota => {
+  const ids = [];
+  for (let i = 0; i < 3; i++) {
+    const [e] = await mkt.ev.aplicar(mkt.ev.criar({ frota, atividade: `Serviço ${i} sem OS`,
+      tipo: "Corretiva" }), { silencioso: true });
+    ids.push(e.alvo);
+  }
+  mkt.ev.forcarAviso();
+  location.hash = "#/programacao?m=tudo&os=sem";
+  return ids;
+}, ALVO_OS);
+await p.waitForTimeout(900);
+await p.fill(".filtros .busca", ALVO_OS);
+await p.waitForTimeout(600);
+ok("o filtro 'sem OS' está ligado e mostra as três",
+  await p.evaluate(() => document.querySelectorAll(".so-tabela input.os-in").length) === 3);
+const primeiro = await p.$(`.so-tabela input.os-in[data-id="${idsOS[0]}"]`);
+await primeiro.click();
+await p.keyboard.type(OS1);
+await p.keyboard.press("Enter");
+await p.waitForFunction(id => mkt.ev.porId(id).os, idsOS[0], { timeout: 5000 }).catch(() => {});
+await p.waitForTimeout(600);
+const aposOS = await p.evaluate(ids => ({
+  os: mkt.ev.porId(ids[0]).os,
+  foco: document.activeElement && document.activeElement.dataset ? document.activeElement.dataset.id : "",
+  campos: document.querySelectorAll(".so-tabela input.os-in").length,
+}), idsOS);
+ok("Enter grava a OS digitada", aposOS.os === OS1, JSON.stringify(aposOS));
+ok("e o foco desce para a próxima sem OS", aposOS.foco === idsOS[1], JSON.stringify(aposOS));
+ok("e a que ganhou OS sai da fila do filtro", aposOS.campos === 2, JSON.stringify(aposOS));
+await p.keyboard.type(`${OS2}, ${OS3}`);
+await p.keyboard.press("Tab");
+await p.waitForFunction(id => mkt.ev.porId(id).os, idsOS[1], { timeout: 5000 }).catch(() => {});
+const segunda = await p.evaluate(id => ({ os: mkt.ev.porId(id).os, outras: mkt.ev.porId(id).os_outras }), idsOS[1]);
+ok("Tab também grava — e duas OS na mesma célula viram OS + outra",
+  segunda.os === OS2 && segunda.outras.join() === OS3, JSON.stringify(segunda));
+
+// E a OS de seis dígitos curta ganha os zeros: "7381" é a 007381.
+const curta = await p.evaluate(async () => {
+  const { normalizarOSLista } = await import("/js/importar.js");
+  return normalizarOSLista("7381, 7382").join();
+});
+ok("OS digitada curta ganha os zeros", curta === "007381,007382", curta);
+await p.evaluate(() => { location.hash = "#/programacao?m=tudo"; });
+await p.waitForTimeout(300);
+await p.evaluate(() => { const b = document.querySelector(".filtro-os.on"); if (b) b.click(); });
+
+// Uma movimentação para o Pedro concluir no fim do teste.
+const MOV_APROVAR = "F-MOV-" + Date.now().toString(36);
+const idMovAprovar = await p.evaluate(async frota => {
+  const [e] = await mkt.ev.aplicar(mkt.ev.pedirMovimentacao({ frota, destino: "Borracharia",
+    prometida_para: "2026-10-05" }));
+  await mkt.ev.sincronizar();
+  return e.alvo;
+}, MOV_APROVAR);
+
 // ── a nuvem cai e o site continua ─────────────────────────────────────────
 // O defeito que isto cobre era de desenho: com o endereço do projeto no
 // código, a única entrada era a senha do Supabase. Provedor de e-mail
@@ -187,6 +256,15 @@ await p.evaluate(async () => { await mkt.pessoas.sair(); location.hash = "#/entr
 await falhar("provedor_off");
 await p.reload({ waitUntil: "networkidle" });
 await p.waitForSelector('button:has-text("Trabalhar neste aparelho")', { timeout: 8000 });
+// O olhinho: mostra a senha digitada, e esconde de novo.
+await p.fill('input[autocomplete="current-password"]', "segredo1");
+await p.click(".senha-olho .olho");
+const olho1 = await p.evaluate(() => document.querySelector('input[autocomplete="current-password"]').type);
+await p.click(".senha-olho .olho");
+const olho2 = await p.evaluate(() => document.querySelector('input[autocomplete="current-password"]').type);
+ok("o olhinho mostra a senha e esconde de novo", olho1 === "text" && olho2 === "password",
+  `${olho1} → ${olho2}`);
+await p.fill('input[autocomplete="current-password"]', "");
 const motivo = await p.evaluate(() =>
   (document.querySelector(".alternativa .obs") || {}).textContent || "");
 ok("a porta descobre sozinha que a senha não vai funcionar",
@@ -288,6 +366,50 @@ const fim = await p.evaluate(async alvo => {
 }, movLocal.alvo);
 ok("entrando com a senha dele, o que ficou guardado sobe e a fila esvazia",
   fim.subiu && fim.fila.length === 0 && !fim.local, JSON.stringify(fim));
+
+// ── o Pedro conclui, o Mateus aprova ──────────────────────────────────────
+// Quem faz a movimentação marca como concluída; o PCM só confere e aprova.
+await p.evaluate(() => { location.hash = "#/movimentacoes"; });
+await p.waitForTimeout(900);
+await p.fill(".filtros .busca", MOV_APROVAR);
+await p.waitForTimeout(500);
+await p.click(`.so-tabela tr.lin[data-id="${idMovAprovar}"] button.concluir`);
+await p.waitForSelector(".caixa input[type=date]", { timeout: 5000 });
+await p.fill(".caixa input[type=date]", "2026-10-07");
+await p.press(".caixa input[type=date]", "Enter");
+await p.waitForTimeout(1200);
+const doPedro = await p.evaluate(id => ({
+  sit: mkt.M.situacaoMovimentacao(mkt.ev.porId(id, "movimentacao")),
+  aprovarVisivel: !!document.querySelector("button.aprovar"),
+}), idMovAprovar);
+ok("o Pedro conclui e ela fica aguardando aprovação",
+  doPedro.sit === "Aguardando aprovação", JSON.stringify(doPedro));
+ok("e o Pedro não vê botão de aprovar", !doPedro.aprovarVisivel);
+await p.evaluate(() => mkt.ev.sincronizar());
+await p.waitForTimeout(800);
+
+await p.evaluate(async () => { await mkt.pessoas.sair(); });
+await p.reload({ waitUntil: "networkidle" });
+await p.waitForSelector('input[placeholder="Seu e-mail"]', { timeout: 8000 });
+await entrarComo(p, "Mateus");
+await p.waitForTimeout(1500);
+await p.evaluate(() => { location.hash = "#/movimentacoes"; });
+await p.waitForTimeout(1200);
+const fila = await p.evaluate(id => ({
+  recorte: (document.querySelector(".segmentos .seg-op.on") || {}).textContent || "",
+  linha: !!document.querySelector(`.so-tabela tr.lin[data-id="${id}"] button.aprovar`),
+}), idMovAprovar);
+ok("o Mateus abre direto na fila de aprovação, com a do Pedro lá",
+  /Aguardando aprovação/.test(fila.recorte) && fila.linha, JSON.stringify(fila));
+await p.click(`.so-tabela tr.lin[data-id="${idMovAprovar}"] button.aprovar`);
+await p.waitForTimeout(1200);
+const aprovada = await p.evaluate(id => {
+  const m = mkt.ev.porId(id, "movimentacao");
+  return { sit: mkt.M.situacaoMovimentacao(m), por: m.aprovada_por, quem: m.concluida_por };
+}, idMovAprovar);
+ok("um clique aprova: Concluída com atraso, concluída pelo Pedro, aprovada pelo Mateus",
+  aprovada.sit === "Concluída com atraso" && aprovada.quem === "Pedro" && aprovada.por === "Mateus",
+  JSON.stringify(aprovada));
 
 await nav.close();
 site.fechar();

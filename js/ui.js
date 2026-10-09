@@ -177,6 +177,24 @@ export function campo(rotulo, entrada, dica = "") {
     dica ? el("small", {}, dica) : null);
 }
 
+/** Campo de senha com o olhinho: mostra o que foi digitado, para conferir
+ *  antes de entrar. No celular, errar uma letra da senha sem ver é o erro
+ *  mais comum de quem entra em pé no pátio. */
+export function senhaComOlho(entrada) {
+  const botao = el("button", {
+    type: "button", class: "olho", title: "Mostrar a senha", "aria-label": "Mostrar a senha",
+    onclick: () => {
+      const ver = entrada.type === "password";
+      entrada.type = ver ? "text" : "password";
+      botao.textContent = ver ? "Esconder" : "Mostrar";
+      botao.title = ver ? "Esconder a senha" : "Mostrar a senha";
+      botao.setAttribute("aria-label", botao.title);
+      entrada.focus();
+    },
+  }, "Mostrar");
+  return el("span", { class: "senha-olho" }, entrada, botao);
+}
+
 export function selecao(opcoes, valor, props = {}) {
   return el("select", props, opcoes.map(o => {
     const v = typeof o === "string" ? o : o.v;

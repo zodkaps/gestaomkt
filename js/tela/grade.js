@@ -10,10 +10,11 @@
 // atividade em lista, para as três telas nunca mostrarem a mesma coisa de jeitos
 // diferentes.
 
+import * as ev from "../eventos.js";
 import * as M from "../modelo.js";
 import * as pessoas from "../pessoas.js";
 import { el, brCurto, cliqueLimpo, vazio } from "../ui.js";
-import { abrirFicha, concluir, cartao, botaoConcluir } from "./comum.js";
+import { abrirFicha, concluir, cartao, botaoConcluir, gravarOS } from "./comum.js";
 
 // A ordem dentro do bloco: primeiro o que pede ação, por último o que já saiu.
 // Assim as cores se agrupam e o bloco se lê de cima para baixo.
@@ -85,12 +86,62 @@ function contagem(r) {
 
 // ── as células ──────────────────────────────────────────────────────────────
 
+// Depois de gravar uma OS com Enter, o foco pula para a próxima linha sem OS —
+// é assim que se preenche uma coluna inteira sem tirar a mão do teclado. A
+// tela se repinta depois de gravar, então o "próximo" fica anotado aqui e a
+// linha nova pega o foco quando for desenhada.
+let focarDepois = "";
+
+function campoOS(a) {
+  const entrada = el("input", {
+    class: "os-in", inputmode: "numeric", placeholder: "sem OS", "aria-label": `OS de ${a.frota}`,
+    title: "Digite a OS e aperte Enter (ou Tab)", dataset: { id: a.id },
+    onclick: e => e.stopPropagation(),
+    onkeydown: async e => {
+      if (e.key === "Escape") { entrada.value = ""; entrada.blur(); return; }
+      // Grava só com Enter ou Tab — gesto de quem terminou de digitar. Gravar
+      // ao sair do campo gravaria pela metade um número que estava sendo
+      // digitado quando a tela se repintou por um lançamento de outra pessoa.
+      if (e.key !== "Enter" && e.key !== "Tab") return;
+      if (!entrada.value.trim()) return;
+      e.preventDefault();
+      const todos = [...document.querySelectorAll("input.os-in")];
+      const prox = todos[todos.indexOf(entrada) + (e.shiftKey ? -1 : 1)];
+      focarDepois = prox ? prox.dataset.id : "";
+      const ok = await gravarOS([a], entrada.value);
+      if (!ok) { focarDepois = ""; entrada.focus(); }
+    },
+  });
+  if (focarDepois === a.id) {
+    focarDepois = "";
+    requestAnimationFrame(() => entrada.focus());
+  }
+  return entrada;
+}
+
+/** Repinta uma área sem tirar o cursor de quem está digitando uma OS nela.
+ *  A tela se repinta quando qualquer lançamento chega — inclusive a volta do
+ *  próprio lançamento, do banco —, e cada repintura tirava o foco do campo. */
+export function repintarMantendoFoco(area, desenhar) {
+  const f = document.activeElement;
+  const guardado = f && f.classList && f.classList.contains("os-in") && area.contains(f)
+    ? { id: f.dataset.id, valor: f.value, ini: f.selectionStart, fim: f.selectionEnd } : null;
+  desenhar();
+  if (!guardado) return;
+  const n = area.querySelector(`input.os-in[data-id="${guardado.id}"]`);
+  if (!n) return;
+  n.value = guardado.valor;
+  n.focus();
+  try { n.setSelectionRange(guardado.ini, guardado.fim); } catch (e) { /* tipo sem seleção */ }
+}
+
 function celulaOS(a) {
   if (a.os) {
     return el("span", { class: "os" }, a.os,
       a.os_outras.length ? el("span", { class: "seg" }, ` +${a.os_outras.length}`) : null);
   }
-  return M.aberta(a) ? el("span", { class: "sem-os" }, "sem OS") : el("span", { class: "seg" }, "—");
+  if (!M.aberta(a)) return el("span", { class: "seg" }, "—");
+  return pessoas.pode("editar_atividade") ? campoOS(a) : el("span", { class: "sem-os" }, "sem OS");
 }
 
 function celulaAtividade(a, o) {

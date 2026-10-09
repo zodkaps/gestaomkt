@@ -14,7 +14,7 @@ const dominioDeTeste = email => {
   const d = String(email || "").toLowerCase().split("@")[1] || "";
   return /\.(local|test|example|invalid|localhost)$/.test(d) || /^example\.(com|net|org)$/.test(d);
 };
-const TIPOS_OPERACAO = new Set(["criada", "importada", "editada",
+const TIPOS_OPERACAO = new Set(["criada", "editada",
   "mov_prometida", "mov_chegou", "mov_cancelada", "prev_disponivel"]);
 
 // Modos de falha, para provar que as mensagens de instalação aparecem.

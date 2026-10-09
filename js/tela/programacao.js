@@ -13,9 +13,9 @@
 import * as ev from "../eventos.js";
 import * as M from "../modelo.js";
 import * as pessoas from "../pessoas.js";
-import { el, limpar, brCurto } from "../ui.js";
-import { criarNova, frotas, programarEmLote } from "./comum.js";
-import { grade, faixaSituacoes, progresso, natural } from "./grade.js";
+import { el, limpar, brCurto, caixa, campo } from "../ui.js";
+import { criarNova, frotas, programarEmLote, gravarOS } from "./comum.js";
+import { grade, faixaSituacoes, progresso, natural, repintarMantendoFoco } from "./grade.js";
 import { busca as semAcento } from "../texto.js";
 
 // O recorte sobrevive à troca de tela: voltar para a Programação depois de
@@ -26,6 +26,7 @@ const estado = {
   situacoes: new Set(),
   frota: "", busca: "",
   agrupar: "frota",
+  semOS: false,                   // só as em aberto que ainda não têm OS
 };
 const sel = new Set();
 
@@ -38,12 +39,21 @@ export async function montar(raiz, ctx, params) {
     estado.situacoes.clear();
   }
   if (params.get("s")) { estado.semana = Number(params.get("s")); estado.ano = Number(params.get("a")) || agora.ano; }
+  if (params.get("os") === "sem") estado.semOS = true;
+  // Vindo dos Resultados: a situação e a frota em que ele clicou.
+  if (params.get("sit")) { estado.periodo = "semana"; estado.situacoes = new Set([params.get("sit")]); }
+  if (params.get("f") != null && params.get("f") !== "") estado.frota = params.get("f");
 
   const fBusca = el("input", { class: "busca", type: "search", value: estado.busca,
     placeholder: "frota, OS, atividade, executante…",
     oninput: () => { estado.busca = fBusca.value; pintarCorpo(); } });
   const fFrota = el("select", { onchange: () => { estado.frota = fFrota.value; pintarCorpo(); } });
   const rotSemana = el("b", {});
+  // "Só sem OS": a fila do que falta lançar. Com ela ligada, a coluna OS vira
+  // uma coluna de campos — digita, Enter, desce para a próxima.
+  const bSemOS = el("button", { class: "fsit hoje filtro-os",
+    title: "Mostrar só as em aberto que ainda não têm OS",
+    onclick: () => { estado.semOS = !estado.semOS; pintarCorpo(); } });
 
   const botaoPeriodo = (id, rotulo) => el("button", {
     class: "seg-op", dataset: { p: id },
@@ -73,7 +83,7 @@ export async function montar(raiz, ctx, params) {
           estado.periodo === "semana" ? { ano: estado.ano, semana: estado.semana } : {}) }, "+ Nova")
         : null),
     topoResumo,
-    el("div", { class: "filtros" }, fBusca, fFrota,
+    el("div", { class: "filtros" }, fBusca, fFrota, bSemOS,
       el("label", { class: "agrupar" }, "Agrupar por ",
         el("select", { onchange: e => { estado.agrupar = e.target.value; pintarCorpo(); } },
           el("option", { value: "frota", selected: estado.agrupar === "frota" }, "frota"),
@@ -105,6 +115,7 @@ export async function montar(raiz, ctx, params) {
   function filtrar(lista) {
     const q = semAcento(estado.busca.trim());
     return lista.filter(a => {
+      if (estado.semOS && (a.os || !M.aberta(a))) return false;
       if (estado.situacoes.size && !estado.situacoes.has(M.situacaoDe(a))) return false;
       if (estado.frota && a.frota !== estado.frota) return false;
       if (q) {
@@ -160,6 +171,22 @@ export async function montar(raiz, ctx, params) {
       el("b", {}, `${sel.size} marcada${sel.size === 1 ? "" : "s"}`),
       el("div", { class: "espaco" }),
       el("button", { onclick: () => { sel.clear(); pintarCorpo(); } }, "Desmarcar"),
+      el("button", { onclick: async () => {
+        const alvos = [...sel].map(id => ev.porId(id)).filter(Boolean);
+        const eOS = el("input", { inputmode: "numeric", placeholder: "ex.: 022475" });
+        const r = await caixa({
+          titulo: `Mesma OS para ${alvos.length} atividade${alvos.length === 1 ? "" : "s"}`,
+          corpo: el("div", {},
+            el("p", { style: "font-size:13px;color:var(--fraco)" },
+              "Uma OS do Protheus pode cobrir várias atividades. A OS digitada vai para ",
+              "todas as marcadas — inclusive as que já tinham outra, que é trocada."),
+            campo("OS", eOS)),
+          acoes: [{ rotulo: "Cancelar", valor: false },
+            { rotulo: "Gravar", classe: "primario", valor: true }],
+        });
+        if (r !== true) return;
+        if (await gravarOS(alvos, eOS.value)) sel.clear();
+      } }, "Mesma OS"),
       el("button", { class: "primario", onclick: async () => {
         const alvos = [...sel].map(id => ev.porId(id)).filter(Boolean);
         if (await programarEmLote(alvos)) sel.clear();
@@ -178,17 +205,22 @@ export async function montar(raiz, ctx, params) {
   function pintarCorpo() {
     const base = doPeriodo();
     pintarResumo(base);
+    const faltam = base.filter(a => !a.os && M.aberta(a)).length;
+    bSemOS.textContent = "";
+    bSemOS.append(el("b", {}, String(faltam)), " sem OS");
+    bSemOS.classList.toggle("on", estado.semOS);
+    bSemOS.hidden = !faltam && !estado.semOS;
     const itens = filtrar(base);
-    limpar(corpo);
-    corpo.append(grade(itens, {
+    repintarMantendoFoco(corpo, () => { limpar(corpo); corpo.append(grade(itens, {
       ctx, agrupar: estado.agrupar || null,
       datas: estado.periodo === "semana" ? M.datasDaSemana(estado.ano, estado.semana) : null,
       selecao: pessoas.pode("programar") ? sel : null,
       aoSelecionar: tudo => (tudo ? pintarCorpo() : pintarBarraSel()),
-      vazioTexto: estado.periodo === "semana"
+      vazioTexto: estado.semOS ? "Todas as em aberto deste recorte já têm OS. 👍"
+        : estado.periodo === "semana"
         ? `Nada na semana ${estado.semana} com estes filtros.`
         : "Nada aqui com estes filtros.",
-    }));
+    })); });
     pintarBarraSel();
   }
 

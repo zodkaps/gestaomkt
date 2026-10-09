@@ -87,9 +87,10 @@ export function outrosIndicadores(ano, semana) {
 
     painel("Pontualidade da operação",
       el("div", {},
-        medidor(pt.pct, `${pt.no_prazo} de ${pt.entregues} entregas no prazo`),
+        medidor(pt.pct == null ? null : Math.round(pt.pct * 100),
+          `${pt.no_prazo} de ${pt.concluidas} concluídas no prazo`),
         el("div", { class: "numeros", style: "margin-top:12px" },
-          cartaoNumero(pt.atrasadas, "fora, já atrasadas", "", pt.atrasadas ? "alerta" : ""),
+          cartaoNumero(pt.atrasadas, "em aberto, já atrasadas", "", pt.atrasadas ? "alerta" : ""),
           cartaoNumero(pt.dias_perdidos, "dias de frota perdidos", "", pt.dias_perdidos ? "alerta" : ""))),
       "Cada dia além do prometido é um dia em que a oficina não pôde " +
       "trabalhar naquele caminhão."),
@@ -97,7 +98,7 @@ export function outrosIndicadores(ano, semana) {
     prevs.length ? painel("Preventivas do mês",
       el("div", { class: "numeros" },
         cartaoNumero(prevAbertas.length, "abertas"),
-        cartaoNumero(prevs.filter(p => M.preventivaAberta(p) && p.vence && p.vence < M.hoje()).length,
+        cartaoNumero(prevs.filter(p => M.preventivaVencida(p)).length,
           "vencidas", "", "alerta"),
         cartaoNumero(prevAbertas.filter(p => M.esperandoQuem(p) === "Operação").length, "com a operação"),
         cartaoNumero(prevAbertas.filter(p => M.esperandoQuem(p) === "PCM").length, "com o PCM")),

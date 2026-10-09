@@ -168,14 +168,16 @@ export function situacaoDe(a, ref) {
 
 export function corDe(s) {
   switch (s) {
-    case "Concluída": case "Entregue no prazo": case "Realizada": return "ok";
-    case "Concluída com atraso": case "Entregue com atraso": return "ok-tarde";
-    case "VENCIDA": case "ATRASADA": case "Vencida": return "vencida";
-    case "Fecha hoje": case "Chega hoje": return "hoje";
-    case "Em execução": case "Em andamento": return "andando";
-    case "Programada": case "Parada marcada": return "programada";
-    case "Na carteira": case "Aguardando": case "Sem data da operação": return "carteira";
-    case "Cancelada": case "Adiada": return "cancelada";
+    case "Concluída": case "Realizada": return "ok";
+    case "Concluída com atraso": return "ok-tarde";
+    case "VENCIDA": case "Atrasada": case "Parada passou, sem baixa":
+    case "Programada depois do prazo": case "Conflito: Operação depois do prazo": return "vencida";
+    case "Fecha hoje": case "Vence hoje":
+    case "Disponível: marcar a parada": case "Com data: marcar a parada": return "hoje";
+    case "Em execução": case "Em andamento": case "Aguardando aprovação": return "andando";
+    case "Programada": case "Em aberto": return "programada";
+    case "Na carteira": case "Sem prazo": case "Sem data da Operação": return "carteira";
+    case "Cancelada": case "Passa para o mês seguinte": return "cancelada";
     default: return "falta";
   }
 }
@@ -195,18 +197,29 @@ export function hhSugerido(ats, categoria) {
 }
 
 // ── movimentação ────────────────────────────────────────────────────────────
-// A frota sai do pátio e tem de voltar. O PCM pede, a operação promete e aponta
-// a chegada.
+// A frota sai do pátio e tem de voltar. O PCM pede, a operação promete, a
+// operação CONCLUI — e o PCM confere e aprova. Quem faz não é quem aprova: é
+// o mesmo princípio da baixa de OS, e é o que deixa o número de pontualidade
+// da operação valer na reunião.
 
 export function moldeMovimentacao() {
   return {
     id: "", frota: "", destino: "", para_que: "",
     pedida_em: "", prometida_para: "", chegou_em: "",
     quem_prometeu: "Operação", obs: "",
+    // Conclusão e aprovação. `chegou_em` é a data em que a movimentação foi
+    // feita; `aprovada` diz se o PCM já conferiu.
+    concluida_por: "", aprovada: false, aprovada_por: "", aprovada_em: "",
+    devolvida: false, motivo_devolucao: "",
     cancelada: false, excluida: false, motivo: "",
     criada_em: "", fonte: "",
   };
 }
+
+/** As situações de uma movimentação, com nomes genéricos — os mesmos para
+ *  frota que volta, frota que vai, box que libera. */
+export const SITUACOES_MOV = ["Atrasada", "Vence hoje", "Em aberto", "Sem prazo",
+  "Aguardando aprovação", "Concluída", "Concluída com atraso", "Cancelada"];
 
 /** Na planilha a situação é DIGITADA, então pode discordar das datas na mesma
  *  linha. Aqui ela é calculada — a data é o fato, a palavra era opinião. */
@@ -214,16 +227,30 @@ export function situacaoMovimentacao(m, ref) {
   const ho = ref || hoje();
   if (m.cancelada) return "Cancelada";
   if (m.chegou_em) {
-    if (!m.prometida_para) return "Entregue";
-    return m.chegou_em > m.prometida_para ? "Entregue com atraso" : "Entregue no prazo";
+    if (!m.aprovada) return "Aguardando aprovação";
+    return m.prometida_para && m.chegou_em > m.prometida_para
+      ? "Concluída com atraso" : "Concluída";
   }
-  if (!m.prometida_para) return "Aguardando";
-  if (m.prometida_para < ho) return "ATRASADA";
-  if (m.prometida_para === ho) return "Chega hoje";
-  return "Aguardando";
+  if (!m.prometida_para) return "Sem prazo";
+  if (m.prometida_para < ho) return "Atrasada";
+  if (m.prometida_para === ho) return "Vence hoje";
+  return "Em aberto";
 }
 
-/** Dias de atraso. Enquanto não chega, conta contra hoje — é o que mostra o
+/** Os nomes antigos da planilha, para comparar o que está escrito lá com o
+ *  que as datas dizem sem acusar divergência só porque o nome mudou. */
+export function situacaoMovNova(escrita) {
+  const s = String(escrita || "").trim().toLowerCase();
+  const de = {
+    "entregue no prazo": "Concluída", "entregue": "Concluída",
+    "entregue com atraso": "Concluída com atraso",
+    "atrasada": "Atrasada", "chega hoje": "Vence hoje", "aguardando": "Em aberto",
+    "sem data prometida": "Sem prazo", "cancelada": "Cancelada",
+  };
+  return de[s] || String(escrita || "").trim();
+}
+
+/** Dias de atraso. Enquanto não conclui, conta contra hoje — é o que mostra o
  *  buraco crescendo em vez de esperar o fim para contabilizar. */
 export function atrasoMovimentacao(m, ref) {
   if (!m.prometida_para || m.cancelada) return 0;
@@ -231,37 +258,49 @@ export function atrasoMovimentacao(m, ref) {
   return Math.max(0, difDias(m.prometida_para, fim) || 0);
 }
 
+/** Ainda não foi feita. A que espera aprovação já foi feita — sai da lista
+ *  da operação e entra na fila do PCM. */
 export function movimentacaoAberta(m) {
   return !m.excluida && !m.cancelada && !m.chegou_em;
 }
 
+export function movimentacaoParaAprovar(m) {
+  return !m.excluida && !m.cancelada && !!m.chegou_em && !m.aprovada;
+}
+
+/** Os números do alto da aba Movimentações, com as mesmas contas da planilha:
+ *  concluída é a que tem data de conclusão; atraso só existe quando houve
+ *  data prometida, e chegar antes conta zero, não crédito. A que concluiu sem
+ *  ninguém ter prometido data conta como no prazo — como a planilha conta.
+ *
+ *  O que a planilha não tem, e o site mostra ao lado: os dias que as atrasadas
+ *  em aberto já estão acumulando, e quantas esperam a aprovação do PCM. */
 export function pontualidade(movs, ref) {
   const vivas = movs.filter(m => !m.excluida && !m.cancelada);
-  // Chegou é chegou: toda frota que voltou conta como entregue. Mas só dá para
-  // dizer se foi NO PRAZO quando houve prazo — as que voltaram sem ninguém ter
-  // prometido data ficam de fora do percentual e aparecem à parte, em vez de
-  // sumirem da conta (eram duas, e some com elas o total não fechava com 51).
-  const entregues = vivas.filter(m => m.chegou_em);
-  const julgaveis = entregues.filter(m => m.prometida_para);
-  const noPrazo = julgaveis.filter(m => m.chegou_em <= m.prometida_para);
+  const concluidas = vivas.filter(m => m.chegou_em);
+  const atrasoDe = m => m.prometida_para && m.chegou_em
+    ? Math.max(0, difDias(m.prometida_para, m.chegou_em) || 0) : 0;
+  const comAtraso = concluidas.filter(m => atrasoDe(m) > 0);
   const abertas = vivas.filter(m => !m.chegou_em);
-  const atrasadas = abertas.filter(m => situacaoMovimentacao(m, ref) === "ATRASADA");
-  const atrasos = julgaveis.map(m => atrasoMovimentacao(m, ref)).filter(n => n > 0);
+  const atrasadas = abertas.filter(m => situacaoMovimentacao(m, ref) === "Atrasada");
+  const dias = comAtraso.reduce((s, m) => s + atrasoDe(m), 0);
   return {
     total: vivas.length,
-    entregues: entregues.length,
-    julgaveis: julgaveis.length,
-    sem_promessa: entregues.length - julgaveis.length,
-    no_prazo: noPrazo.length,
-    com_atraso: julgaveis.length - noPrazo.length,
+    concluidas: concluidas.length,
+    entregues: concluidas.length,
+    para_aprovar: concluidas.filter(m => !m.aprovada).length,
+    no_prazo: concluidas.length - comAtraso.length,
+    com_atraso: comAtraso.length,
+    sem_promessa: concluidas.filter(m => !m.prometida_para).length,
+    pct: concluidas.length ? (concluidas.length - comAtraso.length) / concluidas.length : null,
+    atraso_medio: comAtraso.length ? dias / comAtraso.length : 0,
+    dias_perdidos: dias,
+    em_aberto: abertas.length,
     aguardando: abertas.length - atrasadas.length,
     atrasadas: atrasadas.length,
-    pct: julgaveis.length ? Math.round(noPrazo.length * 100 / julgaveis.length) : null,
-    atraso_medio: atrasos.length
-      ? Math.round(atrasos.reduce((s, x) => s + x, 0) / atrasos.length * 10) / 10 : 0,
-    // O número que dói: cada dia que a frota ficou fora além do prometido é um
-    // dia que a oficina não pôde trabalhar nela.
-    dias_perdidos: vivas.reduce((s, m) => s + atrasoMovimentacao(m, ref), 0),
+    // O buraco que ainda está crescendo: cada dia além do prometido das que
+    // não concluíram.
+    dias_correndo: atrasadas.reduce((s, m) => s + atrasoMovimentacao(m, ref), 0),
   };
 }
 
@@ -272,10 +311,14 @@ export function pontualidade(movs, ref) {
 export function moldePreventiva() {
   return {
     id: "", frota: "", equipamento: "", local: "", plano: "", qtd: 1,
-    vence: "", prazo_service: "", mes: "",
+    vence: "", prazo_service: "", prazo_service_texto: "", mes: "",
     disponivel_agora: false, disponivel_em: "",
     dia_parada: "", onde_fazer: "", os: "", hh: 0,
-    pendencias: 0, realizada_em: "", adiada: false,
+    pendencias: 0, realizada_em: "", realizada_sem_data: false,
+    em_andamento: false, adiada: false, cancelada: false,
+    // O quadro do pé da aba: frota que está no mapa mas não entra na conta do
+    // mês (já realizada, sem preventiva, vence no mês seguinte…).
+    fora: false, por_que_fora: "",
     motivo: "", obs: "", excluida: false,
     criada_em: "", fonte: "",
   };
@@ -286,26 +329,86 @@ export function disponivelEm(p) {
   return p.disponivel_em || "";
 }
 
+/** "Vence efetivo" da planilha: o prazo do Service, quando há; senão o
+ *  vencimento do mapa. */
+export function venceEfetivo(p) {
+  return p.prazo_service || p.vence || "";
+}
+
+export function preventivaFeita(p) {
+  return !!(p.realizada_em || p.realizada_sem_data);
+}
+
+/** A coluna Situação da aba Preventivas, com a MESMA fórmula da planilha, na
+ *  mesma ordem de perguntas: primeiro o Status que alguém marcou, depois o dia
+ *  da parada, depois a data da operação. */
 export function situacaoPreventiva(p, ref) {
   const ho = ref || hoje();
-  if (p.realizada_em) return "Realizada";
-  if (p.adiada) return "Adiada";
-  if (p.dia_parada) return p.dia_parada < ho ? "Parada passou" : "Parada marcada";
-  if (!p.disponivel_agora && !p.disponivel_em) return "Sem data da operação";
-  if (p.vence && p.vence < ho) return "Vencida";
-  return p.disponivel_agora ? "Disponível: marcar a parada" : "Com data: marcar a parada";
+  if (preventivaFeita(p)) return "Realizada";
+  if (p.cancelada) return "Cancelada";
+  if (p.adiada) return "Passa para o mês seguinte";
+  if (p.em_andamento) return "Em andamento";
+  const temPrazo = !!(p.prazo_service || p.prazo_service_texto);
+  const limite = venceEfetivo(p);
+  if (p.dia_parada) {
+    if (p.dia_parada < ho) return "Parada passou, sem baixa";
+    if (temPrazo && limite && p.dia_parada > limite) return "Programada depois do prazo";
+    return "Programada";
+  }
+  if (p.disponivel_em) {
+    if (temPrazo && limite && p.disponivel_em > limite) return "Conflito: Operação depois do prazo";
+    return "Com data: marcar a parada";
+  }
+  if (p.disponivel_agora) return "Disponível: marcar a parada";
+  return "Sem data da Operação";
+}
+
+/** Vencida, como a coluna Vence fica vermelha na planilha: o vencimento
+ *  efetivo passou e ela não foi feita nem cancelada. É marca, não situação —
+ *  uma preventiva pode estar "Programada" e vencida ao mesmo tempo. */
+export function preventivaVencida(p, ref) {
+  const lim = venceEfetivo(p);
+  if (!lim || lim >= (ref || hoje())) return false;
+  const s = situacaoPreventiva(p, ref);
+  return s !== "Realizada" && s !== "Cancelada";
 }
 
 /** O que falta para esta preventiva andar, e de quem é a bola. */
-export function esperandoQuem(p) {
-  if (p.realizada_em || p.adiada) return "";
+export function esperandoQuem(p, ref) {
+  if (p.fora || preventivaFeita(p) || p.adiada || p.cancelada || p.em_andamento) return "";
+  if (p.dia_parada) return p.dia_parada < (ref || hoje()) ? "PCM" : "";
   if (!p.disponivel_agora && !p.disponivel_em) return "Operação";
-  if (!p.dia_parada) return "PCM";
-  return "";
+  return "PCM";
 }
 
 export function preventivaAberta(p) {
-  return !p.excluida && !p.realizada_em && !p.adiada;
+  return !p.excluida && !p.fora && !preventivaFeita(p) && !p.adiada && !p.cancelada;
+}
+
+/** Os números do alto da aba Preventivas, com as mesmas contas. */
+export function resumoPreventivas(prevs, ref) {
+  const plano = prevs.filter(p => !p.excluida && !p.fora);
+  const sit = p => situacaoPreventiva(p, ref);
+  const qtd = l => l.reduce((s, p) => s + (Number(p.qtd) || 1), 0);
+  const valem = plano.filter(p => !p.adiada && !p.cancelada);
+  const realizadas = qtd(plano.filter(p => sit(p) === "Realizada"));
+  const total = qtd(valem);
+  return {
+    preventivas: total,
+    frotas: valem.filter(p => p.frota).length,
+    com_data: plano.filter(p => p.disponivel_em || p.disponivel_agora).length,
+    sem_data: plano.filter(p => sit(p) === "Sem data da Operação").length,
+    parada_marcada: plano.filter(p => sit(p).startsWith("Programada")).length,
+    conflitos: plano.filter(p => sit(p).startsWith("Conflito") ||
+      sit(p) === "Programada depois do prazo").length,
+    vencidas: plano.filter(p => preventivaVencida(p, ref)).length,
+    realizadas,
+    pct_realizadas: total ? realizadas / total : 0,
+    hh: Math.round(plano.reduce((s, p) => s + (Number(p.hh) || 0), 0) * 10) / 10,
+    em_andamento: plano.filter(p => sit(p) === "Em andamento").length,
+    reprogramadas: qtd(plano.filter(p => p.adiada)),
+    fora: prevs.filter(p => !p.excluida && p.fora).length,
+  };
 }
 
 // ── indicadores ─────────────────────────────────────────────────────────────

@@ -8,8 +8,8 @@ São quatro pessoas, com dois papéis:
 
 | quem | papel | o que faz |
 |---|---|---|
-| Mateus, Lucas | **PCM** | programa a oficina, dá baixa, marca parada, importa o Protheus |
-| Pedro, João Victor | **Operação** | aponta movimentação de frota e diz quando o caminhão fica livre |
+| Mateus, Lucas | **PCM** | programa a oficina, dá baixa, marca parada, **aprova as movimentações**, importa a planilha e o Protheus |
+| Pedro, João Victor | **Operação** | **conclui as movimentações** de frota e diz quando o caminhão fica livre |
 
 A equipe da oficina continua fechando OS direto no Protheus. Este site é o
 controle do PCM e o canal de resposta da operação.
@@ -50,7 +50,13 @@ por e-mail, quem criasse a conta primeiro com aquele endereço herdaria o papel.
 - **Depois que todos tiverem conta**: desligue *Allow new users to sign up* em
   Authentication → Sign In / Providers. Ninguém de fora cria conta, e quem
   entrar novo é cadastrado pelo painel.
-- **Esqueceu a senha**: no painel do Supabase, Authentication → Users.
+- **Ver a senha ao digitar**: o botão *Mostrar* dentro do campo de senha.
+- **Trocar a própria senha**: clique no seu nome, no alto da tela → *Trocar
+  minha senha*. Só dá para trocar a sua.
+- **Esqueceu a senha**: ninguém consegue vê-la — nem o PCM, nem o banco, nem o
+  Claude: o Supabase guarda só uma versão embaralhada. Uma nova é criada pelo
+  painel do Supabase (Authentication → Users), e depois a pessoa troca pela
+  dela.
 - **Sem rede**: o site continua aberto com a sessão guardada e a fila local;
   as renovações acontecem quando a rede volta.
 
@@ -231,16 +237,51 @@ fórmulas (ver *Os números são os da planilha*, abaixo).
   em aberto, a carteira ou tudo. **Dar baixa é na própria linha**, na coluna
   *Feito em*, como o FOI FEITO EM da planilha. Para programar várias de uma vez,
   marca e programa.
+- **A OS se digita na própria linha.** Na coluna OS, a atividade em aberto sem
+  OS mostra um campo tracejado *sem OS*: clica, digita, **Enter** (ou Tab) — a
+  OS é gravada com os seis dígitos e o cursor desce para a próxima sem OS. O
+  botão **"N sem OS"**, ao lado da busca, mostra só essas: é a fila do que falta
+  lançar, e preenche-se a coluna sem tirar a mão do teclado. Para uma OS que
+  cobre várias atividades, marque-as e use **Mesma OS**. Se a OS digitada já
+  está em atividade de OUTRA frota, o site pergunta antes de gravar — número
+  trocado é o erro mais comum de quem digita uma coluna inteira.
 - **A carteira deixou de ser tela**: na planilha ela é a situação *Na carteira*,
   e aqui é um recorte da Programação. O endereço antigo continua funcionando.
 - **Hoje** tem as caixas da aba Hoje (para fechar hoje, fecharam, aderência do
   dia, em execução, atrasadas) e as listas do dia e das atrasadas.
 - **Semana** tem as caixas da aba Semana, o bloco em HH, a carga por dia de cada
   executante e as atividades da semana agrupadas por dia.
-- **Resultados** tem os dois números da reunião — aderência à programação e
-  cumprimento geral —, a tabela de indicadores com o *como é medido* de cada
-  um e o fechamento semana a semana. Os painéis que a planilha não tem ficam
-  recolhidos embaixo, em *Outros indicadores*.
+- **Resultados** é um painel no jeito de um Power BI. Em cima, uma fila de
+  filtros — **frota, tipo, executante e quantas semanas de tendência** — que vale
+  para tudo o que está embaixo. Os dois números da reunião (aderência à
+  programação e cumprimento geral) em destaque, com a variação contra a semana
+  anterior e a minilinha das últimas semanas; os cartões de apoio (concluídas,
+  extra, vencidas, pontualidade, cobertura de OS, preventiva, carga da equipe);
+  e os gráficos: aderência e cumprimento semana a semana, o que a oficina teve
+  por semana (plano feito, plano que não saiu, extra), a situação da semana,
+  onde está o trabalho (por frota), a carga de cada executante contra a
+  capacidade, o mix de manutenção e por que não saiu. **Clicar filtra**: a
+  semana no gráfico escolhe a semana, a frota e o executante viram filtro, a
+  situação abre a Programação já filtrada. Passar o mouse (ou o dedo) mostra o
+  valor. Embaixo, a tabela da aba Resultados — a versão em tabela de tudo isso
+  — e o fechamento das semanas. Sem filtro, cada número é o da planilha.
+- **Preventivas** é a aba Preventivas: os mesmos números no alto (preventivas a
+  fazer, frotas, com e sem data da operação, parada marcada, conflitos,
+  vencidas, realizadas, HH) e a mesma Situação, pela mesma fórmula. Separada
+  por **de quem é a bola**: *bola com o PCM* (marcar a parada), *bola com a
+  operação* (dizer quando a frota fica livre), *andando* (parada marcada ou em
+  andamento), *fechadas no mês* (realizada, mês seguinte, cancelada) e, à
+  parte, o quadro *fora do plano*. O Status da planilha (Em andamento,
+  Realizada, Reprogramada, Cancelada) entra como está e também se marca aqui.
+- **Movimentações**: as situações têm nomes genéricos — **Em aberto, Vence
+  hoje, Atrasada, Sem prazo, Aguardando aprovação, Concluída, Concluída com
+  atraso, Cancelada**. Quem faz a movimentação é quem a conclui: o Pedro marca
+  **Concluir** e ela fica **Aguardando aprovação**. O PCM abre a tela direto na
+  fila de aprovação, confere e **aprova** (uma a uma ou todas de uma vez) ou
+  **devolve** com o porquê — a devolvida volta para a operação em aberto, com o
+  motivo à vista. Quando o próprio PCM conclui, ela já entra aprovada. O banco
+  confere: a operação não consegue gravar uma aprovação. Os números do alto são
+  os da aba Movimentações, com as mesmas contas.
 
 Hoje, Programação e Semana usam a **mesma grade** (`js/tela/grade.js`): um lugar
 só desenha uma atividade em lista, e as três telas nunca mostram a mesma coisa
@@ -302,11 +343,17 @@ memória. Divergência ali é bug, não opinião.
 | `restaurada` | desfaz o cancelamento | — |
 | `editada` | mudou texto, OS, executante, tipo… | — |
 | `excluida` | sai das telas; o registro fica | — |
-| `mov_prometida` | a operação prometeu data | a data |
-| `mov_chegou` | a frota voltou | a data |
+| `mov_prometida` | a operação deu o prazo | a data |
+| `mov_chegou` | a movimentação foi concluída — fica aguardando aprovação | a data |
+| `mov_aprovada` | o PCM conferiu e aprovou (só o PCM) | — |
+| `mov_devolvida` | o PCM devolveu para a operação (só o PCM) | **motivo** |
 | `prev_disponivel` | a operação disse quando a frota fica livre | "agora" ou data |
 | `prev_parada` | o PCM marcou o dia da parada | o dia |
+| `prev_andamento` | a preventiva está sendo feita (Status Em andamento) | — |
 | `prev_realizada` | a preventiva saiu | a data |
+| `prev_adiada` | passa para o mês seguinte (Status Reprogramada) | **motivo** |
+| `prev_cancelada` | não vai ser feita | **motivo** |
+| `prev_reaberta` | desfaz realizada, mês seguinte ou cancelada | — |
 
 ### As três regras que o sistema impõe
 
@@ -327,6 +374,28 @@ memória. Divergência ali é bug, não opinião.
    banco: as 8 chegadas e a promessa apontadas em 09/10 continuam depois de
    reimportar a planilha 83.
 
+### Dois caminhos para alimentar o site: a planilha e os pedidos ao Claude
+
+O site é alimentado pela **planilha** (aba Importar, que atualiza por ID e não
+passa por cima do que foi lançado no site) e pelo que a equipe lança nele. E
+também pelo que você **pede ao Claude** na conversa — "a F-745 parou hoje",
+"coloca a OS 022475 nas atividades da F-401", "a preventiva da F-703 passa
+para novembro".
+
+Um pedido ao Claude **não é um atalho por fora do registro**. O Claude grava
+pelo mesmo caminho de todo mundo: um lançamento na fita de eventos, no banco,
+com o tipo de sempre (`editada`, `prev_parada`, `mov_aprovada`…),
+**assinado por quem pediu** e com a origem `claude`. Na aba Registro ele
+aparece com a marca **pedido ao Claude**, e o filtro *Origem* separa só esses.
+Como todo lançamento, pode ser desfeito por outro lançamento — nada é apagado.
+
+Duas regras valem para o Claude como valem para qualquer um:
+
+- **não inventa associação**: OS, frota, data de conclusão e responsável são
+  os que você disse; o que ele não sabe, ele pergunta;
+- **mudança de código** (uma tela nova, uma conta diferente) vai pelo
+  repositório, com teste, e publica sozinha — não pelo banco.
+
 ### HH mede carga, não prazo
 
 `HH` é hora-homem: horas × pessoas. Ele diz **quanto custa de mão de obra**, e
@@ -346,7 +415,7 @@ Resultados, Semana e Hoje usam as **mesmas fórmulas** das abas de mesmo nome
 (executante "(externo)" ou "Terceirizad…" sai da conta), semana pelo **dia de
 início**, extra e cancelada fora da aderência. `node testes/resultados.mjs`
 importa a planilha e confere, **linha a linha**, cada número das abas Resultados
-e Semana contra o valor que a própria planilha calculou — 46 de 46 na planilha
+e Semana — e os números do alto das abas Preventivas e Movimentações — contra o valor que a própria planilha calculou: 62 de 62 na planilha
 83 (aderência 37%, cumprimento 39%, 29 vencidas, a carga de cada mecânico).
 
 Duas regras para chegar ao mesmo número:
@@ -380,9 +449,9 @@ a situação mostrava concluída e a aderência, que conta por data, não via na
 foi por isso que uma semana lia 69% enquanto a oficina achava ter entregue
 mais. Aqui `concluir()` recusa sem data.
 
-Por isso, na importação, as **3 atividades marcadas como concluídas sem data**
-entram **abertas** e saem numa lista para serem datadas. O sistema não inventa
-o dia em que o serviço saiu.
+Por isso, na importação, as atividades marcadas **Concluída** sem data entram
+como **feitas, sem data** (é como a planilha conta) e a linha mostra *✓ sem
+data* — um clique dá o dia. O sistema não inventa o dia em que o serviço saiu.
 
 ---
 
@@ -468,7 +537,8 @@ porque toda escrita já passa por `aplicar()`.
 | `js/nuvem.js` | o Supabase por `fetch`: ler desde um ponto, enviar, consultar de tempos em tempos |
 | `js/pessoas.js` | quem está usando, o papel, o que esse papel pode |
 | `js/tela/*.js` | entrar, operacao, hoje, programacao, semana, resultados, movimentacoes, preventivas, frota, historico, importar, diagnostico |
-| `js/tela/grade.js` | a lista no formato da aba Programação — Hoje, Programação e Semana usam a mesma |
+| `js/tela/grade.js` | a lista no formato da aba Programação — Hoje, Programação e Semana usam a mesma; a OS digitada na linha |
+| `js/graficos.js` | os gráficos do painel de Resultados, em SVG puro: linha, colunas, barras, minilinha, dica |
 | `js/tela/indicadores.js` | os painéis que a planilha não tem, recolhidos em Resultados |
 | `js/tela/diagnostico.js` | o que falta para o site funcionar em equipe, com o SQL para copiar |
 | `js/config.js` | o endereço e a chave do projeto — o único lugar a preencher |
@@ -484,7 +554,7 @@ porque toda escrita já passa por `aplicar()`.
 | `sql/01_esquema.sql` | a tabela de eventos e a política de só-insere |
 | `sw.js` | offline: rede primeiro, cache como reserva |
 | `testes/rodar.js` | os testes do núcleo |
-| `testes/resultados.mjs` | o site dá o mesmo número que as abas Resultados e Semana da planilha, linha a linha |
+| `testes/resultados.mjs` | o site dá o mesmo número que as abas Resultados, Semana, Preventivas e Movimentações da planilha, linha a linha |
 | `planilha/` | **o processo antigo, que continua funcionando** até o site assumir |
 
 ## Os testes
@@ -521,22 +591,20 @@ Achado ao carregar os dados reais, e que muda números já usados:
    na mesma linha — são **16 divergências** hoje. No site ela é calculada: a
    data é o fato, a palavra era opinião. A importação lista as diferenças em vez
    de escolher calado.
-2. **Duas frotas voltaram sem ninguém ter prometido data.** Elas não entram no
-   percentual de pontualidade (não há prazo para julgar), mas contam como
-   entregues — senão o total não fecha com 51.
+2. **Duas frotas voltaram sem ninguém ter prometido data.** A planilha as conta
+   como *no prazo* (sem prazo não há atraso), e o site agora conta igual: 19
+   no prazo de 33 concluídas, 57,6% — o mesmo número da aba.
 3. **"Agora" e uma data moram na mesma coluna** de disponibilidade, o que impede
    ordenar. Viraram duas coisas: uma marca e uma data.
-4. **A coluna `Status` das preventivas virou campo livre** ("feita na DAF · OS
-   022187 · 07–08/10: buscar…"). Virou observação; situação o site calcula.
-5. **19 atividades marcadas como concluídas sem data.** Entram abertas e saem
-   numa lista para datar — o sistema não inventa o dia em que o serviço saiu.
-
-## Uma divergência que só você resolve
-
-Na **semana 41**, a aba Semana da sua planilha mostra 35 programadas, 13
-concluídas e **37% de aderência**. Lendo as mesmas linhas eu encontro **37
-programadas, nenhuma com data de conclusão** — e 7 extras fechados nos sete
-dias. Confira o que a aba Semana está medindo: pode ser valor calculado num
-outro momento (o arquivo veio sem recalcular), ou uma definição diferente de
-"concluída". Preferi mostrar os dois números a escolher um e te dar um
-indicador errado com cara de certo.
+4. **A aba Preventivas tem duas tabelas**: o plano do mês e, no pé, o quadro
+   *FORA DO PLANO* (frotas já realizadas, sem preventiva, que vencem no mês
+   seguinte). A importação lia as duas como uma só e trazia o título do quadro
+   e as 7 frotas de fora como preventivas a fazer — eram as **37** no lugar de
+   29 linhas. Agora cada tabela é lida com o seu cabeçalho: **33 preventivas a
+   fazer em 25 frotas**, como no alto da aba, mais 8 que passam para o mês
+   seguinte (Status *Reprogramada*) e o quadro de fora à parte. A preventiva
+   casa pela **frota e pelo mês**, não pela linha: inserir uma linha no meio da
+   aba não faz a disponibilidade da F-745 cair na F-695. Reimportar mostra, antes
+   de gravar, o que sai do mapa.
+5. **19 atividades marcadas como concluídas sem data.** Contam como feitas,
+   como na planilha, com *✓ sem data* na linha — o sistema não inventa o dia.

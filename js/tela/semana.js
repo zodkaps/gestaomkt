@@ -12,7 +12,7 @@
 import * as ev from "../eventos.js";
 import * as M from "../modelo.js";
 import { el, limpar, brCurto } from "../ui.js";
-import { grade } from "./grade.js";
+import { grade, repintarMantendoFoco } from "./grade.js";
 
 const n1 = v => (Math.round(v * 10) / 10).toLocaleString("pt-BR");
 const pc = v => v == null ? "—" : Math.round(v * 100) + "%";
@@ -116,5 +116,5 @@ export async function montar(raiz, ctx, params) {
   }
 
   pintar();
-  return { desmontar: ev.ouvir(pintar) };
+  return { desmontar: ev.ouvir(() => repintarMantendoFoco(corpo, pintar)) };
 }

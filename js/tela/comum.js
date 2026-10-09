@@ -6,6 +6,7 @@
 
 import * as ev from "../eventos.js";
 import * as M from "../modelo.js";
+import { normalizarOSLista } from "../importar.js";
 import { el, br, brCurto, quando, caixa, campo, selecao, comSugestoes, chip,
   avisar, erro, confirmar, vazio, cliqueLimpo } from "../ui.js";
 
@@ -272,6 +273,39 @@ export async function criarNova(ctx, sugestao = {}) {
   return ev.porId(criado.alvo);
 }
 
+/** Gravar a OS digitada em uma ou várias atividades.
+ *
+ *  Só grava o que foi DIGITADO: nada é deduzido. Uma célula pode trazer mais de
+ *  uma ordem ("7381, 7382"): a primeira vira a OS e as outras ficam junto,
+ *  como na importação. E se a mesma OS já está em atividade de OUTRA frota,
+ *  pergunta antes — número trocado é o erro mais comum de quem digita uma
+ *  coluna inteira. */
+export async function gravarOS(alvos, texto) {
+  const lista = normalizarOSLista(texto);
+  if (!lista.length) { erro("Digite o número da OS."); return false; }
+  const [os, ...outras] = lista;
+  const ids = new Set(alvos.map(a => a.id));
+  const frotasAqui = new Set(alvos.map(a => a.frota));
+  const emOutra = ev.lista().filter(x => !ids.has(x.id) &&
+    (x.os === os || (x.os_outras || []).includes(os)) && !frotasAqui.has(x.frota));
+  if (emOutra.length) {
+    const ondes = [...new Set(emOutra.map(x => x.frota || "sem frota"))].join(", ");
+    const ok = await confirmar("Esta OS já está em outra frota",
+      `A OS ${os} já aparece em ${emOutra.length} atividade(s) de ${ondes}. ` +
+      "Gravar mesmo assim?", "Gravar");
+    if (!ok) return false;
+  }
+  const eventos = alvos.map(a => ev.editar(a, {
+    os, os_outras: [...new Set([...(a.os_outras || []), ...outras])].filter(o => o !== os),
+  })).filter(Boolean);
+  if (!eventos.length) { avisar("Nada mudou."); return false; }
+  try {
+    await ev.aplicar(eventos);
+    avisar(alvos.length === 1 ? `OS ${os} gravada.` : `OS ${os} gravada em ${alvos.length} atividades.`);
+    return true;
+  } catch (e) { erro(e.message); return false; }
+}
+
 /** Programar (ou reprogramar) várias de uma vez — semana, dia, executantes.
  *  Para as que já tinham semana é reprogramação, e o motivo é obrigatório. */
 export async function programarEmLote(alvos) {
@@ -363,7 +397,7 @@ export async function abrirFicha(id, ctx) {
     ficha,
     el("h2", { style: "font-size:12px;text-transform:uppercase;letter-spacing:.05em;color:var(--fraco);margin:16px 0 6px" },
       `Registro · ${hist.length} lançamento${hist.length === 1 ? "" : "s"}`),
-    el("div", {}, hist.map(descreverEvento)));
+    el("div", {}, hist.map(e => descreverEvento(e))));
 
   const acoes = [];
   if (M.aberta(a)) {
@@ -439,35 +473,56 @@ async function maisAcoes(a, ctx) {
 
 /** Uma linha do registro em português, dizendo o que mudou de fato. */
 export function descreverEvento(e, comAtividade = false) {
-  const a = ev.porId(e.alvo);
+  const achado = ev.achar(e.alvo);
+  const a = achado && achado.item;
+  const d = e.dados || {};
   const q = [];
-  if (comAtividade && a) q.push(el("b", {}, `${a.frota} · ${a.atividade} — `));
+  if (comAtividade && a) {
+    const oque = achado.tipo === "movimentacao" ? `movimentação ${a.destino || ""}`.trim()
+      : achado.tipo === "preventiva" ? `preventiva ${a.plano || ""}`.trim()
+      : a.atividade;
+    q.push(el("b", {}, `${a.frota || "—"} · ${oque || "—"} — `));
+  }
 
   let txt;
   switch (e.tipo) {
     case "criada": txt = "criada à mão"; break;
-    case "importada": txt = `importada${e.dados.fonte ? " de " + e.dados.fonte : ""}`; break;
+    case "importada": txt = `importada${d.fonte ? " de " + d.fonte : ""}`; break;
     case "programada":
-      txt = `programada para a semana ${e.dados.para.semana}${e.dados.para.dia ? " · " + e.dados.para.dia : ""}`;
+      txt = `programada para a semana ${d.para.semana}${d.para.dia ? " · " + d.para.dia : ""}`;
       break;
     case "reprogramada":
-      txt = `reprogramada da semana ${e.dados.de.semana ?? "—"}${e.dados.de.dia ? " · " + e.dados.de.dia : ""}` +
-        ` para ${e.dados.para.semana ?? "carteira"}${e.dados.para.dia ? " · " + e.dados.para.dia : ""}`;
+      txt = `reprogramada da semana ${d.de.semana ?? "—"}${d.de.dia ? " · " + d.de.dia : ""}` +
+        ` para ${d.para.semana ?? "carteira"}${d.para.dia ? " · " + d.para.dia : ""}`;
       break;
-    case "concluida": txt = `concluída em ${br(e.dados.em)}`; break;
+    case "concluida": txt = `concluída em ${br(d.em)}`; break;
     case "reaberta": txt = "reaberta"; break;
     case "cancelada": txt = "cancelada"; break;
     case "restaurada": txt = "cancelamento desfeito"; break;
     case "excluida": txt = "excluída da lista"; break;
-    case "editada": txt = "editada: " + Object.keys(e.dados.para || {}).join(", "); break;
-    default: txt = e.tipo;
+    case "editada": {
+      const para = d.para || {};
+      txt = "editada: " + Object.keys(para).map(k =>
+        k === "os" ? `OS ${para.os || "(vazia)"}` : k).join(", ");
+      break;
+    }
+    case "mov_prometida": txt = `prazo ${br(d.para)}`; break;
+    case "mov_chegou": txt = `movimentação concluída em ${br(d.em)}`; break;
+    case "prev_disponivel": txt = `disponível ${d.quando === "agora" ? "agora" : "em " + br(d.quando)}`; break;
+    case "prev_parada": txt = `parada marcada para ${br(d.dia)}`; break;
+    case "prev_realizada": txt = `preventiva realizada em ${br(d.em)}`; break;
+    default: txt = ev.TIPOS[e.tipo] || e.tipo;
   }
   q.push(txt);
-  if (e.origem && e.origem !== "manual") q.push(el("i", { style: "color:var(--muito-fraco)" }, ` (${e.origem})`));
+  // O que entrou por pedido ao Claude, pelo banco, fica marcado: é lançamento
+  // como outro qualquer, assinado por quem pediu, mas tem de dar para saber.
+  if (e.origem === "claude") q.push(" ", el("span", { class: "tag claude" }, "pedido ao Claude"));
+  else if (e.origem && e.origem !== "manual") q.push(el("i", { style: "color:var(--muito-fraco)" }, ` (${e.origem})`));
 
   return el("div", { class: "evento" },
     el("div", { class: "qdo" }, quando(e.ts)),
-    el("div", { class: "oq" }, q,
+    el("div", { class: "oq" },
+      e.autor ? el("span", { class: "autor" }, e.autor + " — ") : null, q,
       e.motivo ? el("div", { class: "mot" }, "motivo: " + e.motivo) : null));
 }
 

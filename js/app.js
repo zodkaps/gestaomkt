@@ -6,7 +6,7 @@ import * as nuvem from "./nuvem.js";
 import * as pessoas from "./pessoas.js";
 import * as M from "./modelo.js";
 import * as bk from "./backup.js";
-import { el, $, limpar, avisar, erro } from "./ui.js";
+import { el, $, limpar, avisar, erro, caixa, senhaComOlho } from "./ui.js";
 
 // Na ordem das abas da planilha — Hoje, Programação, Semana, Resultados,
 // Preventivas, Movimentações —, que é o mapa que o PCM já tem na cabeça. A
@@ -31,7 +31,11 @@ const TELAS = [
     contar: () => ev.lista("preventiva").filter(M.preventivaAberta).length },
   { id: "movimentacoes", icone: "⇄", nome: "Movimentação", grupo: "Frota", papeis: ["pcm", "operacao"],
     carregar: () => import("./tela/movimentacoes.js"),
-    contar: () => ev.lista("movimentacao").filter(M.movimentacaoAberta).length },
+    // Para o PCM, o que pede ação é a fila de aprovação; para a operação, o que
+    // está em aberto.
+    contar: () => pessoas.pode("aprovar")
+      ? ev.lista("movimentacao").filter(M.movimentacaoParaAprovar).length
+      : ev.lista("movimentacao").filter(M.movimentacaoAberta).length },
   { id: "frota", icone: "▤", nome: "Frota", grupo: "Frota", papeis: ["pcm", "operacao"],
     carregar: () => import("./tela/frota.js") },
   { id: "historico", icone: "⟲", nome: "Registro", grupo: "Gestão", papeis: ["pcm", "operacao"],
@@ -106,6 +110,53 @@ function pintarMenu(id) {
   }
 }
 
+/** O nome no alto abre isto: trocar a própria senha, ou sair. */
+async function menuPessoa(p) {
+  const acoes = [{ rotulo: "Fechar", valor: false }];
+  if (!p.local && nuvem.autenticado()) {
+    acoes.push({ rotulo: "Trocar minha senha", valor: "senha" });
+  }
+  acoes.push({ rotulo: "Sair", classe: "perigo", valor: "sair" });
+  const r = await caixa({
+    titulo: p.nome,
+    corpo: el("div", {},
+      el("p", { style: "font-size:13px;color:var(--fraco)" },
+        p.local ? "Trabalhando só neste aparelho."
+          : `${(pessoas.PAPEIS[p.papel] || {}).rotulo || "sem papel"}` +
+            (p.email ? ` · ${p.email}` : ""))),
+    acoes,
+  });
+  if (r === "sair") {
+    await pessoas.sair();
+    location.hash = "#/entrar";
+    pintar();
+  } else if (r === "senha") {
+    trocarSenha();
+  }
+}
+
+async function trocarSenha() {
+  const nova = el("input", { type: "password", autocomplete: "new-password",
+    placeholder: "pelo menos 6 caracteres" });
+  const repete = el("input", { type: "password", autocomplete: "new-password" });
+  const r = await caixa({
+    titulo: "Trocar minha senha",
+    corpo: el("div", {},
+      el("p", { style: "font-size:13px;color:var(--fraco)" },
+        "A senha é só sua: ninguém mais a vê, nem o PCM, nem o banco."),
+      el("label", { class: "campo" }, el("span", {}, "Senha nova"), senhaComOlho(nova)),
+      el("label", { class: "campo" }, el("span", {}, "Repita"), senhaComOlho(repete))),
+    acoes: [{ rotulo: "Cancelar", valor: false },
+      { rotulo: "Trocar", classe: "primario", valor: true }],
+  });
+  if (r !== true) return;
+  if (nova.value !== repete.value) return erro("As duas senhas não são iguais.");
+  try {
+    await nuvem.trocarSenha(nova.value);
+    avisar("Senha trocada. Na próxima vez, entre com a nova.");
+  } catch (e) { erro(e.message); }
+}
+
 function pintarPessoa() {
   const q = $("#quem");
   limpar(q);
@@ -113,12 +164,8 @@ function pintarPessoa() {
   if (!p) return;
   const iniciais = p.nome.split(/\s+/).slice(0, 2).map(x => x[0]).join("").toUpperCase();
   q.append(el("button", {
-    class: "discreto chip-pessoa", title: "Sair",
-    onclick: async () => {
-      await pessoas.sair();
-      location.hash = "#/entrar";
-      pintar();
-    },
+    class: "discreto chip-pessoa", title: "Trocar a senha ou sair",
+    onclick: () => menuPessoa(p),
   },
     el("span", { class: "av" }, iniciais),
     el("span", { class: "quem" },
