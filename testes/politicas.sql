@@ -54,5 +54,23 @@ begin;
   update pessoas set papel = 'pcm' where email = 'pedro@makro.local';
 rollback;
 
+\echo '── 8. Sem entrar (anon) não chama nem as funções de papel — RECUSADO'
+begin;
+  set local role anon;
+  select public.nome_atual();
+rollback;
+
+\echo '── 9. Conta criada por qualquer um, sem papel, não lê a fita — VAZIO'
+-- O cadastro do Supabase é aberto e a chave do site é pública: ter conta não
+-- pode bastar para ler a carteira. Quem não está em `pessoas` vê zero linhas.
+begin;
+  set local role authenticated;
+  set local request.jwt.claims = '{"email":"alguem.de.fora@gmail.com"}';
+  select case when (select count(*) from eventos) = 0
+               and (select count(*) from pessoas) = 0
+              then '   → não viu nada'
+              else '   → VIU A FITA' end as resultado;
+rollback;
+
 \echo '── o que sobrou gravado:'
 select id, autor, tipo, alvo_tipo from eventos order by seq;

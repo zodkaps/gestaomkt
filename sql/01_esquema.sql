@@ -35,27 +35,17 @@ create index if not exists eventos_autor_idx   on public.eventos (autor);
 -- O banco recusa, para qualquer um e para sempre, apagar ou reescrever um
 -- lançamento. Por política do Postgres, não por disciplina de quem usa.
 --
--- As políticas abaixo são as de partida, abertas a quem tiver a chave. Quem
--- fecha de verdade é o `02_acesso.sql`, que amarra cada lançamento a quem
--- entrou e ao papel dessa pessoa — por isso os dois são rodados em sequência,
--- e rodar só este deixa a porta aberta.
+-- Este arquivo liga a RLS e NÃO cria política nenhuma — e isso é de propósito.
+-- Com RLS ligada, tabela sem política é tabela fechada: rodar só este arquivo
+-- deixa a fita trancada até o `02_acesso.sql` abrir do jeito certo.
+--
+-- Antes ele criava políticas "de partida", abertas a quem tivesse entrado. E foi
+-- exatamente o que aconteceu no projeto de verdade: este arquivo rodou DEPOIS
+-- do 02, recriou as políticas abertas por cima, e a separação entre PCM e
+-- operação caiu sem ninguém ver. Rodar os arquivos fora de ordem agora só pode
+-- fechar, nunca abrir.
 
 alter table public.eventos enable row level security;
-
-drop policy if exists eventos_leitura on public.eventos;
-create policy eventos_leitura on public.eventos
-  for select using (true);
-
-drop policy if exists eventos_insere on public.eventos;
-create policy eventos_insere on public.eventos
-  for insert with check (
-    length(coalesce(autor, ''))     between 1 and 60
-    and length(coalesce(tipo, ''))  between 1 and 40
-    and alvo_tipo in ('atividade', 'movimentacao', 'preventiva')
-    and length(coalesce(alvo, ''))  between 1 and 80
-    and length(coalesce(id, ''))    between 1 and 80
-    and pg_column_size(dados) < 20000
-  );
 
 -- Sem política de UPDATE e sem política de DELETE: com RLS ligada, o que não
 -- tem política é negado. Não é esquecimento — é o mecanismo.

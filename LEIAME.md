@@ -71,9 +71,20 @@ O papel mora na tabela `pessoas`, **que o site não consegue escrever** — não
 existe política de insert nem de update nela. E a fita continua só-insere para
 todo mundo: nada se apaga, nada se reescreve, nem pelo PCM.
 
+**Ler também exige papel, não só ter conta.** O cadastro do Supabase é aberto,
+a chave do site é pública e este repositório também: com "quem entrou lê", um
+desconhecido criava uma conta e lia a carteira inteira. Agora conta que não
+está em `pessoas` enxerga as tabelas vazias.
+
+**A ordem dos arquivos não abre a porta.** O `01_esquema.sql` liga a RLS e não
+cria política nenhuma — quem abre, do jeito certo, é o `02_acesso.sql`. Antes o
+01 criava políticas abertas "de partida", e no projeto de verdade ele rodou
+depois do 02 e derrubou a separação entre PCM e operação sem ninguém ver.
+
 Para provar isso em vez de prometer, `bash testes/politicas.sh` sobe um
-Postgres de verdade, roda as duas migrações e tenta oito coisas — duas que têm
-de passar e seis que têm de ser recusadas.
+Postgres de verdade, roda as duas migrações e tenta onze coisas — duas que têm
+de passar, oito que têm de ser recusadas (uma delas depois de rodar o 01 de
+novo, fora de ordem) e uma conta sem papel que não pode ver nada.
 
 ## Ligar o lugar comum (Supabase)
 

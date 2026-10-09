@@ -42,11 +42,26 @@ psql -h "$D/sock" -U postgres -q -v ON_ERROR_STOP=1 -f "$AQUI/sql/02_acesso.sql"
 echo "✓ as duas migrações rodam limpas"
 
 saida=$(psql -h "$D/sock" -U postgres -q -f "$AQUI/testes/politicas.sql" 2>&1)
-echo "$saida" | grep -E "──|→ passou|ERROR" | sed 's/psql:.*ERROR:/   ✓ recusado:/'
+echo "$saida" | grep -E "──|→ passou|→ não viu|→ VIU|ERROR" | sed 's/psql:.*ERROR:/   ✓ recusado:/'
+
+# Rodar o 01 DEPOIS do 02 foi o que derrubou a parede no projeto de verdade: o
+# 01 antigo recriava políticas abertas por cima. Agora tem de continuar fechado.
+psql -h "$D/sock" -U postgres -q -v ON_ERROR_STOP=1 -f "$AQUI/sql/01_esquema.sql" 2>&1 | grep -v NOTICE || true
+echo "── 10. Depois de rodar o 01 de novo, Pedro ainda não dá baixa — RECUSADO"
+fora_de_ordem=$(psql -h "$D/sock" -U postgres -q 2>&1 <<'SQL'
+begin;
+  set local role authenticated;
+  set local request.jwt.claims = '{"email":"pedro@makro.local"}';
+  insert into eventos (id,autor,tipo,alvo_tipo,alvo) values ('t10','Pedro','concluida','atividade','A-0001');
+rollback;
+SQL
+)
+echo "$fora_de_ordem" | grep ERROR | sed 's/.*ERROR:/   ✓ recusado:/'
 
 passou=$(echo "$saida" | grep -c "→ passou" || true)
-recusado=$(echo "$saida" | grep -c "ERROR" || true)
+recusado=$(( $(echo "$saida" | grep -c "ERROR" || true) + $(echo "$fora_de_ordem" | grep -c "ERROR" || true) ))
+vazio=$(echo "$saida" | grep -c "→ não viu nada" || true)
 echo
-echo "$passou de 2 permitidas passaram · $recusado de 6 proibidas foram recusadas"
-[ "$passou" = "2" ] && [ "$recusado" = "6" ] || { echo "FALHOU"; exit 1; }
+echo "$passou de 2 permitidas passaram · $recusado de 8 proibidas foram recusadas · $vazio de 1 conta sem papel não viu nada"
+[ "$passou" = "2" ] && [ "$recusado" = "8" ] && [ "$vazio" = "1" ] || { echo "FALHOU"; exit 1; }
 echo "tudo como projetado"

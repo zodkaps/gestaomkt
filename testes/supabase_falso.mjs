@@ -100,7 +100,9 @@ createServer(async (req, res) => {
   // ── dados: sem entrar, nada ──
   const email = quem(req);
   if (!email) return json(res, 401, { message: "permission denied" });
-  const eu = PESSOAS.find(p => p.email === email);
+  // Ter conta não basta, como no banco de verdade: o cadastro é aberto e a
+  // chave é pública, então quem não está em `pessoas` lê as tabelas vazias.
+  const eu = falha === "sem_pessoa" ? null : PESSOAS.find(p => p.email === email);
 
   if (u.pathname.startsWith("/rest/v1/pessoas")) {
     if (falha === "tabela") {
@@ -109,8 +111,7 @@ createServer(async (req, res) => {
     if (falha === "permissao") {
       return json(res, 403, { code: "42501", message: "permission denied for table pessoas" });
     }
-    if (falha === "sem_pessoa") return json(res, 200, []);
-    return json(res, 200, PESSOAS);
+    return json(res, 200, eu ? PESSOAS : []);
   }
 
   if (u.pathname.startsWith("/rest/v1/eventos")) {
@@ -120,20 +121,24 @@ createServer(async (req, res) => {
     if (falha === "permissao") {
       return json(res, 403, { code: "42501", message: "permission denied for table eventos" });
     }
+    const visiveis = eu ? eventos : [];
     if (req.method === "GET") {
       if ((req.headers.prefer || "").includes("count=exact")) {
-        res.setHeader("content-range", `0-0/${eventos.length}`);
+        res.setHeader("content-range", `0-0/${visiveis.length}`);
         return json(res, 200, []);
       }
       const g = Number((u.searchParams.get("seq") || "gt.0").replace("gt.", ""));
       const lim = Number(u.searchParams.get("limit") || 1000);
-      return json(res, 200, eventos.filter(e => e.seq > g).slice(0, lim));
+      return json(res, 200, visiveis.filter(e => e.seq > g).slice(0, lim));
     }
     if (req.method === "POST") {
       const lote = await corpo(req);
       let add = 0;
       for (const e of (Array.isArray(lote) ? lote : [lote])) {
         if (porId.has(e.id)) continue;                       // ignore-duplicates
+        if (!eu) {
+          return json(res, 403, { message: "new row violates row-level security policy (sem papel)" });
+        }
         // as mesmas duas perguntas da política do Postgres
         if (e.autor !== eu.nome) {
           return json(res, 403, { message: `new row violates row-level security policy (autor ${e.autor} ≠ ${eu.nome})` });
