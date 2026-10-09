@@ -470,6 +470,21 @@ ok("um clique aprova: Concluída com atraso, concluída pelo Pedro, aprovada pel
   await lucas.close();
 }
 
+// ── o "⋯" abre as ações do item, e só as que a pessoa pode ─────────────────
+{
+  await p.evaluate(() => { location.hash = "#/programacao?m=tudo"; });
+  await p.waitForTimeout(900);
+  const temBotao = await p.evaluate(() => document.querySelectorAll(".so-tabela .mais").length > 0);
+  ok("a Programação tem o ⋯ em cada linha", temBotao);
+  await p.click(".so-tabela .mais >> nth=0");
+  await p.waitForSelector(".caixa .menu-acoes", { timeout: 5000 });
+  const opcoes = await p.evaluate(() => [...document.querySelectorAll(".caixa .opcao-acao b")].map(b => b.textContent));
+  ok("o menu do PCM tem excluir e cancelar",
+    opcoes.includes("Excluir da lista") && opcoes.includes("Cancelar"), JSON.stringify(opcoes));
+  await p.keyboard.press("Escape");
+  await p.waitForTimeout(300);
+}
+
 // ── trocar de usuário pelo celular ─────────────────────────────────────────
 // No celular o menu lateral some, e com ele o nome e o "Sair": não havia como
 // trocar de usuário. Agora o nome fica no alto, e tocar nele troca.

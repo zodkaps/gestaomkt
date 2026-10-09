@@ -7,7 +7,8 @@
 import * as ev from "../eventos.js";
 import { TIPOS } from "../eventos.js";
 import * as M from "../modelo.js";
-import { el, limpar, selecao, avisar, vazio } from "../ui.js";
+import * as pessoas from "../pessoas.js";
+import { el, limpar, selecao, avisar, erro, vazio, confirmar } from "../ui.js";
 import { descreverEvento, frotas } from "./comum.js";
 import { busca as semAcento } from "../texto.js";
 
@@ -77,12 +78,34 @@ export async function montar(raiz, ctx, params) {
     limpar(corpo);
     if (!itens.length) { corpo.append(vazio("Nada com esses filtros.")); return; }
 
-    corpo.append(el("div", {}, itens.slice(0, mostrando).map(e => descreverEvento(e, true))));
+    corpo.append(el("div", {}, itens.slice(0, mostrando).map(linhaDoRegistro)));
     if (itens.length > mostrando) {
       corpo.append(el("button", { style: "margin-top:12px",
         onclick: () => { mostrando += PAGINA; pintar(); } },
         `Mostrar mais (${itens.length - mostrando} restantes)`));
     }
+  }
+
+  // Exclusão e cancelamento se desfazem daqui: o item volta do jeito que estava,
+  // e a própria desfeita fica no registro.
+  function linhaDoRegistro(e) {
+    const linha = descreverEvento(e, true);
+    const achado = ev.achar(e.alvo);
+    const item = achado && achado.item;
+    if (!item || !pessoas.pode("editar_atividade")) return linha;
+    let desfazer = null;
+    if (e.tipo === "excluida" && item.excluida) {
+      desfazer = ["Desfazer exclusão", () => ev.reincluir(item, achado.tipo)];
+    } else if (e.tipo === "cancelada" && item.cancelada && achado.tipo === "atividade") {
+      desfazer = ["Desfazer cancelamento", () => ev.restaurar(item)];
+    }
+    if (!desfazer) return linha;
+    linha.append(el("button", { class: "mini", type: "button", onclick: async () => {
+      if (!await confirmar(desfazer[0], "O que estava antes volta para as telas.", desfazer[0])) return;
+      try { await ev.aplicar(desfazer[1]()); avisar("Desfeito."); }
+      catch (x) { erro(x.message); }
+    } }, desfazer[0]));
+    return linha;
   }
 
   // O botão que prova a promessa: toca a fita do zero e compara com o que está

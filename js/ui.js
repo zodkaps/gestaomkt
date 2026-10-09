@@ -151,7 +151,6 @@ export function caixa({ titulo, corpo, acoes = [], largura = "" }) {
   });
 }
 
-export function fecharCaixa() { if (aberta) aberta(undefined); }
 
 export async function confirmar(titulo, texto, rotuloSim = "Confirmar") {
   return await caixa({
@@ -259,87 +258,8 @@ export function cartaoNumero(valor, rotulo, detalhe = "", classe = "") {
 }
 
 
-/** Tabela densa, ordenável — a forma que a mesma lista toma no computador.
- *
- *  Cartão é bom para ler um item; tabela é boa para comparar duzentos, que é o
- *  que o PCM faz o dia inteiro. As duas existem lado a lado e quem escolhe é a
- *  largura da tela, não a tela: a operação, no celular, continua vendo cartão.
- *
- *  `colunas` é [{ rot, val, num, chave, principal, largura }]:
- *    val(item)   → o que aparece (texto ou nó)
- *    chave(item) → por que valor ordenar (só se diferente do que aparece)
- *    num         → alinha à direita e usa algarismo de largura fixa
- */
-export function tabela(itens, colunas, { aoClicar, classeDaLinha, ordem } = {}) {
-  let por = ordem ? ordem.por : null;
-  let desc = ordem ? !!ordem.desc : false;
-
-  const corpo = el("tbody", {});
-  const cab = el("tr", {});
-  const tab = el("table", { class: "tab" }, el("thead", {}, cab), corpo);
-
-  function ordenar(lista) {
-    if (por == null) return lista;
-    const c = colunas[por];
-    const k = x => {
-      const v = (c.chave || c.val)(x);
-      return v instanceof Node ? v.textContent : (v == null ? "" : v);
-    };
-    return lista.slice().sort((a, b) => {
-      const x = k(a), y = k(b);
-      const n = (typeof x === "number" && typeof y === "number")
-        ? x - y : String(x).localeCompare(String(y), "pt-BR", { numeric: true });
-      return desc ? -n : n;
-    });
-  }
-
-  function pintarCorpo() {
-    limpar(corpo);
-    for (const it of ordenar(itens)) {
-      const tr = el("tr", { class: classeDaLinha ? classeDaLinha(it) : "" });
-      colunas.forEach((c, i) => {
-        const v = c.val(it);
-        tr.append(el("td", {
-          class: [c.num ? "num" : "", c.principal ? "principal" : "",
-            aoClicar && i === 0 ? "cliq" : ""].filter(Boolean).join(" "),
-        }, v == null ? "" : v));
-      });
-      if (aoClicar) {
-        tr.classList.add("cliq");
-        tr.addEventListener("click", cliqueLimpo(() => aoClicar(it)));
-      }
-      corpo.append(tr);
-    }
-  }
-
-  colunas.forEach((c, i) => {
-    const th = el("th", {
-      class: "ord" + (c.num ? " num" : ""),
-      style: c.largura ? `width:${c.largura}` : "",
-      onclick: () => {
-        if (por === i) desc = !desc; else { por = i; desc = false; }
-        colunas.forEach((_, j) => {
-          const t = cab.children[j];
-          const seta = t.querySelector(".seta");
-          if (seta) seta.textContent = j === por ? (desc ? "▼" : "▲") : "";
-        });
-        pintarCorpo();
-      },
-    }, c.rot, el("span", { class: "seta" }, por === i ? (desc ? "▼" : "▲") : ""));
-    cab.append(th);
-  });
-
-  pintarCorpo();
-  return el("div", { class: "rolagem alta" }, tab);
-}
-
 /** O mesmo conjunto nas duas formas: tabela no computador, cartões no celular.
  *  Um só lugar monta as duas para elas nunca mostrarem coisas diferentes. */
-export function listaDupla(tabelaNo, cartoesNo) {
-  return el("div", {},
-    el("div", { class: "so-tabela" }, tabelaNo),
-    el("div", { class: "so-cartao" }, cartoesNo));
-}
 
 export function vazio(texto) {
   return el("p", { class: "nada" }, texto);

@@ -64,8 +64,25 @@ export function cartao(a, { ctx, acoes = [], seletor = null, compacto = false } 
       el("div", { class: "tit" }, (a.frota ? a.frota + " · " : "") + (a.atividade || "—")),
       sub.length ? el("div", { class: "sub" }, sub.join(" · ")) : null,
       tags.length ? el("div", { class: "tags" }, tags) : null),
-    acoes.length ? el("div", { class: "acoes" }, acoes) : null);
+    el("div", { class: "acoes" }, [...acoes, botaoMais("atividade", a.id, ctx)].filter(Boolean)));
   return n;
+}
+
+/** O "⋯" de um item: abre as ações dele (ver acoes.js). Carregado só ao clicar,
+ *  para não criar ciclo entre os módulos das telas. */
+export function botaoMais(tipo, id, ctx) {
+  // Sem permissão para nada neste tipo, não há o que oferecer: o botão some.
+  const pode = { atividade: ["baixar", "programar", "editar_atividade"],
+    movimentacao: ["movimentar", "aprovar", "editar_atividade"],
+    preventiva: ["parada", "disponibilidade", "editar_atividade"] }[tipo];
+  if (!pode.some(p => pessoas.pode(p))) return null;
+  return el("button", { class: "mais", type: "button", title: "Mais ações",
+    "aria-label": "Mais ações",
+    onclick: async e => {
+      e.stopPropagation();
+      const { menuDe } = await import("./acoes.js");
+      menuDe(tipo, id, ctx);
+    } }, "⋯");
 }
 
 export function botaoConcluir(a, ctx) {
@@ -476,59 +493,11 @@ export async function abrirFicha(id, ctx) {
       acao: async () => { await justificar(a, "atividade"); } });
   }
   acoes.push({ rotulo: "Editar", acao: async () => { await editar(a, ctx); } });
-  acoes.push({ rotulo: "Mais", acao: async () => { await maisAcoes(a, ctx); } });
+  acoes.push({ rotulo: "Mais ações", acao: async () => { const { menuAtividade } = await import("./acoes.js"); await menuAtividade(a, ctx); } });
 
   await caixa({ titulo: `${a.frota || "Atividade"}`, corpo, acoes, largura: "620px" });
 }
 
-async function maisAcoes(a, ctx) {
-  // Os botões do corpo fecham a caixa devolvendo a própria escolha: é para isso
-  // que `corpo` recebe o `fechar`.
-  const r = await caixa({
-    titulo: "Mais ações",
-    corpo: ({ fechar }) => el("div", { class: "lista" },
-      a.semana && !M.feita(a)
-        ? el("button", { onclick: () => fechar("carteira") },
-          "Tirar da semana e devolver à carteira") : null,
-      !a.cancelada
-        ? el("button", { onclick: () => fechar("cancelar") }, "Cancelar a atividade")
-        : el("button", { onclick: () => fechar("restaurar") }, "Desfazer o cancelamento"),
-      el("button", { class: "perigo", onclick: () => fechar("excluir") },
-        "Excluir da lista")),
-    acoes: [{ rotulo: "Voltar", valor: "" }],
-  });
-
-  if (r === "carteira") return devolverParaCarteira(a, ctx);
-
-  if (r === "cancelar") {
-    const entrada = el("input", { type: "text", placeholder: "Por que não vai ser feita" });
-    const conf = await caixa({
-      titulo: "Cancelar a atividade",
-      corpo: el("div", {},
-        el("p", {}, "Cancelada não é concluída: sai da aderência em vez de contar como feita."),
-        campo("Motivo", entrada)),
-      acoes: [{ rotulo: "Voltar", valor: false },
-        { rotulo: "Cancelar a atividade", classe: "perigo", valor: true }],
-    });
-    if (conf !== true) return;
-    try { await ev.aplicar(ev.cancelar(a, entrada.value)); }
-    catch (e) { return erro(e.message); }
-    avisar("Cancelada."); return;
-  }
-
-  if (r === "restaurar") {
-    await ev.aplicar(ev.restaurar(a));
-    avisar("Cancelamento desfeito."); return;
-  }
-
-  if (r === "excluir") {
-    if (!await confirmar("Excluir da lista",
-      "A atividade some das telas. O registro dela fica no histórico — " +
-      "excluir não apaga o que aconteceu.", "Excluir")) return;
-    await ev.aplicar(ev.excluir(a));
-    avisar("Excluída."); return;
-  }
-}
 
 /** Uma linha do registro em português, dizendo o que mudou de fato. */
 export function descreverEvento(e, comAtividade = false) {

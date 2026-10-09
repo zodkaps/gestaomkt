@@ -629,4 +629,3 @@ export async function diagnostico() {
 }
 
 
-export function ultimaConversa() { return ligadoEm; }

@@ -28,8 +28,6 @@ export const MOTIVOS_AREA = {
   "Mudou a prioridade": "Gestão / prioridade",
   "Serviço extra entrou na frente": "Gestão / prioridade",
 };
-export const MOTIVOS = Object.keys(MOTIVOS_AREA);
-export const AREAS = [...new Set(Object.values(MOTIVOS_AREA))];
 
 export function areaDoMotivo(m) {
   return MOTIVOS_AREA[String(m || "").trim()] || "";
@@ -97,7 +95,6 @@ export function datasDaSemana(ano, semana) {
   });
 }
 
-export function mesDe(s) { return String(s || "").slice(0, 7); }
 
 // ── atividade ───────────────────────────────────────────────────────────────
 
@@ -192,12 +189,6 @@ export function aberta(a) {
 /** Sugestão de HH para uma categoria, tirada do que já foi estimado nela.
  *  Mediana e não média: um serviço de 8 HH no meio de dez de 1 HH puxaria a
  *  média para cima e a estimativa junto. */
-export function hhSugerido(ats, categoria) {
-  const v = ats.filter(a => a.categoria_hh === categoria && Number(a.hh) > 0)
-    .map(a => Number(a.hh)).sort((x, y) => x - y);
-  if (!v.length) return null;
-  return v[Math.floor(v.length / 2)];
-}
 
 // ── movimentação ────────────────────────────────────────────────────────────
 // A frota sai do pátio e tem de voltar. O PCM pede, a operação promete, a
@@ -220,12 +211,6 @@ export function moldeMovimentacao() {
     criada_em: "", fonte: "",
   };
 }
-
-/** As situações de uma movimentação, com nomes genéricos — os mesmos para
- *  frota que volta, frota que vai, box que libera. */
-export const SITUACOES_MOV = ["Atrasada", "Vence hoje", "Em aberto", "Sem prazo",
-  "Aguardando aprovação", "Concluída", "Concluída com atraso", "Cancelada"];
-
 /** Na planilha a situação é DIGITADA, então pode discordar das datas na mesma
  *  linha. Aqui ela é calculada — a data é o fato, a palavra era opinião. */
 export function situacaoMovimentacao(m, ref) {
@@ -337,10 +322,6 @@ export function moldePreventiva() {
   };
 }
 
-export function disponivelEm(p) {
-  if (p.disponivel_agora) return "agora";
-  return p.disponivel_em || "";
-}
 
 /** "Vence efetivo" da planilha: o prazo do Service, quando há; senão o
  *  vencimento do mapa. */
@@ -650,12 +631,6 @@ export function mix(ats) {
   return { total, por, pct: t => total ? Math.round((por[t] || 0) * 100 / total) : 0 };
 }
 
-export function coberturaOS(ats) {
-  const vivos = ats.filter(a => !a.excluida && !a.cancelada);
-  const com = vivos.filter(a => a.os).length;
-  return { com, sem: vivos.length - com, total: vivos.length,
-    pct: vivos.length ? Math.round(com * 100 / vivos.length) : 0 };
-}
 
 export function backlogEmSemanas(ats, ano, semana, janela = 4) {
   const abertos = ats.filter(aberta).length;

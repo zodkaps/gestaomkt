@@ -24,6 +24,7 @@ export const TIPOS = {
   importada: "importada",
   editada: "editada",
   excluida: "excluída",
+  reincluida: "exclusão desfeita",
   programada: "programada",
   reprogramada: "reprogramada",
   concluida: "concluída",
@@ -172,6 +173,9 @@ function aplicarNoAlvo(a, ev, d) {
     }
     case "excluida":
       a.excluida = true;
+      break;
+    case "reincluida":
+      a.excluida = false;
       break;
 
     // ── atividade ──
@@ -488,9 +492,17 @@ export function restaurar(a) {
   return { tipo: "restaurada", alvo: a.id, alvo_tipo: "atividade" };
 }
 
+/** Excluir sai das telas e fica no registro. É do PCM em todos os tipos — o
+ *  banco só deixa a operação cancelar movimentação, nunca excluir. */
 export function excluir(a, motivo = "", alvoTipo = "atividade") {
-  pessoas.exigir(alvoTipo === "atividade" ? "editar_atividade" : "movimentar");
+  pessoas.exigir("editar_atividade");
   return { tipo: "excluida", alvo: a.id, alvo_tipo: alvoTipo, motivo };
+}
+
+/** Desfaz a exclusão: a coisa volta para as telas, com o que tinha. */
+export function reincluir(a, alvoTipo = "atividade") {
+  pessoas.exigir("editar_atividade");
+  return { tipo: "reincluida", alvo: a.id, alvo_tipo: alvoTipo, motivo: "" };
 }
 
 /** Por que atrasou (ou não foi feita) e quem atrasou. Na atividade é do PCM —
@@ -573,10 +585,6 @@ export function cancelarMovimentacao(m, motivo) {
 
 // ── as operações: preventiva ────────────────────────────────────────────────
 
-export function criarPreventiva(campos) {
-  pessoas.exigir("parada");
-  return criar(campos, "manual", "", "preventiva");
-}
 
 /** A operação diz quando o caminhão fica livre. "agora" é resposta válida. */
 export function informarDisponibilidade(p, quando) {

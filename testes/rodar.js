@@ -411,6 +411,29 @@ if (abas) {
     ev.porId(ativOutra.id).atividade.endsWith("(corrigido na planilha)"));
   ok("a fita fecha com planilha e site misturados", ev.conferir().ok);
 
+  // ── excluir e desfazer ────────────────────────────────────────────────────
+  // Excluir é do PCM, em qualquer tipo; a exclusão some das telas, mas o
+  // registro fica e o que foi excluído volta com o mesmo conteúdo.
+  titulo("eventos.js — excluir e desfazer a exclusão");
+  await entrarComo("Mateus");
+  const alvoExcl = ev.lista().find(x => x.semana && modelo.aberta(x) && !x.cancelada);
+  const antesExcl = ev.lista().length;
+  await ev.aplicar(ev.excluir(alvoExcl, "teste de exclusão"));
+  igual("excluída some das telas", ev.lista().length, antesExcl - 1);
+  igual("mas continua no estado, marcada", ev.porId(alvoExcl.id).excluida, true);
+  await ev.aplicar(ev.reincluir(alvoExcl));
+  igual("desfazer a exclusão devolve a atividade", ev.lista().length, antesExcl);
+  igual("e ela volta sem perder nada", ev.porId(alvoExcl.id).atividade, alvoExcl.atividade);
+  await entrarComo("Pedro");
+  let barrouExcl = "";
+  try { ev.excluir(alvoExcl, "x", "atividade"); } catch (e) { barrouExcl = e.message; }
+  ok("a operação não exclui nada", !!barrouExcl, barrouExcl);
+  let barrouMov = "";
+  const movExcl = ev.lista("movimentacao").find(modelo.movimentacaoAberta);
+  try { ev.excluir(movExcl, "x", "movimentacao"); } catch (e) { barrouMov = e.message; }
+  ok("nem exclui movimentação — só cancela", !!barrouMov, barrouMov);
+  await entrarComo("Mateus");
+
   // ── quem pode o quê ───────────────────────────────────────────────────────
   titulo("pessoas.js — o que a operação faz e o que não faz");
   await entrarComo("Pedro");

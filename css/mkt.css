@@ -163,6 +163,25 @@ code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: .
 }
 .chip-topo .nome { font-size: 13px; font-weight: 600; color: var(--texto); }
 
+/* o menu de ações de um item: uma opção por linha, rótulo e explicação */
+.menu-acoes { display: flex; flex-direction: column; gap: 6px; }
+.opcao-acao {
+  display: flex; flex-direction: column; align-items: flex-start; gap: 2px; width: 100%;
+  padding: 10px 12px; text-align: left; border-radius: var(--raio);
+}
+.opcao-acao b { font-size: 14px; font-weight: 600; }
+.opcao-acao small { font-size: 12px; color: var(--fraco); font-weight: 400; }
+.opcao-acao.perigo b { color: var(--vencida); }
+
+/* o botão ⋯ de cada item: discreto, e o mesmo em todas as telas */
+.mais {
+  width: 30px; height: 30px; padding: 0; border-radius: 8px; flex: 0 0 auto;
+  background: transparent; border: 1px solid transparent; color: var(--fraco);
+  font-size: 20px; line-height: 1; letter-spacing: .05em;
+}
+.mais:hover { background: var(--papel2); border-color: var(--linha); color: var(--texto); }
+.grade .mais { margin: -2px 0; }
+
 /* o menu da pessoa: opções grandes, para o dedo */
 .opcoes-pessoa { display: flex; flex-direction: column; gap: 8px; }
 .opcao-pessoa {
@@ -301,41 +320,23 @@ textarea { min-height: 70px; resize: vertical; }
    tinha rolagem própria — e descia por cima da primeira linha. */
 .rolagem.alta { max-height: calc(100vh - var(--topo) - 190px); overflow: auto; }
 @media (max-width: 860px) { .rolagem.alta { max-height: none; } }
-.tabela, .tab {
+.tabela {
   width: 100%; border-collapse: separate; border-spacing: 0; font-size: 13px;
   background: var(--papel); border: 1px solid var(--linha); border-radius: var(--raio);
   overflow: hidden;
 }
-.tabela th, .tab th {
+.tabela th {
   text-align: left; font-size: 11px; text-transform: uppercase;
   letter-spacing: .04em; color: var(--muito-fraco); font-weight: 600;
   padding: 8px 10px; border-bottom: 1px solid var(--linha);
   white-space: nowrap; background: var(--papel2);
   position: sticky; top: 0; z-index: 2;
 }
-.tab th.ord { cursor: pointer; user-select: none; }
-.tab th.ord:hover { color: var(--texto); }
-.tab th .seta { opacity: .5; font-size: 9px; margin-left: 3px; }
-.tabela td, .tab td {
+.tabela td {
   padding: 7px 10px; border-bottom: 1px solid var(--linha); vertical-align: top;
 }
-.tab tbody tr:last-child td, .tabela tbody tr:last-child td { border-bottom: 0; }
-.tab tbody tr:hover td { background: var(--papel2); }
-.tab td.num, .tab th.num { text-align: right; font-variant-numeric: tabular-nums; }
-.tab td.principal { font-weight: 550; }
-.tab .cliq { cursor: pointer; }
-.tab .seg { color: var(--muito-fraco); font-size: 11.5px; }
+.tabela tbody tr:last-child td { border-bottom: 0; }
 
-/* a situação como tarja na primeira coluna, não como balão no meio do texto */
-.tab td:first-child { border-left: 3px solid transparent; }
-.tab tr.ok      td:first-child { border-left-color: var(--ok); }
-.tab tr.ok-tarde td:first-child { border-left-color: var(--ok-tarde); }
-.tab tr.vencida td:first-child { border-left-color: var(--vencida); }
-.tab tr.hoje    td:first-child { border-left-color: var(--hoje); }
-.tab tr.andando td:first-child { border-left-color: var(--andando); }
-.tab tr.programada td:first-child { border-left-color: var(--programada); }
-.tab tr.carteira td:first-child { border-left-color: var(--carteira); }
-.tab tr.cancelada td { opacity: .6; }
 
 /* ── cartão (celular, e a tela da operação sempre) ─────────────────────── */
 
@@ -353,14 +354,9 @@ textarea { min-height: 70px; resize: vertical; }
 .at .tags { display: flex; gap: 5px; flex-wrap: wrap; margin-top: 6px; }
 .at .acoes { display: flex; flex-direction: column; gap: 5px; align-items: stretch; }
 .at.sel { outline: 2px solid var(--marca); }
-.at.ok { border-left-color: var(--ok); }
-.at.ok-tarde { border-left-color: var(--ok-tarde); }
 .at.vencida { border-left-color: var(--vencida); }
 .at.hoje { border-left-color: var(--hoje); }
-.at.andando { border-left-color: var(--andando); }
-.at.programada { border-left-color: var(--programada); }
-.at.carteira { border-left-color: var(--carteira); }
-.at.cancelada { border-left-color: var(--cancelada); opacity: .62; }
+.at.cancelada { opacity: .6; }
 .at.feito .tit { text-decoration: line-through; text-decoration-color: var(--muito-fraco); }
 
 /* a mesma tela nas duas formas: quem decide é a largura */
@@ -376,18 +372,15 @@ textarea { min-height: 70px; resize: vertical; }
   background: var(--papel2); color: var(--fraco);
   border: 1px solid var(--linha); white-space: nowrap; font-weight: 600;
 }
-.chip.ok { background: var(--ok-fundo); color: var(--ok); border-color: transparent; }
-.chip.ok-tarde { background: var(--ok-tarde-fundo); color: var(--ok-tarde); border-color: transparent; }
+.chip.ok { color: var(--ok); background: transparent; }
+.chip.ok-tarde { color: var(--ok-tarde); background: transparent; }
 .chip.vencida { background: var(--vencida-fundo); color: var(--vencida); border-color: transparent; }
 .chip.hoje { background: var(--hoje-fundo); color: var(--hoje); border-color: transparent; }
-.chip.andando { background: var(--andando-fundo); color: var(--andando); border-color: transparent; }
-.chip.programada { background: var(--programada-fundo); color: var(--programada); border-color: transparent; }
-.chip.carteira { background: var(--carteira-fundo); color: var(--carteira); border-color: transparent; }
-.chip.cancelada { background: var(--cancelada-fundo); color: var(--cancelada); border-color: transparent; }
+.chip.andando, .chip.programada, .chip.carteira, .chip.cancelada { background: var(--papel2); color: var(--fraco); }
 .chip.p1 { background: var(--p1-fundo); color: var(--p1); border-color: transparent; }
 .chip.os { font-variant-numeric: tabular-nums; }
-.chip.semos { background: var(--hoje-fundo); color: var(--hoje); border-color: transparent; }
-.chip.reprog { background: var(--ok-tarde-fundo); color: var(--ok-tarde); border-color: transparent; }
+.chip.semos { color: var(--hoje); background: transparent; border-color: var(--hoje); }
+.chip.reprog { color: var(--fraco); background: transparent; }
 
 /* ── seções ────────────────────────────────────────────────────────────── */
 
@@ -679,7 +672,7 @@ textarea.sql {
 
 /* larguras: a atividade fica com o que sobrar */
 .grade .c-sel   { width: 30px; text-align: center; padding-left: 4px; padding-right: 4px; }
-.grade .c-sit   { width: 132px; }
+.grade .c-sit   { width: 158px; }
 .grade .c-os    { width: 74px; }
 .grade .c-quem  { width: 150px; }
 .grade td.c-quem { color: var(--fraco); font-size: 12px; }
@@ -694,27 +687,31 @@ textarea.sql {
 
 .grade tr.lin { cursor: pointer; }
 .grade tr.lin:hover td { background: var(--papel2); }
-.grade tr.lin.feita td { background: var(--ok-fundo); }
-.grade tr.lin.feita:hover td { background: color-mix(in srgb, var(--ok-fundo) 80%, var(--ok) 20%); }
+.grade tr.lin.feita td { color: var(--fraco); }
+.grade tr.lin.feita .t { color: var(--fraco); }
 .grade tr.lin.cancel td { color: var(--muito-fraco); }
 .grade tr.lin.cancel .t { text-decoration: line-through; }
 .grade tr.lin.marcada td { background: var(--marca-clara); }
 
 /* a Situação: a célula inteira na cor, como a coluna B da planilha */
 .sit {
-  display: inline-block; padding: 2px 8px; border-radius: 5px; font-size: 11.5px;
-  font-weight: 650; white-space: nowrap; max-width: 100%; overflow: hidden; text-overflow: ellipsis;
-  background: var(--papel3); color: var(--fraco);
+  --dot: var(--muito-fraco);
+  display: inline-flex; align-items: center; gap: 6px; padding: 1px 9px 1px 8px;
+  border-radius: 999px; border: 1px solid var(--linha); font-size: 11.5px; font-weight: 600;
+  white-space: nowrap; max-width: 100%; overflow: hidden; text-overflow: ellipsis;
+  background: transparent; color: var(--texto);
 }
-.sit.ok         { background: var(--ok-fundo); color: var(--ok); }
-.sit.ok-tarde   { background: var(--ok-tarde-fundo); color: var(--ok-tarde); }
-.sit.vencida    { background: var(--vencida-fundo); color: var(--vencida); }
-.sit.hoje       { background: var(--hoje-fundo); color: var(--hoje); }
-.sit.andando    { background: var(--andando-fundo); color: var(--andando); }
-.sit.programada { background: var(--programada-fundo); color: var(--programada); }
-.sit.carteira   { background: var(--carteira-fundo); color: var(--carteira); }
-.sit.cancelada  { background: var(--cancelada-fundo); color: var(--cancelada); }
-.grade tr.lin.feita .sit.ok { background: transparent; padding-left: 0; }
+.sit::before {
+  content: ""; width: 6px; height: 6px; border-radius: 50%; flex: 0 0 auto; background: var(--dot);
+}
+.sit.ok         { --dot: var(--ok); }
+.sit.ok-tarde   { --dot: var(--ok-tarde); }
+.sit.vencida    { --dot: var(--vencida); color: var(--vencida); }
+.sit.hoje       { --dot: var(--hoje); }
+.sit.andando    { --dot: var(--andando); }
+.sit.programada { --dot: var(--programada); }
+.sit.carteira   { --dot: var(--carteira); color: var(--fraco); }
+.sit.cancelada  { --dot: var(--cancelada); color: var(--muito-fraco); }
 
 /* o prazo pinta junto com a situação, como as colunas O e P da planilha */
 .grade tr.vencida .c-prazo { color: var(--vencida); font-weight: 650; }
@@ -751,10 +748,10 @@ button.mini.justificar:hover { background: var(--hoje-fundo); }
   vertical-align: 1px; margin-left: 3px; white-space: nowrap;
 }
 /* Extra em laranja, como a coluna Origem da planilha */
-.tag.extra { background: var(--ok-tarde-fundo); color: var(--ok-tarde); }
+.tag.extra { background: transparent; color: var(--ok-tarde); border: 1px solid var(--ok-tarde); }
 .tag.p1 { background: var(--p1-fundo); color: var(--p1); }
-.tag.reprog { background: var(--hoje-fundo); color: var(--hoje); }
-.tag.claude { background: var(--andando-fundo); color: var(--andando); }
+.tag.reprog { background: transparent; color: var(--fraco); border: 1px dashed var(--borda); }
+.tag.claude { background: transparent; color: var(--fraco); border: 1px solid var(--borda); }
 .evento .autor { color: var(--fraco); font-weight: 600; }
 
 .feito-em { color: var(--ok); font-weight: 650; font-variant-numeric: tabular-nums; }
@@ -782,7 +779,7 @@ button.mini.sem-data { border-color: var(--hoje); background: var(--hoje-fundo);
   display: inline-block; width: 90px; height: 6px; border-radius: 3px;
   background: var(--papel3); overflow: hidden; flex: 0 0 auto;
 }
-.barrinha > span { display: block; height: 100%; background: var(--ok); }
+.barrinha > span { display: block; height: 100%; background: var(--fraco); }
 
 /* celular: o bloco vira um título com a mesma contagem */
 .bloco-cel {
@@ -790,7 +787,7 @@ button.mini.sem-data { border-color: var(--hoje); background: var(--hoje-fundo);
   margin: 16px 0 6px; font-size: 13px;
 }
 .bloco-cel b { font-size: 14px; }
-.so-cartao .at.feito { background: var(--ok-fundo); }
+.so-cartao .at.feito { opacity: .7; }
 .so-cartao .at.feito .tit { text-decoration: none; }
 
 /* a faixa de situações: quantas de cada, e o filtro num clique */
@@ -801,14 +798,16 @@ button.mini.sem-data { border-color: var(--hoje); background: var(--hoje-fundo);
 }
 .fsit b { font-variant-numeric: tabular-nums; }
 .fsit.on { border-color: currentColor; box-shadow: inset 0 0 0 1px currentColor; }
-.fsit.ok { color: var(--ok); }        .fsit.ok.on { background: var(--ok-fundo); }
-.fsit.ok-tarde { color: var(--ok-tarde); } .fsit.ok-tarde.on { background: var(--ok-tarde-fundo); }
-.fsit.vencida { color: var(--vencida); } .fsit.vencida.on { background: var(--vencida-fundo); }
-.fsit.hoje { color: var(--hoje); }    .fsit.hoje.on { background: var(--hoje-fundo); }
-.fsit.andando { color: var(--andando); } .fsit.andando.on { background: var(--andando-fundo); }
-.fsit.programada { color: var(--programada); } .fsit.programada.on { background: var(--programada-fundo); }
-.fsit.carteira { color: var(--carteira); } .fsit.carteira.on { background: var(--carteira-fundo); }
-.fsit.cancelada { color: var(--cancelada); } .fsit.cancelada.on { background: var(--cancelada-fundo); }
+.fsit::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: var(--dot, transparent); }
+.fsit.ok { --dot: var(--ok); }
+.fsit.ok-tarde { --dot: var(--ok-tarde); }
+.fsit.vencida { --dot: var(--vencida); color: var(--vencida); }
+.fsit.hoje { --dot: var(--hoje); }
+.fsit.andando { --dot: var(--andando); }
+.fsit.programada { --dot: var(--programada); }
+.fsit.carteira { --dot: var(--carteira); }
+.fsit.cancelada { --dot: var(--cancelada); }
+.fsit.on { border-color: var(--texto); color: var(--texto); background: var(--papel2); box-shadow: none; }
 .fsit.todas.on { color: var(--texto); background: var(--papel2); }
 .quem-faixa { align-items: center; margin-top: 0; }
 .quem-faixa .rot-faixa { font-size: 12px; color: var(--muito-fraco); margin-right: 2px; }
@@ -818,13 +817,13 @@ button.mini.sem-data { border-color: var(--hoje); background: var(--hoje-fundo);
   display: flex; align-items: center; gap: 14px; background: var(--papel);
   border: 1px solid var(--linha); border-radius: var(--raio); padding: 12px 14px;
 }
-.progresso .p-num { font-size: 28px; font-weight: 700; min-width: 70px; font-variant-numeric: tabular-nums; white-space: nowrap; color: var(--ok); }
+.progresso .p-num { font-size: 28px; font-weight: 700; min-width: 70px; font-variant-numeric: tabular-nums; white-space: nowrap; color: var(--texto); }
 .progresso .p-num small { font-size: 15px; font-weight: 600; color: var(--fraco); }
 .progresso.so-texto .p-num { color: var(--texto); }
 .progresso .p-meio { flex: 1; min-width: 0; }
 .progresso .p-tit { font-size: 13px; font-weight: 600; }
 .progresso .p-trilho { height: 8px; border-radius: 4px; background: var(--papel3); overflow: hidden; margin: 7px 0 5px; }
-.progresso .p-trilho > span { display: block; height: 100%; background: var(--ok); }
+.progresso .p-trilho > span { display: block; height: 100%; background: var(--fraco); }
 .progresso .p-txt { font-size: 12px; color: var(--fraco); }
 .progresso.so-texto .p-num { min-width: 0; }
 
@@ -869,8 +868,7 @@ button.mini.sem-data { border-color: var(--hoje); background: var(--hoje-fundo);
 .grade tr.lin.adiada td { color: var(--muito-fraco); }
 @media (max-width: 1180px) { .grade.prev .c-onde { display: none; } }
 @media (max-width: 1000px) { .grade.prev .c-os { display: none; } }
-button.mini.acao-pcm { border-color: var(--andando); color: var(--andando); background: var(--andando-fundo); }
-button.mini.acao-op  { border-color: var(--hoje); color: var(--hoje); background: var(--hoje-fundo); }
+button.mini.acao-pcm, button.mini.acao-op { background: transparent; color: var(--texto); }
 .sec-prev { margin-bottom: 6px; }
 .sec-prev.pcm .titulo-secao { color: var(--andando); }
 .sec-prev.op .titulo-secao  { color: var(--hoje); }
@@ -893,33 +891,29 @@ button.mini.aprovar  { border-color: var(--ok); color: var(--ok); background: va
 button.mini.devolver { color: var(--hoje); }
 .seg-op .n { color: var(--muito-fraco); font-variant-numeric: tabular-nums; }
 .seg-op.destaque { color: var(--andando); }
-.seg-op.destaque.on { background: var(--andando-fundo); color: var(--andando); }
+.seg-op.destaque.on { background: var(--papel3); color: var(--texto); }
 
 /* os números do topo, como as caixas das abas Hoje e Semana */
 .kpis { display: grid; gap: 10px; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); margin: 4px 0 14px; }
 .kpi {
   background: var(--papel); border: 1px solid var(--linha); border-radius: var(--raio);
-  padding: 10px 12px; border-top: 3px solid var(--borda);
+  padding: 10px 12px; border-top: 2px solid var(--linha);
 }
 .kpi .k-rot { font-size: 10.5px; text-transform: uppercase; letter-spacing: .06em; color: var(--muito-fraco); font-weight: 650; }
 .kpi .k-val { font-size: 26px; font-weight: 700; line-height: 1.15; margin-top: 3px; font-variant-numeric: tabular-nums; }
 .kpi .k-det { font-size: 11.5px; color: var(--fraco); margin-top: 2px; }
-.kpi.ok { border-top-color: var(--ok); }      .kpi.ok .k-val { color: var(--ok); }
 .kpi.vencida { border-top-color: var(--vencida); } .kpi.vencida .k-val { color: var(--vencida); }
 .kpi.hoje { border-top-color: var(--hoje); }  .kpi.hoje .k-val { color: var(--hoje); }
-.kpi.andando { border-top-color: var(--andando); } .kpi.andando .k-val { color: var(--andando); }
-.kpi.extra { border-top-color: var(--ok-tarde); } .kpi.extra .k-val { color: var(--ok-tarde); }
 
 /* Resultados: os dois números da reunião, grandes, lado a lado */
 .grandes { display: grid; gap: 12px; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); margin-bottom: 16px; }
 .grande {
   background: var(--papel); border: 1px solid var(--linha); border-radius: var(--raio);
-  padding: 14px 16px; text-align: center; border-top: 4px solid var(--borda);
+  padding: 14px 16px; text-align: center; border-top: 2px solid var(--linha);
 }
 .grande .g-tit { font-size: 11px; text-transform: uppercase; letter-spacing: .07em; color: var(--muito-fraco); font-weight: 700; }
 .grande .g-val { font-size: 46px; font-weight: 750; line-height: 1.1; margin: 6px 0 4px; font-variant-numeric: tabular-nums; }
 .grande .g-txt { font-size: 12.5px; color: var(--fraco); line-height: 1.45; max-width: 46ch; margin: 0 auto; }
-.grande.ok { border-top-color: var(--ok); }           .grande.ok .g-val { color: var(--ok); }
 .grande.hoje { border-top-color: var(--hoje); }       .grande.hoje .g-val { color: var(--hoje); }
 .grande.vencida { border-top-color: var(--vencida); } .grande.vencida .g-val { color: var(--vencida); }
 

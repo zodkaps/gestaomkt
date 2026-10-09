@@ -17,7 +17,7 @@ import * as M from "../modelo.js";
 import * as pessoas from "../pessoas.js";
 import { el, limpar, br, brCurto, chip, caixa, campo, selecao, comSugestoes,
   avisar, erro, confirmar, vazio, cliqueLimpo } from "../ui.js";
-import { frotas, valoresDe, justificar, camposJustificativa } from "./comum.js";
+import { frotas, valoresDe, justificar, camposJustificativa, botaoMais } from "./comum.js";
 import { busca as semAcento } from "../texto.js";
 
 const QUEM = ["Operação", "Makro Engenharia", "Terceiro", "Manutenção"];
@@ -51,7 +51,7 @@ export function cartaoMov(m, ctx, { acoes = [] } = {}) {
         ? el("div", { class: "sub" }, "por quê: " + [m.motivo_atraso || m.justificativa,
           m.quem_atrasou].filter(Boolean).join(" · ")) : null,
       el("div", { class: "tags" }, tags)),
-    acoes.length ? el("div", { class: "acoes" }, acoes) : null);
+    el("div", { class: "acoes" }, [...acoes, botaoMais("movimentacao", m.id, ctx)].filter(Boolean)));
 }
 
 // ── ações ───────────────────────────────────────────────────────────────────
@@ -136,8 +136,6 @@ export async function concluirMov(m) {
     return true;
   } catch (e) { erro(e.message); return false; }
 }
-// O nome antigo continua valendo para quem ainda chama.
-export const apontarChegada = concluirMov;
 
 export async function aprovar(m) {
   try {
@@ -185,7 +183,7 @@ export async function prometerData(m) {
   } catch (e) { erro(e.message); return false; }
 }
 
-async function cancelarMov(m) {
+export async function cancelarMov(m) {
   const e = el("input", { placeholder: "Por quê" });
   const ok = await caixa({ titulo: "Cancelar movimentação",
     corpo: campo("Motivo", e),
@@ -332,7 +330,7 @@ function tabelaMov(itens, ctx, ref) {
         ? el("span", { class: "venceu" }, `${atraso}d`) : el("span", { class: "seg" }, "—")),
       el("td", { class: "c-quem" }, m.chegou_em && m.concluida_por
         ? m.concluida_por : (m.quem_prometeu || "")),
-      el("td", { class: "c-feito" }, acaoDaLinha(m)));
+      el("td", { class: "c-feito" }, acaoDaLinha(m), botaoMais("movimentacao", m.id, ctx)));
     tr.addEventListener("click", cliqueLimpo(() => abrirFichaMov(m.id, ctx)));
     return tr;
   }));

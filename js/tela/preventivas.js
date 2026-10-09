@@ -19,6 +19,7 @@ import { el, limpar, br, brCurto, chip, caixa, campo, selecao,
   avisar, erro, vazio, cliqueLimpo } from "../ui.js";
 import { busca as semAcento } from "../texto.js";
 import { natural } from "./grade.js";
+import { botaoMais } from "./comum.js";
 
 // ── o cartão (celular, e a tela Para você) ──────────────────────────────────
 
@@ -47,7 +48,7 @@ export function cartaoPrev(p, ctx, { acoes = [] } = {}) {
       el("div", { class: "tit" }, p.frota),
       sub.length ? el("div", { class: "sub" }, sub.join(" · ")) : null,
       el("div", { class: "tags" }, tags)),
-    acoes.length ? el("div", { class: "acoes" }, acoes) : null);
+    el("div", { class: "acoes" }, [...acoes, botaoMais("preventiva", p.id, ctx)].filter(Boolean)));
 }
 
 // ── as respostas ────────────────────────────────────────────────────────────
@@ -126,7 +127,7 @@ export async function marcarParada(p) {
   } catch (e) { erro(e.message); return false; }
 }
 
-async function darPorFeita(p) {
+export async function darPorFeita(p) {
   const eData = el("input", { type: "date", value: M.hoje() });
   const eOS = el("input", { value: p.os, inputmode: "numeric", placeholder: "OS no Protheus" });
   const r = await caixa({
@@ -145,7 +146,7 @@ async function darPorFeita(p) {
   } catch (e) { erro(e.message); }
 }
 
-async function passarParaOMesSeguinte(p) {
+export async function passarParaOMesSeguinte(p) {
   const livre = el("input", { placeholder: "por que não sai este mês" });
   const r = await caixa({
     titulo: "Passa para o mês seguinte",
@@ -163,7 +164,7 @@ async function passarParaOMesSeguinte(p) {
   } catch (x) { erro(x.message); }
 }
 
-async function cancelar(p) {
+export async function cancelarPrev(p) {
   const motivo = el("input", { placeholder: "por que não vai ser feita" });
   const r = await caixa({
     titulo: "Cancelar a preventiva",
@@ -179,14 +180,14 @@ async function cancelar(p) {
   } catch (x) { erro(x.message); }
 }
 
-async function andamento(p, sim) {
+export async function andamento(p, sim) {
   try {
     await ev.aplicar(ev.preventivaEmAndamento(p, sim));
     avisar(sim ? `${p.frota}: em andamento.` : `${p.frota}: não está mais em andamento.`);
   } catch (x) { erro(x.message); }
 }
 
-async function reabrir(p) {
+export async function reabrirPrev(p) {
   try {
     await ev.aplicar(ev.reabrirPreventiva(p));
     avisar(`${p.frota} voltou para o mapa.`);
@@ -257,13 +258,13 @@ export async function abrirFichaPrev(id, ctx) {
         : { rotulo: "Em andamento", acao: async () => { await andamento(p, true); } });
       acoes.push({ rotulo: "Realizada", acao: async () => { await darPorFeita(p); } });
       acoes.push({ rotulo: "Mês seguinte", acao: async () => { await passarParaOMesSeguinte(p); } });
-      acoes.push({ rotulo: "Cancelar", classe: "perigo", acao: async () => { await cancelar(p); } });
+      acoes.push({ rotulo: "Cancelar", classe: "perigo", acao: async () => { await cancelarPrev(p); } });
     }
   } else if (pcm && !p.fora) {
     if (p.realizada_sem_data) {
       acoes.push({ rotulo: "Dar a data", classe: "primario", acao: async () => { await darPorFeita(p); } });
     }
-    acoes.push({ rotulo: "Reabrir", acao: async () => { await reabrir(p); } });
+    acoes.push({ rotulo: "Reabrir", acao: async () => { await reabrirPrev(p); } });
   }
   await caixa({ titulo: p.frota || "Preventiva", corpo, acoes, largura: "640px" });
 }
@@ -338,7 +339,7 @@ function tabelaPrev(itens, ctx, ref) {
       el("td", { class: "c-onde" }, p.onde_fazer || el("span", { class: "seg" }, "—")),
       el("td", { class: "c-os" }, p.os ? el("span", { class: "os" }, p.os) : el("span", { class: "seg" }, "—")),
       el("td", { class: "c-hh num" }, p.hh ? String(p.hh).replace(".", ",") : el("span", { class: "seg" }, "—")),
-      el("td", { class: "c-feito" }, botaoDaLinha(p, ref)));
+      el("td", { class: "c-feito" }, botaoDaLinha(p, ref), botaoMais("preventiva", p.id, ctx)));
     tr.addEventListener("click", cliqueLimpo(() => abrirFichaPrev(p.id, ctx)));
     return tr;
   }));

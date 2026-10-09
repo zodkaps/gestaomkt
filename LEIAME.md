@@ -70,6 +70,39 @@ por e-mail, quem criasse a conta primeiro com aquele endereço herdaria o papel.
 - **Sem rede**: o site continua aberto com a sessão guardada e a fila local;
   as renovações acontecem quando a rede volta.
 
+## Ações de cada item: o ⋯
+
+Toda atividade, movimentação e preventiva, em qualquer tela, tem um **⋯** ao
+lado. Ele abre as ações daquele item, e só as que valem agora e para quem está
+olhando:
+
+| ação | quem | observação |
+|---|---|---|
+| Dar baixa, Dar a data, Reabrir | PCM | a data de conclusão é a do dia que a pessoa escolhe |
+| Programar, Reprogramar, Tirar da programação | PCM | reprogramar e tirar pedem o motivo |
+| Justificar | PCM (OS) e os dois (movimentação) | porque atrasou e quem atrasou |
+| Cancelar, Desfazer o cancelamento | PCM (OS); os dois (movimentação) | cancelada não conta como feita |
+| Concluir, Dar o prazo, Aprovar, Devolver | operação conclui; PCM aprova ou devolve | |
+| Marcar a parada, Realizada, Em andamento, Mês seguinte | PCM | |
+| Disponibilidade | operação | quando a frota fica livre |
+| **Excluir** | **só o PCM** | some das telas; o registro fica |
+
+**Excluir não apaga.** O item some das telas, mas o histórico guarda tudo. No
+**Registro**, cada exclusão e cada cancelamento tem o botão *Desfazer*, e o item
+volta do jeito que estava. A operação não exclui nada: o banco não deixa.
+
+## O que as cores querem dizer
+
+A tela é quase toda neutra. A cor aparece só quando avisa algo:
+
+- **vermelho**: vencida, atrasada, prazo que passou
+- **âmbar**: para hoje, sem OS, dado que pede atenção
+- **verde**: feito, com a data (o ✓)
+- o **ponto colorido** da situação é a única cor de estado: o texto fica branco
+
+Os gráficos de Resultados usam cores de série, porque é preciso distinguir as
+barras. Passar o mouse mostra o valor.
+
 ### Trabalhar neste aparelho, quando o banco não responde
 
 Este site nasceu local-first: ele funciona inteiro com os dados do próprio
@@ -578,6 +611,7 @@ porque toda escrita já passa por `aplicar()`.
 | `js/nuvem.js` | o Supabase por `fetch`: ler desde um ponto, enviar, consultar de tempos em tempos |
 | `js/pessoas.js` | quem está usando, o papel, o que esse papel pode |
 | `js/tela/*.js` | entrar, operacao, hoje, programacao, semana, resultados, movimentacoes, preventivas, frota, historico, importar, diagnostico |
+| `js/tela/acoes.js` | as ações do ⋯ de cada item — um menu por tipo, com as opções que valem para quem está olhando |
 | `js/tela/grade.js` | a lista no formato da aba Programação — Hoje, Programação e Semana usam a mesma; a OS digitada na linha |
 | `js/graficos.js` | os gráficos do painel de Resultados, em SVG puro: linha, colunas, barras, minilinha, dica |
 | `js/tela/indicadores.js` | os painéis que a planilha não tem, recolhidos em Resultados |

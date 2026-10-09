@@ -14,7 +14,7 @@ import * as ev from "../eventos.js";
 import * as M from "../modelo.js";
 import * as pessoas from "../pessoas.js";
 import { el, brCurto, cliqueLimpo, vazio } from "../ui.js";
-import { abrirFicha, concluir, cartao, botaoConcluir, gravarOS, justificar } from "./comum.js";
+import { abrirFicha, concluir, cartao, botaoConcluir, gravarOS, justificar, botaoMais } from "./comum.js";
 
 // A ordem dentro do bloco: primeiro o que pede ação, por último o que já saiu.
 // Assim as cores se agrupam e o bloco se lê de cima para baixo.
@@ -226,7 +226,8 @@ function linha(a, o) {
       ? `${a.semana}${a.dia ? " · " + a.dia : ""}` : el("span", { class: "seg" }, "—")),
     el("td", { class: "c-hh num" }, Number(a.hh) ? String(a.hh).replace(".", ",") : el("span", { class: "seg" }, "—")),
     el("td", { class: "c-prazo num" }, prazo ? brCurto(prazo) : el("span", { class: "seg" }, "—")),
-    el("td", { class: "c-feito" }, celulaFeito(a, o)));
+    el("td", { class: "c-feito" }, celulaFeito(a, o)),
+    el("td", { class: "c-mais" }, botaoMais("atividade", a.id, o.ctx)));
   tr.addEventListener("click", cliqueLimpo(() => abrirFicha(a.id, o.ctx)));
   return tr;
 }
@@ -251,6 +252,7 @@ export function grade(itens, o = {}) {
     el("th", { class: "c-hh num" }, "HH"),
     el("th", { class: "c-prazo num" }, "Prazo"),
     el("th", { class: "c-feito" }, "Feito em"),
+    el("th", { class: "c-mais" }),
   ];
   const ncol = cab.filter(Boolean).length;
   const corpo = el("tbody", {});
