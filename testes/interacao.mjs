@@ -9,7 +9,7 @@
 // Precisa do servidor de mentira (`testes/supabase_falso.mjs`) e do site
 // servido (`python3 -m http.server 8123`).
 import pw from "/opt/node-tools/node_modules/playwright/index.js";
-import { servirCopia, entrarComo, entrarLocalComo } from "./sitefalso.mjs";
+import { servirCopia, entrarComo, entrarLocalComo, emailDoTeste } from "./sitefalso.mjs";
 const { chromium } = pw;
 
 const NUVEM = process.env.NUVEM_FALSA || "http://127.0.0.1:8124";
@@ -176,13 +176,15 @@ ok("o que a operação lança fica na fila, assinado por ela",
 // inteiro do Mateus voltar — e a fila travava para os dois.
 await falhar("");
 await p.click('#faixa button:has-text("Entrar com senha")');
-await p.waitForSelector('input[placeholder="Seu nome"]', { timeout: 8000 });
+await p.waitForSelector('input[placeholder="Seu e-mail"]', { timeout: 8000 });
 const porta = await p.evaluate(() => ({
-  nome: document.querySelector('input[placeholder="Seu nome"]').value,
+  email: document.querySelector('input[placeholder="Seu e-mail"]').value,
   aviso: (document.querySelector("#entrar-tela .morno") || {}).textContent || "",
 }));
-ok("a porta já vem com o nome de quem tem lançamento parado",
-  porta.nome === "Pedro" && /Pedro/.test(porta.aviso), JSON.stringify(porta));
+// Este aparelho já viu a equipe (o Mateus entrou nele no começo do teste), então
+// sabe o e-mail do Pedro — e é a senha DELE que faz a fila andar.
+ok("a porta já vem com o e-mail de quem tem lançamento parado",
+  porta.email === emailDoTeste("Pedro") && /Pedro/.test(porta.aviso), JSON.stringify(porta));
 
 await entrarComo(p, "Mateus");
 const ATIV = "F-PCM-" + Date.now().toString(36);
@@ -220,8 +222,8 @@ ok("e diz uma vez só, sem texto duplicado",
 // ── e sobe quando a pessoa certa entra ────────────────────────────────────
 await p.evaluate(async () => { await mkt.pessoas.sair(); });
 await p.reload({ waitUntil: "networkidle" });
-await p.waitForSelector('input[placeholder="Seu nome"]', { timeout: 8000 });
-await entrarComo(p, "Pedro", "makro2026", "operacao");
+await p.waitForSelector('input[placeholder="Seu e-mail"]', { timeout: 8000 });
+await entrarComo(p, "Pedro");
 await p.waitForTimeout(1800);
 const fim = await p.evaluate(async alvo => {
   await mkt.ev.sincronizar();

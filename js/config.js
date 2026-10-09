@@ -21,21 +21,24 @@ export const NUVEM = {
   chave: "sb_publishable_-6P6cEB4VCw3KEPZZZ_S3w_7lOsCA1u",
 };
 
-// O domínio interno dos acessos. Ninguém precisa ter e-mail: quem digita
-// "Pedro" entra como pedro@makro.local, e isso é detalhe de implementação que
-// não aparece em tela nenhuma.
-export const DOMINIO = "makro.local";
+// Cada um entra com o PRÓPRIO e-mail.
+//
+// A primeira versão inventava um: "Pedro" virava pedro@makro.local. O Supabase
+// recusa — "Example and test domains are currently not supported" — e foi isso
+// que barrou o primeiro acesso da equipe inteira. Nenhum e-mail de colega mora
+// neste arquivo: o repositório é público, e quem é quem fica na tabela
+// `pessoas`, no banco.
 
-/** O que foi digitado vira o e-mail da conta.
- *
- *  Quem digita "Pedro" vira pedro@makro.local. Mas o campo se chama "Nome" e
- *  as pessoas digitam o e-mail delas assim mesmo — e aí "fulano@gmail.com"
- *  virava "fulano.gmail.com@makro.local", que não é conta de ninguém e dá
- *  "nome ou senha não conferem" sem explicar nada. Tendo @, vai como está.
- */
-export function emailDe(nome) {
-  const t = String(nome || "").trim().toLowerCase();
-  if (t.includes("@")) return t;
-  return t.normalize("NFD").replace(/\p{Diacritic}/gu, "")
-    .replace(/[^a-z0-9]+/g, ".").replace(/^\.|\.$/g, "") + "@" + DOMINIO;
+/** O que foi digitado, se for um e-mail. Nome sem @ devolve "". */
+export function emailDe(texto) {
+  const t = String(texto || "").trim().toLowerCase();
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(t) ? t : "";
+}
+
+/** Os domínios que o Supabase não aceita. Servem para o site avisar antes de
+ *  tentar, e para ignorar sobra de cadastro feito com eles. */
+export function dominioDeTeste(email) {
+  const d = String(email || "").toLowerCase().split("@")[1] || "";
+  return /\.(local|test|example|invalid|localhost)$/.test(d) ||
+    /^example\.(com|net|org)$/.test(d);
 }

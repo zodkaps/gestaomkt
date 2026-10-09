@@ -6,11 +6,16 @@
 // entre PCM e operação era combinada: quem trocasse o nome na tela lançava como
 // PCM. Agora o Postgres recusa, e a conta só anda com a senha certa.
 //
-// Esta lista de nomes continua existindo só para a tela de criar acesso saber
-// o que sugerir na primeira vez. Ela não decide nada.
+// Esta lista de nomes serve ao modo "trabalhar neste aparelho" e às sugestões
+// da tela de criar acesso. Ela não decide nada, e não tem e-mail de ninguém:
+// o repositório é público.
 
 import * as dados from "./dados.js";
 import * as nuvem from "./nuvem.js";
+import { dominioDeTeste } from "./config.js";
+
+const semAcento = t => String(t || "").trim().toLowerCase()
+  .normalize("NFD").replace(/\p{Diacritic}/gu, "");
 
 export const SUGESTAO = [
   { nome: "Mateus", papel: "pcm" },
@@ -122,6 +127,27 @@ export async function sair() {
   await nuvem.sair();
   await dados.gravarMeta("quem_local", "");
   atual = null;
+}
+
+/** O e-mail de quem tem esse nome, se este aparelho já souber.
+ *
+ *  Quem digita "Lucas" em vez do e-mail ainda entra, desde que alguém com
+ *  papel já tenha entrado neste aparelho antes — é dessa vez que vem a cópia
+ *  da tabela `pessoas`. Sobra de cadastro com domínio de teste não conta, e
+ *  nome que aponta para dois e-mails não adivinha: pede o e-mail. */
+export async function emailPorNome(texto) {
+  const alvo = semAcento(texto);
+  if (!alvo) return "";
+  const lista = (await dados.lerMeta("elenco", [])) || [];
+  const achados = [...new Set(lista
+    .filter(p => semAcento(p.nome) === alvo && !dominioDeTeste(p.email))
+    .map(p => p.email))];
+  return achados.length === 1 ? achados[0] : "";
+}
+
+/** O e-mail da última pessoa que entrou neste aparelho. */
+export async function ultimoEmail() {
+  return dados.lerMeta("ultimo_email", "");
 }
 
 /** Quem estava trabalhando local — é de quem o site vai pedir a senha, para a

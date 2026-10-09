@@ -16,16 +16,40 @@ controle do PCM e o canal de resposta da operação.
 
 ---
 
-## Entrar: nome e senha
+## Entrar: e-mail e senha
 
-Cada um entra com **nome e senha**. Ninguém precisa ter e-mail: quem digita
-"Pedro" entra como `pedro@makro.local`, e isso é detalhe que não aparece em
-tela nenhuma. Quem digitar o e-mail inteiro no campo Nome também entra — o
-campo aceita os dois. A senha é guardada e conferida pelo Supabase — nunca por
-este código, nunca neste repositório.
+Cada um entra com o **próprio e-mail** e a senha. A senha é guardada e
+conferida pelo Supabase — nunca por este código, nunca neste repositório.
 
-- **Primeiro acesso da equipe**: na tela de entrar, o botão de baixo cria os
-  quatro acessos, um de cada vez.
+A primeira versão inventava o e-mail ("Pedro" virava `pedro@makro.local`). O
+Supabase recusa domínio de teste — *"Example and test domains are currently not
+supported"* — e foi isso que barrou o primeiro acesso da equipe inteira. Para o
+e-mail não virar atrito diário:
+
+- **o aparelho lembra** o e-mail de quem entrou por último: depois da primeira
+  vez, é só a senha;
+- **o nome ainda serve** num aparelho onde alguém da equipe já entrou — é de lá
+  que vem a cópia de quem é quem. Num aparelho novo, o site pede o e-mail.
+
+**Quem é quem mora na tabela `pessoas`**, e nenhum e-mail mora neste
+repositório (ele é público). Para cadastrar alguém, depois que a conta existir:
+
+```sql
+insert into public.pessoas (email, nome, papel)
+values ('o.email@da.pessoa', 'Pedro', 'operacao')
+on conflict (email) do update set nome = excluded.nome, papel = excluded.papel;
+```
+
+O `nome` assina os lançamentos e tem de ser sempre o mesmo para a pessoa.
+Cadastre **depois** da conta existir: com o cadastro aberto e sem confirmação
+por e-mail, quem criasse a conta primeiro com aquele endereço herdaria o papel.
+
+- **Quem ainda não tem conta**: na tela de entrar, "Primeiro acesso da equipe"
+  cria com o e-mail de verdade da pessoa. Ou, no painel, Authentication → Users
+  → Add user, com *Auto Confirm User* marcado.
+- **Depois que todos tiverem conta**: desligue *Allow new users to sign up* em
+  Authentication → Sign In / Providers. Ninguém de fora cria conta, e quem
+  entrar novo é cadastrado pelo painel.
 - **Esqueceu a senha**: no painel do Supabase, Authentication → Users.
 - **Sem rede**: o site continua aberto com a sessão guardada e a fila local;
   as renovações acontecem quando a rede volta.
@@ -100,9 +124,9 @@ São **três passos no painel**, uma vez só:
    diferentes**, e confundi-los tranca a equipe inteira para fora:
    - o provedor **Email** fica **LIGADO** (desligá-lo dá *"Email logins are
      disabled"* e ninguém entra com senha);
-   - dentro dele, **Confirm email** fica **DESLIGADO** (ligado, o Supabase
-     manda confirmação para endereços `@makro.local` que não existem, e os
-     acessos nascem presos).
+   - dentro dele, **Confirm email** fica **DESLIGADO** (ligado, o acesso nasce
+     esperando um e-mail de confirmação que o envio embutido do Supabase não
+     entrega para todo mundo).
 
    Se acessos já foram criados com o Confirm email ligado, desligar não solta
    os que já existem: rode `sql/03_liberar_acessos.sql`.

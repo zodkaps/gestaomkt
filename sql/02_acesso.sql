@@ -20,14 +20,23 @@ create table if not exists public.pessoas (
 comment on table public.pessoas is
   'Papel de cada acesso. Só se altera aqui, pelo painel — o site não escreve.';
 
-insert into public.pessoas (email, nome, papel) values
-  ('mateus@makro.local',       'Mateus',      'pcm'),
-  ('lucas@makro.local',        'Lucas',       'pcm'),
-  ('pedro@makro.local',        'Pedro',       'operacao'),
-  ('joao.victor@makro.local',  'João Victor', 'operacao')
-on conflict (email) do update set nome = excluded.nome, papel = excluded.papel;
-
 alter table public.pessoas enable row level security;
+
+-- ── cadastrar quem entra ───────────────────────────────────────────────────
+-- Nenhum e-mail mora neste arquivo: o repositório é público. A primeira versão
+-- semeava pedro@makro.local e companhia — o Supabase recusa domínio de teste,
+-- então esses acessos nunca poderiam existir. Cada pessoa entra com o PRÓPRIO
+-- e-mail, e o cadastro dela é uma linha, rodada no SQL Editor:
+--
+--   insert into public.pessoas (email, nome, papel)
+--   values ('o.email@da.pessoa', 'Pedro', 'operacao')
+--   on conflict (email) do update set nome = excluded.nome, papel = excluded.papel;
+--
+-- O `nome` tem de ser o MESMO para a pessoa em todo lugar: é ele que assina os
+-- lançamentos, e o banco confere `autor = nome_atual()`. Cadastre a linha
+-- depois que a conta existir — antes, com o cadastro aberto e sem confirmação
+-- por e-mail, quem criasse a conta primeiro com aquele endereço herdaria o
+-- papel.
 
 -- ── as duas perguntas que as políticas fazem ───────────────────────────────
 -- `security definer` para a função poder ler `pessoas` mesmo dentro de uma

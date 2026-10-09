@@ -1,8 +1,11 @@
-// Entrar: nome e senha — e, quando o banco não responde, trabalhar sem ele.
+// Entrar: e-mail e senha — e, quando o banco não responde, trabalhar sem ele.
 //
-// Ninguém precisa ter e-mail — "Pedro" vira `pedro@makro.local` por baixo, e
-// isso não aparece em tela nenhuma. A senha é guardada e conferida pelo
-// Supabase, nunca por este código e nunca neste repositório.
+// Cada um entra com o próprio e-mail. A primeira versão inventava um
+// (`pedro@makro.local`) e o Supabase recusa domínio de teste — foi isso que
+// barrou o primeiro acesso. Para não virar atrito diário, o aparelho lembra o
+// último e-mail, e quem digita o nome ainda entra se este aparelho já conhecer
+// a pessoa. A senha é guardada e conferida pelo Supabase, nunca por este
+// código e nunca neste repositório.
 //
 // **Por que existe entrada sem senha.** Este site nasceu local-first: ele
 // funciona inteiro com os dados do próprio navegador, e a nuvem é o que o torna
@@ -19,7 +22,7 @@
 import * as nuvem from "../nuvem.js";
 import * as pessoas from "../pessoas.js";
 import * as ev from "../eventos.js";
-import { el, limpar, campo, selecao, avisar, erro, caixa } from "../ui.js";
+import { el, limpar, campo, avisar, erro, caixa } from "../ui.js";
 
 export async function montar(raiz, ctx) {
   // Esta tela não usa a casca: ela é a porta.
@@ -35,11 +38,14 @@ export async function montar(raiz, ctx) {
   const fila = await ev.autoresNaFila();
   const guardado = await pessoas.nomeLocalGuardado();
   // De quem o site pede a senha primeiro: de quem tem lançamento parado na
-  // fila, porque é a senha dele que faz a fila andar.
-  const sugerido = (fila[0] && fila[0].autor) || guardado || "";
+  // fila, porque é a senha dele que faz a fila andar. Depois, de quem entrou
+  // por último neste aparelho.
+  const deQuem = (fila[0] && fila[0].autor) || guardado || "";
+  const sugerido = (deQuem && await pessoas.emailPorNome(deQuem)) ||
+    await pessoas.ultimoEmail() || "";
 
-  const eNome = el("input", { placeholder: "Seu nome", autocomplete: "username",
-    value: sugerido });
+  const eNome = el("input", { placeholder: "Seu e-mail", autocomplete: "username",
+    inputmode: "email", autocapitalize: "off", value: sugerido });
   const eSenha = el("input", { type: "password", placeholder: "Senha",
     autocomplete: "current-password" });
   const aviso = el("div", {});
@@ -50,13 +56,21 @@ export async function montar(raiz, ctx) {
       e.preventDefault();
       limpar(aviso);
       if (!eNome.value.trim() || !eSenha.value) {
-        aviso.append(el("div", { class: "erro" }, "Preencha nome e senha."));
+        aviso.append(el("div", { class: "erro" }, "Preencha e-mail e senha."));
+        return;
+      }
+      const digitado = eNome.value.trim();
+      const email = digitado.includes("@") ? digitado : await pessoas.emailPorNome(digitado);
+      if (!email) {
+        aviso.append(el("div", { class: "erro" },
+          "Digite o seu e-mail — o mesmo da sua conta. Pelo nome só dá para " +
+          "entrar num aparelho onde você já entrou antes."));
         return;
       }
       botao.disabled = true;
       botao.textContent = "Entrando…";
       try {
-        await nuvem.entrar(eNome.value.trim(), eSenha.value);
+        await nuvem.entrar(email, eSenha.value);
         await pessoas.carregar();
         await ev.carregar();
         avisar(`Olá, ${pessoas.nome().split(" ")[0]}.`);
@@ -72,7 +86,7 @@ export async function montar(raiz, ctx) {
       }
     },
   },
-    campo("Nome", eNome),
+    campo("E-mail", eNome),
     campo("Senha", eSenha),
     botao);
 
@@ -183,33 +197,38 @@ async function entrarLocal(ctx) {
 }
 
 async function criarAcesso() {
-  const eNome = el("input", { placeholder: "Nome, como vai ser digitado" });
+  const eEmail = el("input", { placeholder: "o e-mail da pessoa", autocomplete: "off",
+    inputmode: "email", autocapitalize: "off" });
+  const eNome = el("input", { placeholder: "como aparece nos lançamentos" });
   const eSenha = el("input", { type: "password", placeholder: "pelo menos 6 caracteres" });
-  const ePapel = selecao([{ v: "pcm", t: "PCM / manutenção" },
-    { v: "operacao", t: "Operação" }], "pcm");
   const sugestoes = el("div", { style: "display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px" },
     pessoas.SUGESTAO.map(p => el("button", {
       class: "discreto", type: "button",
-      onclick: () => { eNome.value = p.nome; ePapel.value = p.papel; },
+      onclick: () => { eNome.value = p.nome; },
     }, p.nome)));
 
   const r = await caixa({
     titulo: "Criar acesso",
     corpo: el("div", {},
       el("p", { style: "font-size:13px;color:var(--fraco)" },
-        "Use uma vez por pessoa. O papel que vale é o da tabela ", el("code", {}, "pessoas"),
-        " no banco — este aqui só fica guardado junto do acesso."),
+        "Para quem ainda não tem conta. Use o e-mail de verdade da pessoa — o ",
+        "Supabase recusa endereço inventado."),
+      el("p", { style: "font-size:13px;color:var(--fraco)" },
+        "Depois de criar, o acesso só funciona quando o e-mail for cadastrado na ",
+        "tabela ", el("code", {}, "pessoas"), " com o papel — é lá que se diz quem é ",
+        "PCM e quem é operação, e o site não consegue escrever nela."),
+      campo("E-mail", eEmail),
       sugestoes,
       campo("Nome", eNome),
-      campo("Senha", eSenha),
-      campo("Papel", ePapel)),
+      campo("Senha", eSenha)),
     acoes: [{ rotulo: "Cancelar", valor: false },
       { rotulo: "Criar", classe: "primario", valor: true }],
   });
   if (r !== true) return;
   try {
-    await nuvem.criarAcesso(eNome.value.trim(), eSenha.value, ePapel.value);
-    avisar(`Acesso de ${eNome.value.trim()} criado. Agora é só entrar.`);
+    await nuvem.criarAcesso(eEmail.value.trim(), eSenha.value, eNome.value.trim());
+    avisar(`Acesso de ${eNome.value.trim() || eEmail.value.trim()} criado. ` +
+      "Falta cadastrar o e-mail na tabela pessoas.");
   } catch (e) { erro(e.message); }
 }
 
@@ -225,9 +244,9 @@ function semPapel(raiz, ctx, p) {
         ", e esse endereço não está na tabela ", el("code", {}, "pessoas"),
         " do banco — é ela que diz quem é PCM e quem é operação."),
       el("p", { style: "font-size:13px;color:var(--fraco)" },
-        "Duas causas, nesta ordem: ou falta rodar ",
-        el("code", {}, "sql/02_acesso.sql"), " no SQL Editor do Supabase, ",
-        "ou o nome foi digitado diferente do que está cadastrado lá."),
+        "Peça ao PCM para cadastrar esse e-mail em ", el("code", {}, "pessoas"),
+        ", com o seu nome e o seu papel. Se você tem mais de um e-mail, confira ",
+        "se entrou com o mesmo que foi cadastrado."),
       el("div", { style: "display:flex;gap:8px;margin-top:16px;flex-wrap:wrap" },
         el("button", { class: "primario", onclick: async () => {
           await pessoas.carregar();
@@ -236,6 +255,6 @@ function semPapel(raiz, ctx, p) {
         } }, "Tentar de novo"),
         el("button", { onclick: () => ctx.ir("diagnostico") }, "Ver o diagnóstico"),
         el("button", { onclick: async () => { await pessoas.sair(); ctx.atualizar(); } },
-          "Sair e entrar com outro nome")))));
+          "Sair e entrar com outro e-mail")))));
   return { desmontar: () => document.body.classList.remove("entrando") };
 }

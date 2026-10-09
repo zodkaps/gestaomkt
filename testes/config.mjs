@@ -8,7 +8,7 @@
 // resolve" é só uma frase no LEIAME.
 //
 // Precisa do servidor de mentira em pé — `testes/supabase_falso.mjs`.
-import { servirCopia } from "./sitefalso.mjs";
+import { servirCopia, EQUIPE_TESTE, emailDoTeste } from "./sitefalso.mjs";
 
 const NUVEM = process.env.NUVEM_FALSA || "http://127.0.0.1:8124";
 const PORTA = 8125;
@@ -36,24 +36,40 @@ await p.waitForTimeout(600);
 const estado = await p.evaluate(() => ({
   ligada: mkt.nuvem.ligada(),
   endereco: mkt.nuvem.endereco(),
-  podeDigitar: !document.querySelector('input[placeholder="Seu nome"]').disabled,
+  podeDigitar: !document.querySelector('input[placeholder="Seu e-mail"]').disabled,
 }));
 ok("abre já ligado, sem ninguém colar nada", estado.ligada, JSON.stringify(estado));
 ok("e o endereço é o do config", estado.endereco === NUVEM, estado.endereco);
 ok("a tela de entrar aceita digitar", estado.podeDigitar);
 
-await p.evaluate(async () => {
-  for (const q of mkt.pessoas.SUGESTAO) {
-    try { await mkt.nuvem.criarAcesso(q.nome, "makro2026", q.papel); } catch (e) { /* já existe */ }
+// ── o defeito que trancou a equipe: e-mail inventado ──────────────────────
+// A primeira versão fazia "Pedro" virar pedro@makro.local. O Supabase recusa
+// domínio de teste, e este servidor de mentira deixava passar — os testes
+// ficavam verdes com um cadastro que nunca funcionaria de verdade.
+const direto = await fetch(`${NUVEM}/auth/v1/signup`, { method: "POST",
+  headers: { "content-type": "application/json" },
+  body: JSON.stringify({ email: "pedro@makro.local", password: "makro2026" }) });
+ok("o servidor de teste recusa domínio de teste, como o Supabase",
+  direto.status === 400, String(direto.status));
+const inventado = await p.evaluate(async () => {
+  try { await mkt.nuvem.criarAcesso("pedro@makro.local", "makro2026", "Pedro"); return ""; }
+  catch (e) { return e.message; }
+});
+ok("e o site avisa em português, antes de tentar",
+  inventado.includes("não aceita") && !/invalid/i.test(inventado), inventado);
+
+await p.evaluate(async equipe => {
+  for (const q of equipe) {
+    try { await mkt.nuvem.criarAcesso(q.email, "makro2026", q.nome); } catch (e) { /* já existe */ }
   }
   await mkt.nuvem.sair();
-});
-await p.fill('input[placeholder="Seu nome"]', "Mateus");
+}, EQUIPE_TESTE);
+await p.fill('input[placeholder="Seu e-mail"]', emailDoTeste("Mateus"));
 await p.fill('input[placeholder="Senha"]', "makro2026");
 await p.click('button[type=submit]');
 await p.waitForTimeout(2500);
 const dentro = await p.evaluate(() => ({ nome: mkt.pessoas.nome(), papel: mkt.pessoas.papel() }));
-ok("entra com nome e senha de primeira", dentro.nome === "Mateus" && dentro.papel === "pcm",
+ok("entra com e-mail e senha de primeira", dentro.nome === "Mateus" && dentro.papel === "pcm",
   JSON.stringify(dentro));
 ok("sem erro de página", erros.length === 0, erros.slice(0, 2).join(" | "));
 
@@ -86,7 +102,7 @@ await p.evaluate(async () => {
 });
 await p.goto(site.endereco, { waitUntil: "networkidle" });
 await p.waitForTimeout(400);
-await p.fill('input[placeholder="Seu nome"]', "Mateus");
+await p.fill('input[placeholder="Seu e-mail"]', emailDoTeste("Mateus"));
 await p.fill('input[placeholder="Senha"]', "makro2026");
 await p.click('button[type=submit]');
 await p.waitForTimeout(1800);
@@ -96,7 +112,7 @@ const semPapel = await p.evaluate(() => ({
 }));
 ok("quem entra sem papel vê a explicação, não um menu vazio",
   semPapel.texto.includes("ainda não tem papel") &&
-  semPapel.texto.includes("mateus@makro.local") && semPapel.menu === 0,
+  semPapel.texto.includes(emailDoTeste("Mateus")) && semPapel.menu === 0,
   JSON.stringify(semPapel).slice(0, 140));
 
 // ── a armadilha da confirmação de e-mail ──────────────────────────────────
@@ -105,35 +121,64 @@ ok("quem entra sem papel vê a explicação, não um menu vazio",
 // depois que os quatro já estão travados.
 await falhar("confirmacao");
 const recusa = await p.evaluate(async () => {
-  try { await mkt.nuvem.criarAcesso("Teste Preso", "makro2026", "pcm"); return ""; }
+  try { await mkt.nuvem.criarAcesso("preso@makroteste.com.br", "makro2026", "Teste Preso"); return ""; }
   catch (e) { return e.message; }
 });
 ok("recusa criar acesso com a confirmação ligada",
   recusa.includes("confirmação de e-mail ligada") && recusa.includes("Confirm email"), recusa);
 
 await falhar("");
-// Nome único por execução: o servidor de mentira guarda as contas entre uma
-// execução e outra, e repetir o nome faria o teste falhar por "já existe".
-const criou = await p.evaluate(async n => {
-  try { await mkt.nuvem.criarAcesso(n, "makro2026", "pcm"); return "criou"; }
-  catch (e) { return e.message; }
-}, "Teste " + Date.now().toString(36));
+// E-mail único por execução: o servidor de mentira guarda as contas entre uma
+// execução e outra, e repetir faria o teste falhar por "já existe".
+const criou = await p.evaluate(async e => {
+  try { await mkt.nuvem.criarAcesso(e, "makro2026", "Teste"); return "criou"; }
+  catch (x) { return x.message; }
+}, `teste-${Date.now().toString(36)}@makroteste.com.br`);
 ok("com a confirmação desligada, cria normalmente", criou === "criou", criou);
 
-// ── nome ou e-mail, a mesma conta ─────────────────────────────────────────
-// O campo se chama "Nome" e ele digitou o e-mail dele. Virava
-// "fulano.gmail.com@makro.local" e dava "nome ou senha não conferem" sem
-// explicar nada — o pior tipo de erro, o que não aponta para lugar nenhum.
+// ── e-mail no primeiro acesso, só a senha depois ──────────────────────────
+// Entrar pelo e-mail é o que o Supabase exige; o atrito disso no dia a dia é
+// o que estes três cuidam.
 await p.evaluate(() => mkt.pessoas.sair());
 await p.goto(site.endereco, { waitUntil: "networkidle" });
-await p.waitForTimeout(400);
-await p.fill('input[placeholder="Seu nome"]', "mateus@makro.local");
+await p.waitForTimeout(500);
+const lembrado = await p.inputValue('input[placeholder="Seu e-mail"]');
+ok("o aparelho lembra o e-mail de quem entrou por último",
+  lembrado === emailDoTeste("Mateus"), lembrado);
+
+// Este aparelho não conhece a equipe ainda (a cópia de `pessoas` veio vazia
+// no teste de quem não tem papel): pelo nome, não há como saber o e-mail.
+await p.fill('input[placeholder="Seu e-mail"]', "Mateus");
+await p.fill('input[placeholder="Senha"]', "makro2026");
+await p.click('button[type=submit]');
+await p.waitForTimeout(800);
+const pedeEmail = await p.evaluate(() =>
+  (document.querySelector("#entrar-tela .erro") || {}).textContent || "");
+ok("num aparelho que não conhece ninguém, pelo nome ele pede o e-mail",
+  pedeEmail.includes("Digite o seu e-mail"), pedeEmail);
+
+await p.fill('input[placeholder="Seu e-mail"]', emailDoTeste("Mateus"));
+await p.click('button[type=submit]');
+await p.waitForTimeout(2200);
+await p.evaluate(() => mkt.pessoas.sair());
+await p.goto(site.endereco, { waitUntil: "networkidle" });
+await p.waitForTimeout(500);
+await p.fill('input[placeholder="Seu e-mail"]', "lucas");
 await p.fill('input[placeholder="Senha"]', "makro2026");
 await p.click('button[type=submit]');
 await p.waitForTimeout(2200);
-const porEmail = await p.evaluate(() => ({ nome: mkt.pessoas.nome(), papel: mkt.pessoas.papel() }));
-ok("quem digita o e-mail inteiro no campo Nome entra na mesma conta",
-  porEmail.nome === "Mateus" && porEmail.papel === "pcm", JSON.stringify(porEmail));
+const peloNome = await p.evaluate(() => ({ nome: mkt.pessoas.nome(), papel: mkt.pessoas.papel() }));
+ok("num aparelho onde alguém da equipe já entrou, o nome basta",
+  peloNome.nome === "Lucas" && peloNome.papel === "pcm", JSON.stringify(peloNome));
+
+// de volta ao Mateus, para o diagnóstico abaixo
+await p.evaluate(() => mkt.pessoas.sair());
+await p.goto(site.endereco, { waitUntil: "networkidle" });
+await p.waitForTimeout(400);
+await p.fill('input[placeholder="Seu e-mail"]', emailDoTeste("Mateus"));
+await p.fill('input[placeholder="Senha"]', "makro2026");
+await p.click('button[type=submit]');
+await p.waitForTimeout(2200);
 
 // ── o diagnóstico aponta o item certo ─────────────────────────────────────
 // Uma tela, uma passada. O que isto prova é que cada falha acende o SEU item e

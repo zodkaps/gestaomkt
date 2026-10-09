@@ -47,6 +47,17 @@ export function servirCopia({ nuvem, porta = 8125, pasta = "/tmp/mkt-copia-teste
   };
 }
 
+/** A equipe dos testes. E-mails com cara de verdade, porque o Supabase de
+ *  verdade recusa domínio de teste (`.local`, `.test`…) — e o de mentira agora
+ *  recusa igual. Nunca saem desta máquina. */
+export const EQUIPE_TESTE = [
+  { email: "mateus@makroteste.com.br", nome: "Mateus", papel: "pcm" },
+  { email: "lucas@makroteste.com.br", nome: "Lucas", papel: "pcm" },
+  { email: "pedro@makroteste.com.br", nome: "Pedro", papel: "operacao" },
+  { email: "joao.victor@makroteste.com.br", nome: "João Victor", papel: "operacao" },
+];
+export const emailDoTeste = nome => (EQUIPE_TESTE.find(p => p.nome === nome) || {}).email;
+
 /** Trabalhar neste aparelho, sem senha — o caminho de quando a nuvem cai. */
 export async function entrarLocalComo(p, nome) {
   await p.click('button:has-text("Trabalhar neste aparelho")');
@@ -55,13 +66,15 @@ export async function entrarLocalComo(p, nome) {
   await p.waitForTimeout(900);
 }
 
-/** Entra no site como alguém, criando o acesso se ainda não existir. */
-export async function entrarComo(p, nome, senha = "makro2026", papel = "pcm") {
-  await p.evaluate(async ([n, s, pa]) => {
-    try { await mkt.nuvem.criarAcesso(n, s, pa); } catch (e) { /* já existe */ }
+/** Entra no site como alguém da equipe de teste, criando o acesso se ainda não
+ *  existir. O papel vem do servidor (a tabela `pessoas` dele), como no real. */
+export async function entrarComo(p, nome, senha = "makro2026") {
+  const email = emailDoTeste(nome);
+  await p.evaluate(async ([e, s, n]) => {
+    try { await mkt.nuvem.criarAcesso(e, s, n); } catch (x) { /* já existe */ }
     await mkt.nuvem.sair();
-  }, [nome, senha, papel]);
-  await p.fill('input[placeholder="Seu nome"]', nome);
+  }, [email, senha, nome]);
+  await p.fill('input[placeholder="Seu e-mail"]', email);
   await p.fill('input[placeholder="Senha"]', senha);
   await p.click('button[type=submit]');
   await p.waitForTimeout(2200);

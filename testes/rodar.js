@@ -32,10 +32,10 @@ const nuvem = await import("../js/nuvem.js");
 // quando o celular está sem sinal. Testar por aí exercita o código real em vez
 // de um atalho que só existe no teste.
 const ELENCO = [
-  { email: "mateus@makro.local", nome: "Mateus", papel: "pcm" },
-  { email: "lucas@makro.local", nome: "Lucas", papel: "pcm" },
-  { email: "pedro@makro.local", nome: "Pedro", papel: "operacao" },
-  { email: "joao.victor@makro.local", nome: "João Victor", papel: "operacao" },
+  { email: "mateus@makroteste.com.br", nome: "Mateus", papel: "pcm" },
+  { email: "lucas@makroteste.com.br", nome: "Lucas", papel: "pcm" },
+  { email: "pedro@makroteste.com.br", nome: "Pedro", papel: "operacao" },
+  { email: "joao.victor@makroteste.com.br", nome: "João Victor", papel: "operacao" },
 ];
 async function entrarComo(nome) {
   const p = ELENCO.find(x => x.nome === nome);
@@ -405,16 +405,31 @@ if (abas) {
 // nenhum. Estas verificações cobrem as duas metades do conserto.
 titulo("config.js e pessoas.js — nunca ficar trancado para fora");
 const cfg = await import("../js/config.js");
-igual("quem digita o nome entra no domínio interno",
-  cfg.emailDe("Pedro"), "pedro@makro.local");
-igual("acento e espaço viram um e-mail previsível",
-  cfg.emailDe("João Victor"), "joao.victor@makro.local");
-igual("quem digita o e-mail inteiro entra com ele",
+igual("quem digita o e-mail entra com ele",
   cfg.emailDe("mateusedvaoli@gmail.com"), "mateusedvaoli@gmail.com");
-igual("e o e-mail digitado com maiúscula também",
+igual("e o e-mail digitado com maiúscula e espaço também",
   cfg.emailDe("  Mateus@Gmail.com "), "mateus@gmail.com");
-igual("nome com espaço em volta não deixa ponto sobrando",
-  cfg.emailDe("  Mateus  "), "mateus@makro.local");
+// A primeira versão inventava pedro@makro.local para quem digitasse "Pedro".
+// O Supabase recusa domínio de teste, e foi isso que barrou a equipe.
+igual("nome não vira e-mail inventado", cfg.emailDe("Pedro"), "");
+ok("o domínio que barrou a equipe é reconhecido como de teste",
+  cfg.dominioDeTeste("pedro@makro.local") && cfg.dominioDeTeste("a@b.test") &&
+  cfg.dominioDeTeste("a@example.com"));
+ok("e e-mail de verdade não é", !cfg.dominioDeTeste("lucas.souza@makroengenharia.com") &&
+  !cfg.dominioDeTeste("mateusedvaoli@gmail.com"));
+
+// Pelo nome, só num aparelho que já conhece a equipe — e sem adivinhar.
+await dados.gravarMeta("elenco", [...ELENCO,
+  { email: "mateus@makro.local", nome: "Mateus", papel: "pcm" },     // sobra morta
+  { email: "lucas@outro.com.br", nome: "Lucas", papel: "pcm" }]);   // dois e-mails
+igual("pelo nome acha o e-mail, ignorando sobra com domínio de teste",
+  await pessoas.emailPorNome("mateus"), "mateus@makroteste.com.br");
+igual("acento não atrapalha", await pessoas.emailPorNome("joao victor"),
+  "joao.victor@makroteste.com.br");
+igual("nome com dois e-mails não adivinha: pede o e-mail",
+  await pessoas.emailPorNome("Lucas"), "");
+igual("nome que o aparelho não conhece também não", await pessoas.emailPorNome("Fulano"), "");
+await dados.gravarMeta("elenco", ELENCO);
 
 const antesDaFila = await ev.autoresNaFila();
 const naFila = (lista, n) => (lista.find(a => a.autor === n) || { quantos: 0 }).quantos;

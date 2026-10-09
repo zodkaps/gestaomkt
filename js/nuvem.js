@@ -12,7 +12,7 @@
 // resolve o mesmo em cinco linhas e volta sozinho de qualquer queda.
 
 import * as dados from "./dados.js";
-import { NUVEM, emailDe } from "./config.js";
+import { NUVEM, emailDe, dominioDeTeste } from "./config.js";
 
 const TABELA = "eventos";
 
@@ -101,7 +101,15 @@ async function auth(caminho, corpo) {
 // senha errada não precisa ler "invalid login credentials".
 function traduzir(m) {
   const s = String(m).toLowerCase();
-  if (s.includes("invalid login")) return "Nome ou senha não conferem.";
+  if (s.includes("invalid login")) return "E-mail ou senha não conferem.";
+  // Foi este que barrou a primeira tentativa: o site inventava
+  // pedro@makro.local, e o Supabase recusa domínio de teste. Em inglês, cru,
+  // ninguém entende que o problema é o ENDEREÇO, não a senha.
+  if ((s.includes("email address") && s.includes("invalid")) ||
+      s.includes("example and test domains")) {
+    return "O Supabase não aceita esse e-mail — domínio de teste ou endereço " +
+      "inválido. Use o seu e-mail de verdade.";
+  }
   if (s.includes("email not confirmed")) {
     // Duas coisas, e a segunda é a que trava: desligar a opção vale para os
     // PRÓXIMOS cadastros; quem já foi criado continua preso. Dizer só a
@@ -113,7 +121,7 @@ function traduzir(m) {
       "porque desligar a opção não solta os acessos que já foram criados.";
   }
   if (s.includes("already registered") || s.includes("already been registered")) {
-    return "Já existe acesso com esse nome.";
+    return "Já existe acesso com esse e-mail — é só entrar com a senha dele.";
   }
   if (s.includes("password should be")) return "A senha precisa ter pelo menos 6 caracteres.";
   // Dois interruptores diferentes, e confundi-los foi o que travou a equipe:
@@ -154,22 +162,28 @@ function traduzir(m) {
   return m;
 }
 
-async function guardar(j, nome) {
+async function guardar(j, email) {
+  const meta = (j.user && j.user.user_metadata) || {};
   sessao = {
     access_token: j.access_token,
     refresh_token: j.refresh_token,
     expira_em: Date.now() + (Number(j.expires_in) || 3600) * 1000,
-    email: (j.user && j.user.email) || emailDe(nome),
-    nome: nome || ((j.user && j.user.user_metadata && j.user.user_metadata.nome) || ""),
+    email: (j.user && j.user.email) || email,
+    nome: meta.nome || "",
   };
   await dados.gravarMeta("sessao", sessao);
   return sessao;
 }
 
-export async function entrar(nome, senha) {
+export async function entrar(email, senha) {
   if (!ligada()) throw new Error("A nuvem ainda não está ligada.");
-  const j = await auth("token?grant_type=password", { email: emailDe(nome), password: senha });
-  const s = await guardar(j, nome);
+  const e = emailDe(email);
+  if (!e) throw new Error("Digite o seu e-mail — o mesmo da sua conta.");
+  const j = await auth("token?grant_type=password", { email: e, password: senha });
+  const s = await guardar(j, e);
+  // O próximo acesso neste aparelho já começa com o e-mail preenchido: depois
+  // da primeira vez, entrar é só a senha.
+  await dados.gravarMeta("ultimo_email", s.email);
   // Entrar muda tanto quanto ligar o endereço: antes disto não havia sessão e
   // portanto não havia o que sincronizar. Quem escuta tem de ser avisado agora,
   // senão quem acabou de entrar fica olhando uma tela vazia até recarregar.
@@ -184,8 +198,13 @@ export async function opcoes() {
   return r.json();
 }
 
-export async function criarAcesso(nome, senha, papel) {
+export async function criarAcesso(email, senha, nome = "") {
   if (!ligada()) throw new Error("A nuvem ainda não está ligada.");
+  const e = emailDe(email);
+  if (!e) throw new Error("Digite um e-mail de verdade — é com ele que a pessoa vai entrar.");
+  if (dominioDeTeste(e)) {
+    throw new Error("O Supabase não aceita esse domínio (é de teste). Use o e-mail de verdade da pessoa.");
+  }
 
   // Pergunta antes de criar. Com a confirmação ligada — que é como um projeto
   // Supabase vem de fábrica — os acessos nasceriam presos, esperando um e-mail
@@ -199,18 +218,17 @@ export async function criarAcesso(nome, senha, papel) {
   } catch (e) {
     if (e.message === "CONFIRMACAO_LIGADA") {
       throw new Error("Este projeto está com confirmação de e-mail ligada. " +
-        "Os acessos nasceriam presos, esperando um e-mail que nunca chega — " +
-        "ninguém tem caixa postal em @makro.local. Desligue em Authentication → " +
+        "O acesso nasceria preso, esperando um e-mail que o envio embutido do " +
+        "Supabase não entrega para todo mundo. Desligue em Authentication → " +
         "Sign In / Providers → Email → 'Confirm email', e volte aqui.");
     }
     // Não deu para perguntar (sem rede, versão que não responde isso): segue e
     // cria. Melhor tentar do que travar por causa da checagem.
   }
 
-  const j = await auth("signup", {
-    email: emailDe(nome), password: senha,
-    data: { nome, papel },           // guarda o nome; o PAPEL que vale é o da tabela `pessoas`
-  });
+  // Só o nome vai junto, para o painel mostrar de quem é a conta. Papel não:
+  // quem decide papel é a tabela `pessoas`, que o site não escreve.
+  const j = await auth("signup", { email: e, password: senha, data: { nome } });
   return j;
 }
 
@@ -235,7 +253,7 @@ async function renovarSePreciso() {
   if (Date.now() < sessao.expira_em - 60000) return sessao;
   try {
     const j = await auth("token?grant_type=refresh_token", { refresh_token: sessao.refresh_token });
-    return guardar(j, sessao.nome);
+    return guardar(j, sessao.email);
   } catch (e) {
     return sessao;
   }
@@ -449,8 +467,11 @@ export async function diagnostico() {
       const eu = (await lerPessoas()).find(p => p.email === emailAtual());
       juntar("eu", "Seu acesso tem papel", eu ? "ok" : "falta",
         eu ? `${eu.nome} · ${eu.papel}` : `${emailAtual()} não está na tabela pessoas`,
-        eu ? "" : "Rode o 02_acesso.sql, ou confira se o nome digitado é o mesmo " +
-          "que está cadastrado lá.", eu ? "" : "sql/02_acesso.sql");
+        // O conserto é uma linha com o e-mail desta pessoa — mostrar a linha
+        // pronta poupa ter de explicar a tabela para quem só quer entrar.
+        eu ? "" : "No SQL Editor do Supabase: insert into public.pessoas (email, nome, papel) " +
+          `values ('${emailAtual()}', 'Seu nome', 'pcm');  — troque o nome, e o papel ` +
+          "para 'operacao' se for da operação.");
     } catch (e) {
       juntar("eu", "Seu acesso tem papel", "naosei", e.message);
     }

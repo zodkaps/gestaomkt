@@ -2,13 +2,18 @@
 // Serve para dirigir o site de verdade: entrar com senha, e ver o servidor
 // recusar o que o papel não permite.
 import { createServer } from "node:http";
+import { EQUIPE_TESTE } from "./sitefalso.mjs";
 
-const PESSOAS = [
-  { email: "mateus@makro.local", nome: "Mateus", papel: "pcm" },
-  { email: "lucas@makro.local", nome: "Lucas", papel: "pcm" },
-  { email: "pedro@makro.local", nome: "Pedro", papel: "operacao" },
-  { email: "joao.victor@makro.local", nome: "João Victor", papel: "operacao" },
-];
+const PESSOAS = EQUIPE_TESTE;
+
+// O Supabase de verdade recusa domínio de teste — "Example and test domains
+// are currently not supported". Foi isso que barrou o primeiro acesso da
+// equipe, e este servidor deixava passar: os testes ficavam verdes com um
+// cadastro que nunca funcionaria. Agora recusa igual.
+const dominioDeTeste = email => {
+  const d = String(email || "").toLowerCase().split("@")[1] || "";
+  return /\.(local|test|example|invalid|localhost)$/.test(d) || /^example\.(com|net|org)$/.test(d);
+};
 const TIPOS_OPERACAO = new Set(["criada", "importada", "editada",
   "mov_prometida", "mov_chegou", "mov_cancelada", "prev_disponivel"]);
 
@@ -68,6 +73,10 @@ createServer(async (req, res) => {
     if (falha === "provedor_off") {
       return json(res, 422, { error_code: "email_provider_disabled",
         msg: "Email signups are disabled" });
+    }
+    if (dominioDeTeste(b.email)) {
+      return json(res, 400, { error_code: "email_address_invalid",
+        msg: `Email address "${b.email}" is invalid` });
     }
     if (contas.has(b.email)) return json(res, 400, { msg: "User already registered" });
     contas.set(b.email, b.password);
