@@ -39,15 +39,15 @@ export async function montar(raiz, ctx, params) {
     if (!frota) { corpo.append(vazio("Escolha uma frota.")); return; }
 
     const todas = ev.lista().filter(a => a.frota === frota);
-    const abertas = todas.filter(a => !a.concluida_em && !a.cancelada);
-    const feitas = todas.filter(a => a.concluida_em);
+    const abertas = todas.filter(M.aberta);
+    const feitas = todas.filter(M.feita);
     const programadas = abertas.filter(a => a.semana);
     const carteira = abertas.filter(a => !a.semana);
     const vencidas = programadas.filter(a => M.situacaoDe(a) === "VENCIDA");
     const reprog = todas.reduce((s, a) => s + (a.reprogramacoes || 0), 0);
     const comOS = todas.filter(a => a.os).length;
     const cliente = (todas.find(a => a.cliente) || {}).cliente;
-    const ultima = feitas.map(a => a.concluida_em).sort().pop();
+    const ultima = feitas.map(a => a.concluida_em).filter(Boolean).sort().pop();
 
     corpo.append(el("div", { class: "numeros", style: "margin-bottom:18px" },
       cartaoNumero(abertas.length, "em aberto",
@@ -73,7 +73,7 @@ export async function montar(raiz, ctx, params) {
     if (feitas.length) {
       corpo.append(secao("Histórico de serviços",
         el("div", { class: "lista" },
-          feitas.sort((x, y) => y.concluida_em.localeCompare(x.concluida_em))
+          feitas.sort((x, y) => (y.concluida_em || "").localeCompare(x.concluida_em || ""))
             .map(a => cartao(a, { ctx, compacto: true }))),
         feitas.length));
     }

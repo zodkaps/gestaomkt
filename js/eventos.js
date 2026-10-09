@@ -59,7 +59,24 @@ export const estado = {
 
 const ouvintes = new Set();
 export function ouvir(fn) { ouvintes.add(fn); return () => ouvintes.delete(fn); }
-function avisar() { for (const fn of ouvintes) fn(); }
+
+// Uma mudança costuma avisar duas ou três vezes seguidas: o lançamento, depois
+// a subida para o banco, depois a volta da consulta. Cada aviso repintava a
+// tela inteira. Agora os avisos do mesmo instante viram UMA repintura, no
+// próximo quadro — e quem está olhando vê a linha mudar, não a tela piscar.
+let marcado = false;
+function avisar() {
+  if (marcado) return;
+  marcado = true;
+  const rodar = () => {
+    marcado = false;
+    for (const fn of ouvintes) {
+      try { fn(); } catch (e) { console.error(e); }
+    }
+  };
+  if (typeof requestAnimationFrame === "function") requestAnimationFrame(rodar);
+  else queueMicrotask(rodar);
+}
 export function forcarAviso() { avisar(); }
 
 export function novoId() {
@@ -93,7 +110,17 @@ export function dobrar(mapas, ev) {
     // Reimportar a mesma linha ATUALIZA em vez de criar outra: a planilha
     // passou a carregar ID estável, e é isso que deixa planilha e site
     // conviverem durante a transição sem duplicar 754 atividades.
-    m.set(ev.alvo, { ...base, ...(antes || {}), ...d, id: ev.alvo,
+    //
+    // Mas o que foi lançado NO SITE vale mais que a planilha. Sem isto,
+    // reimportar passava por cima de tudo: a chegada da frota apontada aqui, a
+    // baixa dada aqui, a reprogramação feita aqui — a planilha não sabe delas e
+    // a importação mais recente vencia, apagando o trabalho de quem lançou. Os
+    // campos que algum lançamento do site mexeu ficam como estão; o resto a
+    // planilha atualiza.
+    const doSite = (antes && antes._site) || {};
+    const daPlanilha = {};
+    for (const [k, v] of Object.entries(d)) if (!doSite[k]) daPlanilha[k] = v;
+    m.set(ev.alvo, { ...base, ...(antes || {}), ...daPlanilha, id: ev.alvo,
       criada_em: (antes && antes.criada_em) || ev.ts });
     return mapas;
   }
@@ -101,6 +128,17 @@ export function dobrar(mapas, ev) {
   const a = m.get(ev.alvo);
   if (!a) return mapas;                 // evento órfão: fita truncada, segue
 
+  // Anota o que este lançamento do site mudou, campo a campo, para uma
+  // reimportação depois não desfazer.
+  const anterior = { ...a };
+  aplicarNoAlvo(a, ev, d);
+  for (const k of Object.keys(a)) {
+    if (k !== "_site" && a[k] !== anterior[k]) a._site = { ...(a._site || {}), [k]: true };
+  }
+  return mapas;
+}
+
+function aplicarNoAlvo(a, ev, d) {
   switch (ev.tipo) {
     case "editada":
       Object.assign(a, d.para || {});
@@ -124,9 +162,11 @@ export function dobrar(mapas, ev) {
       break;
     case "concluida":
       a.concluida_em = d.em || "";
+      a.feita_sem_data = false;          // a data chegou: deixa de ser "sem data"
       break;
     case "reaberta":
       a.concluida_em = "";
+      a.feita_sem_data = false;
       break;
     case "cancelada":
       a.cancelada = true;
@@ -169,7 +209,6 @@ export function dobrar(mapas, ev) {
       a.motivo = ev.motivo || a.motivo;
       break;
   }
-  return mapas;
 }
 
 /** Toca a fita inteira e devolve o estado. É a definição do estado, não uma

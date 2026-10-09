@@ -620,6 +620,243 @@ textarea.sql {
   font-size: 12px; line-height: 1.55; white-space: pre; resize: vertical;
 }
 
+/* ── a grade: a aba Programação da planilha ────────────────────────────────
+   Uma linha por atividade, Situação colorida na frente, linha feita com fundo
+   verde — o mesmo código de cor da planilha, trazido para o fundo escuro. Sem
+   rolagem interna: a página rola, e o cabeçalho gruda logo abaixo da barra do
+   topo. Rolagem dentro de quadro era o que fazia a lista "voltar ao topo"
+   sempre que algo mudava. */
+
+.grade {
+  width: 100%; border-collapse: separate; border-spacing: 0; font-size: 13px;
+  table-layout: fixed; background: var(--papel);
+  border: 1px solid var(--linha); border-radius: var(--raio);
+}
+.grade th {
+  position: sticky; top: var(--topo); z-index: 2;
+  background: var(--papel2); text-align: left; font-size: 10.5px;
+  text-transform: uppercase; letter-spacing: .05em; color: var(--muito-fraco);
+  font-weight: 650; padding: 8px 8px; border-bottom: 1px solid var(--borda);
+}
+.grade th:first-child { border-top-left-radius: var(--raio); }
+.grade th:last-child { border-top-right-radius: var(--raio); }
+.grade td {
+  padding: 6px 8px; border-bottom: 1px solid var(--linha); vertical-align: top;
+  overflow-wrap: anywhere;
+}
+.grade .num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.grade .seg { color: var(--muito-fraco); font-size: 11.5px; }
+
+/* larguras: a atividade fica com o que sobrar */
+.grade .c-sel   { width: 30px; text-align: center; padding-left: 4px; padding-right: 4px; }
+.grade .c-sit   { width: 132px; }
+.grade .c-os    { width: 74px; }
+.grade .c-quem  { width: 150px; }
+.grade td.c-quem { color: var(--fraco); font-size: 12px; }
+/* a regra geral dá 100% de largura a todo input — caixinha não */
+.grade input[type=checkbox], .bloco-cab input[type=checkbox] { width: auto; margin: 0; }
+.grade .c-sem   { width: 70px; }
+.grade .c-hh    { width: 44px; }
+.grade .c-prazo { width: 58px; }
+.grade .c-feito { width: 98px; text-align: right; }
+@media (max-width: 1180px) { .grade .c-quem { display: none; } }
+@media (max-width: 1000px) { .grade .c-hh { display: none; } }
+
+.grade tr.lin { cursor: pointer; }
+.grade tr.lin:hover td { background: var(--papel2); }
+.grade tr.lin.feita td { background: var(--ok-fundo); }
+.grade tr.lin.feita:hover td { background: color-mix(in srgb, var(--ok-fundo) 80%, var(--ok) 20%); }
+.grade tr.lin.cancel td { color: var(--muito-fraco); }
+.grade tr.lin.cancel .t { text-decoration: line-through; }
+.grade tr.lin.marcada td { background: var(--marca-clara); }
+
+/* a Situação: a célula inteira na cor, como a coluna B da planilha */
+.sit {
+  display: inline-block; padding: 2px 8px; border-radius: 5px; font-size: 11.5px;
+  font-weight: 650; white-space: nowrap; max-width: 100%; overflow: hidden; text-overflow: ellipsis;
+  background: var(--papel3); color: var(--fraco);
+}
+.sit.ok         { background: var(--ok-fundo); color: var(--ok); }
+.sit.ok-tarde   { background: var(--ok-tarde-fundo); color: var(--ok-tarde); }
+.sit.vencida    { background: var(--vencida-fundo); color: var(--vencida); }
+.sit.hoje       { background: var(--hoje-fundo); color: var(--hoje); }
+.sit.andando    { background: var(--andando-fundo); color: var(--andando); }
+.sit.programada { background: var(--programada-fundo); color: var(--programada); }
+.sit.carteira   { background: var(--carteira-fundo); color: var(--carteira); }
+.sit.cancelada  { background: var(--cancelada-fundo); color: var(--cancelada); }
+.grade tr.lin.feita .sit.ok { background: transparent; padding-left: 0; }
+
+/* o prazo pinta junto com a situação, como as colunas O e P da planilha */
+.grade tr.vencida .c-prazo { color: var(--vencida); font-weight: 650; }
+.grade tr.hoje .c-prazo    { color: var(--hoje); font-weight: 650; }
+.grade tr.andando .c-prazo { color: var(--andando); }
+
+.grade .os { font-variant-numeric: tabular-nums; color: var(--ok); font-weight: 600; }
+.grade .sem-os { color: var(--hoje); font-size: 11.5px; }
+.grade .c-ativ .t { line-height: 1.4; }
+.grade .c-ativ .fr { font-weight: 650; }
+.grade .porque { font-size: 11.5px; color: var(--hoje); margin-top: 2px; }
+.grade .porque::before { content: "por quê: "; color: var(--muito-fraco); }
+.tag {
+  display: inline-block; font-size: 10.5px; font-weight: 600; padding: 0 6px;
+  border-radius: 4px; background: var(--papel3); color: var(--fraco);
+  vertical-align: 1px; margin-left: 3px; white-space: nowrap;
+}
+/* Extra em laranja, como a coluna Origem da planilha */
+.tag.extra { background: var(--ok-tarde-fundo); color: var(--ok-tarde); }
+.tag.p1 { background: var(--p1-fundo); color: var(--p1); }
+.tag.reprog { background: var(--hoje-fundo); color: var(--hoje); }
+
+.feito-em { color: var(--ok); font-weight: 650; font-variant-numeric: tabular-nums; }
+button.mini { font-size: 11.5px; padding: 1px 8px; line-height: 1.5; }
+button.mini.baixa { color: var(--muito-fraco); background: transparent; }
+.grade tr.lin:hover button.mini.baixa { color: var(--fraco); background: var(--papel2); }
+button.mini.baixa:hover { color: var(--texto); border-color: var(--ok); }
+.sem-data, button.mini.sem-data { color: var(--hoje); font-weight: 650; }
+button.mini.sem-data { border-color: var(--hoje); background: var(--hoje-fundo); }
+
+/* o cabeçalho de cada bloco: a frota numa olhada */
+.grade tr.bloco td {
+  background: var(--fundo); padding: 14px 8px 6px; border-bottom: 1px solid var(--borda);
+  cursor: default;
+}
+.grade tr.bloco:first-child td { padding-top: 8px; }
+.bloco-cab { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.bloco-cab b { font-size: 14px; font-weight: 700; }
+.bloco-cab .espaco { flex: 1; }
+.conta { font-size: 12px; color: var(--fraco); }
+.conta .c-ok { color: var(--ok); }
+.conta .c-venc { color: var(--vencida); font-weight: 600; }
+.conta .c-hoje { color: var(--hoje); }
+.barrinha {
+  display: inline-block; width: 90px; height: 6px; border-radius: 3px;
+  background: var(--papel3); overflow: hidden; flex: 0 0 auto;
+}
+.barrinha > span { display: block; height: 100%; background: var(--ok); }
+
+/* celular: o bloco vira um título com a mesma contagem */
+.bloco-cel {
+  display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+  margin: 16px 0 6px; font-size: 13px;
+}
+.bloco-cel b { font-size: 14px; }
+.so-cartao .at.feito { background: var(--ok-fundo); }
+.so-cartao .at.feito .tit { text-decoration: none; }
+
+/* a faixa de situações: quantas de cada, e o filtro num clique */
+.faixa-sit { display: flex; gap: 6px; flex-wrap: wrap; margin: 10px 0 12px; }
+.fsit {
+  font-size: 12px; padding: 4px 10px; border-radius: 999px; gap: 5px;
+  background: var(--papel); border: 1px solid var(--linha); color: var(--fraco);
+}
+.fsit b { font-variant-numeric: tabular-nums; }
+.fsit.on { border-color: currentColor; box-shadow: inset 0 0 0 1px currentColor; }
+.fsit.ok { color: var(--ok); }        .fsit.ok.on { background: var(--ok-fundo); }
+.fsit.ok-tarde { color: var(--ok-tarde); } .fsit.ok-tarde.on { background: var(--ok-tarde-fundo); }
+.fsit.vencida { color: var(--vencida); } .fsit.vencida.on { background: var(--vencida-fundo); }
+.fsit.hoje { color: var(--hoje); }    .fsit.hoje.on { background: var(--hoje-fundo); }
+.fsit.andando { color: var(--andando); } .fsit.andando.on { background: var(--andando-fundo); }
+.fsit.programada { color: var(--programada); } .fsit.programada.on { background: var(--programada-fundo); }
+.fsit.carteira { color: var(--carteira); } .fsit.carteira.on { background: var(--carteira-fundo); }
+.fsit.cancelada { color: var(--cancelada); } .fsit.cancelada.on { background: var(--cancelada-fundo); }
+.fsit.todas.on { color: var(--texto); background: var(--papel2); }
+
+/* o progresso grande: o número que se olha primeiro */
+.progresso {
+  display: flex; align-items: center; gap: 14px; background: var(--papel);
+  border: 1px solid var(--linha); border-radius: var(--raio); padding: 12px 14px;
+}
+.progresso .p-num { font-size: 28px; font-weight: 700; min-width: 70px; font-variant-numeric: tabular-nums; white-space: nowrap; color: var(--ok); }
+.progresso .p-num small { font-size: 15px; font-weight: 600; color: var(--fraco); }
+.progresso.so-texto .p-num { color: var(--texto); }
+.progresso .p-meio { flex: 1; min-width: 0; }
+.progresso .p-tit { font-size: 13px; font-weight: 600; }
+.progresso .p-trilho { height: 8px; border-radius: 4px; background: var(--papel3); overflow: hidden; margin: 7px 0 5px; }
+.progresso .p-trilho > span { display: block; height: 100%; background: var(--ok); }
+.progresso .p-txt { font-size: 12px; color: var(--fraco); }
+.progresso.so-texto .p-num { min-width: 0; }
+
+/* o recorte de período: semana ‹ › · em aberto · carteira · tudo */
+.segmentos { display: inline-flex; gap: 0; border: 1px solid var(--borda); border-radius: 7px; overflow: hidden; flex-wrap: wrap; }
+.segmentos .seg-sem { display: inline-flex; }
+.seg-op {
+  border: 0; border-radius: 0; background: transparent; color: var(--fraco);
+  padding: 6px 11px; font-size: 12.5px; border-right: 1px solid var(--linha);
+}
+.seg-op.seta { padding: 6px 8px; color: var(--muito-fraco); }
+.segmentos > .seg-op:last-child { border-right: 0; }
+.seg-op.on, .seg-sem.on .seg-op[data-p] { background: var(--marca-clara); color: var(--texto); font-weight: 600; }
+.filtros .agrupar { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: var(--fraco); }
+.filtros .agrupar select { min-width: 0; }
+
+.barra-sel {
+  position: sticky; top: calc(var(--topo) + 6px); z-index: 3;
+  display: flex; align-items: center; gap: 8px; margin-bottom: 10px;
+  background: var(--marca-clara); border: 1px solid var(--marca); border-radius: var(--raio);
+  padding: 8px 12px;
+}
+.barra-sel[hidden] { display: none; }
+.barra-sel .espaco { flex: 1; }
+
+/* os números do topo, como as caixas das abas Hoje e Semana */
+.kpis { display: grid; gap: 10px; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); margin: 4px 0 14px; }
+.kpi {
+  background: var(--papel); border: 1px solid var(--linha); border-radius: var(--raio);
+  padding: 10px 12px; border-top: 3px solid var(--borda);
+}
+.kpi .k-rot { font-size: 10.5px; text-transform: uppercase; letter-spacing: .06em; color: var(--muito-fraco); font-weight: 650; }
+.kpi .k-val { font-size: 26px; font-weight: 700; line-height: 1.15; margin-top: 3px; font-variant-numeric: tabular-nums; }
+.kpi .k-det { font-size: 11.5px; color: var(--fraco); margin-top: 2px; }
+.kpi.ok { border-top-color: var(--ok); }      .kpi.ok .k-val { color: var(--ok); }
+.kpi.vencida { border-top-color: var(--vencida); } .kpi.vencida .k-val { color: var(--vencida); }
+.kpi.hoje { border-top-color: var(--hoje); }  .kpi.hoje .k-val { color: var(--hoje); }
+.kpi.andando { border-top-color: var(--andando); } .kpi.andando .k-val { color: var(--andando); }
+.kpi.extra { border-top-color: var(--ok-tarde); } .kpi.extra .k-val { color: var(--ok-tarde); }
+
+/* Resultados: os dois números da reunião, grandes, lado a lado */
+.grandes { display: grid; gap: 12px; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); margin-bottom: 16px; }
+.grande {
+  background: var(--papel); border: 1px solid var(--linha); border-radius: var(--raio);
+  padding: 14px 16px; text-align: center; border-top: 4px solid var(--borda);
+}
+.grande .g-tit { font-size: 11px; text-transform: uppercase; letter-spacing: .07em; color: var(--muito-fraco); font-weight: 700; }
+.grande .g-val { font-size: 46px; font-weight: 750; line-height: 1.1; margin: 6px 0 4px; font-variant-numeric: tabular-nums; }
+.grande .g-txt { font-size: 12.5px; color: var(--fraco); line-height: 1.45; max-width: 46ch; margin: 0 auto; }
+.grande.ok { border-top-color: var(--ok); }           .grande.ok .g-val { color: var(--ok); }
+.grande.hoje { border-top-color: var(--hoje); }       .grande.hoje .g-val { color: var(--hoje); }
+.grande.vencida { border-top-color: var(--vencida); } .grande.vencida .g-val { color: var(--vencida); }
+
+.tabela.indicadores td.num, .tabela.indicadores th.num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.tabela.indicadores td.como { color: var(--muito-fraco); font-size: 12px; }
+.tabela.indicadores tr.sec td {
+  background: var(--papel2); font-size: 10.5px; text-transform: uppercase; letter-spacing: .06em;
+  font-weight: 700; color: var(--fraco); padding-top: 9px;
+}
+.tabela.indicadores tr.forte td { font-weight: 650; }
+.tabela.indicadores td.ok { color: var(--ok); font-weight: 650; }
+.tabela.indicadores td.hoje { color: var(--hoje); font-weight: 650; }
+.tabela.indicadores td.vencida { color: var(--vencida); font-weight: 650; }
+.tabela.indicadores td.c-extra { color: var(--ok-tarde); }
+.tabela.indicadores td.c-semos { color: var(--hoje); }
+details.outros { margin-top: 22px; }
+details.outros > summary {
+  cursor: pointer; font-size: 13px; color: var(--fraco); padding: 10px 12px;
+  background: var(--papel); border: 1px solid var(--linha); border-radius: var(--raio);
+}
+details.outros[open] > summary { margin-bottom: 12px; }
+
+.tabela.carga td.num, .tabela.carga th.num { text-align: right; font-variant-numeric: tabular-nums; }
+.tabela.carga td.vencida { color: var(--vencida); font-weight: 650; }
+.tabela.carga td.hoje { color: var(--hoje); font-weight: 650; }
+.tabela.carga td.c-venc { color: var(--hoje); }
+
+.titulo-secao {
+  font-size: 11.5px; text-transform: uppercase; letter-spacing: .07em; color: var(--muito-fraco);
+  font-weight: 700; margin: 22px 0 8px; display: flex; align-items: center; gap: 8px;
+}
+.titulo-secao .n { color: var(--fraco); font-weight: 600; letter-spacing: 0; }
+.nota { font-size: 12px; color: var(--muito-fraco); margin: -4px 0 12px; }
+
 @media print {
   #menu, #topo button, .acoes, #faixa { display: none !important; }
   #corpo { margin-left: 0; }

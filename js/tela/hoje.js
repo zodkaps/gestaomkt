@@ -1,97 +1,94 @@
-// O dia da oficina: o que está em execução, o que venceu, o que já saiu.
+// Hoje — a aba Hoje da planilha.
 //
-// Agrupado por executante porque é assim que o trabalho é entregue — cada um
-// olha o próprio bloco. E dar baixa é um botão no cartão, não um caminho por
-// dentro da ficha: fechar serviço é o que mais se faz aqui.
+// Os números do dia no alto, como as caixas da planilha (contando só a oficina
+// interna, que é a equipe que se mede), e embaixo duas listas na mesma grade da
+// Programação: o que está na janela deste dia, feito ou não, e o que já passou
+// do prazo. Dar baixa é na própria linha.
+//
+// Dá para olhar outro dia: a situação de cada atividade é calculada para a data
+// escolhida, não para hoje.
 
 import * as ev from "../eventos.js";
 import * as M from "../modelo.js";
-import { el, limpar, br, avisar, vazio } from "../ui.js";
-import { cartao, botaoConcluir, agrupar, secao, criarNova } from "./comum.js";
+import * as pessoas from "../pessoas.js";
+import { el, limpar, br } from "../ui.js";
+import { criarNova } from "./comum.js";
+import { grade } from "./grade.js";
+
+const NOMES = ["domingo", "segunda-feira", "terça-feira", "quarta-feira",
+  "quinta-feira", "sexta-feira", "sábado"];
 
 export async function montar(raiz, ctx, params) {
   let dia = params.get("d") || M.hoje();
 
   const entradaDia = el("input", { type: "date", value: dia, style: "width:auto",
     onchange: () => { dia = entradaDia.value || M.hoje(); pintar(); } });
-
+  const quando = el("span", { class: "sub" });
   const corpo = el("div", {});
   raiz.append(
     el("div", { class: "cabec" },
-      el("h1", {}, "Hoje"),
-      el("span", { class: "sub" }, entradaDia),
+      el("h1", {}, "Hoje"), entradaDia, quando,
+      el("button", { onclick: () => { entradaDia.value = M.hoje(); dia = M.hoje(); pintar(); } },
+        "Voltar para hoje"),
       el("div", { class: "espaco" }),
-      el("button", { onclick: () => { entradaDia.value = M.hoje(); dia = M.hoje(); pintar(); } }, "Voltar para hoje"),
-      el("button", { class: "primario", onclick: () => criarNova(ctx, { origem: "Extra" }) }, "+ Extra")),
+      pessoas.pode("programar")
+        ? el("button", { class: "primario", onclick: () => criarNova(ctx, { origem: "Extra" }) }, "+ Extra")
+        : null),
     corpo);
+
+  const kpi = (rot, val, det, cls = "") =>
+    el("div", { class: "kpi " + cls },
+      el("div", { class: "k-rot" }, rot),
+      el("div", { class: "k-val" }, String(val)),
+      det ? el("div", { class: "k-det" }, det) : null);
 
   function pintar() {
     limpar(corpo);
-    const todas = ev.lista();
-
-    const abertas = todas.filter(a => !a.concluida_em && !a.cancelada && a.semana);
-    const noDia = abertas.filter(a => {
-      const i = M.inicioDe(a), p = M.prazoDe(a);
-      return i && i <= dia && p >= dia;
-    });
-    const vencidas = abertas.filter(a => {
-      const p = M.prazoDe(a);
-      return p && p < dia;
-    }).sort((x, y) => M.prazoDe(x).localeCompare(M.prazoDe(y)));
-    const fechadasNoDia = todas.filter(a => a.concluida_em === dia);
-
     const sem = M.semanaISO(dia);
-    const ad = M.aderencia(todas, sem.ano, sem.semana);
+    quando.textContent = `${NOMES[M.data(dia).getUTCDay()]} · semana ${sem.semana}`;
 
-    corpo.append(el("p", { class: "sub", style: "color:var(--fraco);font-size:13px;margin-bottom:14px" },
-      `Semana ${sem.semana} · ${ad.concluidas} de ${ad.programadas} programadas` +
-      (ad.pct == null ? "" : ` · ${ad.pct}%`) +
-      (ad.extras ? ` · ${ad.extras} extra${ad.extras === 1 ? "" : "s"}` : "")));
+    const vivas = ev.lista().filter(a => (a.atividade || a.frota) && !a.cancelada);
+    const naJanela = a => { const i = M.inicioDe(a), p = M.prazoDe(a); return a.dia && i && i <= dia && p >= dia; };
+    const interna = a => M.oficinaDe(a) === "Interna";
 
-    // Vencidas primeiro: é a fila que está atrasando a semana, e enterrá-la no
-    // fim da tela é como ela some por três dias.
-    if (vencidas.length) {
-      corpo.append(secao("Passaram do prazo",
-        el("div", { class: "lista" },
-          vencidas.map(a => cartao(a, { ctx, acoes: [botaoConcluir(a, ctx)] }))),
-        vencidas.length));
-    }
+    const doDia = vivas.filter(naJanela);
+    const atrasadas = vivas.filter(a => M.aberta(a) && a.dia && M.prazoDe(a) && M.prazoDe(a) < dia);
+    const fechadasNoDia = vivas.filter(a => a.concluida_em === dia && !naJanela(a));
 
-    if (!noDia.length) {
-      corpo.append(secao("Do dia", vazio(
-        "Nada em execução neste dia. A programação da semana fica na aba Semana."), 0));
-    } else {
-      const porQuem = agrupar(noDia, a => (a.executantes || []).join(" e ") || "Sem executante");
-      const chaves = [...porQuem.keys()].sort((a, b) => {
-        if (a === "Sem executante") return 1;
-        if (b === "Sem executante") return -1;
-        return a.localeCompare(b, "pt-BR");
-      });
-      const bloco = el("div", {});
-      for (const quem of chaves) {
-        const lista = porQuem.get(quem).sort(ordenar);
-        bloco.append(el("div", { class: "secao" },
-          el("h2", {}, quem, el("span", { class: "cont" }, String(lista.length))),
-          el("div", { class: "lista" },
-            lista.map(a => cartao(a, { ctx, acoes: [botaoConcluir(a, ctx)], compacto: true })))));
-      }
-      corpo.append(secao(`Em execução em ${br(dia)}`, bloco, noDia.length));
+    // As caixas são as da aba Hoje, com as mesmas contas — e, como lá, só a
+    // oficina interna: é a equipe que se mede.
+    const paraFechar = doDia.filter(a => interna(a) && M.prazoDe(a) === dia);
+    const fecharam = paraFechar.filter(M.feita);
+    const emExecucao = doDia.filter(a => interna(a) && M.aberta(a));
+    const atrasadasInt = atrasadas.filter(interna);
+    const pct = paraFechar.length ? Math.round(fecharam.length * 100 / paraFechar.length) + "%" : "—";
+
+    corpo.append(el("div", { class: "kpis" },
+      kpi("Para fechar hoje", paraFechar.length, "o prazo termina neste dia", "hoje"),
+      kpi("Fecharam", fecharam.length, "das que fechavam hoje, saíram", "ok"),
+      kpi("Aderência do dia", pct, "fecharam ÷ para fechar hoje"),
+      kpi("Em execução", emExecucao.length, "a janela contém o dia e não saiu", "andando"),
+      kpi("Atrasadas", atrasadasInt.length, "o prazo já passou", atrasadasInt.length ? "vencida" : "")));
+    corpo.append(el("p", { class: "nota" },
+      "As caixas contam só a oficina interna, como a planilha. As listas mostram tudo, " +
+      "inclusive o que está em empresa de fora."));
+
+    corpo.append(el("div", { class: "titulo-secao" }, "O dia",
+      el("span", { class: "n" }, `· a janela de execução contém ${br(dia)} · ${doDia.length}`)));
+    corpo.append(grade(doDia, { ctx, agrupar: "frota", ref: dia,
+      vazioTexto: "Nada em execução neste dia. A programação da semana fica na Programação." }));
+
+    if (atrasadas.length) {
+      corpo.append(el("div", { class: "titulo-secao" }, "Atrasadas",
+        el("span", { class: "n" }, `· o prazo passou e não saíram · ${atrasadas.length}`)));
+      corpo.append(grade(atrasadas, { ctx, agrupar: "frota", ref: dia }));
     }
 
     if (fechadasNoDia.length) {
-      corpo.append(secao("Fechadas neste dia",
-        el("div", { class: "lista" }, fechadasNoDia.map(a => cartao(a, { ctx }))),
-        fechadasNoDia.length));
+      corpo.append(el("div", { class: "titulo-secao" }, "Também fecharam neste dia",
+        el("span", { class: "n" }, `· de fora da janela · ${fechadasNoDia.length}`)));
+      corpo.append(grade(fechadasNoDia, { ctx, agrupar: "frota", ref: dia }));
     }
-  }
-
-  // Prioridade primeiro, depois o prazo mais apertado: é a ordem em que a
-  // oficina deveria pegar as tarefas.
-  function ordenar(x, y) {
-    const pr = a => ({ P1: 0, P2: 1, P3: 2 })[a.prioridade] ?? 3;
-    return pr(x) - pr(y) ||
-      String(M.prazoDe(x)).localeCompare(String(M.prazoDe(y))) ||
-      String(x.frota).localeCompare(String(y.frota), "pt-BR");
   }
 
   pintar();

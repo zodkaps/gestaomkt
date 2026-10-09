@@ -78,7 +78,6 @@ export async function novaMovimentacao(ctx, sugestao = {}) {
       quem_prometeu: eQuem.value,
     }));
     avisar("Movimentação registrada.");
-    ctx && ctx.atualizar();
     return criado.alvo;
   } catch (e) { erro(e.message); return null; }
 }
@@ -104,7 +103,6 @@ export async function apontarChegada(m, ctx) {
     const atraso = prometida ? Math.max(0, M.difDias(prometida, eData.value) || 0) : 0;
     avisar(atraso ? `${m.frota} voltou com ${atraso} dia(s) de atraso.`
       : `${m.frota} voltou no prazo.`);
-    ctx && ctx.atualizar();
     return true;
   } catch (e) { erro(e.message); return false; }
 }
@@ -126,7 +124,6 @@ export async function prometerData(m, ctx) {
   try {
     await ev.aplicar(ev.prometer(m, eData.value, eQuem.value));
     avisar("Promessa registrada.");
-    ctx && ctx.atualizar();
     return true;
   } catch (e) { erro(e.message); return false; }
 }
@@ -172,7 +169,7 @@ export async function abrirFichaMov(id, ctx) {
         corpo: campo("Motivo", e),
         acoes: [{ rotulo: "Voltar", valor: false }, { rotulo: "Cancelar", classe: "perigo", valor: true }] });
       if (ok !== true) return;
-      try { await ev.aplicar(ev.cancelarMovimentacao(m, e.value)); avisar("Cancelada."); ctx && ctx.atualizar(); }
+      try { await ev.aplicar(ev.cancelarMovimentacao(m, e.value)); avisar("Cancelada."); }
       catch (x) { erro(x.message); }
     } });
   }

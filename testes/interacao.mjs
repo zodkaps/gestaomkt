@@ -47,7 +47,11 @@ await p.waitForTimeout(900);
 // Arrasta de dentro do texto até fora dele, que é como se copia um número.
 await p.fill(".filtros .busca", ALVO);
 await p.waitForTimeout(500);
-const alvo = await p.$(".so-tabela .tab tbody tr td:nth-child(4)") || await p.$(".at .tit");
+// O endereço antigo da Carteira continua valendo: cai na Programação, no
+// recorte "Carteira".
+ok("o endereço antigo da Carteira abre a Programação no recorte da carteira",
+  await p.evaluate(() => !!document.querySelector(".segmentos .seg-op.on[data-p=carteira]")));
+const alvo = await p.$(".so-tabela .grade tr.lin td.c-ativ .t");
 
 // Mede onde o TEXTO está, não onde a célula está: arrastar sobre o espaço
 // vazio de uma célula larga não seleciona nada, e aí o teste mediria um
@@ -120,6 +124,54 @@ const fechou = await p.evaluate(() => ({
 }));
 ok("Enter num campo confirma, sem precisar mirar o botão",
   fechou.caixas === 0 && fechou.em === "2026-10-09", JSON.stringify(fechou));
+
+// ── mudar a situação NÃO recarrega a tela ──────────────────────────────────
+// O defeito que ele relatou: "toda vez que eu altero um status o site
+// basicamente carrega novamente". Cada ação chamava uma remontagem da tela
+// inteira — filtro, busca e rolagem voltavam ao zero. O que se prova: depois
+// de dar baixa na própria linha, a tela é a MESMA (o mesmo elemento, não um
+// novo), a busca continua digitada, a rolagem não pulou, e só a linha mudou.
+const ALVO3 = "F-BAIXA-" + Date.now().toString(36);
+await p.evaluate(async frota => {
+  for (let i = 0; i < 25; i++) {
+    await mkt.ev.aplicar(mkt.ev.criar({ frota, atividade: `Serviço ${String(i).padStart(2, "0")} da baixa`,
+      tipo: "Corretiva" }), { silencioso: true });
+  }
+  mkt.ev.forcarAviso();
+  // "Tudo": no recorte da carteira a linha feita SAI da lista (feita não é
+  // carteira), e aqui se quer ver a mesma linha mudar de cor.
+  location.hash = "#/programacao?m=tudo";
+}, ALVO3);
+await p.waitForTimeout(900);
+await p.fill(".filtros .busca", ALVO3);
+await p.waitForTimeout(600);
+await p.evaluate(() => {
+  document.querySelector("#tela .cabec").__marca = "a mesma tela";
+  window.scrollTo(0, 260);
+});
+await p.waitForTimeout(200);
+const antesDaBaixa = await p.evaluate(() => ({ y: Math.round(window.scrollY) }));
+const linha = await p.$(".so-tabela .grade tr.lin:nth-of-type(8)");
+const idLinha = await linha.getAttribute("data-id");
+await linha.$eval("button.baixa", b => b.click());
+await p.waitForSelector(".caixa input[type=date]", { timeout: 5000 });
+await p.fill(".caixa input[type=date]", "2026-10-09");
+await p.press(".caixa input[type=date]", "Enter");
+await p.waitForTimeout(1500);
+const aposBaixa = await p.evaluate(id => ({
+  mesma: (document.querySelector("#tela .cabec") || {}).__marca === "a mesma tela",
+  busca: document.querySelector(".filtros .busca").value,
+  y: Math.round(window.scrollY),
+  feita: !!document.querySelector(`.so-tabela tr.lin.feita[data-id="${id}"]`),
+  texto: (document.querySelector(`.so-tabela tr.lin[data-id="${id}"] .c-feito`) || {}).textContent || "",
+}), idLinha);
+ok("dar baixa não remonta a tela — é o mesmo elemento de antes", aposBaixa.mesma,
+  JSON.stringify(aposBaixa));
+ok("a busca digitada continua lá", aposBaixa.busca === ALVO3, aposBaixa.busca);
+ok("a rolagem não volta para o topo", Math.abs(aposBaixa.y - antesDaBaixa.y) <= 4,
+  `antes ${antesDaBaixa.y}, depois ${aposBaixa.y}`);
+ok("e a linha muda na hora, verde, com a data", aposBaixa.feita && /09\/10/.test(aposBaixa.texto),
+  JSON.stringify(aposBaixa));
 
 // ── a nuvem cai e o site continua ─────────────────────────────────────────
 // O defeito que isto cobre era de desenho: com o endereço do projeto no

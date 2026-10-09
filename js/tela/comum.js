@@ -32,11 +32,13 @@ export function cartao(a, { ctx, acoes = [], seletor = null, compacto = false } 
   const cor = M.corDe(s);
   const tags = [];
 
-  if (!compacto || s === "VENCIDA") tags.push(chip(s, cor));
+  // A situação aparece sempre, em todo cartão: é o que se quer ver numa olhada.
+  tags.push(chip(s, cor));
   if (a.os) tags.push(chip("OS " + a.os + (a.os_outras.length ? ` +${a.os_outras.length}` : ""), "os"));
-  else if (!a.concluida_em) tags.push(chip("sem OS", "semos"));
-  if (a.prioridade === "P1") tags.push(chip("P1", "p1"));
-  else if (a.prioridade) tags.push(chip(a.prioridade));
+  else if (M.aberta(a)) tags.push(chip("sem OS", "semos"));
+  // Prioridade só no cartão completo: na lista ela aparece em quase toda linha
+  // e vira ruído — na planilha a coluna é oculta.
+  if (!compacto && a.prioridade) tags.push(chip(a.prioridade, a.prioridade === "P1" ? "p1" : ""));
   if (a.origem === "Extra") tags.push(chip("Extra"));
   if (a.reprogramacoes > 0) tags.push(chip(`reprogramada ${a.reprogramacoes}×`, "reprog"));
   if (a.oficina === "Terceirizada") tags.push(chip("terceirizada"));
@@ -46,11 +48,12 @@ export function cartao(a, { ctx, acoes = [], seletor = null, compacto = false } 
   if (a.servico && a.servico !== a.atividade) sub.push(a.servico);
   if ((a.executantes || []).length) sub.push(a.executantes.join(" e "));
   if (a.semana && !compacto) sub.push(`sem ${a.semana} · ${a.dia || "sem dia"}`);
-  if (a.concluida_em) sub.push("fechada em " + br(a.concluida_em));
+  if (a.concluida_em) sub.push("feita em " + br(a.concluida_em));
+  else if (a.feita_sem_data) sub.push("feita — falta a data");
   else if (a.semana && M.prazoDe(a)) sub.push("prazo " + brCurto(M.prazoDe(a)));
 
   const n = el("div", {
-    class: `at ${cor}${a.concluida_em ? " feito" : ""}`,
+    class: `at ${cor}${M.feita(a) ? " feito" : ""}`,
     dataset: { id: a.id },
   },
     seletor,
@@ -88,7 +91,6 @@ export async function concluir(a, ctx, quandoPadrao) {
   if (!entrada.value) { erro("Falta a data."); return false; }
   await ev.aplicar(ev.concluir(a, entrada.value));
   avisar(`${a.frota} · baixa em ${br(entrada.value)}`);
-  ctx && ctx.atualizar();
   return true;
 }
 
@@ -149,7 +151,6 @@ export async function reprogramar(a, ctx, sugestao = {}) {
     await ev.aplicar(e);
   } catch (erroMotivo) { erro(erroMotivo.message); return false; }
   avisar(`${a.frota} · semana ${para.semana}${para.dia ? " · " + para.dia : ""}`);
-  ctx && ctx.atualizar();
   return true;
 }
 
@@ -171,7 +172,6 @@ export async function devolverParaCarteira(a, ctx) {
     await ev.aplicar(ev.devolverParaCarteira(a, motivo));
   } catch (e) { erro(e.message); return false; }
   avisar(`${a.frota} · de volta para a carteira`);
-  ctx && ctx.atualizar();
   return true;
 }
 
@@ -221,7 +221,6 @@ export async function editar(a, ctx) {
   if (!e) { avisar("Nada mudou."); return false; }
   await ev.aplicar(e);
   avisar("Gravado.");
-  ctx && ctx.atualizar();
   return true;
 }
 
@@ -270,8 +269,63 @@ export async function criarNova(ctx, sugestao = {}) {
       dia: sugestao.dia || "", dias: 1 }));
   }
   avisar("Atividade criada.");
-  ctx && ctx.atualizar();
   return ev.porId(criado.alvo);
+}
+
+/** Programar (ou reprogramar) várias de uma vez — semana, dia, executantes.
+ *  Para as que já tinham semana é reprogramação, e o motivo é obrigatório. */
+export async function programarEmLote(alvos) {
+  const jaProgramadas = alvos.filter(a => a.semana != null);
+  const agora = M.semanaAtual();
+
+  const eSemana = el("input", { type: "number", min: 1, max: 53, value: agora.semana });
+  const eAno = el("input", { type: "number", min: 2020, max: 2100, value: agora.ano });
+  const eDia = selecao([{ v: "", t: "— sem dia —" }, ...M.DIAS], "");
+  const eDias = el("input", { type: "number", min: 1, max: 30, value: 1 });
+  const eExec = el("input", { placeholder: "separe por vírgula" });
+  const eMotivo = selecao([{ v: "", t: "— escolha —" }, ...M.MOTIVOS], "");
+
+  const r = await caixa({
+    titulo: `Programar ${alvos.length} atividade${alvos.length === 1 ? "" : "s"}`,
+    corpo: el("div", {},
+      el("div", { class: "tripla" },
+        campo("Semana", eSemana), campo("Ano", eAno), campo("Dia", eDia)),
+      campo("Duração em dias", eDias),
+      campo("Executantes", comSugestoes(eExec, executantes(), "dl-exec-lote"),
+        "Deixe vazio para não mexer em quem já está nas atividades."),
+      jaProgramadas.length
+        ? campo(`Motivo — ${jaProgramadas.length} já tinha${jaProgramadas.length === 1 ? "" : "m"} semana`,
+          eMotivo, "Para essas é reprogramação, e reprogramação sem motivo o sistema recusa.")
+        : null),
+    acoes: [{ rotulo: "Cancelar", valor: false },
+      { rotulo: "Programar", classe: "primario", valor: true }],
+  });
+  if (r !== true) return false;
+
+  const para = {
+    ano: Number(eAno.value) || agora.ano,
+    semana: Number(eSemana.value) || agora.semana,
+    dia: eDia.value,
+    dias: Number(eDias.value) || 1,
+  };
+  const equipe = eExec.value.split(",").map(s => s.trim()).filter(Boolean);
+
+  const eventos = [];
+  try {
+    for (const a of alvos) {
+      const e = ev.reprogramar(a, para, eMotivo.value);
+      if (e) eventos.push(e);
+      if (equipe.length) {
+        const ed = ev.editar(a, { executantes: equipe });
+        if (ed) eventos.push(ed);
+      }
+    }
+  } catch (e) { erro(e.message); return false; }
+
+  if (!eventos.length) { avisar("Nada mudou."); return false; }
+  await ev.aplicar(eventos);
+  avisar(`${alvos.length} para a semana ${para.semana}${para.dia ? " · " + para.dia : ""}.`);
+  return true;
 }
 
 // ── a ficha ─────────────────────────────────────────────────────────────────
@@ -293,7 +347,8 @@ export async function abrirFicha(id, ctx) {
     linha("Prioridade", a.prioridade),
     linha("Semana", a.semana ? `${a.semana}/${a.ano} · ${a.dia || "sem dia"} · ${a.dias || 1} dia(s)` : null),
     linha("Janela", a.semana ? `${br(M.inicioDe(a))} a ${br(M.prazoDe(a))}` : null),
-    linha("Concluída em", a.concluida_em ? br(a.concluida_em) : null),
+    linha("Concluída em", a.concluida_em ? br(a.concluida_em)
+      : (a.feita_sem_data ? "marcada Concluída na planilha, sem a data" : null)),
     linha("Semana original", a.semana_orig && a.semana_orig !== a.semana ? String(a.semana_orig) : null),
     linha("Reprogramações", a.reprogramacoes ? String(a.reprogramacoes) : null),
     linha("Motivo", a.motivo
@@ -311,16 +366,20 @@ export async function abrirFicha(id, ctx) {
     el("div", {}, hist.map(descreverEvento)));
 
   const acoes = [];
-  if (!a.cancelada && !a.concluida_em) {
+  if (M.aberta(a)) {
     acoes.push({ rotulo: "Concluir", classe: "primario", acao: async () => { await concluir(a, ctx); } });
     acoes.push({ rotulo: a.semana ? "Reprogramar" : "Programar",
       acao: async () => { await reprogramar(a, ctx); } });
   }
-  if (a.concluida_em) {
+  if (a.feita_sem_data) {
+    acoes.push({ rotulo: "Dar a data", classe: "primario",
+      acao: async () => { await concluir(a, ctx); } });
+  }
+  if (M.feita(a)) {
     acoes.push({ rotulo: "Reabrir", acao: async () => {
       if (!await confirmar("Reabrir", "A data de conclusão sai e a atividade volta a pesar na aderência.", "Reabrir")) return;
       await ev.aplicar(ev.reabrir(a));
-      avisar("Reaberta."); ctx && ctx.atualizar();
+      avisar("Reaberta.");
     } });
   }
   acoes.push({ rotulo: "Editar", acao: async () => { await editar(a, ctx); } });
@@ -335,7 +394,7 @@ async function maisAcoes(a, ctx) {
   const r = await caixa({
     titulo: "Mais ações",
     corpo: ({ fechar }) => el("div", { class: "lista" },
-      a.semana && !a.concluida_em
+      a.semana && !M.feita(a)
         ? el("button", { onclick: () => fechar("carteira") },
           "Tirar da semana e devolver à carteira") : null,
       !a.cancelada
@@ -361,12 +420,12 @@ async function maisAcoes(a, ctx) {
     if (conf !== true) return;
     try { await ev.aplicar(ev.cancelar(a, entrada.value)); }
     catch (e) { return erro(e.message); }
-    avisar("Cancelada."); return ctx && ctx.atualizar();
+    avisar("Cancelada."); return;
   }
 
   if (r === "restaurar") {
     await ev.aplicar(ev.restaurar(a));
-    avisar("Cancelamento desfeito."); return ctx && ctx.atualizar();
+    avisar("Cancelamento desfeito."); return;
   }
 
   if (r === "excluir") {
@@ -374,7 +433,7 @@ async function maisAcoes(a, ctx) {
       "A atividade some das telas. O registro dela fica no histórico — " +
       "excluir não apaga o que aconteceu.", "Excluir")) return;
     await ev.aplicar(ev.excluir(a));
-    avisar("Excluída."); return ctx && ctx.atualizar();
+    avisar("Excluída."); return;
   }
 }
 

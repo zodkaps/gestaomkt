@@ -321,6 +321,30 @@ if (abas) {
   igual("e com as mesmas preventivas", ev.lista("preventiva").length, 37);
   ok("a fita continua fechando depois de reimportar", ev.conferir().ok);
 
+  // ── reimportar não apaga o que foi lançado no site ────────────────────────
+  // Planilha e site convivem: ele reimporta a planilha enquanto a equipe
+  // aponta no site. Antes, a importação mais recente passava por cima de tudo —
+  // a chegada da frota e a baixa dadas no site sumiam, porque a planilha não
+  // sabia delas.
+  titulo("eventos.js — reimportar respeita o que foi lançado no site");
+  await entrarComo("Mateus");
+  const movAberta1 = ev.lista("movimentacao").find(modelo.movimentacaoAberta);
+  const ativAberta = ev.lista().find(x => x.semana && modelo.aberta(x));
+  const ativOutra = ev.lista().find(x => modelo.aberta(x) && x.id !== ativAberta.id);
+  await ev.aplicar([ev.chegou(movAberta1, "2026-10-09"), ev.concluir(ativAberta, "2026-10-08")]);
+  const planilhaMudada = atividades.map(x => x.id === ativOutra.id
+    ? { ...x, atividade: x.atividade + " (corrigido na planilha)" } : x);
+  await ev.aplicar([
+    ...planilhaMudada.map(x => ev.criar(x, "planilha", "terceira vez", "atividade")),
+    ...movimentacoes.map(x => ev.criar(x, "planilha", "terceira vez", "movimentacao")),
+  ], { silencioso: true });
+  igual("a chegada apontada no site continua lá",
+    ev.porId(movAberta1.id, "movimentacao").chegou_em, "2026-10-09");
+  igual("a baixa dada no site continua lá", ev.porId(ativAberta.id).concluida_em, "2026-10-08");
+  ok("e o que mudou na planilha, e o site nunca mexeu, entra",
+    ev.porId(ativOutra.id).atividade.endsWith("(corrigido na planilha)"));
+  ok("a fita fecha com planilha e site misturados", ev.conferir().ok);
+
   // ── quem pode o quê ───────────────────────────────────────────────────────
   titulo("pessoas.js — o que a operação faz e o que não faz");
   await entrarComo("Pedro");

@@ -81,7 +81,6 @@ export async function informarDisponibilidade(p, ctx) {
   try {
     await ev.aplicar(ev.informarDisponibilidade(p, quando));
     avisar(`${p.frota}: ${quando === "agora" ? "livre agora" : "livre em " + br(quando)}.`);
-    ctx && ctx.atualizar();
     return true;
   } catch (e) { erro(e.message); return false; }
 }
@@ -115,7 +114,6 @@ export async function marcarParada(p, ctx) {
   try {
     await ev.aplicar(ev.marcarParada(p, eDia.value, eOnde.value));
     avisar(`${p.frota} para em ${br(eDia.value)}.`);
-    ctx && ctx.atualizar();
     return true;
   } catch (e) { erro(e.message); return false; }
 }
@@ -135,7 +133,6 @@ async function darPorFeita(p, ctx) {
   try {
     await ev.aplicar(ev.preventivaFeita(p, eData.value, eOS.value.replace(/\D+/g, "")));
     avisar("Preventiva fechada.");
-    ctx && ctx.atualizar();
   } catch (e) { erro(e.message); }
 }
 
@@ -153,7 +150,7 @@ async function adiar(p, ctx) {
   if (r !== true) return;
   try {
     await ev.aplicar(ev.adiarPreventiva(p, livre.value.trim() || e.value));
-    avisar("Adiada."); ctx && ctx.atualizar();
+    avisar("Adiada.");
   } catch (x) { erro(x.message); }
 }
 

@@ -115,6 +115,10 @@ export function molde() {
     hh: 0,
     executantes: [],
     concluida_em: "", cancelada: false, excluida: false,
+    // Marcada "Concluída" na planilha sem a data de quando saiu. É feita — a
+    // marca é do PCM, não suposição —, mas a data falta e o site não inventa
+    // uma: a linha mostra "sem data" até alguém dar a baixa com o dia.
+    feita_sem_data: false,
     semana_orig: null, motivo: "", reprogramacoes: 0,
     criada_em: "", fonte: "",
   };
@@ -138,13 +142,19 @@ export function prazoDe(a) {
   return somaDias(ini, n - 1);
 }
 
+/** Está feita? Com data, ou marcada Concluída na planilha sem data — que é
+ *  como a planilha conta (coluna "Concl."), e o número tem de bater com ela. */
+export function feita(a) {
+  return !a.cancelada && (!!a.concluida_em || !!a.feita_sem_data);
+}
+
 export function situacaoDe(a, ref) {
   const ho = ref || hoje();
   if (!a.atividade && !a.frota) return "";
   if (a.cancelada) return "Cancelada";
-  if (a.concluida_em) {
+  if (feita(a)) {
     const p = prazoDe(a);
-    return (p && a.concluida_em > p) ? "Concluída com atraso" : "Concluída";
+    return (p && a.concluida_em && a.concluida_em > p) ? "Concluída com atraso" : "Concluída";
   }
   if (!a.atividade) return "Falta a atividade";
   if (!a.semana) return "Na carteira";
@@ -171,7 +181,7 @@ export function corDe(s) {
 }
 
 export function aberta(a) {
-  return !a.excluida && !a.cancelada && !a.concluida_em;
+  return !a.excluida && !a.cancelada && !feita(a);
 }
 
 /** Sugestão de HH para uma categoria, tirada do que já foi estimado nela.
@@ -329,8 +339,8 @@ export function aderencia(ats, ano, semana) {
   const daSemana = ats.filter(a => !a.excluida && !a.cancelada &&
     a.semana === semana && a.ano === ano);
   const prog = daSemana.filter(a => a.origem !== "Extra");
-  const feitas = prog.filter(a => a.concluida_em);
-  const noPrazo = feitas.filter(a => a.concluida_em <= (prazoDe(a) || "9999"));
+  const feitas = prog.filter(feita);
+  const noPrazo = feitas.filter(a => a.concluida_em && a.concluida_em <= (prazoDe(a) || "9999"));
   const extras = daSemana.filter(a => a.origem === "Extra");
   return {
     programadas: prog.length,
@@ -339,7 +349,7 @@ export function aderencia(ats, ano, semana) {
     com_atraso: feitas.length - noPrazo.length,
     pendentes: prog.length - feitas.length,
     extras: extras.length,
-    extras_feitos: extras.filter(a => a.concluida_em).length,
+    extras_feitos: extras.filter(feita).length,
     pct: prog.length ? Math.round(feitas.length * 100 / prog.length) : null,
   };
 }
@@ -354,11 +364,165 @@ export function cargaHH(ats, ano, semana) {
   const soma = l => l.reduce((s, a) => s + (Number(a.hh) || 0), 0);
   return {
     total: Math.round(soma(internas) * 10) / 10,
-    feito: Math.round(soma(internas.filter(a => a.concluida_em)) * 10) / 10,
-    aberto: Math.round(soma(internas.filter(a => !a.concluida_em)) * 10) / 10,
+    feito: Math.round(soma(internas.filter(feita)) * 10) / 10,
+    aberto: Math.round(soma(internas.filter(a => !feita(a))) * 10) / 10,
     terceirizada: Math.round(soma(daSemana.filter(a => a.oficina === "Terceirizada")) * 10) / 10,
     sem_estimativa: internas.filter(a => !Number(a.hh)).length,
     atividades: internas.length,
+  };
+}
+
+// ── a semana como a planilha conta ──────────────────────────────────────────
+//
+// As abas Semana e Resultados da planilha são o número que vai para a reunião.
+// Estas funções repetem as fórmulas delas, uma a uma, para o site dar o MESMO
+// número: dois números diferentes para a mesma pergunta é o jeito mais rápido
+// de ninguém confiar em nenhum dos dois. `testes/resultados.mjs` confere cada
+// linha contra o valor que a própria planilha calculou.
+
+/** Interna ou terceirizada — como a coluna Oficina da planilha decide: algum
+ *  executante "(externo)" ou "Terceirizad…" manda para fora da conta. Sem
+ *  executante, vale o que a atividade trouxe. */
+export function oficinaDe(a) {
+  const quem = (a.executantes || []).join(" ");
+  if (/\(externo\)|terceirizad/i.test(quem)) return "Terceirizada";
+  if (!quem.trim() && a.oficina === "Terceirizada") return "Terceirizada";
+  return "Interna";
+}
+
+/** Está na semana? Pela data de início, como a planilha — e sem dia não há
+ *  início, então semana marcada sem dia ainda conta como carteira. */
+export function naSemana(a, ano, semana) {
+  if (!a.dia || !a.semana) return false;
+  const d = datasDaSemana(ano, semana);
+  const i = inicioDe(a);
+  return i >= d[0] && i <= d[6];
+}
+
+export function resultados(ats, ano, semana, ref) {
+  const vivas = ats.filter(a => !a.excluida && (a.atividade || a.frota));
+  const daSemana = vivas.filter(a => naSemana(a, ano, semana));
+  const interna = daSemana.filter(a => oficinaDe(a) === "Interna");
+  const total = interna.filter(a => !a.cancelada);              // Total interno
+  const plano = total.filter(a => a.origem !== "Extra");         // Atividades do plano
+  const extra = total.filter(a => a.origem === "Extra");         // Extra programação
+  const concPlano = plano.filter(feita);
+  const concExtra = extra.filter(feita);
+  const concTotal = total.filter(feita);
+  const pct = (n, d) => d ? n / d : null;
+  const soma = l => Math.round(l.reduce((s, a) => s + (Number(a.hh) || 0), 0) * 10) / 10;
+
+  // "No prazo" na planilha é sair no PRÓPRIO dia programado (até o início),
+  // não até o fim da janela.
+  const noPrazo = concPlano.filter(a => a.concluida_em && a.concluida_em <= inicioDe(a));
+  // O plano original: a semana em que a atividade foi programada pela primeira
+  // vez. Empurrar para a frente não melhora este número.
+  const orig = a => ({ ...a, semana: a.semana_orig || a.semana });
+  const daOriginal = vivas.filter(a => !a.cancelada && oficinaDe(a) === "Interna" &&
+    a.origem !== "Extra" && naSemana(orig(a), ano, semana));
+  const noPlanoOrig = daOriginal.filter(a => a.concluida_em && a.concluida_em <= inicioDe(orig(a)));
+  const atrasos = concTotal.filter(a => a.concluida_em)
+    .map(a => difDias(inicioDe(a), a.concluida_em)).filter(n => n > 0);
+  const todasVivas = vivas.filter(a => !a.cancelada);
+  const tipo = (l, t) => l.filter(a => a.tipo === t).length;
+
+  return {
+    semana, ano, datas: datasDaSemana(ano, semana),
+    plano: plano.length,
+    extra: extra.length,
+    concluidas_plano: concPlano.length,
+    total: total.length,
+    extras_concluidas: concExtra.length,
+    concluidas: concTotal.length,
+    aderencia: pct(concPlano.length, plano.length),
+    cumprimento: pct(concTotal.length, total.length),
+    parte_extra: pct(extra.length, total.length),
+    no_prazo: noPrazo.length,
+    pontualidade: pct(noPrazo.length, concPlano.length),
+    aderencia_original: concPlano.length ? pct(noPlanoOrig.length, daOriginal.length) : null,
+    sairam: vivas.filter(a => !a.cancelada && a.semana_orig === semana &&
+      a.semana != null && a.semana !== semana).length,
+    vencidas: interna.filter(a => situacaoDe(a, ref) === "VENCIDA").length,
+    reprogramadas: interna.filter(a => a.semana_orig && a.semana && a.semana_orig !== a.semana).length,
+    atraso_medio: atrasos.length ? atrasos.reduce((s, n) => s + n, 0) / atrasos.length : 0,
+    por_dia: total.length / 5,
+    saiu_por_dia: concTotal.length / 5,
+    hh: soma(total),
+    terceirizada: daSemana.filter(a => !a.cancelada && oficinaDe(a) === "Terceirizada").length,
+    canceladas: daSemana.filter(a => a.cancelada).length,
+    carteira: todasVivas.filter(a => !a.dia || !a.semana).length,
+    corretiva: tipo(total, "Corretiva"),
+    preventiva: tipo(total, "Preventiva"),
+    inspecao: tipo(total, "Inspeção"),
+    pct_preventiva: pct(tipo(total, "Preventiva"), total.length),
+    corretiva_acervo: tipo(todasVivas, "Corretiva"),
+    preventiva_acervo: tipo(todasVivas, "Preventiva"),
+    pct_preventiva_acervo: pct(tipo(todasVivas, "Preventiva"), todasVivas.length),
+    com_os: total.filter(a => a.os).length,
+    sem_os: total.filter(a => !a.os).length,
+    cobertura_os: pct(total.filter(a => a.os).length, total.length),
+    com_os_acervo: todasVivas.filter(a => a.os).length,
+    sem_os_acervo: todasVivas.filter(a => !a.os).length,
+    cobertura_os_acervo: pct(todasVivas.filter(a => a.os).length, todasVivas.length),
+  };
+}
+
+/** Horas programáveis por pessoa por dia, como a aba Semana da planilha: 8,8 h
+ *  de jornada com 75% de aproveitamento. */
+export const HORAS_DIA = 6.6;
+
+const util = d => { const w = data(d).getUTCDay(); return w >= 1 && w <= 5; };
+
+/** HH e carga por pessoa na semana, como a aba Semana.
+ *
+ *  O HH de uma atividade se divide entre quem faz (até três) e se espalha pelos
+ *  dias úteis da janela dela. Executante "(externo)" não entra: é empresa de
+ *  fora, não disputa a equipe. */
+export function semanaEmHH(ats, ano, semana) {
+  const datas = datasDaSemana(ano, semana).slice(0, 5);
+  const vivas = ats.filter(a => !a.excluida && !a.cancelada);
+  const interna = vivas.filter(a => naSemana(a, ano, semana) && oficinaDe(a) === "Interna");
+  const soma = l => Math.round(l.reduce((s, a) => s + (Number(a.hh) || 0), 0) * 10) / 10;
+  const plano = interna.filter(a => a.origem !== "Extra");
+  const extra = interna.filter(a => a.origem === "Extra");
+
+  const pessoas = new Map();
+  for (const a of vivas) {
+    const quem = (a.executantes || []).filter(n => n && !/\(externo\)|terceirizad/i.test(n));
+    if (!quem.length || !Number(a.hh)) continue;
+    const ini = inicioDe(a), fim = prazoDe(a);
+    if (!ini || !a.dia) continue;
+    const janela = [];
+    for (let d = ini; d <= fim; d = somaDias(d, 1)) if (util(d)) janela.push(d);
+    if (!janela.length) continue;
+    const porDia = Number(a.hh) / quem.length / janela.length;
+    for (const n of quem) {
+      if (!pessoas.has(n)) pessoas.set(n, datas.map(() => 0));
+      const linha = pessoas.get(n);
+      janela.forEach(d => { const i = datas.indexOf(d); if (i >= 0) linha[i] += porDia; });
+    }
+  }
+  const capacidade = HORAS_DIA * 5;
+  const carga = [...pessoas.entries()]
+    .map(([nome, dias]) => {
+      const total = dias.reduce((s, h) => s + h, 0);
+      return { nome, dias, total, capacidade, ocupacao: total / capacidade };
+    })
+    .filter(p => p.total > 0)
+    .sort((x, y) => y.total - x.total);
+  const cap = capacidade * carga.length;
+  const carteira = soma(vivas.filter(a => !feita(a) && (!a.dia || !a.semana)));
+
+  return {
+    datas, carga,
+    hh_plano: soma(plano),
+    hh_extra: soma(extra),
+    hh_plano_feito: soma(plano.filter(feita)),
+    aderencia_hh: soma(plano) ? soma(plano.filter(feita)) / soma(plano) : null,
+    capacidade: cap,
+    ocupacao: cap ? (soma(plano) + soma(extra)) / cap : null,
+    hh_carteira: carteira,
+    backlog_semanas: cap ? carteira / cap : null,
   };
 }
 
@@ -398,7 +562,7 @@ export function atrasoPorArea(ats) {
   const por = {};
   let semMotivo = 0;
   for (const a of ats) {
-    if (a.excluida || a.cancelada || a.concluida_em) continue;
+    if (a.excluida || a.cancelada || feita(a)) continue;
     if (!a.motivo) { semMotivo++; continue; }
     const area = areaDoMotivo(a.motivo) || "Outro";
     por[area] = por[area] || { total: 0, motivos: {} };

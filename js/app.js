@@ -8,29 +8,32 @@ import * as M from "./modelo.js";
 import * as bk from "./backup.js";
 import { el, $, limpar, avisar, erro } from "./ui.js";
 
-// Agrupadas como um sistema de manutenção agrupa: o que se faz hoje, o que se
-// planeja, o que depende de outra área, e o que se olha depois.
+// Na ordem das abas da planilha — Hoje, Programação, Semana, Resultados,
+// Preventivas, Movimentações —, que é o mapa que o PCM já tem na cabeça. A
+// carteira deixou de ser tela: na planilha ela é uma situação, e aqui é um
+// recorte da Programação.
 const TELAS = [
   { id: "operacao", icone: "✋", nome: "Para você", grupo: "Operação", papeis: ["operacao"],
     carregar: () => import("./tela/operacao.js"),
     contar: () => contagemOperacao() },
-  { id: "hoje", icone: "☀", nome: "Hoje", grupo: "Programação", papeis: ["pcm"],
+  { id: "hoje", icone: "☀", nome: "Hoje", grupo: "Oficina", papeis: ["pcm"],
     carregar: () => import("./tela/hoje.js") },
-  { id: "semana", icone: "▦", nome: "Semana", grupo: "Programação", papeis: ["pcm"],
+  { id: "programacao", icone: "☰", nome: "Programação", grupo: "Oficina", papeis: ["pcm"],
+    carregar: () => import("./tela/programacao.js"),
+    // O número no menu é o que pede ação: quantas venceram.
+    contar: () => ev.lista().filter(a => M.situacaoDe(a) === "VENCIDA").length },
+  { id: "semana", icone: "▦", nome: "Semana", grupo: "Oficina", papeis: ["pcm"],
     carregar: () => import("./tela/semana.js") },
-  { id: "carteira", icone: "☰", nome: "Carteira", grupo: "Programação", papeis: ["pcm"],
-    carregar: () => import("./tela/carteira.js"),
-    contar: () => ev.lista().filter(a => !a.semana && M.aberta(a)).length },
-  { id: "movimentacoes", icone: "⇄", nome: "Movimentação", grupo: "Frota", papeis: ["pcm", "operacao"],
-    carregar: () => import("./tela/movimentacoes.js"),
-    contar: () => ev.lista("movimentacao").filter(M.movimentacaoAberta).length },
+  { id: "resultados", icone: "%", nome: "Resultados", grupo: "Oficina", papeis: ["pcm"],
+    carregar: () => import("./tela/resultados.js") },
   { id: "preventivas", icone: "⏱", nome: "Preventivas", grupo: "Frota", papeis: ["pcm", "operacao"],
     carregar: () => import("./tela/preventivas.js"),
     contar: () => ev.lista("preventiva").filter(M.preventivaAberta).length },
+  { id: "movimentacoes", icone: "⇄", nome: "Movimentação", grupo: "Frota", papeis: ["pcm", "operacao"],
+    carregar: () => import("./tela/movimentacoes.js"),
+    contar: () => ev.lista("movimentacao").filter(M.movimentacaoAberta).length },
   { id: "frota", icone: "▤", nome: "Frota", grupo: "Frota", papeis: ["pcm", "operacao"],
     carregar: () => import("./tela/frota.js") },
-  { id: "indicadores", icone: "◔", nome: "Números", grupo: "Gestão", papeis: ["pcm"],
-    carregar: () => import("./tela/indicadores.js") },
   { id: "historico", icone: "⟲", nome: "Registro", grupo: "Gestão", papeis: ["pcm", "operacao"],
     carregar: () => import("./tela/historico.js") },
   { id: "importar", icone: "⇪", nome: "Importar", grupo: "Gestão", papeis: ["pcm"],
@@ -66,9 +69,14 @@ const telasDoPapel = () =>
 
 const inicial = () => pessoas.ehOperacao() ? "operacao" : "hoje";
 
+// Endereços antigos continuam chegando — favorito, link no WhatsApp. A carteira
+// virou um recorte da Programação, e os Números viraram Resultados.
+const APELIDOS = { carteira: ["programacao", "m=carteira"], indicadores: ["resultados", ""] };
+
 function alvo() {
   const h = (location.hash || "").replace(/^#\/?/, "");
-  const [id, q] = h.split("?");
+  let [id, q] = h.split("?");
+  if (APELIDOS[id]) [id, q] = APELIDOS[id];
   const params = new URLSearchParams(q || "");
   // Entrou, mas o e-mail não está na tabela `pessoas`: sem papel não há tela
   // nenhuma que faça sentido, e um menu vazio não explica nada. Volta para a

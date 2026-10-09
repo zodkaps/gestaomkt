@@ -1,4 +1,4 @@
-# Programação Makro — carteira, OS, movimentação e preventiva
+# Programação Makro — programação, OS, movimentação e preventiva
 
 Controle de PCM da manutenção, Makro Transportes (Mossoró/RN). Site estático
 que roda no navegador, guarda a fita de eventos no Supabase e funciona sem
@@ -215,19 +215,45 @@ Fecha com `alter table … enable row level security`, ou apaga o que não serve
 mais — ou, se o acervo antigo não interessa, um projeto novo só para este site
 é o mais limpo.
 
-## O visual
+## As telas seguem a planilha
 
-Padrão de sistema de manutenção, **escuro por padrão** (o claro continua no
-botão do alto):
+O menu tem as abas da planilha, na mesma ordem: **Hoje · Programação · Semana ·
+Resultados · Preventivas · Movimentações**. É o mapa que o PCM já tem na cabeça,
+e os números de cada tela são os da aba de mesmo nome — calculados pelas mesmas
+fórmulas (ver *Os números são os da planilha*, abaixo).
 
-- **menu lateral fixo** com os módulos agrupados e o número do que está aberto
-  em cada um;
-- **tabela densa e ordenável** no computador — a carteira tem 263 linhas, e
-  cartão empilhado não deixa comparar duzentas;
-- **cartão no celular**, porque tabela densa em 414px não se lê e é no celular,
-  em pé no pátio, que a operação aponta. É a mesma tela nas duas formas, e quem
-  escolhe é a largura;
-- a **situação como tarja** na primeira coluna, não como balão no meio do texto.
+- **Programação** é a aba principal: uma linha por atividade, **em blocos por
+  frota**, com a **Situação colorida na frente** e a **linha feita com fundo
+  verde** — o mesmo código de cor da planilha. Cada bloco abre com o resumo da
+  frota ("F-617 · 25 atividades · 0 feitas · 3 vencidas") e uma barrinha. No
+  alto, quantas saíram da lista e a faixa de situações com a contagem de cada
+  uma, que também filtra com um clique. O recorte é a semana (o padrão), tudo
+  em aberto, a carteira ou tudo. **Dar baixa é na própria linha**, na coluna
+  *Feito em*, como o FOI FEITO EM da planilha. Para programar várias de uma vez,
+  marca e programa.
+- **A carteira deixou de ser tela**: na planilha ela é a situação *Na carteira*,
+  e aqui é um recorte da Programação. O endereço antigo continua funcionando.
+- **Hoje** tem as caixas da aba Hoje (para fechar hoje, fecharam, aderência do
+  dia, em execução, atrasadas) e as listas do dia e das atrasadas.
+- **Semana** tem as caixas da aba Semana, o bloco em HH, a carga por dia de cada
+  executante e as atividades da semana agrupadas por dia.
+- **Resultados** tem os dois números da reunião — aderência à programação e
+  cumprimento geral —, a tabela de indicadores com o *como é medido* de cada
+  um e o fechamento semana a semana. Os painéis que a planilha não tem ficam
+  recolhidos embaixo, em *Outros indicadores*.
+
+Hoje, Programação e Semana usam a **mesma grade** (`js/tela/grade.js`): um lugar
+só desenha uma atividade em lista, e as três telas nunca mostram a mesma coisa
+de jeitos diferentes. No celular a grade vira cartões, com os mesmos blocos.
+
+**Mudar uma situação não recarrega a tela.** Antes, cada ação remontava a tela
+inteira — filtro, busca e rolagem voltavam ao zero, e parecia que o site tinha
+recarregado. Agora a tela se repinta no lugar, uma vez por quadro, e só a linha
+muda. `testes/interacao.mjs` prova: depois de dar baixa, é o mesmo elemento de
+antes, a busca continua digitada e a rolagem não pulou.
+
+O visual é **escuro por padrão** (o claro continua no botão do alto), com menu
+lateral no computador e barra embaixo no celular.
 
 As cores de dado não foram escolhidas no olho: saem de uma paleta validada para
 fundo escuro (faixa de luminosidade, piso de croma, separação para daltonismo e
@@ -286,12 +312,20 @@ memória. Divergência ali é bug, não opinião.
 
 1. **Reprogramar exige motivo.** Mudar semana, ano, dia ou duração de uma
    atividade que já estava programada, sem motivo, é recusado — em qualquer
-   caminho, inclusive arrastando o cartão entre dias e na programação em lote.
-   É o número pelo qual PCM responde.
+   caminho, inclusive na programação em lote. É o número pelo qual PCM
+   responde.
 2. **`editar()` não mexe em programação.** Se mexesse, haveria um jeito de
    contornar a regra acima sem querer. Programação se muda por `reprogramar()`.
 3. **A semana original nunca muda.** É a da primeira programação, e é contra
    ela que se mede o quanto uma atividade foi empurrada.
+4. **Reimportar a planilha não apaga o que foi lançado no site.** Planilha e
+   site convivem durante a transição, e reimportar atualiza por ID. Mas a
+   importação mais recente passava por cima de tudo: a chegada de frota, a
+   baixa e a reprogramação feitas no site sumiam, porque a planilha não sabia
+   delas. Agora cada lançamento do site anota os campos que mexeu, e a
+   reimportação atualiza só o resto. Conferido com os lançamentos reais do
+   banco: as 8 chegadas e a promessa apontadas em 09/10 continuam depois de
+   reimportar a planilha 83.
 
 ### HH mede carga, não prazo
 
@@ -305,15 +339,32 @@ como zero hora faria a semana parecer mais leve do que é.
 A oficina **terceirizada** fica fora da carga da equipe: 66 das 754 atividades
 estão lá, e elas não disputam o mecânico.
 
-### Aderência e vazão são perguntas diferentes
+### Os números são os da planilha
 
-- **Aderência**: *do que planejei para esta semana, quanto saiu?* Pune o que
-  ficou para trás, ignora o extra.
-- **Fechados na semana**: *quanto trabalho saiu nestes sete dias?* Conta o
-  extra e o atrasado que fechou fora da semana dele.
+Resultados, Semana e Hoje usam as **mesmas fórmulas** das abas de mesmo nome
+(`M.resultados` e `M.semanaEmHH`, em `js/modelo.js`): só a **oficina interna**
+(executante "(externo)" ou "Terceirizad…" sai da conta), semana pelo **dia de
+início**, extra e cancelada fora da aderência. `node testes/resultados.mjs`
+importa a planilha e confere, **linha a linha**, cada número das abas Resultados
+e Semana contra o valor que a própria planilha calculou — 46 de 46 na planilha
+83 (aderência 37%, cumprimento 39%, 29 vencidas, a carga de cada mecânico).
 
-Uma semana pode ter 0% de aderência e muito serviço entregue. Os dois aparecem
-lado a lado em Números, porque mostrar só um deixa metade da conversa de fora.
+Duas regras para chegar ao mesmo número:
+
+- **Marcada "Concluída" sem data conta como feita**, como na coluna *Concl.* da
+  planilha. A marca é do PCM, não suposição — mas a data falta, e o site não
+  inventa uma: a linha mostra **"✓ sem data"** na coluna *Feito em*, e um clique
+  ali dá o dia. Na planilha 83 são 19, e 13 delas são do plano da semana 41: sem
+  contá-las, a aderência do site dava 0% onde a da planilha dá 37%.
+- **"ABRIR OS" não é OS.** É a única diferença de propósito: a célula de OS
+  escrita "ABRIR OS" é recado, e o site não a conta como ordem aberta. A
+  cobertura de OS no acervo sai 2 menor que a da planilha — o teste diz isso por
+  extenso em vez de esconder.
+
+Aderência e vazão continuam sendo perguntas diferentes: a aderência é *do que
+planejei, quanto saiu?*; o painel *O que saiu nestes sete dias*, em Outros
+indicadores, é *quanto trabalho saiu?*, contando terceirizada e o que era de
+outra semana.
 
 ### O atraso tem endereço
 
@@ -416,7 +467,9 @@ porque toda escrita já passa por `aplicar()`.
 | `js/tela/comum.js` | o cartão e a ficha — um lugar só onde atividade é desenhada e alterada |
 | `js/nuvem.js` | o Supabase por `fetch`: ler desde um ponto, enviar, consultar de tempos em tempos |
 | `js/pessoas.js` | quem está usando, o papel, o que esse papel pode |
-| `js/tela/*.js` | entrar, operacao, hoje, semana, carteira, movimentacoes, preventivas, frota, indicadores, historico, importar, diagnostico |
+| `js/tela/*.js` | entrar, operacao, hoje, programacao, semana, resultados, movimentacoes, preventivas, frota, historico, importar, diagnostico |
+| `js/tela/grade.js` | a lista no formato da aba Programação — Hoje, Programação e Semana usam a mesma |
+| `js/tela/indicadores.js` | os painéis que a planilha não tem, recolhidos em Resultados |
 | `js/tela/diagnostico.js` | o que falta para o site funcionar em equipe, com o SQL para copiar |
 | `js/config.js` | o endereço e a chave do projeto — o único lugar a preencher |
 | `sql/00_conferir_rls.sql` | que tabela do projeto está aberta — rode antes de publicar a chave |
@@ -431,6 +484,7 @@ porque toda escrita já passa por `aplicar()`.
 | `sql/01_esquema.sql` | a tabela de eventos e a política de só-insere |
 | `sw.js` | offline: rede primeiro, cache como reserva |
 | `testes/rodar.js` | os testes do núcleo |
+| `testes/resultados.mjs` | o site dá o mesmo número que as abas Resultados e Semana da planilha, linha a linha |
 | `planilha/` | **o processo antigo, que continua funcionando** até o site assumir |
 
 ## Os testes
@@ -438,19 +492,22 @@ porque toda escrita já passa por `aplicar()`.
 ```bash
 node testes/rodar.js                       # usa a planilha padrão
 node testes/rodar.js caminho/da/sua.xlsx
+node testes/resultados.mjs caminho/da/sua.xlsx   # o site × as abas Resultados e Semana
 ```
 
 Rodam em node contra a **planilha de verdade**: teste que só passa com dado
 inventado não prova que a carga funciona. Conferem a identidade de atividade,
 semana ISO e prazo, as regras do log, a carga inteira, o backup ida e volta, o
-cruzamento com um export do Protheus e o modo de trabalhar sem banco.
+cruzamento com um export do Protheus, o modo de trabalhar sem banco, que
+reimportar não apaga o que foi lançado no site — e que cada número das abas
+Resultados e Semana sai igual no site.
 
 As outras três precisam do Supabase de mentira em pé:
 
 ```bash
 node testes/supabase_falso.mjs &     # PostgREST + Auth, com as regras do banco
 node testes/config.mjs               # nasce ligado, diagnóstico, nome ou e-mail
-node testes/interacao.mjs            # o mouse, e a nuvem caindo e voltando
+node testes/interacao.mjs            # o mouse, a baixa que não recarrega, a nuvem caindo e voltando
 bash testes/politicas.sh             # sobe um Postgres e prova que ele recusa
 ```
 

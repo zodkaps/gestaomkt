@@ -110,8 +110,9 @@ export async function montar(raiz, ctx) {
       corpo: el("div", { class: "previa" },
         el("div", { class: "numeros" },
           cartaoNumero(atividades.length, "atividades"),
-          cartaoNumero(atividades.filter(a => !a.semana && !a.concluida_em && !a.cancelada).length, "na carteira"),
-          cartaoNumero(atividades.filter(a => a.concluida_em).length, "já fechadas"),
+          cartaoNumero(atividades.filter(a => !a.semana && !a.concluida_em && !a.feita_sem_data &&
+            !a.cancelada).length, "na carteira"),
+          cartaoNumero(atividades.filter(a => a.concluida_em || a.feita_sem_data).length, "já fechadas"),
           cartaoNumero(atividades.filter(a => a.os).length, "com OS"),
           cartaoNumero(movs.movimentacoes.length, "movimentações"),
           cartaoNumero(prevs.preventivas.length, "preventivas", prevs.mes)),
@@ -129,9 +130,10 @@ export async function montar(raiz, ctx) {
           `${semData.length} marcada${semData.length === 1 ? "" : "s"} como concluída, sem data`,
           semData.map(a => el("div", { style: "font-size:13px;padding:3px 0" },
             el("b", {}, a.frota), " · ", a.atividade)),
-          "Entram ABERTAS. Marcar não é datar: a aderência conta por data, e " +
-          "inventar o dia em que o serviço saiu seria inventar o número. Date-as " +
-          "depois, pela tela Hoje ou pela ficha.", true) : null,
+          "Entram como FEITAS, sem data — é assim que a planilha conta, e é por " +
+          "isso que a aderência do site dá o mesmo número que a dela. A data " +
+          "continua faltando e ninguém a inventa: na Programação a linha mostra " +
+          "\"✓ sem data\", e um clique ali dá o dia.", true) : null,
 
         semOS.length ? grupo(
           `${semOS.length} com recado no lugar da OS`,

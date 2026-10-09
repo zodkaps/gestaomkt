@@ -96,7 +96,12 @@ export function lerPlanilhaMakro(abas, ano) {
     const recado = recadoDeOS(v("OS"));
     if (recado) avisos.push({ tipo: "os_a_abrir", frota, atividade: ativ, texto: recado, linha: r + 1 });
 
-    if (marcar === "Concluída" && !concluida) {
+    // Marcada "Concluída" sem a data. A planilha conta como feita (coluna
+    // "Concl."), e o site agora conta igual — senão a aderência do site sai
+    // 0% onde a da planilha dá 37%. A data continua faltando e ninguém a
+    // inventa: o aviso lista quais são, para quem quiser completar.
+    const semData = marcar === "Concluída" && !concluida;
+    if (semData) {
       avisos.push({ tipo: "marcada_sem_data", frota, atividade: ativ, linha: r + 1 });
     }
 
@@ -137,6 +142,7 @@ export function lerPlanilhaMakro(abas, ano) {
       executantes: ["Executante 1", "Executante 2", "Executante 3"]
         .map(t => texto(v(t))).filter(Boolean),
       concluida_em: concluida,
+      feita_sem_data: semData,
       cancelada: marcar === "Cancelada",
       motivo: texto(v("SE NÃO FOI, POR QUÊ")) || texto(v("Motivo")),
       semana_orig: (semOrig && semOrig !== semana) ? semOrig : null,
