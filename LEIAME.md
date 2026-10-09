@@ -84,6 +84,21 @@ navegador. `node testes/config.mjs` prova isso: monta uma cópia do site com o
 config preenchido e confere que ele nasce ligado e que a senha é aceita de
 primeira.
 
+### Quando algo falta, o site diz o quê
+
+Os erros de instalação chegam traduzidos, com o passo que resolve:
+
+| o que aparece | o que fazer |
+|---|---|
+| "O banco ainda não tem as tabelas deste site" | rodar `sql/01_esquema.sql` e `sql/02_acesso.sql` |
+| "O banco recusou o acesso à tabela" | rodar `sql/02_acesso.sql`, que concede a permissão |
+| "esperando confirmação por e-mail" | Authentication → Providers → Email → desligar *Confirm email* |
+| "este acesso ainda não tem papel" | o e-mail não está na tabela `pessoas`: rodar `sql/02_acesso.sql`, ou conferir se o nome foi digitado igual ao cadastrado |
+| "O banco recusou este lançamento" | é do papel errado, ou assinado com outro nome — o Postgres recusando, como projetado |
+
+`node testes/config.mjs` prova cada uma dessas telas contra um Supabase de
+mentira que finge a falha.
+
 ### Antes de gravar a chave: confira o RLS
 
 **Este repositório é público.** A chave do navegador é feita para ficar à vista

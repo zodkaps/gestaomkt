@@ -63,7 +63,10 @@ function alvo() {
   const h = (location.hash || "").replace(/^#\/?/, "");
   const [id, q] = h.split("?");
   const params = new URLSearchParams(q || "");
-  if (!pessoas.quem()) return { id: "entrar", params };
+  // Entrou, mas o e-mail não está na tabela `pessoas`: sem papel não há tela
+  // nenhuma que faça sentido, e um menu vazio não explica nada. Volta para a
+  // porta, que agora sabe dizer o que houve.
+  if (!pessoas.quem() || !pessoas.papel()) return { id: "entrar", params };
   const ok = TELAS.find(t => t.id === id && (t.oculta || t.papeis.includes(pessoas.papel())));
   return { id: ok ? id : inicial(), params };
 }

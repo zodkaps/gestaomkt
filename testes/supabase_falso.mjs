@@ -12,6 +12,13 @@ const PESSOAS = [
 const TIPOS_OPERACAO = new Set(["criada", "importada", "editada",
   "mov_prometida", "mov_chegou", "mov_cancelada", "prev_disponivel"]);
 
+// Modos de falha, para provar que as mensagens de instalação aparecem.
+// Ligados em tempo de execução por POST /__falha {modo}.
+//   tabela     → o banco responde como se as migrações não tivessem rodado
+//   permissao  → tabela existe, mas sem GRANT (falta o 02_acesso.sql)
+//   sem_pessoa → autentica, mas o e-mail não está na tabela `pessoas`
+let falha = "";
+
 const contas = new Map();      // email → senha
 const tokens = new Map();      // token → email
 const eventos = [];
@@ -32,6 +39,13 @@ createServer(async (req, res) => {
   res.setHeader("Access-Control-Expose-Headers", "content-range");
   res.setHeader("Access-Control-Allow-Methods", "GET,POST,OPTIONS");
   if (req.method === "OPTIONS") return res.writeHead(204).end();
+
+  if (u.pathname === "/__falha") {
+    const b = await corpo(req);
+    falha = b.modo || "";
+    process.stderr.write(`[falso] modo de falha: ${falha || "nenhum"}\n`);
+    return json(res, 200, { falha });
+  }
 
   // ── auth ──
   if (u.pathname === "/auth/v1/settings") {
@@ -68,9 +82,24 @@ createServer(async (req, res) => {
   if (!email) return json(res, 401, { message: "permission denied" });
   const eu = PESSOAS.find(p => p.email === email);
 
-  if (u.pathname.startsWith("/rest/v1/pessoas")) return json(res, 200, PESSOAS);
+  if (u.pathname.startsWith("/rest/v1/pessoas")) {
+    if (falha === "tabela") {
+      return json(res, 404, { code: "42P01", message: 'relation "public.pessoas" does not exist' });
+    }
+    if (falha === "permissao") {
+      return json(res, 403, { code: "42501", message: "permission denied for table pessoas" });
+    }
+    if (falha === "sem_pessoa") return json(res, 200, []);
+    return json(res, 200, PESSOAS);
+  }
 
   if (u.pathname.startsWith("/rest/v1/eventos")) {
+    if (falha === "tabela") {
+      return json(res, 404, { code: "42P01", message: 'relation "public.eventos" does not exist' });
+    }
+    if (falha === "permissao") {
+      return json(res, 403, { code: "42501", message: "permission denied for table eventos" });
+    }
     if (req.method === "GET") {
       if ((req.headers.prefer || "").includes("count=exact")) {
         res.setHeader("content-range", `0-0/${eventos.length}`);

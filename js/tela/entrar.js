@@ -13,6 +13,13 @@ export async function montar(raiz, ctx) {
   // Esta tela não usa a casca: ela é a porta.
   document.body.classList.add("entrando");
 
+  // Caso especial: a senha funcionou, mas o e-mail não está na tabela
+  // `pessoas`. Sem papel, nenhuma tela do site faz sentido — e deixar passar
+  // daria um menu vazio sem explicação. Melhor dizer o que houve e o que
+  // resolve.
+  const p = pessoas.quem();
+  if (p && p.semPapel) return semPapel(raiz, ctx, p);
+
   const eNome = el("input", { placeholder: "Seu nome", autocomplete: "username" });
   const eSenha = el("input", { type: "password", placeholder: "Senha", autocomplete: "current-password" });
   const aviso = el("div", {});
@@ -99,4 +106,30 @@ async function criarAcesso() {
     await nuvem.criarAcesso(eNome.value.trim(), eSenha.value, ePapel.value);
     avisar(`Acesso de ${eNome.value.trim()} criado. Agora é só entrar.`);
   } catch (e) { erro(e.message); }
+}
+
+/** Entrou, mas não está na tabela `pessoas`. */
+function semPapel(raiz, ctx, p) {
+  raiz.append(el("div", { id: "entrar-tela" },
+    el("div", { class: "cartao-entrar" },
+      el("div", { class: "logo" }, el("i", {}, "M"), "Quase lá"),
+      el("div", { class: "erro" },
+        "Sua senha funcionou, mas este acesso ainda não tem papel."),
+      el("p", { style: "font-size:13px;color:var(--fraco)" },
+        "O site entrou como ", el("b", {}, p.email),
+        ", e esse endereço não está na tabela ", el("code", {}, "pessoas"),
+        " do banco — é ela que diz quem é PCM e quem é operação."),
+      el("p", { style: "font-size:13px;color:var(--fraco)" },
+        "Duas causas, nesta ordem: ou falta rodar ",
+        el("code", {}, "sql/02_acesso.sql"), " no SQL Editor do Supabase, ",
+        "ou o nome foi digitado diferente do que está cadastrado lá."),
+      el("div", { style: "display:flex;gap:8px;margin-top:16px" },
+        el("button", { class: "primario", onclick: async () => {
+          await pessoas.carregar();
+          if (pessoas.papel()) { ctx.ir(pessoas.ehOperacao() ? "operacao" : "hoje"); }
+          else avisar("Ainda não — o papel continua faltando.");
+        } }, "Tentar de novo"),
+        el("button", { onclick: async () => { await pessoas.sair(); ctx.atualizar(); } },
+          "Sair e entrar com outro nome")))));
+  return { desmontar: () => document.body.classList.remove("entrando") };
 }

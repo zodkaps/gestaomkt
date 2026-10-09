@@ -84,6 +84,49 @@ ok("entra com nome e senha de primeira", dentro.nome === "Mateus" && dentro.pape
   JSON.stringify(dentro));
 ok("sem erro de página", erros.length === 0, erros.slice(0, 2).join(" | "));
 
+// ── as mensagens de instalação ────────────────────────────────────────────
+// Estes três casos acontecem quando falta um passo no painel do Supabase. Sem
+// tradução, a pessoa lê "42P01 relation does not exist" e liga perguntando.
+const falhar = async modo => {
+  await fetch(`${NUVEM}/__falha`, { method: "POST",
+    headers: { "content-type": "application/json" }, body: JSON.stringify({ modo }) });
+};
+const mensagemDe = async () => p.evaluate(async () => {
+  try { await mkt.nuvem.lerPessoas(); return ""; } catch (e) { return e.message; }
+});
+
+await falhar("tabela");
+const m1 = await mensagemDe();
+ok("tabela faltando manda rodar os dois arquivos SQL",
+  m1.includes("01_esquema") && m1.includes("02_acesso") && !m1.includes("42P01"), m1);
+
+await falhar("permissao");
+const m2 = await mensagemDe();
+ok("permissão faltando aponta o 02_acesso.sql",
+  m2.includes("02_acesso") && !m2.includes("42501"), m2);
+
+// entrou, mas o e-mail não está na tabela `pessoas`
+await falhar("sem_pessoa");
+await p.evaluate(async () => {
+  await mkt.pessoas.sair();
+  await mkt.dados.gravarMeta("elenco", []);   // navegador novo, sem cópia local
+});
+await p.goto(`http://127.0.0.1:${PORTA}/`, { waitUntil: "networkidle" });
+await p.waitForTimeout(400);
+await p.fill('input[placeholder="Seu nome"]', "Mateus");
+await p.fill('input[placeholder="Senha"]', "makro2026");
+await p.click('button[type=submit]');
+await p.waitForTimeout(1800);
+const semPapel = await p.evaluate(() => ({
+  texto: (document.querySelector("#entrar-tela") || {}).textContent || "",
+  menu: document.querySelectorAll("#menu nav a").length,
+}));
+ok("quem entra sem papel vê a explicação, não um menu vazio",
+  semPapel.texto.includes("ainda não tem papel") &&
+  semPapel.texto.includes("mateus@makro.local") && semPapel.menu === 0,
+  JSON.stringify(semPapel).slice(0, 140));
+
+await falhar("");
 await nav.close();
 srv.close();
 rmSync(COPIA, { recursive: true, force: true });

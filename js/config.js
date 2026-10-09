@@ -18,7 +18,7 @@ export const NUVEM = {
   // antiga `anon`, e as duas funcionam igual para quem chama — vão no
   // cabeçalho `apikey`. Por isso o campo tem nome genérico: um campo chamado
   // `anon` guardando uma publishable seria mentira na primeira leitura.
-  chave: "",
+  chave: "sb_publishable_-6P6cEB4VCw3KEPZZZ_S3w_7lOsCA1u",
 };
 
 // O domínio interno dos acessos. Ninguém precisa ter e-mail: quem digita

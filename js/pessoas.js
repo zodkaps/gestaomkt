@@ -69,18 +69,22 @@ export async function carregar() {
   elenco = await dados.lerMeta("elenco", []) || [];
   if (nuvem.autenticado()) {
     try {
-      const vindos = await nuvem.lerPessoas();
-      if (vindos && vindos.length) {
-        elenco = vindos;
-        await dados.gravarMeta("elenco", elenco);
-      }
-    } catch (e) { /* segue com a cópia local */ }
+      // Resposta do banco é resposta, mesmo vindo vazia: lista vazia quer dizer
+      // "a tabela não tem ninguém", e não "não consegui perguntar". Guardar a
+      // cópia velha nesse caso faria alguém tirado da tabela continuar com
+      // papel de PCM na tela. Só a FALHA da chamada cai para a cópia local —
+      // que é o caso do pátio sem sinal.
+      elenco = await nuvem.lerPessoas() || [];
+      await dados.gravarMeta("elenco", elenco);
+    } catch (e) { /* sem rede: segue com a cópia local */ }
     const email = nuvem.emailAtual();
     atual = elenco.find(p => p.email === email) || null;
     if (!atual) {
-      // Entrou, mas não está na tabela: sem papel, sem permissão. Melhor do que
-      // chutar "operação" e deixar alguém lançar o que não devia.
-      atual = { email, nome: email.split("@")[0], papel: "" };
+      // Entrou, mas não está na tabela `pessoas`: sem papel, sem permissão.
+      // Melhor do que chutar "operação" e deixar alguém lançar o que não devia
+      // — mas o site tem de DIZER isso, senão vira um menu vazio sem
+      // explicação, que é o pior jeito de errar.
+      atual = { email, nome: email.split("@")[0], papel: "", semPapel: true };
     }
   } else {
     atual = null;

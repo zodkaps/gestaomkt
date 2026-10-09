@@ -113,6 +113,26 @@ function traduzir(m) {
   if (s.includes("signups not allowed") || s.includes("signup is disabled")) {
     return "O projeto está com criação de acesso desligada (Authentication → Providers → Email → Allow new users).";
   }
+
+  // ── o lado dos dados ──
+  // Estes são erros de INSTALAÇÃO, não de uso: aparecem quando falta rodar um
+  // dos arquivos SQL. Sem tradução, a pessoa lê "42P01 relation does not
+  // exist" e liga para perguntar — com tradução, lê o que fazer.
+  if (s.includes("42p01") || s.includes("does not exist")) {
+    return "O banco ainda não tem as tabelas deste site. No SQL Editor do " +
+      "Supabase, rode sql/01_esquema.sql e depois sql/02_acesso.sql.";
+  }
+  if (s.includes("42501") || s.includes("permission denied")) {
+    return "O banco recusou o acesso à tabela. Falta rodar sql/02_acesso.sql, " +
+      "que é quem concede a permissão e cria as políticas.";
+  }
+  if (s.includes("row-level security")) {
+    return "O banco recusou este lançamento: ou não é do seu papel, ou está " +
+      "assinado com um nome diferente do seu.";
+  }
+  if (s.includes("jwt expired") || s.includes("token is expired")) {
+    return "Sua sessão venceu. Entre de novo.";
+  }
   return m;
 }
 
@@ -188,10 +208,10 @@ async function chamar(caminho, opcoes = {}) {
   const r = await fetch(`${url}/rest/v1/${caminho}`, opcoes);
   if (!r.ok) {
     const t = await r.text().catch(() => "");
-    if (r.status === 401 || r.status === 403) {
-      throw new Error("O banco recusou: " + (t ? t.slice(0, 180) : "sem permissão"));
-    }
-    throw new Error(`${r.status} ${r.statusText}${t ? " — " + t.slice(0, 180) : ""}`);
+    const claro = traduzir(t || `${r.status} ${r.statusText}`);
+    // Se a tradução não reconheceu, vai o original — melhor um erro feio do
+    // que um erro bonito e errado.
+    throw new Error(claro === t ? `${r.status} ${r.statusText}${t ? " — " + t.slice(0, 180) : ""}` : claro);
   }
   return r;
 }
