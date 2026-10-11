@@ -16,9 +16,9 @@ const TELAS = [
   { id: "operacao", icone: "✋", nome: "Para você", grupo: "Operação", papeis: ["operacao"],
     carregar: () => import("./tela/operacao.js"),
     contar: () => contagemOperacao() },
-  { id: "hoje", icone: "☀", nome: "Hoje", grupo: "Oficina", papeis: ["pcm"],
+  { id: "hoje", icone: "☀", nome: "Hoje", grupo: "Oficina", papeis: ["pcm"], celular: true,
     carregar: () => import("./tela/hoje.js") },
-  { id: "programacao", icone: "☰", nome: "Programação", grupo: "Oficina", papeis: ["pcm"],
+  { id: "programacao", icone: "☰", nome: "Programação", grupo: "Oficina", papeis: ["pcm"], celular: true,
     carregar: () => import("./tela/programacao.js"),
     // O número no menu é o que pede ação: quantas venceram.
     contar: () => ev.lista().filter(a => M.situacaoDe(a) === "VENCIDA").length },
@@ -26,10 +26,10 @@ const TELAS = [
     carregar: () => import("./tela/semana.js") },
   { id: "resultados", icone: "%", nome: "Resultados", grupo: "Oficina", papeis: ["pcm"],
     carregar: () => import("./tela/resultados.js") },
-  { id: "preventivas", icone: "⏱", nome: "Preventivas", grupo: "Frota", papeis: ["pcm", "operacao"],
+  { id: "preventivas", icone: "⏱", nome: "Preventivas", grupo: "Frota", papeis: ["pcm", "operacao"], celular: true,
     carregar: () => import("./tela/preventivas.js"),
     contar: () => ev.lista("preventiva").filter(M.preventivaAberta).length },
-  { id: "movimentacoes", icone: "⇄", nome: "Movimentação", grupo: "Frota", papeis: ["pcm", "operacao"],
+  { id: "movimentacoes", icone: "⇄", nome: "Movimentação", grupo: "Frota", papeis: ["pcm", "operacao"], celular: true,
     carregar: () => import("./tela/movimentacoes.js"),
     // Para o PCM, o que pede ação é a fila de aprovação; para a operação, o que
     // está em aberto.
@@ -92,12 +92,20 @@ function alvo() {
   return { id: ok ? id : inicial(), params };
 }
 
+// No celular a barra de baixo cabe cinco botões. Com mais telas que isso, ficam
+// nela as do dia (marcadas com `celular`) e o resto abre em "Mais". Antes a
+// barra rolava na horizontal, e a Movimentação ficava escondida à direita.
+const TELA_PEQUENA = matchMedia("(max-width: 860px)");
+
 function pintarMenu(id) {
   const nav = $("#menu nav");
   limpar(nav);
   if (!pessoas.quem()) return;
+  const todas = telasDoPapel();
+  const naBarra = TELA_PEQUENA.matches && todas.length > 5 ? todas.filter(t => t.celular) : todas;
+  const resto = todas.filter(t => !naBarra.includes(t));
   let grupoAtual = null;
-  for (const t of telasDoPapel()) {
+  for (const t of naBarra) {
     if (t.grupo !== grupoAtual) {
       grupoAtual = t.grupo;
       nav.append(el("div", { class: "grupo" }, t.grupo));
@@ -108,7 +116,28 @@ function pintarMenu(id) {
       el("b", {}, t.icone), el("span", {}, t.nome),
       n ? el("span", { class: "cont" }, String(n)) : null));
   }
+  if (resto.length) {
+    nav.append(el("a", { href: "#", class: resto.some(t => t.id === id) ? "ativo" : "",
+      onclick: e => { e.preventDefault(); maisTelas(resto); } },
+      el("b", {}, "⋯"), el("span", {}, "Mais")));
+  }
 }
+
+/** As telas que não cabem na barra de baixo do celular, numa lista. */
+async function maisTelas(telas) {
+  const escolhida = await caixa({
+    titulo: "Mais telas",
+    corpo: ({ fechar }) => el("div", { class: "menu-acoes" },
+      telas.map(t => el("button", { type: "button", class: "opcao-acao",
+        onclick: () => fechar(t.id) },
+        el("b", {}, `${t.icone}  ${t.nome}`)))),
+    acoes: [{ rotulo: "Fechar", valor: "" }],
+  });
+  if (escolhida) location.hash = "#/" + escolhida;
+}
+
+// Girar o celular ou abrir numa janela estreita refaz a barra.
+TELA_PEQUENA.addEventListener("change", () => pintarMenu(alvo().id));
 
 /** O nome abre isto: trocar de usuário, trocar a própria senha, ou sair. No
  *  celular o menu lateral some, e com ele o nome — por isso o nome também mora

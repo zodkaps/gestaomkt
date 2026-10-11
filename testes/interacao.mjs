@@ -485,6 +485,35 @@ ok("um clique aprova: Concluída com atraso, concluída pelo Pedro, aprovada pel
   await p.waitForTimeout(300);
 }
 
+// ── a barra de baixo do celular ────────────────────────────────────────────
+// Cabe cinco botões. O PCM tem dez telas: a barra mostra as do dia e o resto
+// abre em "Mais". Antes a barra rolava na horizontal e a Movimentação ficava
+// escondida à direita, sem ninguém perceber.
+const barra = await (await nav.newContext({ viewport: { width: 390, height: 800 } })).newPage();
+await barra.goto(site.endereco, { waitUntil: "networkidle" });
+await entrarComo(barra, "Mateus");
+await barra.waitForTimeout(600);
+const estadoBarra = await barra.evaluate(() => {
+  const links = [...document.querySelectorAll("#menu nav a")];
+  const caixa = document.querySelector("#menu nav");
+  return {
+    nomes: links.map(a => a.textContent.trim()),
+    semRolagem: caixa.scrollWidth <= caixa.clientWidth + 1,
+    cabe: links.every(a => { const r = a.getBoundingClientRect(); return r.left >= 0 && r.right <= innerWidth + 1; }),
+  };
+});
+ok("no celular a barra cabe sem rolar, com a Movimentação e o Mais",
+  estadoBarra.semRolagem && estadoBarra.cabe &&
+  estadoBarra.nomes.some(n => n.includes("Movimenta")) && estadoBarra.nomes.some(n => n.includes("Mais")),
+  estadoBarra.nomes.join(" | "));
+await barra.click('#menu nav a:has-text("Mais")');
+await barra.waitForSelector('.caixa .opcao-acao:has-text("Resultados")', { timeout: 8000 });
+await barra.click('.caixa .opcao-acao:has-text("Resultados")');
+await barra.waitForTimeout(800);
+const foiParaResultados = await barra.evaluate(() => location.hash);
+ok("o Mais abre a lista das telas que não cabem e leva à escolhida",
+  foiParaResultados.startsWith("#/resultados"), foiParaResultados);
+
 // ── trocar de usuário pelo celular ─────────────────────────────────────────
 // No celular o menu lateral some, e com ele o nome e o "Sair": não havia como
 // trocar de usuário. Agora o nome fica no alto, e tocar nele troca.

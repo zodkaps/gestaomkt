@@ -346,7 +346,10 @@ muda. `testes/interacao.mjs` prova: depois de dar baixa, é o mesmo elemento de
 antes, a busca continua digitada e a rolagem não pulou.
 
 O visual é **escuro por padrão** (o claro continua no botão do alto), com menu
-lateral no computador e barra embaixo no celular.
+lateral no computador e barra embaixo no celular. A barra de baixo cabe cinco
+botões: no celular ficam Hoje, Programação, Preventivas e Movimentação, e o
+**Mais** abre as outras (Semana, Resultados, Frota, Registro, Importar,
+Diagnóstico). Quem não é PCM vê só as cinco telas dele, e a barra cabe inteira.
 
 As cores de dado não foram escolhidas no olho: saem de uma paleta validada para
 fundo escuro (faixa de luminosidade, piso de croma, separação para daltonismo e
