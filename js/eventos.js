@@ -20,7 +20,7 @@ import * as pessoas from "./pessoas.js";
 import { molde, moldeMovimentacao, moldePreventiva } from "./modelo.js";
 
 export const TIPOS = {
-  criada: "criada à mão",
+  criada: "criada manualmente",
   importada: "importada",
   editada: "editada",
   excluida: "excluída",
@@ -31,17 +31,17 @@ export const TIPOS = {
   reaberta: "reaberta",
   cancelada: "cancelada",
   restaurada: "restaurada",
-  mov_prometida: "movimentação prometida",
+  mov_prometida: "prazo da movimentação definido",
   mov_chegou: "movimentação concluída",
   mov_aprovada: "movimentação aprovada",
   mov_devolvida: "movimentação devolvida",
   mov_cancelada: "movimentação cancelada",
   justificada: "justificativa registrada",
   prev_disponivel: "disponibilidade informada",
-  prev_parada: "dia da parada marcado",
+  prev_parada: "parada programada",
   prev_andamento: "preventiva em andamento",
   prev_realizada: "preventiva realizada",
-  prev_adiada: "preventiva passada para o mês seguinte",
+  prev_adiada: "preventiva adiada para o próximo mês",
   prev_cancelada: "preventiva cancelada",
   prev_reaberta: "preventiva reaberta",
 };
@@ -355,7 +355,7 @@ export async function sincronizar() {
   if (!nuvem.ligada()) return { subiram: 0, desceram: 0, erro: "", esperando: [] };
   if (!nuvem.autenticado()) {
     return { subiram: 0, desceram: 0, esperando: await autoresNaFila(),
-      erro: "Sem senha não há como escrever no banco — entre para a fila subir." };
+      erro: "Sem senha não é possível gravar no banco — entre para enviar os lançamentos pendentes." };
   }
   let subiram = 0, desceram = 0, erro = "";
   try {
@@ -511,7 +511,7 @@ export function reincluir(a, alvoTipo = "atividade") {
 export function justificar(alvo, { motivo = "", quem = "", texto = "" }, alvoTipo = "atividade") {
   pessoas.exigir(alvoTipo === "atividade" ? "editar_atividade" : "movimentar");
   motivo = String(motivo || "").trim(); texto = String(texto || "").trim();
-  if (!motivo && !texto) throw new Error("Diga por quê — escolha o motivo ou escreva.");
+  if (!motivo && !texto) throw new Error("Informe o motivo.");
   return { tipo: "justificada", alvo: alvo.id, alvo_tipo: alvoTipo,
     dados: { motivo, quem: String(quem || "").trim(), texto } };
 }
@@ -549,7 +549,7 @@ export function pedirMovimentacao(campos) {
 
 export function prometer(m, para, quem = "Operação") {
   pessoas.exigir("movimentar");
-  if (!para) throw new Error("Prometer exige a data.");
+  if (!para) throw new Error("Definir o prazo exige a data.");
   return { tipo: "mov_prometida", alvo: m.id, alvo_tipo: "movimentacao",
     dados: { para, quem } };
 }
@@ -589,7 +589,7 @@ export function cancelarMovimentacao(m, motivo) {
 /** A operação diz quando o caminhão fica livre. "agora" é resposta válida. */
 export function informarDisponibilidade(p, quando) {
   pessoas.exigir("disponibilidade");
-  if (!quando) throw new Error("Diga 'agora' ou uma data.");
+  if (!quando) throw new Error("Informe 'agora' ou uma data.");
   return { tipo: "prev_disponivel", alvo: p.id, alvo_tipo: "preventiva",
     dados: { quando } };
 }
@@ -597,7 +597,7 @@ export function informarDisponibilidade(p, quando) {
 /** O PCM marca o dia em que o caminhão para. */
 export function marcarParada(p, dia, onde = "") {
   pessoas.exigir("parada");
-  if (!dia) throw new Error("Marcar a parada exige o dia.");
+  if (!dia) throw new Error("Programar a parada exige a data.");
   return { tipo: "prev_parada", alvo: p.id, alvo_tipo: "preventiva",
     dados: { dia, onde } };
 }

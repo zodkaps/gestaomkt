@@ -162,10 +162,10 @@ async function menuPessoa(p) {
             : `${(pessoas.PAPEIS[p.papel] || {}).rotulo || "sem papel"}` +
               (p.email ? ` · ${p.email}` : "")),
         fila ? el("p", { class: "morno-texto" },
-          `Você tem ${fila.quantos} lançamento${fila.quantos === 1 ? "" : "s"} que ainda não ` +
-          "subi" + (fila.quantos === 1 ? "u" : "ram") + ". Fica" + (fila.quantos === 1 ? "" : "m") +
-          " guardado" + (fila.quantos === 1 ? "" : "s") + " aqui e sobe" + (fila.quantos === 1 ? "" : "m") +
-          " quando você entrar de novo.") : null,
+          `Você tem ${fila.quantos} lançamento${fila.quantos === 1 ? "" : "s"} ainda não ` +
+          "enviado" + (fila.quantos === 1 ? "" : "s") + ". Fica" + (fila.quantos === 1 ? "" : "m") +
+          " guardado" + (fila.quantos === 1 ? "" : "s") + " aqui e " +
+          (fila.quantos === 1 ? "é enviado" : "são enviados") + " quando você entrar de novo.") : null,
         el("div", { class: "opcoes-pessoa" }, opcoes));
     },
     acoes: [{ rotulo: "Fechar", valor: false }],
@@ -308,7 +308,7 @@ async function montarFaixa() {
         `${pessoas.nome()}. ` + (fila.length
           ? `${fila.length} lançamento${fila.length === 1 ? "" : "s"} espera${fila.length === 1 ? "" : "m"} ` +
             `a senha de ${pessoas.nome()} para a equipe ver.`
-          : "Nada sobe para a equipe até você entrar com senha.")),
+          : "Nada é enviado para a equipe até você entrar com senha.")),
       el("button", { class: "discreto", onclick: () => { location.hash = "#/entrar"; } },
         "Entrar com senha"),
     ] };
@@ -341,7 +341,7 @@ async function montarFaixa() {
     const nos = [];
     if (meus) {
       nos.push(el("span", {}, `${meus} lançamento${meus === 1 ? "" : "s"} seu${meus === 1 ? "" : "s"} ` +
-        "ainda não subiu — sem rede, ou o banco não respondeu. Fica guardado aqui e sobe sozinho."));
+        "ainda não foi enviado — sem rede, ou o banco não respondeu. Fica guardado aqui e é enviado automaticamente."));
     }
     if (outros.length) {
       nos.push(el("span", {}, (meus ? " E " : "") +
@@ -351,7 +351,7 @@ async function montarFaixa() {
     }
     nos.push(el("button", { class: "discreto", onclick: async () => {
       const r = await ev.sincronizar();
-      avisar(r.erro ? "Ainda não: " + r.erro : `Subiu ${r.subiram}, desceu ${r.desceram}.`,
+      avisar(r.erro ? "Ainda não: " + r.erro : `Enviados ${r.subiram}, recebidos ${r.desceram}.`,
         r.erro ? "ruim" : "");
       faixa();
     } }, "Tentar agora"));

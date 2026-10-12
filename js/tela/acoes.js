@@ -55,34 +55,34 @@ export async function menuAtividade(a, ctx) {
   const aberta = M.aberta(a);
   const op = [];
   if ((aberta || a.feita_sem_data) && pode("baixar")) {
-    op.push({ chave: "concluir", rotulo: a.feita_sem_data ? "Dar a data" : "Dar baixa",
-      explica: a.feita_sem_data ? "a planilha marca feita, mas sem o dia" : "marca como feita, com a data em que saiu" });
+    op.push({ chave: "concluir", rotulo: a.feita_sem_data ? "Informar a data" : "Dar baixa",
+      explica: a.feita_sem_data ? "concluída na planilha, sem a data de conclusão" : "registra a conclusão, com a data" });
   }
   if (aberta && pode("programar")) {
     op.push({ chave: "programar", rotulo: a.semana ? "Reprogramar" : "Programar",
-      explica: a.semana ? "muda a semana ou o dia — pede o motivo" : "põe numa semana e num dia" });
+      explica: a.semana ? "altera a semana ou o dia — exige motivo" : "define a semana e o dia" });
   }
   if (aberta && a.semana && pode("programar")) {
-    op.push({ chave: "tirar", rotulo: "Tirar da programação",
-      explica: "volta para a carteira, sem semana — pede o motivo" });
+    op.push({ chave: "tirar", rotulo: "Retirar da programação",
+      explica: "volta para a carteira — exige motivo" });
   }
   if (M.feita(a) && !a.feita_sem_data && pode("baixar")) {
-    op.push({ chave: "reabrir", rotulo: "Reabrir", explica: "a data de conclusão sai" });
+    op.push({ chave: "reabrir", rotulo: "Reabrir", explica: "remove a data de conclusão" });
   }
   if (pode("editar_atividade") && !a.cancelada) {
     op.push({ chave: "justificar", rotulo: a.motivo ? "Mudar justificativa" : "Justificar",
-      explica: "por que atrasou e quem atrasou" });
+      explica: "motivo do atraso e responsável" });
   }
   if (pode("editar_atividade") && aberta) {
     op.push({ chave: "cancelar", rotulo: "Cancelar", perigo: true,
-      explica: "não vai ser feita — sai da aderência em vez de contar como feita" });
+      explica: "não será executada — sai do cálculo da aderência" });
   }
   if (pode("editar_atividade") && a.cancelada) {
     op.push({ chave: "restaurar", rotulo: "Desfazer o cancelamento" });
   }
   if (pode("editar_atividade")) {
-    op.push({ chave: "excluir", rotulo: "Excluir da lista", perigo: true,
-      explica: "some das telas; o registro fica e dá para desfazer" });
+    op.push({ chave: "excluir", rotulo: "Excluir", perigo: true,
+      explica: "deixa de aparecer nas telas; o histórico é mantido e a exclusão pode ser desfeita" });
   }
   if (!op.length) return;
 
@@ -92,22 +92,22 @@ export async function menuAtividade(a, ctx) {
   if (r === "tirar") return devolverParaCarteira(a, ctx);
   if (r === "justificar") return justificar(a, "atividade");
   if (r === "reabrir") return gravarCom("Reabrir",
-    "A data de conclusão sai e a atividade volta a pesar na aderência.",
+    "A data de conclusão é removida e a atividade volta a contar na aderência.",
     () => ev.reabrir(a), "Reabrir", "Reaberta.");
-  if (r === "restaurar") return gravarCom("Desfazer o cancelamento", "A atividade volta a contar.",
+  if (r === "restaurar") return gravarCom("Desfazer o cancelamento", "A atividade volta a contar nos indicadores.",
     () => ev.restaurar(a), "Desfazer", "Cancelamento desfeito.");
-  if (r === "excluir") return gravarCom("Excluir da lista",
-    "A atividade some das telas. O registro dela fica no histórico, e dá para desfazer pelo Registro.",
+  if (r === "excluir") return gravarCom("Excluir",
+    "A atividade deixa de aparecer nas telas. O histórico é mantido, e a exclusão pode ser desfeita pela aba Registro.",
     () => ev.excluir(a, "", "atividade"), "Excluir", "Excluída.");
   if (r === "cancelar") return cancelarAtividade(a);
 }
 
 async function cancelarAtividade(a) {
-  const motivo = el("input", { type: "text", placeholder: "por que não vai ser feita" });
+  const motivo = el("input", { type: "text", placeholder: "motivo da não execução" });
   const conf = await caixa({
     titulo: "Cancelar a atividade",
     corpo: el("div", {},
-      el("p", {}, "Cancelada não é concluída: sai da aderência em vez de contar como feita."),
+      el("p", {}, "Atividade cancelada não conta como concluída: sai do cálculo da aderência."),
       campo("Motivo", motivo)),
     acoes: [{ rotulo: "Voltar", valor: false },
       { rotulo: "Cancelar a atividade", classe: "perigo", valor: true }],
@@ -124,25 +124,25 @@ export async function menuMovimentacao(m, ctx) {
   const aberta = M.movimentacaoAberta(m);
   const op = [];
   if (aberta && pode("movimentar")) {
-    op.push({ chave: "concluir", rotulo: "Concluir", explica: "a frota voltou ou o serviço saiu" });
-    op.push({ chave: "prazo", rotulo: m.prometida_para ? "Mudar o prazo" : "Dar o prazo" });
+    op.push({ chave: "concluir", rotulo: "Concluir", explica: "a frota retornou ou o serviço foi concluído" });
+    op.push({ chave: "prazo", rotulo: m.prometida_para ? "Alterar o prazo" : "Definir o prazo" });
   }
   if (!m.cancelada && pode("movimentar") && (M.atrasoMovimentacao(m) > 0 || m.motivo_atraso || m.justificativa)) {
     op.push({ chave: "justificar", rotulo: m.motivo_atraso ? "Mudar justificativa" : "Justificar",
-      explica: "por que atrasou e quem atrasou" });
+      explica: "motivo do atraso e responsável" });
   }
   if (m.chegou_em && !m.cancelada && pode("aprovar")) {
     if (!m.aprovada) op.push({ chave: "aprovar", rotulo: "Aprovar" });
-    op.push({ chave: "devolver", rotulo: "Devolver para a operação", perigo: true,
-      explica: "o PCM não confere — volta em aberto, com o motivo" });
+    op.push({ chave: "devolver", rotulo: "Devolver à operação", perigo: true,
+      explica: "o PCM não confirmou — volta a ficar em aberto, com o motivo" });
   }
   if (aberta && !m.cancelada && pode("movimentar")) {
     op.push({ chave: "cancelar", rotulo: "Cancelar a movimentação", perigo: true,
-      explica: "não vai acontecer — pede o motivo" });
+      explica: "não será realizada — exige motivo" });
   }
   if (pode("editar_atividade")) {
     op.push({ chave: "excluir", rotulo: "Excluir", perigo: true,
-      explica: "some das telas; o registro fica e dá para desfazer" });
+      explica: "deixa de aparecer nas telas; o histórico é mantido e a exclusão pode ser desfeita" });
   }
   if (!op.length) return;
 
@@ -154,7 +154,7 @@ export async function menuMovimentacao(m, ctx) {
   if (r === "devolver") return devolver(m);
   if (r === "cancelar") return cancelarMov(m);
   if (r === "excluir") return gravarCom("Excluir",
-    "A movimentação some das telas. O registro dela fica, e dá para desfazer pelo Registro.",
+    "A movimentação deixa de aparecer nas telas. O histórico é mantido, e a exclusão pode ser desfeita pela aba Registro.",
     () => ev.excluir(m, "", "movimentacao"), "Excluir", "Excluída.");
 }
 
@@ -165,21 +165,21 @@ export async function menuPreventiva(p, ctx) {
   const aberta = M.preventivaAberta(p);
   const op = [];
   if (aberta && pode("disponibilidade")) {
-    op.push({ chave: "disponivel", rotulo: "Disponibilidade", explica: "quando a frota fica livre" });
+    op.push({ chave: "disponivel", rotulo: "Informar liberação", explica: "data em que a frota fica disponível para a manutenção" });
   }
   if (aberta && pode("parada")) {
-    op.push({ chave: "parada", rotulo: "Marcar a parada", explica: "o dia em que a frota para" });
-    op.push({ chave: "andamento", rotulo: p.em_andamento ? "Tirar de em andamento" : "Em andamento" });
-    op.push({ chave: "feita", rotulo: "Realizada", explica: "a preventiva saiu — com a data" });
-    op.push({ chave: "mes", rotulo: "Passar para o mês seguinte", explica: "sai da conta deste mês, com o motivo" });
-    op.push({ chave: "cancelar", rotulo: "Cancelar", perigo: true, explica: "não vai ser feita neste mapa" });
+    op.push({ chave: "parada", rotulo: "Programar a parada", explica: "data em que a frota entra em manutenção" });
+    op.push({ chave: "andamento", rotulo: p.em_andamento ? "Retirar de em andamento" : "Marcar em andamento" });
+    op.push({ chave: "feita", rotulo: "Registrar realização", explica: "preventiva concluída, com a data" });
+    op.push({ chave: "mes", rotulo: "Adiar para o próximo mês", explica: "sai da contagem deste mês, com o motivo" });
+    op.push({ chave: "cancelar", rotulo: "Cancelar", perigo: true, explica: "não será executada neste mês" });
   }
   if (!aberta && !p.fora && pode("parada")) {
-    op.push({ chave: "reabrir", rotulo: "Reabrir", explica: "volta para o mapa" });
+    op.push({ chave: "reabrir", rotulo: "Reabrir", explica: "volta para o plano do mês" });
   }
   if (pode("editar_atividade")) {
-    op.push({ chave: "excluir", rotulo: "Excluir do mapa", perigo: true,
-      explica: "some das telas; o registro fica e dá para desfazer" });
+    op.push({ chave: "excluir", rotulo: "Excluir do plano", perigo: true,
+      explica: "deixa de aparecer nas telas; o histórico é mantido e a exclusão pode ser desfeita" });
   }
   if (!op.length) return;
 
@@ -191,8 +191,8 @@ export async function menuPreventiva(p, ctx) {
   if (r === "mes") return passarParaOMesSeguinte(p);
   if (r === "cancelar") return cancelarPrev(p);
   if (r === "reabrir") return reabrirPrev(p);
-  if (r === "excluir") return gravarCom("Excluir do mapa",
-    "A preventiva some das telas. O registro dela fica, e dá para desfazer pelo Registro.",
+  if (r === "excluir") return gravarCom("Excluir do plano",
+    "A preventiva deixa de aparecer nas telas. O histórico é mantido, e a exclusão pode ser desfeita pela aba Registro.",
     () => ev.excluir(p, "", "preventiva"), "Excluir", "Excluída.");
 }
 

@@ -81,7 +81,7 @@ export async function montar(raiz, ctx) {
         el("p", {}, "Reconheci a aba ", el("b", {}, "Programação"), " em ", el("b", {}, nome), "."),
         campo("Ano da programação", eAno,
           "A planilha guarda o número da semana, mas não o ano. É esse ano que " +
-          "transforma 'semana 37' em datas — e eu não vou adivinhá-lo."),
+          "transforma 'semana 37' em datas — por isso ele é informado aqui."),
         ev.lista().length
           ? el("p", { style: "color:var(--fraco)" },
             `Já existem ${ev.lista().length} atividades aqui. Pode importar à ` +
@@ -116,24 +116,24 @@ export async function montar(raiz, ctx) {
           cartaoNumero(atividades.length, "atividades"),
           cartaoNumero(atividades.filter(a => !a.semana && !a.concluida_em && !a.feita_sem_data &&
             !a.cancelada).length, "na carteira"),
-          cartaoNumero(atividades.filter(a => a.concluida_em || a.feita_sem_data).length, "já fechadas"),
+          cartaoNumero(atividades.filter(a => a.concluida_em || a.feita_sem_data).length, "concluídas"),
           cartaoNumero(atividades.filter(a => a.os).length, "com OS"),
           cartaoNumero(movs.movimentacoes.length, "movimentações"),
           cartaoNumero(rp.preventivas, "preventivas", `${prevs.mes} · ${rp.frotas} frotas`)),
 
         prevs.preventivas.length ? el("p", { class: "nota" },
           `Preventivas de ${prevs.mes}: ${rp.preventivas} a fazer em ${rp.frotas} frotas` +
-          (rp.reprogramadas ? `, mais ${rp.reprogramadas} que passam para o mês seguinte` : "") +
-          (prevs.fora.length ? `. O quadro "fora do plano" (${prevs.fora.length} frotas) entra à parte, fora da conta` : "") +
+          (rp.reprogramadas ? `, mais ${rp.reprogramadas} adiadas para o próximo mês` : "") +
+          (prevs.fora.length ? `. O quadro "fora do plano" (${prevs.fora.length} frotas) é registrado à parte, fora da contagem` : "") +
           " — como no alto da aba da planilha.") : null,
 
         prevs.sairam.length ? grupo(
-          prevs.sairam.length === 1 ? `1 preventiva de ${prevs.mes} sai do mapa`
-            : `${prevs.sairam.length} preventivas de ${prevs.mes} saem do mapa`,
+          prevs.sairam.length === 1 ? `1 preventiva de ${prevs.mes} sai do plano`
+            : `${prevs.sairam.length} preventivas de ${prevs.mes} saem do plano`,
           prevs.sairam.map(p => el("div", { style: "font-size:13px;padding:3px 0" },
             el("b", {}, p.frota), p.plano ? " · " + p.plano : "")),
           "Estão no site, vieram de uma importação anterior e não estão mais na aba " +
-          "Preventivas desta planilha. Saem do mapa, com o motivo no Registro.", true) : null,
+          "Preventivas desta planilha. Saem do plano, com o motivo no Registro.", true) : null,
 
         movs.divergencias.length ? grupo(
           `${movs.divergencias.length} movimentação(ões) com a situação divergindo das datas`,
@@ -142,13 +142,13 @@ export async function montar(raiz, ctx) {
             chip(d.escrita), " mas as datas dizem ", chip(d.calculada, "andando"))),
           "Na planilha a situação é digitada à mão, então pode discordar das " +
           "datas na mesma linha. Aqui ela passa a ser calculada — a data é o " +
-          "fato. Estou mostrando as diferenças em vez de escolher calado.", true) : null,
+          "fato. As diferenças são mostradas, sem escolha automática.", true) : null,
 
         semData.length ? grupo(
           `${semData.length} marcada${semData.length === 1 ? "" : "s"} como concluída, sem data`,
           semData.map(a => el("div", { style: "font-size:13px;padding:3px 0" },
             el("b", {}, a.frota), " · ", a.atividade)),
-          "Entram como FEITAS, sem data — é assim que a planilha conta, e é por " +
+          "Entram como CONCLUÍDAS, sem data — é assim que a planilha conta, e é por " +
           "isso que a aderência do site dá o mesmo número que a dela. A data " +
           "continua faltando e ninguém a inventa: na Programação a linha mostra " +
           "\"✓ sem data\", e um clique ali dá o dia.", true) : null,
@@ -391,15 +391,15 @@ export async function montar(raiz, ctx) {
     const eChave = el("input", { placeholder: "chave anon (pública)", type: "password" });
 
     return el("div", { class: "painel" },
-      el("h2", {}, "O lugar comum dos quatro"),
+      el("h2", {}, "Sincronização da equipe"),
       ligada
         ? el("p", { style: "font-size:13px;color:var(--ok)" },
-          "✓ Ligado em ", el("b", {}, nuvem.endereco()),
-          ". Tudo que vocês lançam aparece na tela dos outros em poucos segundos.")
+          "✓ Conectado a ", el("b", {}, nuvem.endereco()),
+          ". Os lançamentos de cada usuário aparecem para os demais em poucos segundos.")
         : el("p", { style: "font-size:13px;color:var(--fraco)" },
-          "Ainda não ligado. Enquanto isso o site funciona, mas só neste " +
-          "navegador — o Pedro e o João Victor não veem nada do que você lança, " +
-          "nem você o que eles apontam."),
+          "Ainda não conectado. Enquanto isso o site funciona só neste " +
+          "navegador — os demais usuários não veem o que você lança, " +
+          "nem você o que eles registram."),
       ligada ? null : el("div", {},
         el("ol", { style: "font-size:13px;color:var(--fraco);padding-left:20px;margin:10px 0" },
           el("li", {}, "Abra seu projeto no Supabase → SQL Editor → New query"),
@@ -413,22 +413,22 @@ export async function montar(raiz, ctx) {
         el("button", { class: "primario", onclick: async () => {
           try {
             await nuvem.configurar(eUrl.value, eChave.value);
-            avisar("Ligado. Subindo o que está aqui…");
+            avisar("Conectado. Enviando os lançamentos deste aparelho…");
             const r = await ev.sincronizar();
-            avisar(`Subiu ${r.subiram}, desceu ${r.desceram}.`);
+            avisar(`Enviados ${r.subiram}, recebidos ${r.desceram}.`);
             pintar();
           } catch (e) { erro(e.message); }
         } }, "Ligar")),
       ligada ? el("div", { style: "display:flex;gap:8px;flex-wrap:wrap;margin-top:10px" },
         el("button", { onclick: async () => {
           const r = await ev.sincronizar();
-          avisar(r.erro ? "Não consegui: " + r.erro : `Subiu ${r.subiram}, desceu ${r.desceram}.`,
+          avisar(r.erro ? "Não consegui: " + r.erro : `Enviados ${r.subiram}, recebidos ${r.desceram}.`,
             r.erro ? "ruim" : "");
           pintar();
         } }, "Sincronizar agora"),
         el("button", { class: "perigo", onclick: async () => {
-          if (!await confirmar("Desligar a nuvem",
-            "O site volta a guardar só neste navegador. O que já subiu continua lá.",
+          if (!await confirmar("Desconectar",
+            "O site volta a guardar só neste navegador. O que já foi enviado continua no banco.",
             "Desligar")) return;
           await nuvem.desligar();
           avisar("Desligado."); pintar();
@@ -446,7 +446,7 @@ export async function montar(raiz, ctx) {
       el("p", { style: "font-size:13px;color:var(--fraco)" },
         "Os dados ficam neste navegador e em mais lugar nenhum. Limpar os dados " +
         "do site apaga tudo, e o backup é a única coisa que traz de volta — " +
-        "ele guarda a fita inteira, então volta com o histórico e não só com o resumo."),
+        "ele guarda o histórico completo, não só a situação atual."),
       el("div", { style: "display:flex;gap:8px;flex-wrap:wrap;margin-top:10px" },
         el("button", { class: "primario", onclick: async () => {
           bk.baixar(await bk.exportar(), bk.nomeDoArquivo());
@@ -486,7 +486,7 @@ export async function montar(raiz, ctx) {
 
   async function apagar() {
     if (!await confirmar("Apagar tudo",
-      `Vão embora ${ev.lista().length} atividades e ${ev.log.length} lançamentos do registro. ` +
+      `Serão apagadas ${ev.lista().length} atividades e ${ev.log.length} lançamentos do registro. ` +
       "Salve uma cópia antes se ainda não salvou — isto não tem volta.", "Apagar tudo")) return;
     await dados.apagarTudo();
     await ev.carregar();

@@ -41,29 +41,29 @@ export function outrosIndicadores(ano, semana) {
   }
 
   return el("div", { class: "paineis" },
-    painel("O que saiu nestes sete dias",
+    painel("Concluídas nos últimos sete dias",
       el("div", {},
         el("div", { class: "medidor neutro" },
           el("div", { class: "num" }, String(fn.total)),
-          el("div", { class: "rot" }, "serviços fechados com data nesta semana")),
+          el("div", { class: "rot" }, "serviços concluídos nesta semana")),
         el("div", { class: "numeros", style: "margin-top:12px" },
           cartaoNumero(fn.programadas, "programados"),
           cartaoNumero(fn.extras, "extras"),
           cartaoNumero(fn.de_outras_semanas, "atrasados de outras semanas"),
           cartaoNumero(String(fn.hh).replace(".", ","), "HH entregues"))),
-      "Pergunta diferente da aderência: ali é 'do que planejei, quanto saiu?'; " +
-      "aqui é 'quanto trabalho saiu?', incluindo terceirizada e o que era de outra semana."),
+      "Complementa a aderência: ela mede quanto do planejado foi concluído; " +
+      "aqui entra todo o trabalho concluído, incluindo terceirizadas e atividades de outras semanas."),
 
     painel("Backlog",
       el("div", {},
         el("div", { class: "medidor neutro" },
           el("div", { class: "num" }, bl.semanas == null ? "—" : String(bl.semanas).replace(".", ",")),
-          el("div", { class: "rot" }, "semanas para zerar o que está em aberto")),
+          el("div", { class: "rot" }, "semanas para concluir o que está em aberto")),
         el("div", { class: "numeros", style: "margin-top:12px" },
           cartaoNumero(bl.abertos, "em aberto"),
-          cartaoNumero(String(bl.ritmo).replace(".", ","), "fechadas por semana"))),
-      "Ritmo medido nas quatro semanas anteriores. Se nada novo entrasse, " +
-      "é o tempo que a oficina levaria para acabar o que já tem."),
+          cartaoNumero(String(bl.ritmo).replace(".", ","), "concluídas por semana"))),
+      "Ritmo medido nas quatro semanas anteriores. Sem novas entradas, " +
+      "é o tempo que a oficina levaria para concluir a carteira atual."),
 
     painel(`Reprogramações lançadas na semana ${semana}`,
       porMotivo.size
@@ -72,9 +72,9 @@ export function outrosIndicadores(ano, semana) {
           .map(([m, n]) => ({ rotulo: m, valor: n, cor: "c" })))
         : vazio("Nenhuma nesta semana."),
       `${reprogSemana.length} lançamento${reprogSemana.length === 1 ? "" : "s"} no registro do site. ` +
-      "É por aqui que se responde por que a semana não fechou."),
+      "É aqui que se explica por que a semana não foi cumprida."),
 
-    painel("De quem é o atraso",
+    painel("Responsáveis pelos atrasos",
       Object.keys(ar.por).length
         ? barras(Object.entries(ar.por)
           .sort((a, b) => b[1].total - a[1].total)
@@ -83,7 +83,7 @@ export function outrosIndicadores(ano, semana) {
               "Terceiro": "e", "Gestão / prioridade": "b" }[area] || "" })))
         : vazio("Nenhuma atividade em aberto com motivo escrito."),
       `Lido do motivo escrito em cada atividade em aberto. ${ar.sem_motivo} ` +
-      "ainda não têm motivo — e sem motivo o atraso não tem endereço."),
+      "ainda não têm motivo — sem ele não há como atribuir o atraso."),
 
     painel("Pontualidade da operação",
       el("div", {},
@@ -91,8 +91,8 @@ export function outrosIndicadores(ano, semana) {
           `${pt.no_prazo} de ${pt.concluidas} concluídas no prazo`),
         el("div", { class: "numeros", style: "margin-top:12px" },
           cartaoNumero(pt.atrasadas, "em aberto, já atrasadas", "", pt.atrasadas ? "alerta" : ""),
-          cartaoNumero(pt.dias_perdidos, "dias de frota perdidos", "", pt.dias_perdidos ? "alerta" : ""))),
-      "Cada dia além do prometido é um dia em que a oficina não pôde " +
+          cartaoNumero(pt.dias_perdidos, "dias de atraso acumulados", "", pt.dias_perdidos ? "alerta" : ""))),
+      "Cada dia além do prazo é um dia em que a oficina não pôde " +
       "trabalhar naquele caminhão."),
 
     prevs.length ? painel("Preventivas do mês",
@@ -100,14 +100,14 @@ export function outrosIndicadores(ano, semana) {
         cartaoNumero(prevAbertas.length, "abertas"),
         cartaoNumero(prevs.filter(p => M.preventivaVencida(p)).length,
           "vencidas", "", "alerta"),
-        cartaoNumero(prevAbertas.filter(p => M.esperandoQuem(p) === "Operação").length, "com a operação"),
-        cartaoNumero(prevAbertas.filter(p => M.esperandoQuem(p) === "PCM").length, "com o PCM")),
-      "Preventiva parada esperando resposta vira corretiva depois.") : null,
+        cartaoNumero(prevAbertas.filter(p => M.esperandoQuem(p) === "Operação").length, "aguardando a operação"),
+        cartaoNumero(prevAbertas.filter(p => M.esperandoQuem(p) === "PCM").length, "aguardando o PCM")),
+      "Preventiva sem resposta tende a virar corretiva.") : null,
 
-    painel("Onde está o trabalho em aberto",
+    painel("Distribuição do trabalho em aberto",
       barras(["VENCIDA", "Fecha hoje", "Em execução", "Programada", "Na carteira"]
-        .map(s => ({ rotulo: s, valor: abertas.filter(a => M.situacaoDe(a) === s).length,
+        .map(s => ({ rotulo: M.rotulo(s), valor: abertas.filter(a => M.situacaoDe(a) === s).length,
           cor: { VENCIDA: "d", "Fecha hoje": "c", "Em execução": "", Programada: "", "Na carteira": "e" }[s] }))
         .filter(i => i.valor)),
-      "Carteira grande não é problema; carteira grande com vencidas em cima é."));
+      "Carteira grande não é problema em si; o problema é carteira grande com muitas vencidas."));
 }

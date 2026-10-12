@@ -27,11 +27,11 @@ export const SUGESTAO = [
 export const PAPEIS = {
   pcm: {
     rotulo: "PCM / manutenção",
-    descricao: "programa a oficina, dá baixa, marca parada, importa o Protheus",
+    descricao: "programa a oficina, registra conclusões, programa paradas e importa o Protheus",
   },
   operacao: {
     rotulo: "Operação",
-    descricao: "aponta movimentação de frota e diz quando o caminhão fica livre",
+    descricao: "registra as movimentações de frota e informa a liberação dos veículos",
   },
 };
 
@@ -67,7 +67,7 @@ export function pode(acao) {
  *  não gravar calado um evento que a pessoa não podia gerar. */
 export function exigir(acao) {
   if (!pode(acao)) {
-    throw new Error(`${nome() || "Você"} não lança isso aqui — é do PCM.`);
+    throw new Error(`${nome() || "Você"} não tem permissão para este lançamento — é atribuição do PCM.`);
   }
 }
 

@@ -37,8 +37,8 @@ export async function montar(raiz, ctx, params) {
       el("div", { class: "espaco" }),
       el("button", { onclick: conferir }, "Conferir o registro")),
     el("p", { style: "color:var(--fraco);font-size:13px;margin-bottom:10px" },
-      "Tudo que mudou, com data, hora e motivo. Nenhuma alteração entra no " +
-      "sistema por fora daqui — é a mesma fita que monta as outras telas."),
+      "Todas as alterações, com data, hora e motivo. Nenhuma alteração entra no " +
+      "sistema sem passar por este registro — é o mesmo histórico que alimenta as outras telas."),
     el("div", { class: "filtros" }, fBusca, fTipo, fFrota, fOrigem,
       el("span", { style: "font-size:12.5px;color:var(--fraco)" }, "de"), fDe,
       el("span", { style: "font-size:12.5px;color:var(--fraco)" }, "até"), fAte),

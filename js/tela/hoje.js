@@ -64,29 +64,29 @@ export async function montar(raiz, ctx, params) {
     const pct = paraFechar.length ? Math.round(fecharam.length * 100 / paraFechar.length) + "%" : "—";
 
     corpo.append(el("div", { class: "kpis" },
-      kpi("Para fechar hoje", paraFechar.length, "o prazo termina neste dia", "hoje"),
-      kpi("Fecharam", fecharam.length, "das que fechavam hoje, saíram", "ok"),
-      kpi("Aderência do dia", pct, "fecharam ÷ para fechar hoje"),
-      kpi("Em execução", emExecucao.length, "a janela contém o dia e não saiu", "andando"),
-      kpi("Atrasadas", atrasadasInt.length, "o prazo já passou", atrasadasInt.length ? "vencida" : "")));
+      kpi("Vencem hoje", paraFechar.length, "prazo termina neste dia", "hoje"),
+      kpi("Concluídas", fecharam.length, "das que vencem hoje", "ok"),
+      kpi("Aderência do dia", pct, "concluídas ÷ vencem hoje"),
+      kpi("Em execução", emExecucao.length, "programadas para o dia, em aberto", "andando"),
+      kpi("Atrasadas", atrasadasInt.length, "prazo vencido", atrasadasInt.length ? "vencida" : "")));
     corpo.append(el("p", { class: "nota" },
-      "As caixas contam só a oficina interna, como a planilha. As listas mostram tudo, " +
-      "inclusive o que está em empresa de fora."));
+      "Os indicadores consideram só a oficina interna, como na planilha. As listas mostram tudo, " +
+      "inclusive os serviços em terceiros."));
 
-    corpo.append(el("div", { class: "titulo-secao" }, "O dia",
-      el("span", { class: "n" }, `· a janela de execução contém ${br(dia)} · ${doDia.length}`)));
+    corpo.append(el("div", { class: "titulo-secao" }, "Programadas para o dia",
+      el("span", { class: "n" }, `· período de execução inclui ${br(dia)} · ${doDia.length}`)));
     corpo.append(grade(doDia, { ctx, agrupar: "frota", ref: dia,
-      vazioTexto: "Nada em execução neste dia. A programação da semana fica na Programação." }));
+      vazioTexto: "Nenhuma atividade em execução neste dia. A programação da semana está na aba Programação." }));
 
     if (atrasadas.length) {
       corpo.append(el("div", { class: "titulo-secao" }, "Atrasadas",
-        el("span", { class: "n" }, `· o prazo passou e não saíram · ${atrasadas.length}`)));
+        el("span", { class: "n" }, `· prazo vencido, ainda em aberto · ${atrasadas.length}`)));
       corpo.append(grade(atrasadas, { ctx, agrupar: "frota", ref: dia }));
     }
 
     if (fechadasNoDia.length) {
-      corpo.append(el("div", { class: "titulo-secao" }, "Também fecharam neste dia",
-        el("span", { class: "n" }, `· de fora da janela · ${fechadasNoDia.length}`)));
+      corpo.append(el("div", { class: "titulo-secao" }, "Também concluídas neste dia",
+        el("span", { class: "n" }, `· fora do período programado · ${fechadasNoDia.length}`)));
       corpo.append(grade(fechadasNoDia, { ctx, agrupar: "frota", ref: dia }));
     }
   }

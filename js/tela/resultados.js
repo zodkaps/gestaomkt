@@ -158,15 +158,15 @@ export async function montar(raiz, ctx, params) {
         `do plano da semana, ${r.concluidas_plano} de ${r.plano} atividades foram concluídas.`,
         serie.map(x => x.aderencia), variacao(r.aderencia, ant && ant.aderencia)),
       grande("Cumprimento geral", r.cumprimento,
-        `contando o extra, a oficina fez ${r.concluidas} das ${r.total} atividades que teve.`,
+        `incluindo extras, a oficina concluiu ${r.concluidas} de ${r.total} atividades.`,
         serie.map(x => x.cumprimento), variacao(r.cumprimento, ant && ant.cumprimento))));
 
     // ── os cartões de apoio
     corpo.append(el("div", { class: "kpis" },
       kpi("Concluídas", `${r.concluidas}`, `de ${r.total} · ${r.extras_concluidas} eram extra`, r.concluidas ? "ok" : ""),
-      kpi("Extra programação", pc0(r.parte_extra), `${r.extra} de ${r.total} entraram depois`, r.extra ? "extra" : ""),
-      kpi("Vencidas", r.vencidas, "a janela fechou e não saiu", r.vencidas ? "vencida" : ""),
-      kpi("Pontualidade", pc0(r.pontualidade), `${r.no_prazo} saíram no próprio dia`),
+      kpi("Extra programação", pc0(r.parte_extra), `${r.extra} de ${r.total} incluídas depois`, r.extra ? "extra" : ""),
+      kpi("Vencidas", r.vencidas, "período encerrado sem conclusão", r.vencidas ? "vencida" : ""),
+      kpi("Pontualidade", pc0(r.pontualidade), `${r.no_prazo} concluídas no dia programado`),
       kpi("Cobertura de OS", pc0(r.cobertura_os), r.sem_os ? `${r.sem_os} sem OS na semana` : "todas com OS",
         r.sem_os ? "hoje" : "ok", r.sem_os ? el("button", { class: "mini k-acao",
           onclick: () => ctx.ir("programacao", `s=${semana}&a=${ano}&os=sem`) }, "Lançar as OS") : null),
@@ -199,14 +199,14 @@ export async function montar(raiz, ctx, params) {
       aoClicar: irSemana }), true);
 
     // 2. o que a oficina teve por semana
-    pendurar(cartaoGrafico("O que a oficina teve, por semana", "atividades da oficina interna",
+    pendurar(cartaoGrafico("Volume da oficina por semana", "atividades da oficina interna",
       el("div", { class: "g-corpo" }),
       { forma: "caixa", legendaDe: [{ nome: "Do plano, concluídas", cor: S1 },
-        { nome: "Do plano, não saíram", cor: CTX }, { nome: "Extra", cor: S2 }] }),
+        { nome: "Do plano, não concluídas", cor: CTX }, { nome: "Extra", cor: S2 }] }),
     w => graficoColunas({ largura: w, xs, marcado,
       series: [
         { nome: "Do plano, concluídas", cor: S1, valores: serie.map(x => x.concluidas_plano) },
-        { nome: "Do plano, não saíram", cor: CTX, valores: serie.map(x => x.plano - x.concluidas_plano) },
+        { nome: "Do plano, não concluídas", cor: CTX, valores: serie.map(x => x.plano - x.concluidas_plano) },
         { nome: "Extra", cor: S2, valores: serie.map(x => x.extra) }],
       aoClicar: irSemana }));
 
@@ -219,7 +219,7 @@ export async function montar(raiz, ctx, params) {
       "Concluída", "Cancelada"];
     const itensSit = [...porSit].sort((a, b) =>
       (ORDEM_SIT.indexOf(a[0]) + 1 || 99) - (ORDEM_SIT.indexOf(b[0]) + 1 || 99))
-      .map(([s, n]) => ({ rotulo: s, chave: s, partes: [{ nome: s, cor: `var(--${M.corDe(s)})`, valor: n }] }));
+      .map(([s, n]) => ({ rotulo: M.rotulo(s), chave: s, partes: [{ nome: M.rotulo(s), cor: `var(--${M.corDe(s)})`, valor: n }] }));
     pendurar(cartaoGrafico("Situação das atividades da semana",
       "clique para abrir a Programação nessa situação", el("div", { class: "g-corpo" })),
     w => itensSit.length ? graficoBarras({ largura: w, itens: itensSit,
@@ -245,7 +245,7 @@ export async function montar(raiz, ctx, params) {
         partes: [{ nome: "Concluídas", cor: S1, valor: resto.reduce((s, [, v]) => s + v.feitas, 0) },
           { nome: "Em aberto", cor: CTX, valor: resto.reduce((s, [, v]) => s + v.abertas, 0) }] });
     }
-    pendurar(cartaoGrafico("Onde está o trabalho da semana", "por frota · clique para filtrar",
+    pendurar(cartaoGrafico("Distribuição por frota", "por frota · clique para filtrar",
       el("div", { class: "g-corpo" }), { forma: "caixa",
         legendaDe: [{ nome: "Concluídas", cor: S1 }, { nome: "Em aberto", cor: CTX }] }),
     w => itensFrota.length ? graficoBarras({ largura: w, itens: itensFrota,
@@ -277,7 +277,7 @@ export async function montar(raiz, ctx, params) {
     };
     const internas = daSemana.filter(a => !a.cancelada);
     const acervo = ats.filter(a => !a.excluida && !a.cancelada && (a.atividade || a.frota));
-    pendurar(cartaoGrafico("Mix de manutenção", "% por tipo · é aqui que se vê se o PCM está saindo da corretiva",
+    pendurar(cartaoGrafico("Mix de manutenção", "% por tipo · mostra se a preventiva está ganhando espaço sobre a corretiva",
       el("div", { class: "g-corpo" }), { forma: "caixa",
         legendaDe: [...TIPOS_MIX.map(([t, c]) => ({ nome: t, cor: c })), { nome: "Outros", cor: CTX }] }),
     w => graficoBarras({ largura: w, maximo: 100, formato: v => n1(v) + "%",
@@ -290,10 +290,10 @@ export async function montar(raiz, ctx, params) {
       .map(([area, d]) => ({ rotulo: area, partes: [{ nome: "Atividades em aberto", cor: S1, valor: d.total }],
         extra: Object.entries(d.motivos).sort((a, b) => b[1] - a[1]).slice(0, 3)
           .map(([mot, n]) => ({ valor: String(n), rotulo: mot })) }));
-    pendurar(cartaoGrafico("Por que não saiu", "em aberto na semana, pelo motivo escrito" +
+    pendurar(cartaoGrafico("Motivos de não conclusão", "atividades em aberto na semana, pelo motivo informado" +
       (ar.sem_motivo ? ` · ${ar.sem_motivo} sem motivo` : ""), el("div", { class: "g-corpo" })),
     w => itensArea.length ? graficoBarras({ largura: w, itens: itensArea })
-      : el("p", { class: "nada" }, "Nada em aberto com motivo escrito nesta semana."));
+      : el("p", { class: "nada" }, "Nenhuma atividade em aberto com motivo informado nesta semana."));
 
     // ── a tabela da planilha — a versão em tabela de tudo isto
     const tabela = el("details", { class: "outros", open: estado.tabelaAberta },
@@ -307,7 +307,7 @@ export async function montar(raiz, ctx, params) {
     corpo.append(fechamento(serie));
 
     const outros = el("details", { class: "outros", open: estado.outrosAberto },
-      el("summary", {}, "Outros indicadores — o que saiu nos sete dias, backlog, de quem é o atraso, pontualidade da operação"));
+      el("summary", {}, "Outros indicadores — concluídas nos últimos sete dias, backlog, responsáveis pelos atrasos, pontualidade da operação"));
     if (estado.outrosAberto) outros.append(outrosIndicadores(ano, semana));
     outros.addEventListener("toggle", () => {
       estado.outrosAberto = outros.open;
@@ -327,8 +327,8 @@ export async function montar(raiz, ctx, params) {
       el("tbody", {},
         sec("O que a oficina interna tinha para fazer"),
         lin("Atividades do plano", r.plano, "estavam programadas para a semana"),
-        lin("Extra programação", r.extra, "entraram depois: quebra, urgência, pedido da operação", false, "c-extra"),
-        lin("Concluídas do plano", r.concluidas_plano, "do que estava programado, quanto saiu"),
+        lin("Extra programação", r.extra, "incluídas após a programação: quebra, urgência, solicitação da operação", false, "c-extra"),
+        lin("Concluídas do plano", r.concluidas_plano, "do que estava programado, quanto foi concluído"),
         lin("Total interno", r.total, "plano + extra"),
         lin("Extras concluídas", r.extras_concluidas),
         lin("Total concluído", r.concluidas, "plano + extra"),
@@ -338,39 +338,39 @@ export async function montar(raiz, ctx, params) {
         lin("Cumprimento geral", pc(r.cumprimento),
           "total concluído ÷ total interno — inclui o extra", true, cor(r.cumprimento)),
         lin("Quanto da semana foi extra", pc(r.parte_extra), "extra ÷ total interno", false, "c-extra"),
-        lin("Concluídas no prazo", r.no_prazo, "saíram no próprio dia programado"),
+        lin("Concluídas no prazo", r.no_prazo, "concluídas no próprio dia programado"),
         lin("Pontualidade", pc(r.pontualidade), "no prazo ÷ concluídas"),
         lin("Aderência ao plano original", pc(r.aderencia_original),
-          "contra a semana da 1ª programação — não melhora quando se empurra para a frente"),
-        lin("Saíram desta semana", r.sairam,
-          "estavam programadas para esta semana e foram empurradas para outra"),
-        lin("Vencidas", r.vencidas, "a janela de execução fechou e a atividade não saiu", false,
+          "em relação à semana da 1ª programação — não melhora com reprogramações"),
+        lin("Transferidas para outra semana", r.sairam,
+          "estavam programadas para esta semana e foram reprogramadas"),
+        lin("Vencidas", r.vencidas, "o período de execução terminou sem conclusão", false,
           r.vencidas ? "vencida" : ""),
         lin("Atividades reprogramadas", r.reprogramadas, "mudaram de semana"),
-        lin("Atraso médio, quando atrasa", n1(r.atraso_medio), "dias entre o dia programado e a conclusão"),
+        lin("Atraso médio das atrasadas", n1(r.atraso_medio), "dias entre o dia programado e a conclusão"),
         sec("Dias de serviço"),
-        lin("Diária — atividades por dia útil", n1(r.por_dia), "total interno ÷ 5 dias — quantas a semana pede por dia"),
-        lin("Diária do que saiu", n1(r.saiu_por_dia), "total concluído ÷ 5 dias — o que a oficina entrega por dia"),
+        lin("Média diária programada", n1(r.por_dia), "total interno ÷ 5 dias — demanda por dia útil"),
+        lin("Média diária concluída", n1(r.saiu_por_dia), "total concluído ÷ 5 dias — produção da oficina por dia"),
         lin("Soma das estimativas", n1(r.hh), "soma do HH previsto das atividades da semana"),
-        sec("Fora da conta interna"),
-        lin("Em empresa terceirizada", r.terceirizada, "serviço de fora: não mede a oficina da Makro"),
-        lin("Canceladas", r.canceladas, "saem dos dois lados"),
-        lin("Na carteira, sem dia", r.carteira, "não depende da semana — é o que ainda espera encaixe"),
+        sec("Fora dos indicadores internos"),
+        lin("Em empresa terceirizada", r.terceirizada, "serviço externo: não mede a oficina da Makro"),
+        lin("Canceladas", r.canceladas, "não entram no cálculo"),
+        lin("Em carteira, sem programação", r.carteira, "independe da semana — aguarda programação"),
         sec("Mix de manutenção"),
-        lin("Corretiva na semana", r.corretiva, "quebrou e teve de consertar"),
-        lin("Preventiva na semana", r.preventiva, "foi feita antes de quebrar"),
-        lin("Inspeção na semana", r.inspecao, "olhar para achar o que vai quebrar"),
+        lin("Corretiva na semana", r.corretiva, "reparo após falha"),
+        lin("Preventiva na semana", r.preventiva, "executada antes da falha"),
+        lin("Inspeção na semana", r.inspecao, "verificação para antecipar falhas"),
         lin("% preventiva na semana", pc(r.pct_preventiva), "preventiva ÷ total interno da semana"),
         lin("Corretiva no acervo", r.corretiva_acervo, "todas as semanas somadas"),
         lin("Preventiva no acervo", r.preventiva_acervo),
         lin("% preventiva no acervo", pc(r.pct_preventiva_acervo), "o retrato acumulado — mostra a tendência"),
         sec("Cobertura de OS · o que a oficina fez e o Protheus registrou"),
         lin("Com OS na semana", r.com_os, "atividades da semana com OS aberta no Protheus"),
-        lin("Sem OS na semana", r.sem_os, "dá para lançar direto na Programação, no filtro \"sem OS\"", false, r.sem_os ? "c-semos" : ""),
+        lin("Sem OS na semana", r.sem_os, "podem ser lançadas na Programação, pelo filtro \"sem OS\"", false, r.sem_os ? "c-semos" : ""),
         lin("Cobertura na semana", pc(r.cobertura_os), "com OS ÷ total interno da semana"),
         lin("Com OS no acervo", r.com_os_acervo,
-          "uma célula escrita \"ABRIR OS\" é recado, não OS — a planilha conta, o site não"),
-        lin("Sem OS no acervo", r.sem_os_acervo, "a fila do que falta lançar"),
+          "células com \"ABRIR OS\" são anotação, não OS — a planilha conta, o site não"),
+        lin("Sem OS no acervo", r.sem_os_acervo, "atividades sem OS aberta"),
         lin("Cobertura no acervo", pc(r.cobertura_os_acervo), "com OS ÷ todas as atividades"))));
   }
 

@@ -480,7 +480,7 @@ ok("um clique aprova: Concluída com atraso, concluída pelo Pedro, aprovada pel
   await p.waitForSelector(".caixa .menu-acoes", { timeout: 5000 });
   const opcoes = await p.evaluate(() => [...document.querySelectorAll(".caixa .opcao-acao b")].map(b => b.textContent));
   ok("o menu do PCM tem excluir e cancelar",
-    opcoes.includes("Excluir da lista") && opcoes.includes("Cancelar"), JSON.stringify(opcoes));
+    opcoes.includes("Excluir") && opcoes.includes("Cancelar"), JSON.stringify(opcoes));
   await p.keyboard.press("Escape");
   await p.waitForTimeout(300);
 }

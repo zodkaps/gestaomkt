@@ -126,7 +126,7 @@ export async function montar(raiz, ctx, params = new URLSearchParams()) {
     aviso, atalhos, form,
     el("p", { class: "obs esqueci" },
       "Esqueceu a senha? Ninguém consegue vê-la — nem o PCM, nem o banco: ela é ",
-      "guardada embaralhada. Fale com o Mateus para criar uma nova. Depois de ",
+      "guardada criptografada. Fale com o Mateus para criar uma nova. Depois de ",
       "entrar, dá para trocar pela sua clicando no seu nome, no alto da tela."),
     alternativa);
 

@@ -155,7 +155,7 @@ export async function montar(raiz, ctx, params) {
         el("div", { class: "p-num" }, String(vivas.length)),
         el("div", { class: "p-meio" },
           el("div", { class: "p-tit" }, estado.periodo === "carteira"
-            ? "na carteira — em aberto, sem semana" : "em aberto, em todas as semanas")));
+            ? "em carteira — em aberto, sem semana" : "em aberto, em todas as semanas")));
     }
     topoResumo.append(titulo, faixaSituacoes(base, undefined, estado.situacoes, pintarCorpo));
   }
@@ -216,7 +216,7 @@ export async function montar(raiz, ctx, params) {
       datas: estado.periodo === "semana" ? M.datasDaSemana(estado.ano, estado.semana) : null,
       selecao: pessoas.pode("programar") ? sel : null,
       aoSelecionar: tudo => (tudo ? pintarCorpo() : pintarBarraSel()),
-      vazioTexto: estado.semOS ? "Todas as em aberto deste recorte já têm OS. 👍"
+      vazioTexto: estado.semOS ? "Todas as atividades em aberto deste recorte já têm OS."
         : estado.periodo === "semana"
         ? `Nada na semana ${estado.semana} com estes filtros.`
         : "Nada aqui com estes filtros.",

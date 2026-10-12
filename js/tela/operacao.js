@@ -42,17 +42,17 @@ export async function montar(raiz, ctx) {
 
     corpo.append(el("div", { class: "numeros", style: "margin-bottom:16px" },
       cartaoNumero(abertas.length, "movimentações em aberto", "", abertas.length ? "alerta" : ""),
-      cartaoNumero(atrasadas.length, "atrasadas", "passou do prazo", atrasadas.length ? "alerta" : ""),
-      cartaoNumero(comPCM.length, "aguardando aprovação", "com o PCM"),
-      cartaoNumero(semDisp.length, "esperando sua data", "para preventiva")));
+      cartaoNumero(atrasadas.length, "atrasadas", "com prazo vencido", atrasadas.length ? "alerta" : ""),
+      cartaoNumero(comPCM.length, "aguardando aprovação", "do PCM"),
+      cartaoNumero(semDisp.length, "aguardando sua liberação", "para preventiva")));
 
     if (!abertas.length && !semDisp.length) {
       corpo.append(el("p", { class: "nada", style: "font-size:15px;padding:26px 0;text-align:center" },
-        "Nada esperando por você agora. 👍"));
+        "Nenhuma pendência no momento."));
     }
 
     if (devolvidas.length) {
-      corpo.append(secao("Devolvidas pelo PCM — confira e conclua de novo",
+      corpo.append(secao("Devolvidas pelo PCM — confira e conclua novamente",
         el("div", { class: "lista" }, devolvidas.map(m => cartaoMov(m, ctx, {
           acoes: [el("button", { class: "primario",
             onclick: e => { e.stopPropagation(); concluirMov(m); } }, "Concluir")],
@@ -73,7 +73,7 @@ export async function montar(raiz, ctx) {
     }
 
     if (semDisp.length) {
-      corpo.append(secao("Quando esta frota pode parar?",
+      corpo.append(secao("Quando esta frota fica disponível para a manutenção?",
         el("div", { class: "lista" }, semDisp.map(p => cartaoPrev(p, ctx, {
           acoes: [el("button", { class: "primario",
             onclick: e => { e.stopPropagation(); informarDisponibilidade(p); } },
@@ -87,12 +87,12 @@ export async function montar(raiz, ctx) {
       e.autor === pessoas.nome() &&
       ["mov_chegou", "prev_disponivel", "mov_prometida", "criada", "justificada"].includes(e.tipo));
     if (hojeFeito.length) {
-      corpo.append(secao("Você lançou hoje",
+      corpo.append(secao("Seus lançamentos de hoje",
         el("div", { class: "lista" }, hojeFeito.slice(-8).reverse().map(e => {
           const alvo = ev.achar(e.alvo);
           const nome = alvo ? (alvo.item.frota || "—") : "—";
           const oq = e.tipo === "mov_chegou" ? `concluída em ${br(e.dados.em)}`
-            : e.tipo === "prev_disponivel" ? `disponível ${e.dados.quando === "agora" ? "agora" : "em " + br(e.dados.quando)}`
+            : e.tipo === "prev_disponivel" ? `liberada ${e.dados.quando === "agora" ? "agora" : "em " + br(e.dados.quando)}`
             : e.tipo === "mov_prometida" ? `prazo ${br(e.dados.para)}`
             : e.tipo === "justificada" ? `justificou: ${e.dados.motivo || e.dados.texto}`
             : "lançada";

@@ -714,7 +714,7 @@ textarea.sql {
 .grade .c-ativ .t { line-height: 1.4; }
 .grade .c-ativ .fr { font-weight: 650; }
 .grade .porque { font-size: 11.5px; color: var(--hoje); margin-top: 2px; }
-.grade .porque::before { content: "por quê: "; color: var(--muito-fraco); }
+.grade .porque::before { content: "motivo: "; color: var(--muito-fraco); }
 .grade .porque.editavel { cursor: pointer; }
 .grade .porque.editavel:hover { text-decoration: underline; }
 .porque .quem-atrasou { color: var(--fraco); font-weight: 600; }
@@ -837,7 +837,8 @@ button.mini.sem-data { border-color: var(--hoje); background: var(--hoje-fundo);
 .grade.prev .c-fr    { width: 130px; }
 .grade.prev .c-fr .fr { font-weight: 700; }
 .grade.prev .c-dt    { width: 66px; }
-.grade.prev .c-onde  { width: 70px; }
+.grade.prev .c-lib   { width: 88px; }
+.grade.prev .c-onde  { width: 80px; }
 .grade.prev td.c-onde { color: var(--fraco); font-size: 12px; }
 .grade.prev .c-os    { width: 76px; }
 .grade .os { white-space: nowrap; }

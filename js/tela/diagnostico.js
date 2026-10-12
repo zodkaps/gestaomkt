@@ -35,8 +35,8 @@ export async function montar(raiz, ctx) {
 
   const miolo = el("div", {},
     el("p", { style: "font-size:13px;color:var(--fraco);margin-bottom:14px" },
-      "O que precisa estar de pé para os quatro verem a mesma coisa. ",
-      "Cada item que falta mostra onde mexer."),
+      "O que precisa estar funcionando para que todos os usuários vejam os mesmos dados. ",
+      "Cada item pendente indica onde corrigir."),
     resumo, lista,
     el("div", { style: "display:flex;gap:8px;flex-wrap:wrap;margin-top:16px" },
       botao,
@@ -71,7 +71,7 @@ export async function montar(raiz, ctx) {
     const avisos = itens.filter(i => i.estado === "aviso").length;
     resumo.className = "diag-resumo " + (faltando ? "ruim" : avisos ? "morno" : "bom");
     resumo.textContent = faltando
-      ? (faltando === 1 ? "Falta uma coisa." : `Faltam ${faltando} coisas.`)
+      ? (faltando === 1 ? "Falta um item." : `Faltam ${faltando} itens.`)
       : avisos ? "Funciona, mas tem um ponto de atenção." : "Tudo em ordem.";
     botao.disabled = false;
   }

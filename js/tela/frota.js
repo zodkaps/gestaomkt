@@ -52,12 +52,12 @@ export async function montar(raiz, ctx, params) {
     corpo.append(el("div", { class: "numeros", style: "margin-bottom:18px" },
       cartaoNumero(abertas.length, "em aberto",
         carteira.length ? `${carteira.length} na carteira` : ""),
-      cartaoNumero(vencidas.length, "passaram do prazo", "", vencidas.length ? "alerta" : ""),
-      cartaoNumero(feitas.length, "já fechadas", ultima ? "última em " + br(ultima) : ""),
+      cartaoNumero(vencidas.length, "vencidas", "", vencidas.length ? "alerta" : ""),
+      cartaoNumero(feitas.length, "concluídas", ultima ? "última em " + br(ultima) : ""),
       cartaoNumero(reprog, "reprogramações", "somando todas as atividades"),
       cartaoNumero(`${comOS}/${todas.length}`, "com OS aberta", cliente || ""),
       cartaoNumero(ev.lista("movimentacao").filter(m => m.frota === frota &&
-        M.movimentacaoAberta(m)).length, "fora do pátio")));
+        M.movimentacaoAberta(m)).length, "em movimentação")));
 
     if (programadas.length) {
       corpo.append(secao("Programadas",
@@ -95,7 +95,7 @@ export async function montar(raiz, ctx, params) {
     const prevAbertas = prevs.filter(M.preventivaAberta);
 
     if (movAbertas.length) {
-      corpo.append(secao("Fora do pátio agora",
+      corpo.append(secao("Em movimentação agora",
         el("div", { class: "lista" }, movAbertas.map(m => cartaoMov(m, ctx))),
         movAbertas.length));
     }

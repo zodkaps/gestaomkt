@@ -61,7 +61,7 @@ export function resumo(itens, ref) {
 
 function barrinha(r) {
   const pct = r.total ? Math.round(r.feitas * 100 / r.total) : 0;
-  return el("span", { class: "barrinha", title: `${r.feitas} de ${r.total} feitas` },
+  return el("span", { class: "barrinha", title: `${r.feitas} de ${r.total} concluídas` },
     el("span", { style: `width:${pct}%` }));
 }
 
@@ -79,9 +79,9 @@ function rotuloBloco(chave, por, itens, datas) {
 function contagem(r) {
   return el("span", { class: "conta" },
     `${r.total} atividade${r.total === 1 ? "" : "s"}`,
-    el("span", { class: r.feitas ? "c-ok" : "" }, ` · ${r.feitas} feita${r.feitas === 1 ? "" : "s"}`),
+    el("span", { class: r.feitas ? "c-ok" : "" }, ` · ${r.feitas} concluída${r.feitas === 1 ? "" : "s"}`),
     r.vencidas ? el("span", { class: "c-venc" }, ` · ${r.vencidas} vencida${r.vencidas === 1 ? "" : "s"}`) : null,
-    r.hoje ? el("span", { class: "c-hoje" }, ` · ${r.hoje} fecha${r.hoje === 1 ? "" : "m"} hoje`) : null);
+    r.hoje ? el("span", { class: "c-hoje" }, ` · ${r.hoje} vence${r.hoje === 1 ? "" : "m"} hoje`) : null);
 }
 
 // ── as células ──────────────────────────────────────────────────────────────
@@ -165,7 +165,7 @@ function celulaAtividade(a, o) {
   let porque = null;
   if ((a.motivo || a.quem_atrasou) && !a.cancelada && (!M.feita(a) || atrasou)) {
     porque = el("div", { class: "porque" + (pode ? " editavel" : ""),
-      title: pode ? "Mudar a justificativa" : "", onclick: pode ? abrirJust : null },
+      title: pode ? "Alterar a justificativa" : "", onclick: pode ? abrirJust : null },
       a.motivo || a.justificativa || "—",
       quem ? el("span", { class: "quem-atrasou" }, " · " + quem) : null);
   } else if (atrasou && pode) {
@@ -186,7 +186,7 @@ function celulaFeito(a, o) {
   if (a.feita_sem_data) {
     return pode
       ? el("button", { class: "mini sem-data",
-        title: "Marcada Concluída na planilha, sem a data. Clique para dar a data.",
+        title: "Marcada Concluída na planilha, sem a data. Clique para informar a data.",
         onclick: e => { e.stopPropagation(); concluir(a, o.ctx); } }, "✓ sem data")
       : el("span", { class: "sem-data" }, "✓ sem data");
   }
@@ -218,7 +218,7 @@ function linha(a, o) {
   }
   const prazo = M.prazoDe(a);
   tr.append(
-    el("td", { class: "c-sit" }, el("span", { class: "sit " + cor }, s)),
+    el("td", { class: "c-sit" }, el("span", { class: "sit " + cor }, M.rotulo(s))),
     el("td", { class: "c-os" }, celulaOS(a)),
     el("td", { class: "c-ativ" }, celulaAtividade(a, o)),
     el("td", { class: "c-quem" }, (a.executantes || []).join(", ") || el("span", { class: "seg" }, "—")),
@@ -247,11 +247,11 @@ export function grade(itens, o = {}) {
     el("th", { class: "c-sit" }, "Situação"),
     el("th", { class: "c-os" }, "OS"),
     el("th", { class: "c-ativ" }, "Atividade"),
-    el("th", { class: "c-quem" }, "Quem faz"),
+    el("th", { class: "c-quem" }, "Executante"),
     el("th", { class: "c-sem num" }, "Sem."),
     el("th", { class: "c-hh num" }, "HH"),
     el("th", { class: "c-prazo num" }, "Prazo"),
-    el("th", { class: "c-feito" }, "Feito em"),
+    el("th", { class: "c-feito" }, "Conclusão"),
     el("th", { class: "c-mais" }),
   ];
   const ncol = cab.filter(Boolean).length;
@@ -317,7 +317,7 @@ export function faixaSituacoes(itens, ref, escolhidas, aoMudar) {
       escolhidas.has(s) ? escolhidas.delete(s) : escolhidas.add(s);
       aoMudar();
     },
-  }, el("b", {}, String(conta.get(s))), " ", s));
+  }, el("b", {}, String(conta.get(s))), " ", M.rotulo(s)));
   return el("div", { class: "faixa-sit" },
     el("button", { class: "fsit todas" + (escolhidas.size ? "" : " on"),
       onclick: () => { escolhidas.clear(); aoMudar(); } },
@@ -336,5 +336,5 @@ export function progresso(titulo, feitas, total, extra = "") {
     el("div", { class: "p-meio" },
       el("div", { class: "p-tit" }, titulo),
       el("div", { class: "p-trilho" }, el("span", { style: `width:${pct}%` })),
-      el("div", { class: "p-txt" }, `feita${feitas === 1 ? "" : "s"}${extra}`)));
+      el("div", { class: "p-txt" }, `concluída${feitas === 1 ? "" : "s"}${extra}`)));
 }

@@ -35,7 +35,7 @@ export function cartao(a, { ctx, acoes = [], seletor = null, compacto = false } 
   const tags = [];
 
   // A situação aparece sempre, em todo cartão: é o que se quer ver numa olhada.
-  tags.push(chip(s, cor));
+  tags.push(chip(M.rotulo(s), cor));
   if (a.os) tags.push(chip("OS " + a.os + (a.os_outras.length ? ` +${a.os_outras.length}` : ""), "os"));
   else if (M.aberta(a)) tags.push(chip("sem OS", "semos"));
   // Prioridade só no cartão completo: na lista ela aparece em quase toda linha
@@ -50,8 +50,8 @@ export function cartao(a, { ctx, acoes = [], seletor = null, compacto = false } 
   if (a.servico && a.servico !== a.atividade) sub.push(a.servico);
   if ((a.executantes || []).length) sub.push(a.executantes.join(" e "));
   if (a.semana && !compacto) sub.push(`sem ${a.semana} · ${a.dia || "sem dia"}`);
-  if (a.concluida_em) sub.push("feita em " + br(a.concluida_em));
-  else if (a.feita_sem_data) sub.push("feita — falta a data");
+  if (a.concluida_em) sub.push("concluída em " + br(a.concluida_em));
+  else if (a.feita_sem_data) sub.push("concluída — sem a data");
   else if (a.semana && M.prazoDe(a)) sub.push("prazo " + brCurto(M.prazoDe(a)));
 
   const n = el("div", {
@@ -107,8 +107,8 @@ export function camposJustificativa(tipo = "atividade", atual = {}) {
   const eQuem = el("input", { value: atual.quem || "",
     placeholder: "ex.: Operação, fornecedor Cardan, Suprimentos, motorista…" });
   const no = el("div", { class: "justificar" },
-    campo("Por que atrasou / não foi feita", ePorque),
-    campo("Quem atrasou", eQuem));
+    campo("Motivo do atraso ou da não execução", ePorque),
+    campo("Responsável pelo atraso", eQuem));
   return {
     no,
     valores: () => ({ motivo: ePorque.value.trim(), quem: eQuem.value.trim(), texto: "" }),
@@ -149,7 +149,7 @@ export async function concluir(a, ctx, quandoPadrao) {
   const j = camposJustificativa("atividade",
     { motivo: a.motivo, quem: a.quem_atrasou, texto: a.justificativa });
   const caixaAtraso = el("div", { class: "bloco-atraso" },
-    el("p", { class: "nada" }, "Saiu depois do prazo — por quê? (opcional)"), j.no);
+    el("p", { class: "nada" }, "Concluída após o prazo — informe o motivo (opcional)"), j.no);
   const verAtraso = () => { caixaAtraso.hidden = !(prazo && entrada.value && entrada.value > prazo); };
   entrada.addEventListener("change", verAtraso);
   entrada.addEventListener("input", verAtraso);
@@ -159,8 +159,8 @@ export async function concluir(a, ctx, quandoPadrao) {
     corpo: el("div", {},
       el("p", {}, el("b", {}, a.frota), " · ", a.atividade),
       campo("Concluída em", entrada,
-        "O dia em que o serviço saiu. É por esta data que a aderência conta — " +
-        "marcar sem datar deixa o serviço fechado na tela e invisível no número."),
+        "Data em que o serviço foi concluído. A aderência é calculada por esta data — " +
+        "sem a data, o serviço aparece concluído na tela, mas não entra no indicador."),
       caixaAtraso),
     acoes: [{ rotulo: "Cancelar", valor: false },
       { rotulo: "Confirmar baixa", classe: "primario", valor: true }],
@@ -188,7 +188,7 @@ export async function reprogramar(a, ctx, sugestao = {}) {
   const entradaHH = el("input", { type: "number", step: "0.5", min: "0",
     value: sugestao.hh ?? a.hh ?? 0 });
   const entradaMotivo = el("input", { type: "text",
-    placeholder: "por que mudou — ex.: frota não chegou, peça atrasou" });
+    placeholder: "motivo da mudança — ex.: frota não chegou, peça atrasou" });
 
   const r = await caixa({
     titulo: jaEstava ? "Reprogramar" : "Programar",
@@ -202,8 +202,8 @@ export async function reprogramar(a, ctx, sugestao = {}) {
         campo("Duração em dias", entradaDias),
         campo("HH previsto", entradaHH, "horas × pessoas")),
       jaEstava ? campo("Motivo da mudança", entradaMotivo,
-        "Obrigatório. É este campo que transforma um empurrão em número — " +
-        "sem ele não dá para dizer por que a semana não fechou.") : null),
+        "Obrigatório. É este campo que registra o motivo da reprogramação — " +
+        "sem ele não é possível explicar por que a semana não foi cumprida.") : null),
     acoes: [{ rotulo: "Cancelar", valor: false },
       { rotulo: jaEstava ? "Reprogramar" : "Programar", classe: "primario", valor: true }],
   });
@@ -227,15 +227,15 @@ export async function reprogramar(a, ctx, sugestao = {}) {
 }
 
 export async function devolverParaCarteira(a, ctx) {
-  const entradaMotivo = el("input", { type: "text", placeholder: "por que sai da semana" });
+  const entradaMotivo = el("input", { type: "text", placeholder: "motivo da retirada" });
   const r = await caixa({
-    titulo: "Tirar da semana",
+    titulo: "Retirar da semana",
     corpo: el("div", {},
       el("p", {}, "A atividade volta para a carteira, sem semana e sem dia. " +
-        "Continua sendo reprogramação, e por isso pede motivo."),
+        "Conta como reprogramação e, por isso, exige motivo."),
       campo("Motivo", entradaMotivo)),
     acoes: [{ rotulo: "Cancelar", valor: false },
-      { rotulo: "Tirar da semana", classe: "primario", valor: true }],
+      { rotulo: "Retirar da semana", classe: "primario", valor: true }],
   });
   if (r !== true) return false;
   const motivo = entradaMotivo.value.trim();
@@ -387,7 +387,7 @@ export async function programarEmLote(alvos) {
   const eDia = selecao([{ v: "", t: "— sem dia —" }, ...M.DIAS], "");
   const eDias = el("input", { type: "number", min: 1, max: 30, value: 1 });
   const eExec = el("input", { placeholder: "separe por vírgula" });
-  const eMotivo = el("input", { type: "text", placeholder: "por que mudou de semana" });
+  const eMotivo = el("input", { type: "text", placeholder: "motivo da mudança de semana" });
 
   const r = await caixa({
     titulo: `Programar ${alvos.length} atividade${alvos.length === 1 ? "" : "s"}`,
@@ -396,10 +396,10 @@ export async function programarEmLote(alvos) {
         campo("Semana", eSemana), campo("Ano", eAno), campo("Dia", eDia)),
       campo("Duração em dias", eDias),
       campo("Executantes", comSugestoes(eExec, executantes(), "dl-exec-lote"),
-        "Deixe vazio para não mexer em quem já está nas atividades."),
+        "Deixe em branco para manter os executantes atuais."),
       jaProgramadas.length
         ? campo(`Motivo — ${jaProgramadas.length} já tinha${jaProgramadas.length === 1 ? "" : "m"} semana`,
-          eMotivo, "Para essas é reprogramação, e reprogramação sem motivo o sistema recusa.")
+          eMotivo, "Para essas é reprogramação, que exige motivo.")
         : null),
     acoes: [{ rotulo: "Cancelar", valor: false },
       { rotulo: "Programar", classe: "primario", valor: true }],
@@ -441,7 +441,7 @@ export async function abrirFicha(id, ctx) {
 
   const linha = (r, v) => v ? el("tr", {}, el("th", {}, r), el("td", {}, v)) : null;
   const ficha = el("table", { class: "tabela" },
-    linha("Situação", el("span", {}, chip(s, M.corDe(s)))),
+    linha("Situação", el("span", {}, chip(M.rotulo(s), M.corDe(s)))),
     linha("Frota", a.frota),
     linha("Cliente", a.cliente),
     linha("OS", [a.os, ...a.os_outras].filter(Boolean).join(", ")),
@@ -455,11 +455,11 @@ export async function abrirFicha(id, ctx) {
       : (a.feita_sem_data ? "marcada Concluída na planilha, sem a data" : null)),
     linha("Semana original", a.semana_orig && a.semana_orig !== a.semana ? String(a.semana_orig) : null),
     linha("Reprogramações", a.reprogramacoes ? String(a.reprogramacoes) : null),
-    linha("Por quê", a.motivo || a.justificativa
+    linha("Motivo", a.motivo || a.justificativa
       ? [a.motivo, a.justificativa && a.justificativa !== a.motivo ? a.justificativa : ""]
         .filter(Boolean).join(" · ")
       : null),
-    linha("Quem atrasou", a.quem_atrasou || M.areaDoMotivo(a.motivo) || null),
+    linha("Responsável pelo atraso", a.quem_atrasou || M.areaDoMotivo(a.motivo) || null),
     linha("Executantes", (a.executantes || []).join(", ")),
     linha("Observação", a.obs));
 
@@ -478,12 +478,12 @@ export async function abrirFicha(id, ctx) {
       acao: async () => { await reprogramar(a, ctx); } });
   }
   if (a.feita_sem_data) {
-    acoes.push({ rotulo: "Dar a data", classe: "primario",
+    acoes.push({ rotulo: "Informar a data", classe: "primario",
       acao: async () => { await concluir(a, ctx); } });
   }
   if (M.feita(a)) {
     acoes.push({ rotulo: "Reabrir", acao: async () => {
-      if (!await confirmar("Reabrir", "A data de conclusão sai e a atividade volta a pesar na aderência.", "Reabrir")) return;
+      if (!await confirmar("Reabrir", "A data de conclusão é removida e a atividade volta a contar na aderência.", "Reabrir")) return;
       await ev.aplicar(ev.reabrir(a));
       avisar("Reaberta.");
     } });
@@ -514,7 +514,7 @@ export function descreverEvento(e, comAtividade = false) {
 
   let txt;
   switch (e.tipo) {
-    case "criada": txt = "criada à mão"; break;
+    case "criada": txt = "criada manualmente"; break;
     case "importada": txt = `importada${d.fonte ? " de " + d.fonte : ""}`; break;
     case "programada":
       txt = `programada para a semana ${d.para.semana}${d.para.dia ? " · " + d.para.dia : ""}`;
@@ -527,7 +527,7 @@ export function descreverEvento(e, comAtividade = false) {
     case "reaberta": txt = "reaberta"; break;
     case "cancelada": txt = "cancelada"; break;
     case "restaurada": txt = "cancelamento desfeito"; break;
-    case "excluida": txt = "excluída da lista"; break;
+    case "excluida": txt = "excluída"; break;
     case "editada": {
       const para = d.para || {};
       txt = "editada: " + Object.keys(para).map(k =>
@@ -536,11 +536,11 @@ export function descreverEvento(e, comAtividade = false) {
     }
     case "mov_prometida": txt = `prazo ${br(d.para)}`; break;
     case "mov_chegou": txt = `movimentação concluída em ${br(d.em)}`; break;
-    case "prev_disponivel": txt = `disponível ${d.quando === "agora" ? "agora" : "em " + br(d.quando)}`; break;
-    case "prev_parada": txt = `parada marcada para ${br(d.dia)}`; break;
+    case "prev_disponivel": txt = `liberada ${d.quando === "agora" ? "agora" : "em " + br(d.quando)}`; break;
+    case "prev_parada": txt = `parada programada para ${br(d.dia)}`; break;
     case "prev_realizada": txt = `preventiva realizada em ${br(d.em)}`; break;
     case "justificada":
-      txt = "justificou: " + [d.motivo || d.texto, d.quem && `quem atrasou: ${d.quem}`,
+      txt = "justificou: " + [d.motivo || d.texto, d.quem && `responsável: ${d.quem}`,
         d.motivo && d.texto ? d.texto : ""].filter(Boolean).join(" · ");
       break;
     default: txt = ev.TIPOS[e.tipo] || e.tipo;

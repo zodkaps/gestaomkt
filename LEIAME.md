@@ -8,8 +8,8 @@ São quatro pessoas, com dois papéis:
 
 | quem | papel | o que faz |
 |---|---|---|
-| Mateus, Lucas | **PCM** | programa a oficina, dá baixa, marca parada, **aprova as movimentações**, importa a planilha e o Protheus |
-| Pedro, João Victor | **Operação** | **conclui as movimentações** de frota e diz quando o caminhão fica livre |
+| Mateus, Lucas | **PCM** | programa a oficina, registra conclusões, programa paradas, **aprova as movimentações**, importa a planilha e o Protheus |
+| Pedro, João Victor | **Operação** | **conclui as movimentações** de frota e informa a liberação dos veículos para a manutenção |
 
 A equipe da oficina continua fechando OS direto no Protheus. Este site é o
 controle do PCM e o canal de resposta da operação.
@@ -78,16 +78,16 @@ olhando:
 
 | ação | quem | observação |
 |---|---|---|
-| Dar baixa, Dar a data, Reabrir | PCM | a data de conclusão é a do dia que a pessoa escolhe |
-| Programar, Reprogramar, Tirar da programação | PCM | reprogramar e tirar pedem o motivo |
-| Justificar | PCM (OS) e os dois (movimentação) | porque atrasou e quem atrasou |
-| Cancelar, Desfazer o cancelamento | PCM (OS); os dois (movimentação) | cancelada não conta como feita |
-| Concluir, Dar o prazo, Aprovar, Devolver | operação conclui; PCM aprova ou devolve | |
-| Marcar a parada, Realizada, Em andamento, Mês seguinte | PCM | |
-| Disponibilidade | operação | quando a frota fica livre |
-| **Excluir** | **só o PCM** | some das telas; o registro fica |
+| Dar baixa, Informar a data, Reabrir | PCM | a data de conclusão é a do dia que a pessoa escolhe |
+| Programar, Reprogramar, Retirar da programação | PCM | reprogramar e retirar exigem motivo |
+| Justificar | PCM (OS) e os dois (movimentação) | motivo do atraso e responsável |
+| Cancelar, Desfazer o cancelamento | PCM (OS); os dois (movimentação) | cancelada não conta como concluída |
+| Concluir, Definir o prazo, Aprovar, Devolver à operação | operação conclui; PCM aprova ou devolve | |
+| Programar a parada, Registrar realização, Marcar em andamento, Adiar para o próximo mês | PCM | |
+| Informar liberação | operação | data em que a frota fica disponível para a manutenção |
+| **Excluir** | **só o PCM** | deixa de aparecer nas telas; o histórico é mantido |
 
-**Excluir não apaga.** O item some das telas, mas o histórico guarda tudo. No
+**Excluir não apaga.** O item deixa de aparecer nas telas, mas o histórico guarda tudo. No
 **Registro**, cada exclusão e cada cancelamento tem o botão *Desfazer*, e o item
 volta do jeito que estava. A operação não exclui nada: o banco não deixa.
 
@@ -159,7 +159,7 @@ Postgres de verdade, roda as duas migrações e tenta onze coisas — duas que t
 de passar, oito que têm de ser recusadas (uma delas depois de rodar o 01 de
 novo, fora de ordem) e uma conta sem papel que não pode ver nada.
 
-## Ligar o lugar comum (Supabase)
+## Ligar a sincronização da equipe (Supabase)
 
 Projeto: `https://qektypjhagoktpvvaxel.supabase.co` — o mesmo do site antigo.
 
@@ -290,7 +290,7 @@ fórmulas (ver *Os números são os da planilha*, abaixo).
   trocado é o erro mais comum de quem digita uma coluna inteira.
 - **A carteira deixou de ser tela**: na planilha ela é a situação *Na carteira*,
   e aqui é um recorte da Programação. O endereço antigo continua funcionando.
-- **Hoje** tem as caixas da aba Hoje (para fechar hoje, fecharam, aderência do
+- **Hoje** tem as caixas da aba Hoje (vencem hoje, concluídas, aderência do
   dia, em execução, atrasadas) e as listas do dia e das atrasadas.
 - **Semana** tem as caixas da aba Semana, o bloco em HH, a carga por dia de cada
   executante e as atividades da semana agrupadas por dia.
@@ -301,29 +301,37 @@ fórmulas (ver *Os números são os da planilha*, abaixo).
   anterior e a minilinha das últimas semanas; os cartões de apoio (concluídas,
   extra, vencidas, pontualidade, cobertura de OS, preventiva, carga da equipe);
   e os gráficos: aderência e cumprimento semana a semana, o que a oficina teve
-  por semana (plano feito, plano que não saiu, extra), a situação da semana,
-  onde está o trabalho (por frota), a carga de cada executante contra a
-  capacidade, o mix de manutenção e por que não saiu. **Clicar filtra**: a
+  por semana (plano concluído, plano não concluído, extra), a situação da semana,
+  a distribuição por frota, a carga de cada executante contra a
+  capacidade, o mix de manutenção e os motivos de não conclusão. **Clicar filtra**: a
   semana no gráfico escolhe a semana, a frota e o executante viram filtro, a
   situação abre a Programação já filtrada. Passar o mouse (ou o dedo) mostra o
   valor. Embaixo, a tabela da aba Resultados — a versão em tabela de tudo isso
   — e o fechamento das semanas. Sem filtro, cada número é o da planilha.
 - **Preventivas** é a aba Preventivas: os mesmos números no alto (preventivas a
-  fazer, frotas, com e sem data da operação, parada marcada, conflitos,
+  fazer, frotas, com e sem liberação da operação, parada programada, conflitos,
   vencidas, realizadas, HH) e a mesma Situação, pela mesma fórmula. Separada
-  por **de quem é a bola**: *bola com o PCM* (marcar a parada), *bola com a
-  operação* (dizer quando a frota fica livre), *andando* (parada marcada ou em
-  andamento), *fechadas no mês* (realizada, mês seguinte, cancelada) e, à
-  parte, o quadro *fora do plano*. O Status da planilha (Em andamento,
-  Realizada, Reprogramada, Cancelada) entra como está e também se marca aqui.
-- **Justificativa — por que atrasou e quem atrasou.** Em atividade (OS) e em
+  por **quem precisa agir**: *aguardando o PCM* (programar a parada),
+  *aguardando a operação* (informar a liberação da frota), *em execução*
+  (parada programada ou em andamento), *encerradas no mês* (realizadas,
+  adiadas e canceladas) e, à parte, o quadro *fora do plano*. O Status da
+  planilha (Em andamento, Realizada, Reprogramada, Cancelada) entra como está e
+  também se marca aqui.
+- **Os nomes de situação na tela** são os da planilha com redação revisada:
+  *Vencida*, *Vence hoje*, *Em carteira*, *Dia a definir*; nas preventivas,
+  *Baixa pendente*, *Disponível: programar parada*, *Liberação prevista:
+  programar parada*, *Aguardando liberação*, *Programada após o prazo*,
+  *Liberação após o prazo* e *Adiada para o próximo mês*. Por dentro o site
+  continua usando o texto exato da fórmula da planilha (`modelo.js`,
+  `rotulo()`), e é ele que os testes comparam com a planilha.
+- **Justificativa — motivo do atraso e responsável.** Em atividade (OS) e em
   movimentação. É **texto livre**, digitado: cada atraso tem a sua história.
-  A linha atrasada sem porquê mostra *+ justificar*; a justificada mostra o
-  porquê e quem atrasou, e um clique muda. Concluir depois do prazo pede o
-  porquê no próprio diálogo (opcional). Na movimentação, quem justifica é quem
-  faz — o Pedro diz por que a frota não chegou; na OS, o PCM. A faixa *Atrasos
-  por quem atrasou*, em Movimentações, conta e filtra (inclusive *sem
-  justificativa*). Destino/fornecedor, para quê e os motivos de reprogramar e
+  A linha atrasada sem motivo mostra *+ justificar*; a justificada mostra o
+  motivo e o responsável, e um clique muda. Concluir depois do prazo pede o
+  motivo no próprio diálogo (opcional). Na movimentação, quem justifica é quem
+  executa — o Pedro informa por que a frota não chegou; na OS, o PCM. A faixa
+  *Atrasos por responsável*, em Movimentações, conta e filtra (inclusive *sem
+  justificativa*). Destino/fornecedor, finalidade e os motivos de reprogramar e
   de adiar também são digitados — nenhuma lista pronta.
 - **Movimentações**: as situações têm nomes genéricos — **Em aberto, Vence
   hoje, Atrasada, Sem prazo, Aguardando aprovação, Concluída, Concluída com
@@ -402,14 +410,14 @@ memória. Divergência ali é bug, não opinião.
 | `mov_chegou` | a movimentação foi concluída — fica aguardando aprovação | a data |
 | `mov_aprovada` | o PCM conferiu e aprovou (só o PCM) | — |
 | `mov_devolvida` | o PCM devolveu para a operação (só o PCM) | **motivo** |
-| `justificada` | por que atrasou / não foi feita, e quem atrasou (OS: PCM; movimentação: os dois) | **o porquê** |
-| `prev_disponivel` | a operação disse quando a frota fica livre | "agora" ou data |
-| `prev_parada` | o PCM marcou o dia da parada | o dia |
-| `prev_andamento` | a preventiva está sendo feita (Status Em andamento) | — |
-| `prev_realizada` | a preventiva saiu | a data |
-| `prev_adiada` | passa para o mês seguinte (Status Reprogramada) | **motivo** |
-| `prev_cancelada` | não vai ser feita | **motivo** |
-| `prev_reaberta` | desfaz realizada, mês seguinte ou cancelada | — |
+| `justificada` | motivo do atraso ou da não execução, e o responsável (OS: PCM; movimentação: os dois) | **o motivo** |
+| `prev_disponivel` | a operação informou a liberação da frota | "agora" ou data |
+| `prev_parada` | o PCM programou a data da parada | a data |
+| `prev_andamento` | a preventiva está em execução (Status Em andamento) | — |
+| `prev_realizada` | a preventiva foi realizada | a data |
+| `prev_adiada` | adiada para o próximo mês (Status Reprogramada) | **motivo** |
+| `prev_cancelada` | não será executada | **motivo** |
+| `prev_reaberta` | desfaz realizada, adiada ou cancelada | — |
 
 ### As três regras que o sistema impõe
 

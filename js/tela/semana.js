@@ -63,13 +63,13 @@ export async function montar(raiz, ctx, params) {
       kpi("Programadas", r.plano, "o plano da semana"),
       kpi("Concluídas", r.concluidas_plano, "do plano", "ok"),
       kpi("Aderência", pc(r.aderencia), "concluídas ÷ programadas"),
-      kpi("Cumprimento geral", pc(r.cumprimento), `${r.concluidas} de ${r.total}, com o extra`),
-      kpi("Extra", r.extra, "entrou depois do plano", "extra"),
-      kpi("Vencidas", r.vencidas, "a janela fechou e não saiu", r.vencidas ? "vencida" : "")));
+      kpi("Cumprimento geral", pc(r.cumprimento), `${r.concluidas} de ${r.total}, incluindo extras`),
+      kpi("Extra", r.extra, "incluídas após a programação", "extra"),
+      kpi("Vencidas", r.vencidas, "período encerrado sem conclusão", r.vencidas ? "vencida" : "")));
     corpo.append(el("p", { class: "nota" },
-      `Fora da conta interna: ${r.terceirizada} em empresa terceirizada · ` +
+      `Fora dos indicadores internos: ${r.terceirizada} em terceiros · ` +
       `${r.canceladas} cancelada${r.canceladas === 1 ? "" : "s"} · ` +
-      `na carteira, sem dia: ${r.carteira}.`));
+      `em carteira, sem programação: ${r.carteira}.`));
 
     corpo.append(el("div", { class: "titulo-secao" }, "Em HH",
       el("span", { class: "n" }, "· carga × capacidade da equipe")));
@@ -78,14 +78,14 @@ export async function montar(raiz, ctx, params) {
       kpi("Aderência em HH", pc(h.aderencia_hh), `${n1(h.hh_plano_feito)} HH do plano concluídos`),
       kpi("Capacidade", n1(h.capacidade), `HH programáveis (${String(M.HORAS_DIA).replace(".", ",")} h/dia por pessoa)`),
       kpi("Ocupação", pc(h.ocupacao), "(plano + extra) ÷ capacidade"),
-      kpi("HH extra", n1(h.hh_extra), "entrou depois da programação", "extra"),
-      kpi("Carteira em HH", n1(h.hh_carteira), "pendências abertas sem semana"),
+      kpi("HH extra", n1(h.hh_extra), "incluídas após a programação", "extra"),
+      kpi("Carteira em HH", n1(h.hh_carteira), "pendências sem programação"),
       kpi("Backlog em semanas", h.backlog_semanas == null ? "—" : n1(h.backlog_semanas),
         "carteira ÷ capacidade semanal")));
 
     if (h.carga.length) {
       corpo.append(el("div", { class: "titulo-secao" }, "Carga por dia",
-        el("span", { class: "n" }, "· HH por pessoa — o HH da atividade dividido entre quem faz e espalhado pelos dias da janela")));
+        el("span", { class: "n" }, "· HH por pessoa — o HH de cada atividade é dividido entre os executantes e distribuído pelos dias programados")));
       corpo.append(tabelaCarga(h));
     }
 

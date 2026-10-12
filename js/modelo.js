@@ -182,6 +182,25 @@ export function corDe(s) {
   }
 }
 
+// O nome que a tela mostra para cada situação. Por dentro a situação continua
+// com o texto da fórmula da planilha — é ele que os testes comparam com a
+// planilha e que filtros, cores e endereços usam; aqui muda só o que se lê.
+const ROTULOS = {
+  "VENCIDA": "Vencida",
+  "Fecha hoje": "Vence hoje",
+  "Falta o dia": "Dia a definir",
+  "Falta a atividade": "Atividade a definir",
+  "Na carteira": "Em carteira",
+  "Parada passou, sem baixa": "Baixa pendente",
+  "Programada depois do prazo": "Programada após o prazo",
+  "Conflito: Operação depois do prazo": "Liberação após o prazo",
+  "Com data: marcar a parada": "Liberação prevista: programar parada",
+  "Disponível: marcar a parada": "Disponível: programar parada",
+  "Sem data da Operação": "Aguardando liberação",
+  "Passa para o mês seguinte": "Adiada para o próximo mês",
+};
+export const rotulo = s => ROTULOS[s] || s;
+
 export function aberta(a) {
   return !a.excluida && !a.cancelada && !feita(a);
 }
