@@ -21,6 +21,15 @@ export const NUVEM = {
   chave: "sb_publishable_-6P6cEB4VCw3KEPZZZ_S3w_7lOsCA1u",
 };
 
+// O banco do projeto já aceita o fechamento da semana (o lançamento
+// `semana_fechada`, de alvo `semana`)? Só depois de rodar no projeto o
+// `sql/02_acesso.sql` desta versão. Antes disso o banco recusaria o lançamento,
+// e a fila de quem fechou ficaria presa atrás dele. Enquanto estiver `false`,
+// com o banco ligado o botão "Fechar a semana" não aparece e a importação não
+// traz o fechamento da planilha; o fechamento automático da sexta e os números
+// já registrados continuam valendo.
+export const BANCO_ACEITA_FECHAMENTO = false;
+
 // Cada um entra com o PRÓPRIO e-mail.
 //
 // A primeira versão inventava um: "Pedro" virava pedro@makro.local. O Supabase

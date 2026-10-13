@@ -658,6 +658,12 @@ titulo("fechamento.js — a semana fechada não muda");
   igual("e os dois fechamentos ficam no registro",
     ev.log.filter(e => e.alvo === ev.chaveSemana(2026, 39)).length, 2);
   ok("a fita fecha com as semanas dentro", ev.conferir().ok);
+  // Com o banco ligado e a regra antiga (sem `semana`), o site não oferece
+  // fechar: o lançamento seria recusado e a fila de quem fechou travaria.
+  const cfgF = await import("../js/config.js");
+  ok("com o banco ligado e a regra antiga, o site não oferece fechar a semana",
+    !nuvem.ligada() || cfgF.BANCO_ACEITA_FECHAMENTO || !fech.podeGravarFechamento(),
+    `ligada=${nuvem.ligada()} aceita=${cfgF.BANCO_ACEITA_FECHAMENTO}`);
   await entrarComo("Pedro");
   let operacao = "";
   try { ev.fecharSemana(2026, 40, { aderencia: 1 }); } catch (e) { operacao = e.message; }

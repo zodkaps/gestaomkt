@@ -15,6 +15,16 @@
 
 import * as ev from "./eventos.js";
 import * as M from "./modelo.js";
+import * as nuvem from "./nuvem.js";
+import * as pessoas from "./pessoas.js";
+import { BANCO_ACEITA_FECHAMENTO } from "./config.js";
+
+/** Dá para gravar um fechamento agora? É do PCM, e com o banco ligado só
+ *  depois que a regra dele aceita o lançamento (ver `js/config.js`) — senão a
+ *  fila de quem fechou trava atrás de um lançamento recusado. */
+export function podeGravarFechamento() {
+  return pessoas.pode("fechar_semana") && (BANCO_ACEITA_FECHAMENTO || !nuvem.ligada());
+}
 
 // Tocar a fita até cada sexta é uma passada só por ela, para todas as semanas
 // de uma vez: a fita está em ordem de instante, então "até a sexta" é sempre

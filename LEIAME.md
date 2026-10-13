@@ -581,6 +581,13 @@ operação). Cada semana tem o seu número de um destes jeitos, nesta ordem:
 3. **Sem número.** Semana em andamento, ou que acabou antes de o site existir e
    não tem o número da planilha: vale o calculado de hoje, e a tela avisa.
 
+**Antes de ligar o fechamento manual no projeto de verdade**, o banco precisa da
+regra nova do `sql/02_acesso.sql` (ela aceita o alvo `semana`, só do PCM). Até
+lá, `BANCO_ACEITA_FECHAMENTO` fica `false` em `js/config.js`: com o banco ligado,
+o botão *Fechar a semana* não aparece e a importação não traz a coluna amarela —
+um lançamento recusado prenderia a fila de quem fechou. O automático da sexta e
+os números já registrados valem do mesmo jeito. Rodou o SQL, troca para `true`.
+
 O **calculado de hoje fica sempre ao lado** — "hoje o cálculo daria 100% (+35
 p.p.)" — e o quadro de fechamento mostra registrado, hoje e a diferença, como a
 coluna *Diferença* da planilha. A tendência usa o número registrado. Com filtro

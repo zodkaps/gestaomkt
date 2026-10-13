@@ -29,7 +29,9 @@ export function servirCopia({ nuvem, porta = 8125, pasta = "/tmp/mkt-copia-teste
   const trocado = real.replace(/export const NUVEM = \{[\s\S]*?\n\};/,
     `export const NUVEM = { url: ${JSON.stringify(nuvem)},\n  chave: "chave-de-teste-com-mais-de-trinta-caracteres" };`);
   if (trocado === real) throw new Error("não achei o bloco NUVEM em js/config.js");
-  writeFileSync(join(pasta, "js/config.js"), trocado);
+  // O banco de mentira já tem a regra nova: aceita o fechamento da semana.
+  const comFechamento = trocado.replace("BANCO_ACEITA_FECHAMENTO = false", "BANCO_ACEITA_FECHAMENTO = true");
+  writeFileSync(join(pasta, "js/config.js"), comFechamento);
   // Sem service worker na cópia: ele guardaria os arquivos entre uma execução
   // e outra e o teste passaria a medir o cache, não o código de agora.
   writeFileSync(join(pasta, "sw.js"), "// vazio de propósito nos testes\n");

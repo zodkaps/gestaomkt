@@ -16,7 +16,7 @@ import * as ev from "../eventos.js";
 import * as M from "../modelo.js";
 import * as pessoas from "../pessoas.js";
 import { el, limpar, br, brCurto, caixa, campo, avisar, erro } from "../ui.js";
-import { fechamentos, vale, daPlanilha } from "../fechamento.js";
+import { fechamentos, vale, daPlanilha, podeGravarFechamento } from "../fechamento.js";
 import { outrosIndicadores } from "./indicadores.js";
 import { natural } from "./grade.js";
 import { cartaoGrafico, graficoLinhas, graficoColunas, graficoBarras, minilinha } from "../graficos.js";
@@ -388,7 +388,7 @@ export async function montar(raiz, ctx, params) {
         "amarela. O valor abaixo é o calculado hoje, e muda com baixas e reprogramações";
     }
     const comeca = M.datasDaSemana(f.ano, f.semana)[0];
-    const podeFechar = pessoas.pode("fechar_semana") && comeca <= M.hoje();
+    const podeFechar = podeGravarFechamento() && comeca <= M.hoje();
     return el("div", { class: "selo-fechamento " + cls },
       el("div", { class: "sf-texto" },
         el("b", {}, titulo), " · ", texto,

@@ -16,7 +16,7 @@ import { el, limpar, br, campo, selecao, avisar, erro, confirmar, caixa,
 import { valoresDe } from "./comum.js";
 import * as nuvem from "../nuvem.js";
 import * as pessoas from "../pessoas.js";
-import { daPlanilha } from "../fechamento.js";
+import { daPlanilha, podeGravarFechamento } from "../fechamento.js";
 
 export async function montar(raiz, ctx) {
   const corpo = el("div", {});
@@ -104,7 +104,7 @@ export async function montar(raiz, ctx) {
       prevs = imp.lerPreventivas(abas, [...ev.estado.preventiva.values()]);
       // O número registrado na sexta (coluna amarela). Semana fechada no site
       // vale mais que a planilha, e o que já está igual não entra de novo.
-      fechs = imp.lerFechamentos(abas, Number(eAno.value) || agora.ano).filter(x => {
+      fechs = !podeGravarFechamento() ? [] : imp.lerFechamentos(abas, Number(eAno.value) || agora.ano).filter(x => {
         const j = ev.fechamentoDe(x.ano, x.semana);
         if (!j) return true;
         if (!daPlanilha(j)) return false;
