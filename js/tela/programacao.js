@@ -87,6 +87,10 @@ export async function montar(raiz, ctx, params) {
     ? (() => { const d = M.datasDaSemana(estado.ano, estado.semana);
       return `semana ${estado.semana} · ${brCurto(d[0])} a ${brCurto(d[4])}`; })()
     : estado.periodo === "carteira" ? "carteira" : "";
+  // De volta à semana de hoje, quando se andou para outra.
+  const bSemanaAtual = el("button", { class: "discreto", title: "Voltar para a semana de hoje",
+    onclick: () => { Object.assign(estado, { ...M.semanaAtual(), periodo: "semana" }); estado.situacoes.clear(); pintar(); } },
+    "Semana atual");
   const topoResumo = el("div", {});
   const barraSel = el("div", { class: "barra-sel", hidden: true });
   const corpo = el("div", {});
@@ -94,7 +98,7 @@ export async function montar(raiz, ctx, params) {
   raiz.append(
     el("div", { class: "cabec" },
       el("h1", {}, "Programação"),
-      periodos,
+      periodos, bSemanaAtual,
       el("div", { class: "espaco" }),
       bImprimir,
       el("button", { class: "discreto", title: "Folhas por executante, com a escolha de quem",
@@ -163,6 +167,8 @@ export async function montar(raiz, ctx, params) {
   function pintarPeriodo() {
     rotSemana.textContent = `Semana ${estado.semana}`;
     bImprimir.textContent = estado.periodo === "semana" ? `Imprimir semana ${estado.semana}` : "Imprimir";
+    const w = M.semanaAtual();
+    bSemanaAtual.hidden = estado.periodo === "semana" && estado.semana === w.semana && estado.ano === w.ano;
     for (const b of periodos.querySelectorAll("[data-p]")) {
       b.classList.toggle("on", b.dataset.p === estado.periodo);
     }

@@ -199,6 +199,10 @@ code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: .
 .atalhos-equipe span { font-size: 12.5px; color: var(--fraco); width: 100%; }
 .atalhos-equipe button { border: 1px solid var(--borda); border-radius: 999px; padding: 5px 12px; font-size: 13px; }
 
+/* Escondido é escondido: sem isto, a regra de display de um botão ou de um
+   bloco passava por cima do atributo `hidden` e a coisa continuava na tela. */
+[hidden] { display: none !important; }
+
 /* ── corpo ─────────────────────────────────────────────────────────────── */
 
 #corpo { margin-left: var(--menu); min-height: 100vh; display: flex; flex-direction: column; }
@@ -209,6 +213,24 @@ code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: .
   padding: 0 18px; display: flex; align-items: center; gap: 12px; flex: 0 0 auto;
 }
 #topo .titulo { font-size: 15px; font-weight: 650; }
+#topo .voltar { font-size: 13.5px; color: var(--texto); padding: 5px 10px 5px 6px; margin-left: -6px;
+  max-width: 46vw; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+#topo .voltar[hidden] { display: none; }
+
+/* o menu do botão direito */
+.cm { position: fixed; z-index: 200; min-width: 220px; max-width: 320px; padding: 5px;
+  background: var(--papel); border: 1px solid var(--borda); border-radius: var(--raio);
+  box-shadow: var(--sombra); font-size: 13px; }
+.cm-tit { padding: 6px 10px 6px; font-size: 11.5px; color: var(--muito-fraco); font-weight: 600;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap; border-bottom: 1px solid var(--linha); margin-bottom: 4px; }
+.cm-item { display: flex; align-items: center; gap: 10px; width: 100%; text-align: left;
+  padding: 7px 10px; border: 0; border-radius: 6px; background: transparent; color: var(--texto); font-size: 13px; }
+.cm-item:hover, .cm-item:focus-visible { background: var(--marca-clara); outline: none; }
+.cm-item.perigo { color: var(--vencida); }
+.cm-atalho { margin-left: auto; font-size: 11px; color: var(--muito-fraco); }
+.cm-sep { height: 1px; background: var(--linha); margin: 4px 6px; }
+.cm-pe { padding: 5px 10px 3px; font-size: 10.5px; color: var(--muito-fraco); border-top: 1px solid var(--linha); margin-top: 4px; }
+@media (hover: none) { .cm-pe { display: none; } }
 #topo .espaco { flex: 1; }
 
 #faixa {

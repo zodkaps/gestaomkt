@@ -33,9 +33,11 @@ export async function montar(raiz, ctx, params) {
   const bImprimir = el("button", { title: "A folha com todas as pendências em aberto desta frota",
     onclick: () => frota && imprimirFrota(frota) }, "Imprimir folha");
 
+  const bTodas = el("button", { class: "discreto", title: "Voltar para a lista de frotas",
+    onclick: () => ctx.voltarPara("frota") }, "‹ Todas as frotas");
   raiz.append(
     el("div", { class: "cabec" },
-      el("h1", {}, "Frota"), escolha, lista,
+      el("h1", {}, "Frota"), escolha, lista, bTodas,
       el("div", { class: "espaco" }),
       bImprimir,
       el("button", { class: "primario", onclick: () => criarNova(ctx, { frota }) }, "+ Nova")),
@@ -58,13 +60,15 @@ export async function montar(raiz, ctx, params) {
     if (!todas.length) return vazio("Nenhuma frota com esse número.");
     return el("div", { class: "grade-frotas" }, todas.map(f => el("button", {
       class: "frota-chip" + ((abertasPor.get(f) || 0) ? "" : " sem"),
-      onclick: () => { frota = f; busca = ""; escolha.value = f; pintar(); window.scrollTo(0, 0); },
+      // pelo endereço: o voltar (botão do alto, Alt+←, gesto do celular) traz de volta à grade
+      onclick: () => ctx.ir("frota", "f=" + encodeURIComponent(f)),
     }, el("b", {}, f), el("span", {}, (abertasPor.get(f) || 0) ? `${abertasPor.get(f)} em aberto` : "nada em aberto"))));
   }
 
   function pintar() {
     pintarEscolha();
     bImprimir.hidden = !frota;
+    bTodas.hidden = !frota;
     limpar(corpo);
     if (!frota) { corpo.append(grade()); return; }
 

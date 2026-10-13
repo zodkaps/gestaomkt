@@ -88,6 +88,24 @@ olhando:
 | Informar liberação | operação | data em que a frota fica disponível para a manutenção |
 | **Excluir** | **só o PCM** | deixa de aparecer nas telas; o histórico é mantido |
 
+### O botão direito e o voltar
+
+**Botão direito** em cima de uma atividade, movimentação ou preventiva, em
+qualquer tela, na linha ou no cartão, abre as ações mais usadas daquele item ali
+onde o mouse está: abrir a ficha, dar baixa, reprogramar, retirar da
+programação, justificar, imprimir a folha da frota, abrir a frota, copiar a OS
+ou o texto, e **Mais ações…** (o menu completo do ⋯). Fora de um item, abre o
+básico: voltar, atualizar, imprimir a página e ir para as outras telas. Em
+campo de texto, com texto selecionado, ou com **Shift + botão direito**, fica o
+menu do navegador (para copiar e colar). Esc fecha; as setas andam no menu.
+
+**Voltar.** No alto, antes do título, aparece **‹ Resultados** (o nome da tela
+de onde se veio) — por exemplo, depois de clicar num gráfico de Resultados que
+abriu a Programação filtrada. É o voltar do próprio navegador, então ele, o
+Alt+← e o gesto de voltar do celular dão no mesmo lugar. Na tela Frota, a frota
+escolhida vai para o endereço, e **‹ Todas as frotas** volta para a grade. Na
+Programação, **Semana atual** aparece quando se andou para outra semana.
+
 **Excluir não apaga.** O item deixa de aparecer nas telas, mas o histórico guarda tudo. No
 **Registro**, cada exclusão e cada cancelamento tem o botão *Desfazer*, e o item
 volta do jeito que estava. A operação não exclui nada: o banco não deixa.
@@ -718,6 +736,7 @@ porque toda escrita já passa por `aplicar()`.
 | `js/tela/*.js` | entrar, operacao, hoje, programacao, semana, resultados, movimentacoes, preventivas, frota, historico, importar, diagnostico |
 | `js/tela/acoes.js` | as ações do ⋯ de cada item — um menu por tipo, com as opções que valem para quem está olhando |
 | `js/tela/imprimir.js` | a folha de pendências por frota e executante, para imprimir |
+| `js/tela/contexto.js` | o menu do botão direito: as ações do item, ou o básico da tela |
 | `js/fechamento.js` | o número que fica de cada semana: registrado, automático (sexta 23h59) ou o de hoje |
 | `js/tela/grade.js` | a lista no formato da aba Programação — Hoje, Programação e Semana usam a mesma; a OS digitada na linha |
 | `js/graficos.js` | os gráficos do painel de Resultados, em SVG puro: linha, colunas, barras, minilinha, dica |

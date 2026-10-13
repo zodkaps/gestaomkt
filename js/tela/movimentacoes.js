@@ -57,7 +57,7 @@ export function cartaoMov(m, ctx, { acoes = [] } = {}) {
   if (m.chegou_em) sub.push("concluída " + brCurto(m.chegou_em) +
     (m.concluida_por ? ` por ${m.concluida_por}` : ""));
 
-  return el("div", { class: `at ${M.corDe(s)}${m.chegou_em && m.aprovada ? " feito" : ""}` },
+  return el("div", { class: `at ${M.corDe(s)}${m.chegou_em && m.aprovada ? " feito" : ""}`, dataset: { id: m.id } },
     el("div", { class: "meio", style: "cursor:pointer",
       onclick: cliqueLimpo(() => abrirFichaMov(m.id, ctx)) },
       el("div", { class: "tit" }, `${m.frota} · ${tituloMov(m)}`),

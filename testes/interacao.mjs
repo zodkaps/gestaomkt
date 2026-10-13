@@ -722,6 +722,79 @@ ok("um clique aprova: Concluída com atraso, concluída pelo Pedro, aprovada pel
     !!document.querySelector(".numeros")));
 }
 
+// ── voltar: o botão do alto diz para onde volta ────────────────────────────
+{
+  await p.evaluate(() => { location.hash = "#/resultados"; });
+  await p.waitForTimeout(900);
+  await p.evaluate(() => { location.hash = "#/programacao?m=tudo"; });
+  await p.waitForTimeout(900);
+  const rotulo = await p.textContent("#bvoltar");
+  ok("vindo de Resultados, o alto mostra ‹ Resultados", rotulo.includes("Resultados") &&
+    await p.isVisible("#bvoltar"), rotulo);
+  await p.click("#bvoltar");
+  await p.waitForTimeout(900);
+  ok("e o botão volta para Resultados", (await p.evaluate(() => location.hash)).startsWith("#/resultados"));
+
+  // Frota: da grade para a frota e de volta, pelo endereço
+  const fr = await p.evaluate(() => mkt.ev.lista().find(a => a.frota && mkt.M.aberta(a) && /^F-\d+$/.test(a.frota)).frota);
+  await p.evaluate(() => { location.hash = "#/frota"; });
+  await p.waitForTimeout(800);
+  await p.locator(`.grade-frotas .frota-chip:has(b:text-is("${fr}"))`).click();
+  await p.waitForTimeout(800);
+  ok("tocar na frota muda o endereço", (await p.evaluate(() => location.hash)).includes("f=" + encodeURIComponent(fr)));
+  await p.click('.cabec button:has-text("Todas as frotas")');
+  await p.waitForTimeout(800);
+  ok("‹ Todas as frotas volta para a grade", await p.evaluate(() => !!document.querySelector(".grade-frotas") &&
+    location.hash === "#/frota"));
+}
+
+// ── o botão direito ────────────────────────────────────────────────────────
+{
+  await p.evaluate(() => { location.hash = "#/programacao?m=tudo"; });
+  await p.waitForTimeout(900);
+  const linha = p.locator(".so-tabela tr.lin").first();
+  const id = await linha.getAttribute("data-id");
+  await linha.locator("td.c-ativ").click({ button: "right" });
+  await p.waitForSelector(".cm", { timeout: 5000 });
+  const opcoes = await p.evaluate(() => [...document.querySelectorAll(".cm .cm-item")].map(b => b.textContent));
+  const a = await p.evaluate(id => { const x = mkt.ev.porId(id); return { frota: x.frota, semana: x.semana, aberta: mkt.M.aberta(x) }; }, id);
+  ok("botão direito numa atividade abre as ações dela ali, sem o ⋯",
+    opcoes[0] === "Abrir a ficha" && opcoes.includes("Mais ações…") &&
+    opcoes.some(o => o.startsWith("Abrir a frota " + a.frota)) && opcoes.some(o => o.startsWith("Imprimir a folha")) &&
+    (!a.aberta || opcoes.includes("Dar baixa")), JSON.stringify(opcoes));
+  await p.keyboard.press("Escape");
+  ok("Esc fecha o menu", await p.evaluate(() => !document.querySelector(".cm")));
+
+  await linha.locator("td.c-ativ").click({ button: "right" });
+  await p.waitForSelector(".cm");
+  await p.click('.cm .cm-item:has-text("Abrir a ficha")');
+  await p.waitForSelector(".caixa", { timeout: 5000 });
+  ok("e a opção funciona: abre a ficha", await p.evaluate(() => !!document.querySelector(".caixa")));
+  await p.keyboard.press("Escape");
+  await p.waitForTimeout(300);
+
+  // fora de um item: o básico da tela
+  await p.locator("#topo .titulo").click({ button: "right" });
+  await p.waitForSelector(".cm");
+  const basico = await p.evaluate(() => [...document.querySelectorAll(".cm .cm-item")].map(b => b.textContent));
+  ok("fora de um item: voltar, atualizar e ir para as telas",
+    basico.some(o => o.startsWith("Voltar")) && basico.includes("Atualizar") && basico.includes("Ir para Hoje"),
+    JSON.stringify(basico));
+  await p.click('.cm .cm-item:has-text("Ir para Hoje")');
+  await p.waitForTimeout(700);
+  ok("e Ir para Hoje leva para Hoje", (await p.evaluate(() => location.hash)).startsWith("#/hoje"));
+
+  // campo de texto continua com o menu do navegador
+  await p.evaluate(() => { location.hash = "#/programacao?m=tudo"; });
+  await p.waitForTimeout(700);
+  const nativo = await p.evaluate(() => {
+    const ev = new MouseEvent("contextmenu", { bubbles: true, cancelable: true, clientX: 50, clientY: 50 });
+    document.querySelector(".filtros input.busca").dispatchEvent(ev);
+    return !ev.defaultPrevented && !document.querySelector(".cm");
+  });
+  ok("em campo de texto o menu do navegador continua (para colar)", nativo);
+}
+
 // ── no tablet em pé, os cartões também têm a caixinha ──────────────────────
 {
   await p.evaluate(() => { location.hash = "#/programacao?m=tudo"; });

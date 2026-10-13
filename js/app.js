@@ -63,7 +63,48 @@ function contagemOperacao() {
 const ctx = {
   ir(id, params = "") { location.hash = "#/" + id + (params ? "?" + params : ""); },
   atualizar() { pintar(); },
+  /** Volta para `id` (e `params`): se foi de lá que a pessoa veio, é o voltar
+   *  do navegador — sem empilhar um passo a mais; senão, vai para lá. */
+  voltarPara(id, params = "") {
+    const destino = "#/" + id + (params ? "?" + params : "");
+    if (caminho.length && caminho[caminho.length - 1] === destino) history.back();
+    else location.hash = destino;
+  },
 };
+
+// ── voltar ──────────────────────────────────────────────────────────────────
+// As telas por onde a pessoa passou nesta aba. O "‹ Voltar" do alto usa o
+// voltar do próprio navegador, então ele, o Alt+← e o gesto de voltar do
+// celular dão sempre no mesmo lugar; o caminho guardado aqui serve para o botão
+// saber se há para onde voltar e dizer o nome da tela.
+const caminho = [];
+let enderecoAtual = location.hash;
+const idDoEndereco = h => (h || "").replace(/^#\/?/, "").split("?")[0];
+
+function anotarCaminho() {
+  const novo = location.hash;
+  if (novo === enderecoAtual) return;
+  if (caminho.length && caminho[caminho.length - 1] === novo) caminho.pop();     // voltou
+  else if (idDoEndereco(enderecoAtual) && !PORTAS.has(idDoEndereco(enderecoAtual))) caminho.push(enderecoAtual);
+  enderecoAtual = novo;
+}
+
+/** O nome da tela para onde o voltar leva; vazio se for a mesma tela. */
+function rotuloVoltar() {
+  const anterior = idDoEndereco(caminho[caminho.length - 1]);
+  if (!anterior || anterior === idDoEndereco(location.hash)) return "";
+  const t = TELAS.find(x => x.id === anterior);
+  return t ? t.nome : "";
+}
+
+function pintarVoltar() {
+  const b = $("#bvoltar");
+  if (!b) return;
+  b.hidden = !caminho.length || !pessoas.quem();
+  const nome = rotuloVoltar();
+  b.textContent = "‹ " + (nome || "Voltar");
+  b.title = nome ? `Voltar para ${nome}` : "Voltar";
+}
 
 let atual = null;
 let pararDeOuvirNuvem = null;
@@ -244,6 +285,7 @@ async function pintar() {
   const tela = TELAS.find(t => t.id === id);
   pintarMenu(id);
   pintarPessoa();
+  pintarVoltar();
   $("#topo .titulo").textContent = tela.oculta ? "" : tela.nome;
   limpar($("#acoes-topo"));
 
@@ -431,7 +473,20 @@ async function comecar() {
     await dados.gravarMeta("tema", novo);
   });
 
+  // O botão de voltar mora no alto, antes do título; o caminho é anotado ANTES
+  // de a tela nova se pintar, para o botão já nascer com o nome certo.
+  $("#topo").prepend(el("button", { id: "bvoltar", class: "discreto voltar", hidden: true,
+    onclick: () => { if (caminho.length) history.back(); } }, "‹ Voltar"));
+  window.addEventListener("hashchange", anotarCaminho);
   window.addEventListener("hashchange", pintar);
+  // O botão direito: as ações do item onde o mouse está, ou o básico da tela.
+  import("./tela/contexto.js").then(m => m.ligar(ctx, {
+    podeVoltar: () => caminho.length > 0,
+    rotuloVoltar,
+    voltar: () => history.back(),
+    atualizar: () => atualizarAgora(),
+    telas: () => telasDoPapel(),
+  })).catch(e => console.warn("menu do botão direito", e));
   ev.ouvir(() => { faixa(); pintarMenu(alvo().id); });
   nuvem.aoLigar(async () => {
     // O banco disse que a sessão deste aparelho acabou: quem estava dentro

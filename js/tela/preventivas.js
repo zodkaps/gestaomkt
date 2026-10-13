@@ -42,7 +42,7 @@ export function cartaoPrev(p, ctx, { acoes = [] } = {}) {
   else if (p.disponivel_em) sub.push("liberação " + brCurto(p.disponivel_em));
   if (p.dia_parada) sub.push("parada " + brCurto(p.dia_parada));
 
-  return el("div", { class: `at ${M.corDe(s)}${M.preventivaFeita(p) ? " feito" : ""}` },
+  return el("div", { class: `at ${M.corDe(s)}${M.preventivaFeita(p) ? " feito" : ""}`, dataset: { id: p.id } },
     el("div", { class: "meio", style: "cursor:pointer",
       onclick: cliqueLimpo(() => abrirFichaPrev(p.id, ctx)) },
       el("div", { class: "tit" }, p.frota),
