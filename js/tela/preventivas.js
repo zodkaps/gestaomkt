@@ -21,7 +21,7 @@ import { busca as semAcento } from "../texto.js";
 import { natural } from "./grade.js";
 import { botaoMais, frotas as frotasDasAtividades } from "./comum.js";
 import { mesDaData, mesDoPlano, decisoesPreventivas } from "../decisoes.js";
-import { cartaoGrafico, graficoBarras, graficoColunas, graficoLinhas } from "../graficos.js";
+import { cartaoGrafico, graficoBarras, graficoColunas, graficoLinhas, graficoRosca } from "../graficos.js";
 import { listaDecisoes } from "./decidir.js";
 
 // ── o cartão (celular, e a tela Para você) ──────────────────────────────────
@@ -758,7 +758,7 @@ export async function montar(raiz, ctx, params = new URLSearchParams()) {
       kpiClic("Aguardando a operação", esperaOp.length, "sem a liberação da frota", esperaOp.length ? "hoje" : "", irPara("Sem data da Operação")),
       kpiClic("Aguardando o PCM", esperaPCM.length, "liberadas, sem parada", esperaPCM.length ? "andando" : "",
         irPara("Parada passou, sem baixa", "Conflito: Operação depois do prazo", "Disponível: marcar a parada", "Com data: marcar a parada")),
-      kpiClic("Reprogramações", reprog + adiadas, `${reprog} de parada · ${adiadas} adiada${adiadas === 1 ? "" : "s"}`, reprog + adiadas ? "hoje" : "",
+      kpiClic("Reprogra\u00admações", reprog + adiadas, `${reprog} de parada · ${adiadas} adiada${adiadas === 1 ? "" : "s"}`, reprog + adiadas ? "hoje" : "",
         () => { estado.vista = "mudancas"; estado.tipoMud = "reprogramacao"; pintar(); }),
       kpiClic("HH", String(r.hh).replace(".", ","), `previstos · ${String(hhFeito).replace(".", ",")} realizados`, "")));
 
@@ -792,14 +792,26 @@ export async function montar(raiz, ctx, params = new URLSearchParams()) {
     };
 
     // 1. onde está cada preventiva
+    // conta pela quantidade de cada linha, como o "Plano do mês" lá em cima
+    const qtdDe = p => Number(p.qtd) || 1;
+    // e sem as adiadas e canceladas, que saem da contagem do mês — o centro da
+    // rosca é o mesmo número do "Plano do mês"
     const conta = new Map();
-    for (const p of plano) { const x = M.situacaoPreventiva(p, ref); conta.set(x, (conta.get(x) || 0) + 1); }
+    for (const p of plano) {
+      if (p.adiada || p.cancelada) continue;
+      const x = M.situacaoPreventiva(p, ref); conta.set(x, (conta.get(x) || 0) + qtdDe(p));
+    }
+    const foraDoMes = plano.filter(p => p.adiada || p.cancelada).length;
     const itensSit = ORDEM_SIT.filter(x => conta.get(x)).map(x => ({ rotulo: M.rotulo(x), chave: x,
-      partes: [{ nome: M.rotulo(x), cor: `var(--${M.corDe(x)})`, valor: conta.get(x) }] }));
-    pendurar(cartaoGrafico("Onde está cada preventiva", "situação de cada frota do plano · clique para ver a lista",
+      valor: conta.get(x), cor: `var(--${M.corDe(x)})` }));
+    // Rosca: como o plano do mês se divide. Mais de seis situações, as menores
+    // viram "Outras" — a lista completa está a um clique, na vista Plano.
+    pendurar(cartaoGrafico("Onde está cada preventiva", "como o plano do mês se divide" +
+      (foraDoMes ? ` · ${foraDoMes} adiada${foraDoMes === 1 ? "" : "s"} ou cancelada${foraDoMes === 1 ? "" : "s"} fora` : "") +
+      " · clique para ver a lista",
       el("div", { class: "g-corpo" })),
-    w => itensSit.length ? graficoBarras({ largura: w, itens: itensSit, aoClicar: it => irPara(it.chave)(),
-      larguraRotulo: Math.min(220, Math.max(110, w * 0.46)) })
+    w => itensSit.length ? graficoRosca({ largura: w, itens: itensSit, aoClicar: it => irPara(it.chave)(),
+      centro: { valor: [...conta.values()].reduce((t, n) => t + n, 0), rotulo: "no plano" } })
       : el("p", { class: "nada" }, "Nada no plano."));
 
     // 2. os vencimentos de cada semana, e se estão cobertos
@@ -855,14 +867,19 @@ export async function montar(raiz, ctx, params = new URLSearchParams()) {
       : el("p", { class: "nada" }, "Nenhuma reprogramação, adiamento ou cancelamento neste mês."));
 
     // 5. onde se faz
-    const ondes = ["Interna", "Terceiro", ""];
-    const itensOnde = ondes.map(o => ({ rotulo: o || "A definir",
-      partes: [{ nome: "Realizadas", cor: "var(--s3)", valor: valem.filter(p => (p.onde_fazer || "") === o && M.preventivaFeita(p)).length },
-        { nome: "Em aberto", cor: "var(--ctx)", valor: valem.filter(p => (p.onde_fazer || "") === o && !M.preventivaFeita(p)).length }] }))
-      .filter(x => x.partes.some(y => y.valor));
-    pendurar(cartaoGrafico("Onde se faz", "oficina interna, terceiro ou ainda a definir", el("div", { class: "g-corpo" }),
-      { forma: "caixa", legendaDe: [{ nome: "Realizadas", cor: "var(--s3)" }, { nome: "Em aberto", cor: "var(--ctx)" }] }),
-    w => itensOnde.length ? graficoBarras({ largura: w, itens: itensOnde }) : el("p", { class: "nada" }, "—"));
+    const ondes = [["Interna", "var(--s1)"], ["Terceiro", "var(--s2)"], ["", "var(--ctx)"]];
+    const itensOnde = ondes.map(([o, cor]) => {
+      const daqui = valem.filter(p => (p.onde_fazer || "") === o);
+      const soma = l => l.reduce((t, p) => t + qtdDe(p), 0);
+      const feitas = soma(daqui.filter(M.preventivaFeita));
+      return { rotulo: o || "A definir", cor, valor: soma(daqui),
+        extra: [{ valor: String(feitas), rotulo: "realizadas" }, { valor: String(soma(daqui) - feitas), rotulo: "em aberto" }] };
+    }).filter(x => x.valor);
+    pendurar(cartaoGrafico("Onde se faz", "oficina interna, terceiro ou ainda a definir · a dica mostra quantas já saíram",
+      el("div", { class: "g-corpo" })),
+    w => itensOnde.length ? graficoRosca({ largura: w, itens: itensOnde,
+      centro: { valor: itensOnde.reduce((t, it) => t + it.valor, 0), rotulo: "a fazer" } })
+      : el("p", { class: "nada" }, "—"));
 
     // 6. mês a mês, quando já há mais de um
     const meses = [...new Set(ev.lista("preventiva").map(p => p.mes).filter(Boolean))].sort((a, b) => ordemMes(a) - ordemMes(b));

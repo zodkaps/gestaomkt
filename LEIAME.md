@@ -494,6 +494,16 @@ botões: no celular ficam Hoje, Programação, Preventivas e Movimentação, e o
 **Mais** abre as outras (Semana, Resultados, Frota, Registro, Importar,
 Diagnóstico). Quem não é PCM vê só as cinco telas dele, e a barra cabe inteira.
 
+**Rosca quando é "como o total se divide", barra quando é comparar.** A
+situação das atividades da semana, o mix de manutenção (semana e acervo lado a
+lado, com os dois % na mesma linha da legenda), de quem é o atraso, onde está
+cada preventiva e onde se faz são roscas: o total no meio, até seis fatias (o
+resto vira "Outras"), valor e % na legenda, a dica ao passar o mouse e o clique
+que filtra. Duas fatias do mesmo estado vêm em tons diferentes da mesma cor.
+Ranking (frotas, carga da equipe, motivos das reprogramações) e tempo (semanas,
+dias) continuam em barras e colunas — numa rosca, valores próximos não se
+comparam.
+
 As cores de dado não foram escolhidas no olho: saem de uma paleta validada para
 fundo escuro (faixa de luminosidade, piso de croma, separação para daltonismo e
 contraste contra a superfície). As quatro cores de estado são fixas e nunca

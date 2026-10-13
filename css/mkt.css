@@ -964,7 +964,7 @@ button.mini.devolver { color: var(--hoje); }
   background: var(--papel); border: 1px solid var(--linha); border-radius: var(--raio);
   padding: 10px 12px; border-top: 2px solid var(--linha);
 }
-.kpi .k-rot { font-size: 10.5px; text-transform: uppercase; letter-spacing: .06em; color: var(--muito-fraco); font-weight: 650; }
+.kpi .k-rot { font-size: 10.5px; text-transform: uppercase; letter-spacing: .06em; color: var(--muito-fraco); font-weight: 650; hyphens: manual; }
 .kpi .k-val { font-size: 26px; font-weight: 700; line-height: 1.15; margin-top: 3px; font-variant-numeric: tabular-nums; }
 .kpi .k-det { font-size: 11.5px; color: var(--fraco); margin-top: 2px; }
 .kpi.vencida { border-top-color: var(--vencida); } .kpi.vencida .k-val { color: var(--vencida); }
@@ -1253,3 +1253,32 @@ button.primario-leve:hover { background: var(--marca-clara); }
 .tabela-rolagem { overflow: auto; max-height: 52vh; margin-top: 8px; }
 .tabela-rolagem .tabela { width: 100%; font-size: 12.5px; }
 .tabela-rolagem .t-hoje { color: var(--hoje); }
+
+/* A rosca: parte do todo. O desenho à esquerda, a legenda com valor e % ao lado. */
+.g-rosca { display: flex; align-items: center; gap: 18px; flex-wrap: wrap; padding: 4px 2px 2px; }
+.g-rosca.so { justify-content: center; }
+.g-rosca svg { flex: 0 0 auto; overflow: visible; }
+.g-fatia path { stroke: var(--papel); stroke-width: 2; stroke-linejoin: round; transition: opacity .12s; }
+.g-fatia:focus { outline: none; }
+.g-fatia:focus-visible path { stroke: var(--texto); }
+.g-rosca.foco .g-fatia:not(.ativa) path { opacity: .35; }
+.g-centro-val { font-size: 24px; font-weight: 750; fill: var(--texto); font-variant-numeric: tabular-nums; }
+.g-centro-rot { font-size: 11px; fill: var(--fraco); }
+.g-centro-val, .g-centro-rot { pointer-events: none; }
+.g-rosca-leg { flex: 1 1 170px; min-width: 0; display: grid; gap: 2px; }
+.g-rl { display: grid; grid-template-columns: 10px minmax(0, 1fr) auto 3.6ch; gap: 8px; align-items: center;
+  font: inherit; font-size: 12.5px; color: var(--fraco); background: none; border: 0; text-align: left;
+  padding: 4px 6px; border-radius: 6px; width: 100%; }
+.g-rl .g-rl-nome { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.g-rl b { color: var(--texto); font-variant-numeric: tabular-nums; }
+.g-rl .g-rl-pc { color: var(--muito-fraco); text-align: right; font-variant-numeric: tabular-nums; }
+.g-rl.clicavel { cursor: pointer; }
+.g-rl:hover, .g-rl.ativa { background: var(--papel2); }
+/* duas roscas lado a lado (semana × acervo), com uma legenda só embaixo */
+.g-par { display: flex; justify-content: space-around; gap: 12px; flex-wrap: wrap; }
+.g-par > div { text-align: center; }
+.g-par-tit { font-size: 12px; color: var(--fraco); margin-bottom: 4px; }
+.g-par-leg { display: grid; grid-template-columns: 10px 1fr auto auto; gap: 4px 14px; align-items: center;
+  font-size: 12.5px; color: var(--fraco); margin: 10px 6px 2px; }
+.g-par-leg b { color: var(--texto); font-variant-numeric: tabular-nums; text-align: right; }
+.g-par-leg .cab { font-size: 11px; color: var(--muito-fraco); text-align: right; }

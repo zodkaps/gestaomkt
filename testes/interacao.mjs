@@ -952,6 +952,25 @@ ok("um clique aprova: Concluída com atraso, concluída pelo Pedro, aprovada pel
     JSON.stringify(digitado));
 }
 
+// ── a rosca: a situação da semana em Resultados ───────────────────────────
+{
+  await p.evaluate(() => { location.hash = "#/resultados"; });
+  await p.waitForTimeout(1200);
+  const card = p.locator('.g-card:has(.g-tit:text-is("Situação das atividades da semana"))');
+  const fatias = await card.locator(".g-rosca .g-fatia").count();
+  const soma = await card.evaluate(c => [...c.querySelectorAll(".g-rl b")].reduce((t, b) => t + Number(b.textContent), 0));
+  const centro = await card.evaluate(c => Number((c.querySelector(".g-centro-val") || {}).textContent));
+  ok("a situação da semana é uma rosca, e as fatias somam o número do meio", fatias > 0 && soma === centro, `${fatias} fatias · ${soma} × ${centro}`);
+  await card.locator(".g-fatia").first().focus();
+  await p.waitForTimeout(200);
+  ok("a fatia com o foco (teclado) mostra a dica com o valor e o %", /do total/.test(await card.locator(".g-dica").textContent()));
+  await card.locator(".g-rl.clicavel").first().click();
+  await p.waitForTimeout(800);
+  ok("clicar na legenda abre a Programação naquela situação", (await p.evaluate(() => location.hash)).includes("sit="));
+  await p.click(".fsit.todas");
+  await p.waitForTimeout(300);
+}
+
 // ── preventivas: incluir frota, reprogramar com motivo, registro, painel ───
 {
   const F = "F-PV" + Date.now().toString(36).slice(-4).toUpperCase();
@@ -1070,7 +1089,7 @@ ok("um clique aprova: Concluída com atraso, concluída pelo Pedro, aprovada pel
     marcada === diaNaCaixa && !(await p.locator(`.decisao[data-id="${id2}"] .d-tit:text-is("Programar a parada da ${F2}")`).count()), marcada);
 
   // o número de reprogramações leva ao registro filtrado
-  await p.locator('.kpis .clicavel:has-text("Reprogramações")').click();
+  await p.locator('.kpis .clicavel:has-text("Reprogra")').click();
   await p.waitForTimeout(500);
   ok("Reprogramações no painel da aba abre as mudanças desse tipo",
     await p.evaluate(() => !!document.querySelector(".evento.mudanca") &&

@@ -356,6 +356,111 @@ export function graficoBarras({ largura, itens, formato = v => String(v), aoClic
   return s;
 }
 
+// ── a rosca: como o total se divide ─────────────────────────────────────────
+//
+// Só para parte-do-todo de UM total, com até seis fatias — passou disso, as
+// menores viram "Outras". Para comparar valores próximos, ranking ou tempo, é
+// barra. Cada fatia tem valor e % na legenda ao lado (a cor nunca diz sozinha
+// o que é), o total no meio, a dica ao passar o mouse e o clique que filtra.
+// `itens`: [{ rotulo, valor, cor, chave?, extra? }]. `centro`: { valor, rotulo }.
+
+function arco(cx, cy, R, r, a0, a1) {
+  const grande = a1 - a0 > Math.PI ? 1 : 0;
+  const p = (raio, t) => `${(cx + raio * Math.cos(t)).toFixed(2)},${(cy + raio * Math.sin(t)).toFixed(2)}`;
+  return `M${p(R, a0)}A${R},${R} 0 ${grande} 1 ${p(R, a1)}L${p(r, a1)}A${r},${r} 0 ${grande} 0 ${p(r, a0)}Z`;
+}
+
+export function graficoRosca({ largura, itens, centro = null, aoClicar = null, formato = v => String(v),
+  maxFatias = 6, semLegenda = false, lado = null }) {
+  const vivos = itens.filter(it => it.valor > 0);
+  let fatias = vivos;
+  if (vivos.length > maxFatias) {
+    const ficam = new Set([...vivos].sort((a, b) => b.valor - a.valor).slice(0, maxFatias - 1));
+    const resto = vivos.filter(it => !ficam.has(it));
+    fatias = [...vivos.filter(it => ficam.has(it)), { rotulo: `Outras (${resto.length})`, cor: "var(--ctx)",
+      valor: resto.reduce((s, it) => s + it.valor, 0),
+      extra: resto.map(it => ({ valor: formato(it.valor), rotulo: it.rotulo })) }];
+  }
+  const total = fatias.reduce((s, it) => s + it.valor, 0);
+  // Duas fatias da mesma cor (duas situações do mesmo estado, como "aguardando
+  // o PCM") se fundiriam no anel: a segunda vem num tom mais claro, e a
+  // legenda acompanha.
+  const vezes = new Map();
+  const tons = fatias.map(it => { const n = vezes.get(it.cor) || 0; vezes.set(it.cor, n + 1); return [1, 0.55, 0.78][n % 3]; });
+  const L = lado || Math.round(Math.max(132, Math.min(188, largura * 0.4)));
+  const R = L / 2 - 3, r = R * 0.64, c = L / 2;
+  const pc = v => total ? Math.round(v / total * 100) + "%" : "—";
+
+  const caixa = el("div", { class: "g-rosca" + (semLegenda ? " so" : "") });
+  const s = svg("svg", { width: L, height: L, viewBox: `0 0 ${L} ${L}`, class: "g-svg", role: "img",
+    "aria-label": fatias.map(it => `${it.rotulo}: ${formato(it.valor)} (${pc(it.valor)})`).join("; ") });
+  const nos = [];
+  const realcar = i => {
+    caixa.classList.toggle("foco", i != null);
+    nos.forEach((n, k) => { n.fatia.classList.toggle("ativa", k === i); if (n.linha) n.linha.classList.toggle("ativa", k === i); });
+  };
+  const dica = (i, px, py) => {
+    const it = fatias[i];
+    mostrarDica(caixa.closest(".g-card") || caixa, px, py, it.rotulo,
+      [{ cor: it.cor, forma: "caixa", valor: formato(it.valor), rotulo: pc(it.valor) + " do total" }, ...(it.extra || [])]);
+  };
+  const sair = () => { realcar(null); const cartao = caixa.closest(".g-card"); if (cartao) esconderDica(cartao); };
+
+  let a = -Math.PI / 2;
+  fatias.forEach((it, i) => {
+    const fim = a + (it.valor / total) * 2 * Math.PI;
+    // uma fatia só é o anel inteiro: o arco de 360° não se desenha, então
+    // vai em duas metades
+    const d = fatias.length === 1 ? arco(c, c, R, r, a, a + Math.PI) + arco(c, c, R, r, a + Math.PI, a + 2 * Math.PI)
+      : arco(c, c, R, r, a, fim);
+    const g = svg("g", { class: "g-fatia", tabindex: 0, "aria-label": `${it.rotulo}: ${formato(it.valor)} (${pc(it.valor)})` },
+      svg("path", { d, style: { fill: it.cor, fillOpacity: tons[i] } }));
+    const meio = (a + fim) / 2;
+    g.addEventListener("pointermove", e => {
+      realcar(i);
+      const cartao = caixa.closest(".g-card"); if (!cartao) return;
+      const p = noCartao(cartao, e); dica(i, p.x, p.y);
+    });
+    g.addEventListener("pointerleave", sair);
+    g.addEventListener("focus", () => {
+      realcar(i);
+      const cartao = caixa.closest(".g-card"); if (!cartao) return;
+      const rs = s.getBoundingClientRect(), rc = cartao.getBoundingClientRect();
+      dica(i, rs.left - rc.left + c + R * Math.cos(meio), rs.top - rc.top + c + R * Math.sin(meio));
+    });
+    g.addEventListener("blur", sair);
+    if (aoClicar && it.chave != null) {
+      g.style.cursor = "pointer";
+      g.addEventListener("click", () => aoClicar(it));
+      g.addEventListener("keydown", e => { if (e.key === "Enter") aoClicar(it); });
+    }
+    s.append(g);
+    nos.push({ fatia: g });
+    a = fim;
+  });
+  const meio = centro || { valor: formato(total), rotulo: "no total" };
+  s.append(svg("text", { x: c, y: c + 2, class: "g-centro-val", "text-anchor": "middle" }, String(meio.valor)));
+  if (meio.rotulo) s.append(svg("text", { x: c, y: c + 18, class: "g-centro-rot", "text-anchor": "middle" }, meio.rotulo));
+  caixa.append(s);
+
+  if (!semLegenda) {
+    caixa.append(el("div", { class: "g-rosca-leg" }, fatias.map((it, i) => {
+      const clic = aoClicar && it.chave != null;
+      const linha = el(clic ? "button" : "div", { class: "g-rl" + (clic ? " clicavel" : ""), type: clic ? "button" : null,
+        title: clic ? "Abrir a lista" : null,
+        onpointerenter: () => realcar(i), onpointerleave: () => realcar(null),
+        onclick: clic ? () => aoClicar(it) : null },
+        el("i", { class: "chave caixa", style: `--c:${it.cor};opacity:${tons[i]}` }),
+        el("span", { class: "g-rl-nome" }, it.rotulo),
+        el("b", {}, formato(it.valor)),
+        el("span", { class: "g-rl-pc" }, pc(it.valor)));
+      nos[i].linha = linha;
+      return linha;
+    })));
+  }
+  return caixa;
+}
+
 // ── a minilinha dos cartões ─────────────────────────────────────────────────
 // Cinza para o histórico, a cor de destaque só no ponto atual.
 

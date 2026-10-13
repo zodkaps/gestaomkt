@@ -19,7 +19,7 @@ import { el, limpar, br, brCurto, caixa, campo, avisar, erro } from "../ui.js";
 import { fechamentos, vale, naTendencia, daPlanilha, podeGravarFechamento } from "../fechamento.js";
 import { outrosIndicadores } from "./indicadores.js";
 import { natural } from "./grade.js";
-import { cartaoGrafico, graficoLinhas, graficoColunas, graficoBarras, minilinha } from "../graficos.js";
+import { cartaoGrafico, graficoLinhas, graficoColunas, graficoBarras, graficoRosca, minilinha } from "../graficos.js";
 
 const pc = v => v == null ? "—" : (Math.round(v * 1000) / 10).toLocaleString("pt-BR") + "%";
 const pc0 = v => v == null ? "—" : Math.round(v * 100) + "%";
@@ -262,10 +262,12 @@ export async function montar(raiz, ctx, params) {
       "Concluída", "Cancelada"];
     const itensSit = [...porSit].sort((a, b) =>
       (ORDEM_SIT.indexOf(a[0]) + 1 || 99) - (ORDEM_SIT.indexOf(b[0]) + 1 || 99))
-      .map(([s, n]) => ({ rotulo: M.rotulo(s), chave: s, partes: [{ nome: M.rotulo(s), cor: `var(--${M.corDe(s)})`, valor: n }] }));
+      .map(([s, n]) => ({ rotulo: M.rotulo(s), chave: s, valor: n, cor: `var(--${M.corDe(s)})` }));
+    // Rosca: é "como as atividades da semana se dividem" — parte do todo.
     pendurar(cartaoGrafico("Situação das atividades da semana",
-      "clique para abrir a Programação nessa situação", el("div", { class: "g-corpo" })),
-    w => itensSit.length ? graficoBarras({ largura: w, itens: itensSit,
+      "como as atividades da semana se dividem · clique para abrir a Programação nessa situação", el("div", { class: "g-corpo" })),
+    w => itensSit.length ? graficoRosca({ largura: w, itens: itensSit,
+      centro: { valor: daSemana.length, rotulo: daSemana.length === 1 ? "atividade" : "atividades" },
       aoClicar: it => ctx.ir("programacao", `s=${semana}&a=${ano}&sit=${encodeURIComponent(it.chave)}` +
         (estado.frota ? `&f=${encodeURIComponent(estado.frota)}` : "")) })
       : el("p", { class: "nada" }, "Nada programado nesta semana."));
@@ -309,33 +311,49 @@ export async function montar(raiz, ctx, params) {
       : el("p", { class: "nada" }, "Sem HH com executante nesta semana."));
 
     // 6. o mix de manutenção — semana × acervo
-    const TIPOS_MIX = [["Corretiva", S1], ["Preventiva", S2], ["Inspeção", S3]];
-    const mixDe = (lista, nome) => {
-      const total = lista.length || 1;
-      const partes = TIPOS_MIX.map(([t, c]) => ({ nome: t, cor: c,
-        valor: Math.round(lista.filter(a => (a.tipo || "Corretiva") === t).length / total * 1000) / 10 }));
-      const outros = lista.filter(a => !TIPOS_MIX.some(([t]) => (a.tipo || "Corretiva") === t)).length;
-      partes.push({ nome: "Outros tipos", cor: CTX, valor: Math.round(outros / total * 1000) / 10 });
-      return { rotulo: nome, partes, extra: [{ valor: String(lista.length), rotulo: "atividades" }] };
-    };
+    // Duas roscas lado a lado — a semana e o acervo —, com uma legenda só que
+    // põe os dois % na mesma linha: é ali que se vê a preventiva ganhar espaço.
+    const TIPOS_MIX = [["Corretiva", S1], ["Preventiva", S2], ["Inspeção", S3], ["Outros tipos", CTX]];
+    const tipoMix = a => { const t = a.tipo || "Corretiva"; return TIPOS_MIX.some(([x]) => x === t) ? t : "Outros tipos"; };
+    const mixDe = lista => TIPOS_MIX.map(([t, c]) => ({ rotulo: t, cor: c, valor: lista.filter(a => tipoMix(a) === t).length }));
     const internas = daSemana.filter(a => !a.cancelada);
     const acervo = ats.filter(a => !a.excluida && !a.cancelada && (a.atividade || a.frota));
-    pendurar(cartaoGrafico("Mix de manutenção", "% por tipo · mostra se a preventiva está ganhando espaço sobre a corretiva",
-      el("div", { class: "g-corpo" }), { forma: "caixa",
-        legendaDe: [...TIPOS_MIX.map(([t, c]) => ({ nome: t, cor: c })), { nome: "Outros", cor: CTX }] }),
-    w => graficoBarras({ largura: w, maximo: 100, formato: v => n1(v) + "%",
-      itens: [mixDe(internas, `Semana ${semana}`), mixDe(acervo, "Acervo")],
-      rotuloTotal: it => it.extra[0].valor + " ativ." }));
+    const pcDe = (lista, t) => lista.length ? n1(lista.filter(a => tipoMix(a) === t).length / lista.length * 100) + "%" : "—";
+    pendurar(cartaoGrafico("Mix de manutenção", "parte de cada tipo · mostra se a preventiva está ganhando espaço sobre a corretiva",
+      el("div", { class: "g-corpo" })),
+    w => {
+      const lado = Math.round(Math.max(118, Math.min(150, w * 0.32)));
+      const roda = (lista, tit) => el("div", {}, el("div", { class: "g-par-tit" }, tit),
+        lista.length ? graficoRosca({ largura: w, lado, itens: mixDe(lista), semLegenda: true,
+          centro: { valor: lista.length, rotulo: "atividades" } }) : el("p", { class: "nada" }, "—"));
+      return el("div", {},
+        el("div", { class: "g-par" }, roda(internas, `Semana ${semana}`), roda(acervo, "Acervo")),
+        el("div", { class: "g-par-leg" },
+          el("span", {}), el("span", {}), el("span", { class: "cab" }, `Semana ${semana}`), el("span", { class: "cab" }, "Acervo"),
+          TIPOS_MIX.filter(([t]) => internas.some(a => tipoMix(a) === t) || acervo.some(a => tipoMix(a) === t)).map(([t, c]) => [
+            el("i", { class: "chave caixa", style: `--c:${c}` }), el("span", {}, t),
+            el("b", {}, pcDe(internas, t)), el("b", {}, pcDe(acervo, t))])));
+    });
 
     // 7. por que não saiu
+    // Rosca: de quem é o atraso, como parte do total. A cor é da área, a mesma
+    // em toda semana; responsável digitado à mão (fora das áreas) vai junto em
+    // "Outros", em cinza, com os nomes na dica.
     const ar = M.atrasoPorArea(daSemana);
-    const itensArea = Object.entries(ar.por).sort((a, b) => b[1].total - a[1].total)
-      .map(([area, d]) => ({ rotulo: area, partes: [{ nome: "Atividades em aberto", cor: S1, valor: d.total }],
-        extra: Object.entries(d.motivos).sort((a, b) => b[1] - a[1]).slice(0, 3)
-          .map(([mot, n]) => ({ valor: String(n), rotulo: mot })) }));
-    pendurar(cartaoGrafico("Motivos de não conclusão", "atividades em aberto na semana, pelo motivo informado" +
+    const COR_AREA = { "Manutenção": S1, "Operação": S2, "Terceiro": S3, "Suprimentos": "var(--s4)", "Gestão / prioridade": "var(--s5)" };
+    const motivosDe = d => Object.entries(d.motivos).sort((a, b) => b[1] - a[1]).slice(0, 3)
+      .map(([mot, n]) => ({ valor: String(n), rotulo: mot }));
+    const conhecidas = Object.entries(ar.por).filter(([area]) => COR_AREA[area]);
+    const outras = Object.entries(ar.por).filter(([area]) => !COR_AREA[area]);
+    const itensArea = [
+      ...conhecidas.map(([area, d]) => ({ rotulo: area, cor: COR_AREA[area], valor: d.total, extra: motivosDe(d) })),
+      ...(outras.length ? [{ rotulo: "Outros", cor: CTX, valor: outras.reduce((t, [, d]) => t + d.total, 0),
+        extra: outras.map(([area, d]) => ({ valor: String(d.total), rotulo: area })) }] : []),
+    ].sort((a, b) => b.valor - a.valor);
+    pendurar(cartaoGrafico("Motivos de não conclusão", "de quem é o atraso das atividades em aberto da semana · a dica mostra os motivos" +
       (ar.sem_motivo ? ` · ${ar.sem_motivo} sem motivo` : ""), el("div", { class: "g-corpo" })),
-    w => itensArea.length ? graficoBarras({ largura: w, itens: itensArea })
+    w => itensArea.length ? graficoRosca({ largura: w, itens: itensArea,
+      centro: { valor: itensArea.reduce((t, it) => t + it.valor, 0), rotulo: "com motivo" } })
       : el("p", { class: "nada" }, "Nenhuma atividade em aberto com motivo informado nesta semana."));
 
     // ── a tabela da planilha — a versão em tabela de tudo isto
