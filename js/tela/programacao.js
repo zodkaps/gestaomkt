@@ -14,7 +14,7 @@ import * as ev from "../eventos.js";
 import * as M from "../modelo.js";
 import * as pessoas from "../pessoas.js";
 import { el, limpar, brCurto, caixa, campo } from "../ui.js";
-import { criarNova, frotas, programarEmLote, gravarOS } from "./comum.js";
+import { criarNova, programarEmLote, gravarOS, retirarDaProgramacao } from "./comum.js";
 import { imprimirPendencias } from "./imprimir.js";
 import { grade, faixaSituacoes, progresso, natural, repintarMantendoFoco } from "./grade.js";
 import { busca as semAcento } from "../texto.js";
@@ -48,7 +48,14 @@ export async function montar(raiz, ctx, params) {
   const fBusca = el("input", { class: "busca", type: "search", value: estado.busca,
     placeholder: "frota, OS, atividade, executante…",
     oninput: () => { estado.busca = fBusca.value; pintarCorpo(); } });
-  const fFrota = el("select", { onchange: () => { estado.frota = fFrota.value; pintarCorpo(); } });
+  // A frota se PESQUISA: no tablet, rolar a lista inteira de frotas para achar
+  // a F-969 era o gargalo. Digitar "969" já filtra; escolher na lista, ou
+  // digitar o nome inteiro, mostra só aquela.
+  const fFrota = el("input", { class: "busca-frota", type: "search", value: estado.frota,
+    placeholder: "Frota", list: "dl-frotas-prog", autocomplete: "off", spellcheck: false,
+    title: "Digite parte do número da frota — ex.: 969",
+    oninput: () => { estado.frota = fFrota.value.trim(); pintarCorpo(); } });
+  const dlFrota = el("datalist", { id: "dl-frotas-prog" });
   const rotSemana = el("b", {});
   // "Só sem OS": a fila do que falta lançar. Com ela ligada, a coluna OS vira
   // uma coluna de campos — digita, Enter, desce para a próxima.
@@ -80,13 +87,13 @@ export async function montar(raiz, ctx, params) {
       periodos,
       el("div", { class: "espaco" }),
       el("button", { title: "Folha com as atividades em aberto por frota, para a oficina",
-        onclick: () => imprimirPendencias({ frota: estado.frota || "" }) }, "Imprimir pendências"),
+        onclick: () => imprimirPendencias({ frota: frotaExata(doPeriodo()) }) }, "Imprimir pendências"),
       pessoas.pode("programar")
         ? el("button", { class: "primario", onclick: () => criarNova(ctx,
           estado.periodo === "semana" ? { ano: estado.ano, semana: estado.semana } : {}) }, "+ Nova")
         : null),
     topoResumo,
-    el("div", { class: "filtros" }, fBusca, fFrota, bSemOS,
+    el("div", { class: "filtros" }, fBusca, fFrota, dlFrota, bSemOS,
       el("label", { class: "agrupar" }, "Agrupar por ",
         el("select", { onchange: e => { estado.agrupar = e.target.value; pintarCorpo(); } },
           el("option", { value: "frota", selected: estado.agrupar === "frota" }, "frota"),
@@ -115,12 +122,24 @@ export async function montar(raiz, ctx, params) {
     }
   }
 
+  // "F-969", "f969" e "969" são a mesma pesquisa.
+  const chaveFrota = s => semAcento(String(s || "")).replace(/[^a-z0-9]/g, "");
+
+  /** A frota digitada, quando ela é o nome inteiro de uma frota do recorte. */
+  function frotaExata(base) {
+    const q = chaveFrota(estado.frota);
+    if (!q) return "";
+    return base.map(a => a.frota).find(f => f && chaveFrota(f) === q) || "";
+  }
+
   function filtrar(lista) {
     const q = semAcento(estado.busca.trim());
+    const qf = chaveFrota(estado.frota);
+    const exata = frotaExata(lista);
     return lista.filter(a => {
       if (estado.semOS && (a.os || !M.aberta(a))) return false;
       if (estado.situacoes.size && !estado.situacoes.has(M.situacaoDe(a))) return false;
-      if (estado.frota && a.frota !== estado.frota) return false;
+      if (qf && (exata ? a.frota !== exata : !chaveFrota(a.frota).includes(qf))) return false;
       if (q) {
         const alvo = semAcento([a.frota, a.os, (a.os_outras || []).join(" "), a.servico,
           a.atividade, a.cliente, a.obs, a.motivo, (a.executantes || []).join(" ")].join(" "));
@@ -170,7 +189,7 @@ export async function montar(raiz, ctx, params) {
     for (const id of [...sel]) { const a = ev.porId(id); if (!a || !M.aberta(a)) sel.delete(id); }
     barraSel.hidden = !sel.size;
     if (!sel.size) return;
-    barraSel.append(
+    barraSel.append(...[
       el("b", {}, `${sel.size} marcada${sel.size === 1 ? "" : "s"}`),
       el("div", { class: "espaco" }),
       el("button", { onclick: () => { sel.clear(); pintarCorpo(); } }, "Desmarcar"),
@@ -190,19 +209,26 @@ export async function montar(raiz, ctx, params) {
         if (r !== true) return;
         if (await gravarOS(alvos, eOS.value)) sel.clear();
       } }, "Mesma OS"),
+      [...sel].some(id => ev.porId(id)?.semana != null)
+        ? el("button", { title: "Voltam para a carteira, sem semana — um motivo para todas",
+          onclick: async () => {
+            const alvos = [...sel].map(id => ev.porId(id)).filter(Boolean);
+            if (await retirarDaProgramacao(alvos)) sel.clear();
+          } }, "Retirar da programação")
+        : null,
       el("button", { class: "primario", onclick: async () => {
         const alvos = [...sel].map(id => ev.porId(id)).filter(Boolean);
         if (await programarEmLote(alvos)) sel.clear();
-      } }, "Programar"));
+      } }, "Programar")].filter(Boolean));
   }
 
   function opcoesFrota(base) {
-    const antes = estado.frota;
-    limpar(fFrota);
-    fFrota.append(el("option", { value: "" }, "Frota: todas"));
+    limpar(dlFrota);
     const lista = [...new Set(base.map(a => a.frota).filter(Boolean))].sort(natural);
-    if (antes && !lista.includes(antes)) lista.unshift(antes);
-    for (const f of lista) fFrota.append(el("option", { value: f, selected: f === antes }, f));
+    for (const f of lista) dlFrota.append(el("option", { value: f }));
+    // Quem chega por um link (Resultados → frota) vê a frota escrita no campo;
+    // quem está digitando não tem o texto trocado por baixo dos dedos.
+    if (document.activeElement !== fFrota && fFrota.value !== estado.frota) fFrota.value = estado.frota;
   }
 
   function pintarCorpo() {

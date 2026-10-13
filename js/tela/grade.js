@@ -195,6 +195,29 @@ function celulaFeito(a, o) {
     onclick: e => { e.stopPropagation(); concluir(a, o.ctx); } }, "Dar baixa");
 }
 
+/** A caixinha de marcar uma atividade — na linha da tabela e no cartão do
+ *  celular. As duas existem na página (uma escondida pela largura) e andam
+ *  juntas: girar o tablet não pode mostrar uma marcação diferente. */
+function caixinha(a, o) {
+  if (!o.selecao || !M.aberta(a)) return null;
+  return el("input", {
+    type: "checkbox", class: "sel-item", checked: o.selecao.has(a.id),
+    title: "Marcar — para programar, retirar da programação ou lançar a mesma OS",
+    dataset: { sel: a.id },
+    onclick: e => e.stopPropagation(),
+    onchange: e => {
+      const on = e.target.checked;
+      on ? o.selecao.add(a.id) : o.selecao.delete(a.id);
+      const caixa = e.target.closest(".grade-caixa") || document;
+      for (const c of caixa.querySelectorAll(`input.sel-item[data-sel="${CSS.escape(a.id)}"]`)) {
+        c.checked = on;
+        c.closest("tr.lin, .at")?.classList.toggle("marcada", on);
+      }
+      o.aoSelecionar && o.aoSelecionar();
+    },
+  });
+}
+
 function linha(a, o) {
   const s = M.situacaoDe(a, o.ref);
   const cor = M.corDe(s);
@@ -205,16 +228,7 @@ function linha(a, o) {
   });
   if (o.selecao) {
     // Só o que está em aberto se programa; nas outras a caixinha seria ruído.
-    tr.append(el("td", { class: "c-sel" }, !M.aberta(a) ? null : el("input", {
-      type: "checkbox", checked: o.selecao.has(a.id),
-      title: "Marcar para programar",
-      onclick: e => e.stopPropagation(),
-      onchange: e => {
-        e.target.checked ? o.selecao.add(a.id) : o.selecao.delete(a.id);
-        tr.classList.toggle("marcada", e.target.checked);
-        o.aoSelecionar && o.aoSelecionar();
-      },
-    })));
+    tr.append(el("td", { class: "c-sel" }, caixinha(a, o)));
   }
   const prazo = M.prazoDe(a);
   tr.append(
@@ -230,6 +244,22 @@ function linha(a, o) {
     el("td", { class: "c-mais" }, botaoMais("atividade", a.id, o.ctx)));
   tr.addEventListener("click", cliqueLimpo(() => abrirFicha(a.id, o.ctx)));
   return tr;
+}
+
+/** Marcar todas as em aberto de um bloco (uma frota, um dia). */
+function marcarBloco(g, o) {
+  if (!o.selecao) return null;
+  const abertas = g.itens.filter(M.aberta);
+  if (!abertas.length) return null;
+  return el("input", {
+    type: "checkbox", class: "sel-bloco", title: "Marcar todas em aberto deste bloco",
+    checked: abertas.every(a => o.selecao.has(a.id)),
+    onclick: e => e.stopPropagation(),
+    onchange: e => {
+      for (const a of abertas) e.target.checked ? o.selecao.add(a.id) : o.selecao.delete(a.id);
+      o.aoSelecionar && o.aoSelecionar(true);
+    },
+  });
 }
 
 /** A grade inteira: tabela no computador, cartões no celular.
@@ -259,21 +289,10 @@ export function grade(itens, o = {}) {
   for (const g of grupos) {
     if (o.agrupar) {
       const r = resumo(g.itens, o.ref);
-      const marcarBloco = o.selecao ? el("input", {
-        type: "checkbox", title: "Marcar todas em aberto deste bloco",
-        checked: g.itens.filter(M.aberta).length > 0 &&
-          g.itens.filter(M.aberta).every(a => o.selecao.has(a.id)),
-        onchange: e => {
-          for (const a of g.itens.filter(M.aberta)) {
-            e.target.checked ? o.selecao.add(a.id) : o.selecao.delete(a.id);
-          }
-          o.aoSelecionar && o.aoSelecionar(true);
-        },
-      }) : null;
       corpo.append(el("tr", { class: "bloco" },
         el("td", { colspan: ncol },
           el("div", { class: "bloco-cab" },
-            marcarBloco, rotuloBloco(g.chave, o.agrupar, g.itens, o.datas),
+            marcarBloco(g, o), rotuloBloco(g.chave, o.agrupar, g.itens, o.datas),
             contagem(r), el("span", { class: "espaco" }), barrinha(r)))));
     }
     for (const a of g.itens) corpo.append(linha(a, opc));
@@ -287,12 +306,14 @@ export function grade(itens, o = {}) {
     if (o.agrupar) {
       const r = resumo(g.itens, o.ref);
       cartoes.append(el("div", { class: "bloco-cel" },
-        rotuloBloco(g.chave, o.agrupar, g.itens, o.datas), contagem(r), barrinha(r)));
+        marcarBloco(g, o), rotuloBloco(g.chave, o.agrupar, g.itens, o.datas), contagem(r), barrinha(r)));
     }
     const lista = el("div", { class: "lista" });
     for (const a of g.itens) {
       const acoes = M.aberta(a) && pessoas.pode("baixar") ? [botaoConcluir(a, o.ctx)] : [];
-      lista.append(cartao(a, { ctx: o.ctx, compacto: true, acoes }));
+      const c = cartao(a, { ctx: o.ctx, compacto: true, acoes, seletor: caixinha(a, o) });
+      if (o.selecao && o.selecao.has(a.id)) c.classList.add("marcada");
+      lista.append(c);
     }
     cartoes.append(lista);
   }

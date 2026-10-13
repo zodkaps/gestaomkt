@@ -569,6 +569,189 @@ ok("um clique aprova: Concluída com atraso, concluída pelo Pedro, aprovada pel
   await p.evaluate(() => { document.getElementById("impressao")?.remove(); document.body.classList.remove("imprimindo"); });
 }
 
+// ── a frota se pesquisa, e retirar da programação é em lote ────────────────
+{
+  const S = Date.now().toString(36).slice(-5).toUpperCase();
+  const [F1, F2, F12] = [`F-${S}1`, `F-${S}2`, `F-${S}12`];
+  const sem = await p.evaluate(() => mkt.M.semanaAtual());
+  await p.evaluate(async ([frotas, sem]) => {
+    let n = 0;
+    for (const f of frotas) for (const k of [1, 2]) await mkt.ev.aplicar(mkt.ev.criar({ frota: f,
+      atividade: `Item ${k} de ${f}`, tipo: "Corretiva", origem: "Programada", oficina: "Interna",
+      ano: sem.ano, semana: sem.semana, dia: "Qua", dias: 1, id: `RT-${f}-${k}-${++n}` }), { silencioso: true });
+  }, [[F1, F2, F12], sem]);
+  await p.evaluate(() => { location.hash = "#/programacao?m=tudo"; });
+  await p.waitForTimeout(900);
+  const frotasNaTela = () => p.evaluate(() => [...new Set([...document.querySelectorAll(".so-tabela tr.lin")]
+    .map(tr => mkt.ev.porId(tr.dataset.id)?.frota))].sort());
+
+  await p.fill(".filtros input.busca-frota", S + "1");
+  await p.waitForTimeout(400);
+  const parcial = await frotasNaTela();
+  ok("digitar parte do número da frota filtra (" + S + "1 → as duas que contêm)",
+    JSON.stringify(parcial) === JSON.stringify([F1, F12].sort()), JSON.stringify(parcial));
+  await p.fill(".filtros input.busca-frota", F1.toLowerCase().replace("-", ""));
+  await p.waitForTimeout(400);
+  const exata = await frotasNaTela();
+  ok("o nome inteiro (sem hífen, minúsculo) mostra só aquela frota",
+    JSON.stringify(exata) === JSON.stringify([F1]), JSON.stringify(exata));
+  const opcoesLista = await p.evaluate(f => [...document.querySelectorAll("#dl-frotas-prog option")]
+    .some(o => o.value === f), F12);
+  ok("e a lista de sugestões tem as frotas", opcoesLista);
+
+  // lote: marca o bloco da frota e retira tudo de uma vez, com um motivo
+  await p.fill(".filtros input.busca-frota", S);
+  await p.waitForTimeout(400);
+  for (const f of [F1, F2]) {
+    await p.locator(`.so-tabela tr.bloco:has-text("${f}") input.sel-bloco`).first().check();
+    await p.waitForTimeout(250);
+  }
+  const barraTexto = await p.textContent(".barra-sel");
+  ok("marcar dois blocos de frota: 4 marcadas e o botão de retirar na barra",
+    barraTexto.includes("4 marcadas") && barraTexto.includes("Retirar da programação"), barraTexto);
+  const antes = await p.evaluate(() => mkt.ev.log.length);
+  await p.click('.barra-sel button:has-text("Retirar da programação")');
+  await p.waitForSelector(".caixa input[placeholder^='ex.: frota em fornecedor']", { timeout: 5000 });
+  const titulo = await p.textContent(".caixa");
+  ok("a caixa diz quantas e de quais frotas",
+    titulo.includes("Retirar 4 atividades") && titulo.includes(`${F1} (2)`) && titulo.includes(`${F2} (2)`),
+    titulo.slice(0, 200));
+  await p.fill(".caixa input[placeholder^='ex.: frota em fornecedor']", `Frota em fornecedor externo ${S}`);
+  await p.click('.caixa footer button:has-text("Retirar")');
+  await p.waitForFunction(fs => fs.every(f => mkt.ev.lista().filter(a => a.frota === f).every(a => a.semana == null)),
+    [F1, F2], { timeout: 5000 });
+  const depois = await p.evaluate(([fs, n0]) => ({
+    novos: mkt.ev.log.length - n0,
+    motivos: [...new Set(mkt.ev.lista().filter(a => fs.slice(0, 2).includes(a.frota)).map(a => a.motivo))],
+    f12: mkt.ev.lista().filter(a => a.frota === fs[2]).every(a => a.semana != null),
+  }), [[F1, F2, F12], antes]);
+  ok("as 4 voltaram para a carteira, cada uma com o motivo, num lançamento por atividade",
+    depois.novos === 4 && depois.motivos.length === 1 && depois.motivos[0].includes(S) && depois.f12,
+    JSON.stringify(depois));
+
+  // uma só, pelo ⋯: o motivo usado por último está a um toque
+  await p.locator(`.so-tabela tr.lin:has-text("Item 1 de ${F12}") .mais`).click();
+  await p.waitForSelector(".caixa .menu-acoes", { timeout: 5000 });
+  await p.click('.caixa .opcao-acao:has-text("Retirar da programação")');
+  await p.waitForSelector(".caixa .motivo-rapido", { timeout: 5000 });
+  await p.click(`.caixa .motivo-rapido:has-text("${S}")`);
+  const preenchido = await p.inputValue(".caixa input[placeholder^='ex.: frota em fornecedor']");
+  ok("pelo ⋯, o motivo usado por último preenche com um toque", preenchido.includes(S), preenchido);
+  await p.click('.caixa footer button:has-text("Retirar")');
+  await p.waitForFunction(f => mkt.ev.lista().find(a => a.atividade === `Item 1 de ${f}`).semana == null, F12, { timeout: 5000 });
+  ok("e retira só aquela", await p.evaluate(f => mkt.ev.lista().find(a => a.atividade === `Item 2 de ${f}`).semana != null, F12));
+  await p.fill(".filtros input.busca-frota", "");
+}
+
+// ── no tablet em pé, os cartões também têm a caixinha ──────────────────────
+{
+  await p.setViewportSize({ width: 800, height: 1000 });
+  await p.waitForTimeout(500);
+  const temCaixa = await p.evaluate(() => {
+    const c = document.querySelector(".so-cartao .at input.sel-item");
+    return !!c && getComputedStyle(document.querySelector(".so-cartao")).display !== "none";
+  });
+  ok("no tablet em pé, os cartões têm a caixinha de marcar", temCaixa);
+  await p.setViewportSize({ width: 1280, height: 860 });
+  await p.waitForTimeout(400);
+}
+
+// ── fechar a semana: o número registrado não muda depois ───────────────────
+{
+  const S = Date.now().toString(36).slice(-5).toUpperCase();
+  const sem = await p.evaluate(() => mkt.M.semanaAtual());
+  const ids = await p.evaluate(async ([s, sem]) => {
+    const r = [];
+    for (const k of [1, 2]) {
+      const [e] = await mkt.ev.aplicar(mkt.ev.criar({ frota: "F-FECH" + s, atividade: `Fechar ${k}`,
+        tipo: "Corretiva", origem: "Programada", oficina: "Interna", ano: sem.ano, semana: sem.semana,
+        dia: "Seg", dias: 1 }), { silencioso: true });
+      r.push(e.alvo);
+    }
+    return r;
+  }, [S, sem]);
+  await p.evaluate(sem => { location.hash = `#/resultados?s=${sem.semana}&a=${sem.ano}`; }, sem);
+  await p.waitForSelector(".selo-fechamento", { timeout: 5000 });
+  const selo1 = await p.textContent(".selo-fechamento");
+  ok("a semana atual aparece em andamento, com o botão de fechar",
+    selo1.includes("Semana em andamento") && selo1.includes("Fechar a semana"), selo1.slice(0, 120));
+  await p.click('.selo-fechamento button:has-text("Fechar a semana")');
+  await p.waitForSelector(".caixa textarea", { timeout: 5000 });
+  await p.fill(".caixa textarea", "teste " + S);
+  await p.click('.caixa footer button:has-text("Fechar a semana")');
+  await p.waitForFunction(sem => !!mkt.ev.fechamentoDe(sem.ano, sem.semana), sem, { timeout: 5000 });
+  await p.waitForTimeout(500);
+  const reg = await p.evaluate(sem => {
+    const f = mkt.ev.fechamentoDe(sem.ano, sem.semana);
+    const r = mkt.M.resultados(mkt.ev.lista(), sem.ano, sem.semana);
+    return { reg: f.aderencia, vivo: r.aderencia, obs: f.obs, por: f.fechada_por,
+      tela: document.querySelector(".grande .g-val").textContent,
+      selo: document.querySelector(".selo-fechamento").textContent };
+  }, sem);
+  ok("fechada: o número registrado é o calculado no momento, com a observação e quem fechou",
+    reg.reg === reg.vivo && reg.obs === "teste " + S && reg.por === "Mateus" &&
+    reg.selo.includes("Semana fechada") && reg.selo.includes("Fechar de novo"), JSON.stringify(reg));
+
+  await p.evaluate(async ids => {
+    for (const id of ids) await mkt.ev.aplicar(mkt.ev.concluir(mkt.ev.porId(id), mkt.M.hoje()));
+  }, ids);
+  await p.waitForTimeout(700);
+  const depoisBaixa = await p.evaluate(sem => ({
+    tela: document.querySelector(".grande .g-val").textContent,
+    hoje: document.querySelector(".grande .g-hoje")?.textContent || "",
+    reg: Math.round(mkt.ev.fechamentoDe(sem.ano, sem.semana).aderencia * 100) + "%",
+    vivo: mkt.M.resultados(mkt.ev.lista(), sem.ano, sem.semana).aderencia,
+  }), sem);
+  ok("dar baixa depois não mexe no número da semana fechada; o de hoje aparece ao lado",
+    depoisBaixa.tela === depoisBaixa.reg && depoisBaixa.hoje.includes("hoje o cálculo daria"),
+    JSON.stringify(depoisBaixa));
+  const linhaTabela = await p.evaluate(sem => [...document.querySelectorAll("table.fechamentos tbody tr")]
+    .find(tr => tr.firstChild.textContent.startsWith(`${sem.semana} · `))?.textContent || "", sem);
+  ok("e o quadro de fechamento mostra o registrado e quem fechou", linhaTabela.includes("Mateus"), linhaTabela);
+
+  await p.click('.selo-fechamento button:has-text("Fechar de novo")');
+  await p.waitForSelector(".caixa input[placeholder='por que fechar de novo']", { timeout: 5000 });
+  await p.click('.caixa footer button:has-text("Fechar de novo")');
+  await p.waitForTimeout(400);
+  const recusou = await p.evaluate(() => document.querySelector(".aviso.ruim, .toast.ruim, .aviso")?.textContent || "");
+  ok("fechar de novo sem motivo não grava", /motivo/i.test(recusou) ||
+    await p.evaluate(sem => mkt.ev.log.filter(e => e.alvo === mkt.ev.chaveSemana(sem.ano, sem.semana)).length === 1, sem),
+    recusou);
+  await p.keyboard.press("Escape");
+  await p.waitForTimeout(300);
+
+  // o número apresentado na reunião, digitado — a coluna amarela
+  await p.click('.selo-fechamento button:has-text("Fechar de novo")');
+  await p.waitForSelector(".caixa input.pct", { timeout: 5000 });
+  await p.fill(".caixa input.pct >> nth=0", "84");
+  await p.fill(".caixa input.pct >> nth=1", "62,9");
+  await p.fill(".caixa input[placeholder='por que fechar de novo']", "número da reunião");
+  await p.click('.caixa footer button:has-text("Fechar de novo")');
+  await p.waitForFunction(sem => mkt.ev.fechamentoDe(sem.ano, sem.semana).fonte === "digitar", sem, { timeout: 5000 });
+  const digitado = await p.evaluate(sem => { const f = mkt.ev.fechamentoDe(sem.ano, sem.semana);
+    return { a: f.aderencia, c: f.cumprimento, m: f.motivo, tela: document.querySelector(".grande .g-val").textContent }; }, sem);
+  ok("digitar o número apresentado registra 84% e 62,9%, com o motivo",
+    digitado.a === 0.84 && digitado.c === 0.629 && digitado.m === "número da reunião" && digitado.tela === "84%",
+    JSON.stringify(digitado));
+}
+
+// ── o + Extra da tela Hoje entra no dia que está na tela ───────────────────
+{
+  const F = "F-EXTRA-" + Date.now().toString(36);
+  await p.evaluate(() => { location.hash = "#/hoje"; });
+  await p.waitForTimeout(700);
+  await p.click('.cabec button:has-text("+ Extra")');
+  await p.waitForSelector(".caixa textarea", { timeout: 5000 });
+  await p.fill(".caixa .com-lista input >> nth=0", F);
+  await p.fill(".caixa textarea >> nth=0", "Trocar lâmpada de teste");
+  await p.click('.caixa footer button:has-text("Criar")');
+  await p.waitForFunction(f => mkt.ev.lista().some(a => a.frota === f && a.semana), F, { timeout: 5000 });
+  const extra = await p.evaluate(f => { const a = mkt.ev.lista().find(x => x.frota === f);
+    return { origem: a.origem, inicio: mkt.M.inicioDe(a), hoje: mkt.M.hoje() }; }, F);
+  ok("o + Extra da tela Hoje cai no dia de hoje, como extra",
+    extra.origem === "Extra" && extra.inicio === extra.hoje, JSON.stringify(extra));
+}
+
 // ── a barra de baixo do celular ────────────────────────────────────────────
 // Cabe cinco botões. O PCM tem dez telas: a barra mostra as do dia e o resto
 // abre em "Mais". Antes a barra rolava na horizontal e a Movimentação ficava

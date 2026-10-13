@@ -44,9 +44,10 @@ export const TIPOS = {
   prev_adiada: "preventiva adiada para o próximo mês",
   prev_cancelada: "preventiva cancelada",
   prev_reaberta: "preventiva reaberta",
+  semana_fechada: "semana fechada",
 };
 
-export const ALVOS = ["atividade", "movimentacao", "preventiva"];
+export const ALVOS = ["atividade", "movimentacao", "preventiva", "semana"];
 
 // Campos da aprovação de movimentação: só os eventos de concluir, aprovar e
 // devolver mexem neles.
@@ -61,11 +62,16 @@ const MOLDES = {
   preventiva: moldePreventiva,
 };
 
+/** A chave de uma semana na fita: "2026-S42". */
+export const chaveSemana = (ano, semana) => `${ano}-S${String(semana).padStart(2, "0")}`;
+
 export let log = [];
 export const estado = {
   atividade: new Map(),
   movimentacao: new Map(),
   preventiva: new Map(),
+  // O fechamento de cada semana: os números registrados, que não mudam mais.
+  semana: new Map(),
 };
 
 const ouvintes = new Set();
@@ -114,6 +120,16 @@ export function dobrar(mapas, ev) {
   const m = mapas[tipoAlvo];
   if (!m) return mapas;
   const d = ev.dados || {};
+
+  // Fechar a semana é registrar os números dela como estavam naquele momento.
+  // Fechar de novo substitui (o Registro guarda os dois); não há o que mesclar.
+  if (tipoAlvo === "semana") {
+    if (ev.tipo === "semana_fechada") {
+      m.set(ev.alvo, { ...d, id: ev.alvo, fechada_em: ev.ts, fechada_por: ev.autor,
+        origem: ev.origem || "manual", motivo: ev.motivo || "" });
+    }
+    return mapas;
+  }
 
   if (ev.tipo === "criada" || ev.tipo === "importada") {
     const base = (MOLDES[tipoAlvo] || molde)();
@@ -287,9 +303,33 @@ function aplicarNoAlvo(a, ev, d) {
 /** Toca a fita inteira e devolve o estado. É a definição do estado, não uma
  *  otimização dele. */
 export function reconstruir(fita = log) {
-  const m = { atividade: new Map(), movimentacao: new Map(), preventiva: new Map() };
+  const m = { atividade: new Map(), movimentacao: new Map(), preventiva: new Map(), semana: new Map() };
   for (const ev of fita) dobrar(m, ev);
   return m;
+}
+
+/** As atividades como estavam num instante: a fita tocada só até ali.
+ *
+ *  É o que congela a semana sem ninguém precisar lembrar. O número da semana é
+ *  o da sexta às 23h59 — baixa dada na segunda e reprogramação feita depois não
+ *  mexem nele, como a coluna amarela da planilha. Lançamento feito no celular
+ *  sem sinal conta pelo instante em que foi feito, não pelo em que subiu. */
+let memoAntes = { chave: "", estado: null };
+export function comoEstavaEm(instante, fita = log) {
+  const corte = Date.parse(instante);
+  const chave = `${instante}|${fita.length}|${fita.length ? fita[fita.length - 1].id : ""}`;
+  if (fita === log && memoAntes.chave === chave) return memoAntes.estado;
+  const r = reconstruir(fita.filter(e => Date.parse(e.ts) < corte));
+  if (fita === log) memoAntes = { chave, estado: r };
+  return r;
+}
+
+/** O primeiro instante da fita: antes dele, o site não sabe como as coisas
+ *  estavam (o histórico veio da planilha, toda com a data da importação). */
+export function inicioDaFita(fita = log) {
+  let menor = Infinity;
+  for (const e of fita) { const t = Date.parse(e.ts); if (t < menor) menor = t; }
+  return menor === Infinity ? null : new Date(menor).toISOString();
 }
 
 /** Reconstrói do zero e compara com o que está na memória. */
@@ -630,6 +670,24 @@ export function reabrirPreventiva(p) {
   pessoas.exigir("parada");
   return { tipo: "prev_reaberta", alvo: p.id, alvo_tipo: "preventiva" };
 }
+
+// ── as operações: semana ────────────────────────────────────────────────────
+
+/** Fechar a semana: registra os números dela como estão agora. É do PCM, como
+ *  na planilha era o PCM quem copiava o número para a coluna amarela na sexta.
+ *  Fechar de novo uma semana já fechada exige motivo — é trocar um número que
+ *  já foi para a reunião. */
+export function fecharSemana(ano, semana, numeros, { obs = "", motivo = "", fonte = "" } = {}) {
+  pessoas.exigir("fechar_semana");
+  const alvo = chaveSemana(ano, semana);
+  if (estado.semana.has(alvo) && !String(motivo).trim()) {
+    throw new Error("Esta semana já foi fechada. Para fechar de novo, informe o motivo.");
+  }
+  return { tipo: "semana_fechada", alvo, alvo_tipo: "semana", motivo: String(motivo).trim(),
+    dados: { ...numeros, ano, semana, obs: String(obs || "").trim(), fonte } };
+}
+
+export function fechamentoDe(ano, semana) { return estado.semana.get(chaveSemana(ano, semana)) || null; }
 
 // ── leitura ─────────────────────────────────────────────────────────────────
 

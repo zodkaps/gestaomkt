@@ -44,6 +44,21 @@ begin;
   select '   → passou' as resultado;
 commit;
 
+\echo '── 4b. Mateus (PCM) fecha a semana — TEM de passar'
+begin;
+  set local role authenticated;
+  set local request.jwt.claims = '{"email":"mateus@makroteste.com.br"}';
+  insert into eventos (id,autor,tipo,alvo_tipo,alvo,dados) values ('t4b','Mateus','semana_fechada','semana','2026-S42','{"aderencia":0.84}');
+  select '   → passou' as resultado;
+commit;
+
+\echo '── 4c. Pedro (operação) tenta fechar a semana — tem de ser RECUSADO'
+begin;
+  set local role authenticated;
+  set local request.jwt.claims = '{"email":"pedro@makroteste.com.br"}';
+  insert into eventos (id,autor,tipo,alvo_tipo,alvo) values ('t4c','Pedro','semana_fechada','semana','2026-S42');
+rollback;
+
 \echo '── 5. Ninguém apaga nem reescreve — as duas têm de ser RECUSADAS'
 begin;
   set local role authenticated;

@@ -587,6 +587,32 @@ export function resultados(ats, ano, semana, ref) {
   };
 }
 
+// ── o fechamento da semana ──────────────────────────────────────────────────
+//
+// O número calculado ao vivo muda depois que a semana acaba: a baixa dada na
+// segunda e a atividade empurrada para a semana seguinte fazem a semana velha
+// subir sozinha até 100%. Na planilha, o remédio era a coluna amarela — na
+// sexta o PCM digitava o número, e ele não mudava mais. Aqui é o mesmo, com
+// duas diferenças: o site congela sozinho na sexta às 23h59 se ninguém fechar,
+// e o calculado de hoje fica do lado, para ver o quanto se afastou.
+
+/** O instante em que a semana fecha: sexta às 23h59 em Mossoró (UTC−3), ou
+ *  seja, sábado às 03h00 em UTC. */
+export function corteDaSemana(ano, semana) {
+  return datasDaSemana(ano, semana)[5] + "T03:00:00.000Z";
+}
+
+/** Os números que ficam registrados — o que a reunião usa. */
+export const CAMPOS_FECHAMENTO = ["plano", "concluidas_plano", "aderencia", "total", "concluidas",
+  "cumprimento", "extra", "extras_concluidas", "no_prazo", "pontualidade", "aderencia_original",
+  "sairam", "vencidas", "canceladas", "terceirizada"];
+
+export function numerosDoFechamento(r) {
+  const o = {};
+  for (const k of CAMPOS_FECHAMENTO) o[k] = r[k] ?? null;
+  return o;
+}
+
 /** Horas programáveis por pessoa por dia, como a aba Semana da planilha: 8,8 h
  *  de jornada com 75% de aproveitamento. */
 export const HORAS_DIA = 6.6;

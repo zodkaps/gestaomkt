@@ -204,6 +204,56 @@ export function lerMovimentacoes(abas) {
   return { movimentacoes, divergencias };
 }
 
+// ── fechamento das semanas ──────────────────────────────────────────────────
+//
+// O quadro "FECHAMENTO DAS SEMANAS" da aba Resultados: na sexta, o PCM digitava
+// na coluna amarela o número da semana, e a partir daí ele não mudava mais.
+// Só o REGISTRADO interessa aqui — o calculado ao vivo o site calcula sozinho.
+
+export function lerFechamentos(abas, anoPadrao) {
+  const aba = abas.find(a => /^resultados$/i.test(String(a.nome).trim()));
+  if (!aba) return [];
+  const L = aba.linhas;
+  const iTit = L.findIndex(l => (l || []).some(c => /FECHAMENTO DAS SEMANAS/i.test(texto(c))));
+  if (iTit < 0) return [];
+  const norm = c => texto(c).replace(/\s+/g, " ").toLowerCase();
+  let iCab = -1;
+  for (let r = iTit + 1; r < Math.min(L.length, iTit + 8); r++) {
+    const l = (L[r] || []).map(norm);
+    if (l.includes("semana") && l.some(c => c.includes("registrad"))) { iCab = r; break; }
+  }
+  if (iCab < 0) return [];
+  const cab = (L[iCab] || []).map(norm);
+  const col = {
+    semana: cab.indexOf("semana"),
+    de: cab.indexOf("de"),
+    aderencia: cab.findIndex(c => c.includes("aderência registrada") || c.includes("aderencia registrada")),
+    cumprimento: cab.findIndex(c => c.includes("cumprimento registrado")),
+    obs: cab.findIndex(c => c.startsWith("observa")),
+  };
+  const pct = v => {
+    if (v == null || v === "") return null;
+    if (typeof v === "number") return Number.isFinite(v) ? v : null;
+    const n = Number(String(v).replace("%", "").replace(",", ".").trim());
+    if (!Number.isFinite(n)) return null;
+    return /%/.test(String(v)) || n > 1 ? n / 100 : n;
+  };
+
+  const lidos = [];
+  for (let r = iCab + 1; r < L.length; r++) {
+    const l = L[r] || [];
+    const semana = typeof l[col.semana] === "number" ? l[col.semana] : numero(l[col.semana]);
+    if (!semana) break;                      // acabou a tabela
+    const aderencia = col.aderencia >= 0 ? pct(l[col.aderencia]) : null;
+    const cumprimento = col.cumprimento >= 0 ? pct(l[col.cumprimento]) : null;
+    if (aderencia == null && cumprimento == null) continue;   // amarela vazia: não fechada
+    const de = col.de >= 0 ? paraISO(l[col.de]) : "";
+    const ano = de ? semanaISO(de).ano : anoPadrao;
+    lidos.push({ ano, semana, aderencia, cumprimento, obs: col.obs >= 0 ? texto(l[col.obs]) : "" });
+  }
+  return lidos;
+}
+
 // ── preventivas do mês ──────────────────────────────────────────────────────
 //
 // A aba tem DUAS tabelas: o plano do mês, em cima, e no pé o quadro "FORA DO

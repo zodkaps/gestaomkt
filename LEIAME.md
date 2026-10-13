@@ -156,8 +156,9 @@ cria política nenhuma — quem abre, do jeito certo, é o `02_acesso.sql`. Ante
 depois do 02 e derrubou a separação entre PCM e operação sem ninguém ver.
 
 Para provar isso em vez de prometer, `bash testes/politicas.sh` sobe um
-Postgres de verdade, roda as duas migrações e tenta onze coisas — duas que têm
-de passar, oito que têm de ser recusadas (uma delas depois de rodar o 01 de
+Postgres de verdade, roda as duas migrações e tenta dezesseis coisas — quatro
+que têm de passar (entre elas o PCM fechar a semana), onze que têm de ser
+recusadas (a operação fechar a semana é uma; outra é depois de rodar o 01 de
 novo, fora de ordem) e uma conta sem papel que não pode ver nada.
 
 ## Ligar a sincronização da equipe (Supabase)
@@ -281,6 +282,18 @@ fórmulas (ver *Os números são os da planilha*, abaixo).
   em aberto, a carteira ou tudo. **Dar baixa é na própria linha**, na coluna
   *Feito em*, como o FOI FEITO EM da planilha. Para programar várias de uma vez,
   marca e programa.
+- **A frota se pesquisa.** O filtro de frota é um campo: digitar **969** já
+  mostra só as frotas com 969 no nome; escolher na lista que abre, ou digitar o
+  nome inteiro (F-969, f969), mostra só aquela. Hífen e maiúscula não importam.
+- **Retirar da programação em lote.** Marque as atividades — uma a uma, ou a
+  caixinha do cabeçalho da frota para marcar o bloco inteiro — e use **Retirar
+  da programação**, na barra que aparece em cima: todas voltam para a carteira
+  com **um motivo só**. Pelo ⋯ de uma linha é o mesmo, para uma. A caixa sugere
+  os **motivos usados por último** pela equipe (um toque preenche) — não é lista
+  pronta, são as palavras de quem lançou, para o caso que se repete (seis frotas
+  no mesmo fornecedor, o mesmo motivo seis vezes). No tablet em pé e no celular,
+  os cartões também têm a caixinha de marcar. Conta como reprogramação, como
+  sempre.
 - **A OS se digita na própria linha.** Na coluna OS, a atividade em aberto sem
   OS mostra um campo tracejado *sem OS*: clica, digita, **Enter** (ou Tab) — a
   OS é gravada com os seis dígitos e o cursor desce para a próxima sem OS. O
@@ -292,7 +305,8 @@ fórmulas (ver *Os números são os da planilha*, abaixo).
 - **A carteira deixou de ser tela**: na planilha ela é a situação *Na carteira*,
   e aqui é um recorte da Programação. O endereço antigo continua funcionando.
 - **Hoje** tem as caixas da aba Hoje (vencem hoje, concluídas, aderência do
-  dia, em execução, atrasadas) e as listas do dia e das atrasadas.
+  dia, em execução, atrasadas) e as listas do dia e das atrasadas. O **+ Extra**
+  cria a atividade já programada no dia que está na tela, como extra.
 - **Semana** tem as caixas da aba Semana, o bloco em HH, a carga por dia de cada
   executante e as atividades da semana agrupadas por dia.
 - **Resultados** é um painel no jeito de um Power BI. Em cima, uma fila de
@@ -309,6 +323,8 @@ fórmulas (ver *Os números são os da planilha*, abaixo).
   situação abre a Programação já filtrada. Passar o mouse (ou o dedo) mostra o
   valor. Embaixo, a tabela da aba Resultados — a versão em tabela de tudo isso
   — e o fechamento das semanas. Sem filtro, cada número é o da planilha.
+- **Fechamento da semana — o número não sobe sozinho.** Ver a seção *A semana
+  fechada não muda*, abaixo.
 - **Preventivas** é a aba Preventivas: os mesmos números no alto (preventivas a
   fazer, frotas, com e sem liberação da operação, parada programada, conflitos,
   vencidas, realizadas, HH) e a mesma Situação, pela mesma fórmula. Separada
@@ -403,7 +419,7 @@ A prova disso é o botão **Conferir o registro**, na aba Registro: ele
 reconstrói tudo do zero a partir dos eventos e compara com o que está na
 memória. Divergência ali é bug, não opinião.
 
-### Três coisas vivem na mesma fita
+### Quatro coisas vivem na mesma fita
 
 `alvo_tipo` diz de qual delas o evento fala:
 
@@ -412,6 +428,7 @@ memória. Divergência ali é bug, não opinião.
 | **atividade** | a pendência do caminhão, com OS, semana e HH | PCM |
 | **movimentação** | a frota saiu do pátio e tem de voltar | os dois |
 | **preventiva** | o plano do mês, com o aperto de mão entre as áreas | os dois |
+| **semana** | o fechamento: os números da semana que não mudam mais | PCM |
 
 ### Os eventos
 
@@ -439,6 +456,7 @@ memória. Divergência ali é bug, não opinião.
 | `prev_adiada` | adiada para o próximo mês (Status Reprogramada) | **motivo** |
 | `prev_cancelada` | não será executada | **motivo** |
 | `prev_reaberta` | desfaz realizada, adiada ou cancelada | — |
+| `semana_fechada` | o PCM registrou o número da semana (alvo `semana`, ex.: `2026-S42`) | **motivo**, se já estava fechada |
 
 ### As três regras que o sistema impõe
 
@@ -540,6 +558,34 @@ Aderência e vazão continuam sendo perguntas diferentes: a aderência é *do qu
 planejei, quanto saiu?*; o painel *O que saiu nestes sete dias*, em Outros
 indicadores, é *quanto trabalho saiu?*, contando terceirizada e o que era de
 outra semana.
+
+### A semana fechada não muda
+
+Calculada ao vivo, a aderência de uma semana velha sobe sozinha: a baixa dada
+na segunda e a atividade empurrada para a semana seguinte fazem a semana que já
+passou virar 100% (era o que acontecia nas semanas 35 a 40). Na planilha, o
+remédio era a **coluna amarela** do quadro *Fechamento das semanas*: na sexta, o
+PCM digitava o número, e ele não mudava mais. No site é o mesmo, com o
+fechamento como lançamento (`semana_fechada`, só do PCM — o banco recusa o da
+operação). Cada semana tem o seu número de um destes jeitos, nesta ordem:
+
+1. **Registrado.** O PCM fecha a semana em Resultados (**Fechar a semana**),
+   escolhendo *como estava na sexta às 23h59*, *como está agora* ou **digitando
+   o número apresentado na reunião** — e uma observação. Os números da coluna
+   amarela da planilha também entram assim, pela tela Importar. Fechar de novo
+   exige motivo; os dois fechamentos ficam no Registro.
+2. **Automático.** Se ninguém fechou, a semana fecha **sozinha na sexta às
+   23h59** (horário de Mossoró): o site toca a fita até aquele instante e tira o
+   número de como as atividades estavam. Ninguém precisa lembrar. Lançamento
+   feito no celular sem sinal conta pelo instante em que foi feito.
+3. **Sem número.** Semana em andamento, ou que acabou antes de o site existir e
+   não tem o número da planilha: vale o calculado de hoje, e a tela avisa.
+
+O **calculado de hoje fica sempre ao lado** — "hoje o cálculo daria 100% (+35
+p.p.)" — e o quadro de fechamento mostra registrado, hoje e a diferença, como a
+coluna *Diferença* da planilha. A tendência usa o número registrado. Com filtro
+de frota, tipo ou executante, os números são os calculados (o fechamento é da
+oficina inteira). Os cartões de detalhe embaixo são sempre os de hoje.
 
 ### O atraso tem endereço
 
@@ -645,6 +691,7 @@ porque toda escrita já passa por `aplicar()`.
 | `js/tela/*.js` | entrar, operacao, hoje, programacao, semana, resultados, movimentacoes, preventivas, frota, historico, importar, diagnostico |
 | `js/tela/acoes.js` | as ações do ⋯ de cada item — um menu por tipo, com as opções que valem para quem está olhando |
 | `js/tela/imprimir.js` | a folha de pendências por frota e executante, para imprimir |
+| `js/fechamento.js` | o número que fica de cada semana: registrado, automático (sexta 23h59) ou o de hoje |
 | `js/tela/grade.js` | a lista no formato da aba Programação — Hoje, Programação e Semana usam a mesma; a OS digitada na linha |
 | `js/graficos.js` | os gráficos do painel de Resultados, em SVG puro: linha, colunas, barras, minilinha, dica |
 | `js/tela/indicadores.js` | os painéis que a planilha não tem, recolhidos em Resultados |

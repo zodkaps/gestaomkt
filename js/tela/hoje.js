@@ -32,7 +32,12 @@ export async function montar(raiz, ctx, params) {
         "Voltar para hoje"),
       el("div", { class: "espaco" }),
       pessoas.pode("programar")
-        ? el("button", { class: "primario", onclick: () => criarNova(ctx, { origem: "Extra" }) }, "+ Extra")
+        ? el("button", { class: "primario", onclick: () => {
+          // A extra entra no dia que está na tela — criar na carteira fazia a
+          // atividade sumir da tela onde ela acabou de ser lançada.
+          const { ano, semana } = M.semanaISO(dia);
+          criarNova(ctx, { origem: "Extra", ano, semana, dia: M.DIAS[(M.data(dia).getUTCDay() + 6) % 7] });
+        } }, "+ Extra")
         : null),
     corpo);
 

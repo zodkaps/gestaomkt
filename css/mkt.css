@@ -289,6 +289,7 @@ textarea { min-height: 70px; resize: vertical; }
 }
 .filtros input, .filtros select { width: auto; min-width: 118px; flex: 0 1 auto; }
 .filtros .busca { flex: 1 1 200px; max-width: 320px; }
+.filtros .busca-frota { flex: 0 1 150px; min-width: 110px; }
 
 .cabec { display: flex; align-items: center; gap: 10px; margin-bottom: 14px; flex-wrap: wrap; }
 .cabec h1 { font-size: 17px; }
@@ -354,6 +355,10 @@ textarea { min-height: 70px; resize: vertical; }
 .at .tags { display: flex; gap: 5px; flex-wrap: wrap; margin-top: 6px; }
 .at .acoes { display: flex; flex-direction: column; gap: 5px; align-items: stretch; }
 .at.sel { outline: 2px solid var(--marca); }
+/* marcar no cartão: caixa grande, para o dedo */
+.at > input.sel-item { width: 22px; height: 22px; margin: 1px 0 0; flex: none; accent-color: var(--marca); }
+.at.marcada { border-color: var(--marca); background: var(--marca-clara); }
+.bloco-cel input.sel-bloco { width: 20px; height: 20px; margin: 0 8px 0 0; vertical-align: middle; accent-color: var(--marca); }
 .at.vencida { border-left-color: var(--vencida); }
 .at.hoje { border-left-color: var(--hoje); }
 .at.cancelada { opacity: .6; }
@@ -829,6 +834,20 @@ button.mini.sem-data { border-color: var(--hoje); background: var(--hoje-fundo);
 }
 .barra-sel[hidden] { display: none; }
 .barra-sel .espaco { flex: 1; }
+@media (max-width: 860px) {
+  .barra-sel { flex-wrap: wrap; }
+  .barra-sel .espaco { flex-basis: 100%; height: 0; }
+}
+
+/* Motivos usados por último: um toque preenche o campo */
+.motivos-rapidos { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-top: 8px; }
+.motivos-rapidos .seg { font-size: 12px; margin-right: 2px; }
+.motivo-rapido {
+  font-size: 12.5px; padding: 5px 10px; border-radius: 999px;
+  background: var(--papel2); border: 1px solid var(--linha); color: var(--texto);
+  max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.motivo-rapido:hover { border-color: var(--marca); }
 
 /* Preventivas: a mesma grade, com as colunas da aba Preventivas */
 .grade.prev .c-sit   { width: 170px; }
@@ -915,6 +934,31 @@ button.mini.devolver { color: var(--hoje); }
 .grande .g-txt { font-size: 12.5px; color: var(--fraco); line-height: 1.45; max-width: 46ch; margin: 0 auto; }
 .grande.hoje { border-top-color: var(--hoje); }       .grande.hoje .g-val { color: var(--hoje); }
 .grande.vencida { border-top-color: var(--vencida); } .grande.vencida .g-val { color: var(--vencida); }
+
+/* Resultados: como a semana está fechada, e o calculado de hoje ao lado */
+.selo-fechamento {
+  display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+  background: var(--papel); border: 1px solid var(--linha); border-left: 3px solid var(--linha);
+  border-radius: var(--raio); padding: 10px 14px; margin-bottom: 12px; font-size: 13px; color: var(--fraco);
+}
+.selo-fechamento b { color: var(--texto); }
+.selo-fechamento .sf-texto { flex: 1 1 320px; line-height: 1.45; }
+.selo-fechamento .sf-obs { font-size: 12px; color: var(--muito-fraco); margin-top: 3px; }
+.selo-fechamento.ok { border-left-color: var(--ok); }
+.selo-fechamento.andando { border-left-color: var(--andando); }
+.selo-fechamento.hoje { border-left-color: var(--hoje); }
+.grande .g-hoje { font-size: 11.5px; color: var(--muito-fraco); margin-top: 6px; line-height: 1.4; }
+.tabela.indicadores th.c-reg, .tabela.indicadores td.c-reg { background: var(--hoje-fundo); }
+.tabela.indicadores td.fraco { color: var(--muito-fraco); }
+.tabela.indicadores td.c-como { font-size: 12px; color: var(--fraco); white-space: nowrap; }
+.tabela.indicadores .tem-obs { color: var(--muito-fraco); cursor: help; }
+.opcao-fech { align-items: flex-start; padding: 6px 0; }
+.pcts { display: flex; gap: 14px; flex-wrap: wrap; margin: 2px 0 4px 24px; font-size: 13px; color: var(--fraco); }
+.pcts label { display: inline-flex; align-items: center; gap: 6px; }
+.pcts input.pct { width: 84px; }
+.tabela.fechamentos th { white-space: nowrap; line-height: 1.25; vertical-align: bottom; }
+.opcao-fech input { margin-top: 3px; }
+.lista-check:has(.opcao-fech) { grid-template-columns: 1fr; }
 
 .tabela.indicadores td.num, .tabela.indicadores th.num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
 .tabela.indicadores td.como { color: var(--muito-fraco); font-size: 12px; }

@@ -41,7 +41,7 @@ export const PAPEIS = {
 const PODE = {
   pcm: new Set(["programar", "baixar", "editar_atividade", "importar",
     "movimentar", "disponibilidade", "parada", "preventiva_feita", "criar_acesso",
-    "aprovar"]),
+    "aprovar", "fechar_semana"]),
   // A operação registra REALIDADE: o caminhão saiu, voltou, a frota está livre
   // tal dia. O que ela não faz é decidir a oficina.
   operacao: new Set(["movimentar", "disponibilidade"]),

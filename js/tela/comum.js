@@ -227,22 +227,70 @@ export async function reprogramar(a, ctx, sugestao = {}) {
 }
 
 export async function devolverParaCarteira(a, ctx) {
-  const entradaMotivo = el("input", { type: "text", placeholder: "motivo da retirada" });
+  return retirarDaProgramacao([a]);
+}
+
+/** Os últimos motivos de reprogramação escritos pela equipe, sem repetir.
+ *  Não é lista pronta — são as palavras de quem lançou, à mão para o caso
+ *  que se repete (seis frotas no mesmo fornecedor, o mesmo motivo seis vezes). */
+function motivosRecentes(max = 4) {
+  const vistos = new Map();
+  for (let i = ev.log.length - 1; i >= 0 && vistos.size < max; i--) {
+    const e = ev.log[i];
+    if (e.tipo !== "reprogramada" || (e.alvo_tipo || "atividade") !== "atividade") continue;
+    const m = String(e.motivo || "").trim();
+    const k = m.toLowerCase();
+    if (m && !vistos.has(k)) vistos.set(k, m);
+  }
+  return [...vistos.values()];
+}
+
+/** Retirar da programação: uma ou várias atividades voltam para a carteira,
+ *  sem semana e sem dia, com UM motivo para todas. Conta como reprogramação —
+ *  é o que a aderência precisa saber —, por isso o motivo é obrigatório. */
+export async function retirarDaProgramacao(alvos) {
+  const comSemana = alvos.filter(a => a && M.aberta(a) && a.semana != null);
+  const ficam = alvos.length - comSemana.length;
+  if (!comSemana.length) { avisar("Nenhuma das marcadas está programada."); return false; }
+
+  const entradaMotivo = el("input", { type: "text",
+    placeholder: "ex.: frota em fornecedor externo, peça não chegou" });
+  const recentes = motivosRecentes();
+  const sugestoes = recentes.length ? el("div", { class: "motivos-rapidos" },
+    el("span", { class: "seg" }, "Usados por último:"),
+    recentes.map(m => el("button", { type: "button", class: "motivo-rapido",
+      onclick: () => { entradaMotivo.value = m; entradaMotivo.focus(); } }, m))) : null;
+
+  const uma = comSemana.length === 1 ? comSemana[0] : null;
+  const porFrota = [...agrupar(comSemana, a => a.frota || "—")]
+    .map(([f, l]) => `${f} (${l.length})`).join(", ");
   const r = await caixa({
-    titulo: "Retirar da semana",
+    titulo: uma ? "Retirar da programação"
+      : `Retirar ${comSemana.length} atividades da programação`,
     corpo: el("div", {},
-      el("p", {}, "A atividade volta para a carteira, sem semana e sem dia. " +
+      uma
+        ? el("p", {}, el("b", {}, uma.frota), " · ", uma.atividade,
+          el("br"), el("span", { class: "seg" }, `Semana ${uma.semana}${uma.dia ? ", " + uma.dia : ""}`))
+        : el("p", {}, porFrota),
+      el("p", { class: "nada" }, (uma ? "Volta" : "Voltam") + " para a carteira, sem semana e sem dia. " +
         "Conta como reprogramação e, por isso, exige motivo."),
-      campo("Motivo", entradaMotivo)),
+      ficam ? el("p", { class: "nada" },
+        `${ficam} marcada${ficam === 1 ? " não está programada e fica" : "s não estão programadas e ficam"} como está.`) : null,
+      campo(uma ? "Motivo" : "Motivo (o mesmo para todas)", entradaMotivo),
+      sugestoes),
     acoes: [{ rotulo: "Cancelar", valor: false },
-      { rotulo: "Retirar da semana", classe: "primario", valor: true }],
+      { rotulo: "Retirar", classe: "primario", valor: true }],
   });
   if (r !== true) return false;
   const motivo = entradaMotivo.value.trim();
+  let eventos;
   try {
-    await ev.aplicar(ev.devolverParaCarteira(a, motivo));
+    eventos = comSemana.map(a => ev.devolverParaCarteira(a, motivo)).filter(Boolean);
   } catch (e) { erro(e.message); return false; }
-  avisar(`${a.frota} · de volta para a carteira`);
+  if (!eventos.length) { avisar("Nada mudou."); return false; }
+  await ev.aplicar(eventos);
+  avisar(uma ? `${uma.frota} · de volta para a carteira`
+    : `${eventos.length} atividades de volta para a carteira.`);
   return true;
 }
 
@@ -505,7 +553,9 @@ export function descreverEvento(e, comAtividade = false) {
   const a = achado && achado.item;
   const d = e.dados || {};
   const q = [];
-  if (comAtividade && a) {
+  if (comAtividade && a && achado.tipo === "semana") {
+    q.push(el("b", {}, `Semana ${a.semana}/${a.ano} — `));
+  } else if (comAtividade && a) {
     const oque = achado.tipo === "movimentacao" ? `movimentação ${[a.acao, a.destino].filter(Boolean).join(" · ")}`.trim()
       : achado.tipo === "preventiva" ? `preventiva ${a.plano || ""}`.trim()
       : a.atividade;
@@ -539,6 +589,13 @@ export function descreverEvento(e, comAtividade = false) {
     case "prev_disponivel": txt = `liberada ${d.quando === "agora" ? "agora" : "em " + br(d.quando)}`; break;
     case "prev_parada": txt = `parada programada para ${br(d.dia)}`; break;
     case "prev_realizada": txt = `preventiva realizada em ${br(d.em)}`; break;
+    case "semana_fechada": {
+      const p = v => v == null ? "—" : (Math.round(v * 1000) / 10).toLocaleString("pt-BR") + "%";
+      txt = `semana ${d.semana} fechada: aderência ${p(d.aderencia)} · cumprimento ${p(d.cumprimento)}` +
+        (d.fonte === "sexta" ? " (como estava na sexta às 23h59)" : "") +
+        (d.obs ? ` · ${d.obs}` : "");
+      break;
+    }
     case "justificada":
       txt = "justificou: " + [d.motivo || d.texto, d.quem && `responsável: ${d.quem}`,
         d.motivo && d.texto ? d.texto : ""].filter(Boolean).join(" · ");

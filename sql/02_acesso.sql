@@ -89,9 +89,10 @@ create policy eventos_insere on public.eventos
       )
     )
 
-    -- 3. e continua valendo o formato
+    -- 3. e continua valendo o formato. 'semana' é o fechamento da semana —
+    -- só o PCM fecha, porque o ramo da operação acima não o inclui.
     and length(coalesce(tipo, '')) between 1 and 40
-    and alvo_tipo in ('atividade', 'movimentacao', 'preventiva')
+    and alvo_tipo in ('atividade', 'movimentacao', 'preventiva', 'semana')
     and length(coalesce(alvo, '')) between 1 and 80
     and length(coalesce(id, '')) between 1 and 80
     and pg_column_size(dados) < 20000

@@ -16,6 +16,7 @@ import { el, limpar, br, campo, selecao, avisar, erro, confirmar, caixa,
 import { valoresDe } from "./comum.js";
 import * as nuvem from "../nuvem.js";
 import * as pessoas from "../pessoas.js";
+import { daPlanilha } from "../fechamento.js";
 
 export async function montar(raiz, ctx) {
   const corpo = el("div", {});
@@ -94,13 +95,21 @@ export async function montar(raiz, ctx) {
     if (r !== true) return;
 
     let lido, movs = { movimentacoes: [], divergencias: [] },
-      prevs = { preventivas: [], fora: [], sairam: [], mes: "" };
+      prevs = { preventivas: [], fora: [], sairam: [], mes: "" }, fechs = [];
     try {
       lido = imp.lerPlanilhaMakro(abas, Number(eAno.value) || agora.ano);
       movs = imp.lerMovimentacoes(abas);
       // As preventivas casam pela frota com as que o site já tem do mesmo mês
       // — inclusive as excluídas, para não reaproveitar o ID de uma delas.
       prevs = imp.lerPreventivas(abas, [...ev.estado.preventiva.values()]);
+      // O número registrado na sexta (coluna amarela). Semana fechada no site
+      // vale mais que a planilha, e o que já está igual não entra de novo.
+      fechs = imp.lerFechamentos(abas, Number(eAno.value) || agora.ano).filter(x => {
+        const j = ev.fechamentoDe(x.ano, x.semana);
+        if (!j) return true;
+        if (!daPlanilha(j)) return false;
+        return j.aderencia !== x.aderencia || j.cumprimento !== x.cumprimento || (j.obs || "") !== x.obs;
+      });
     } catch (e) { return erro(e.message); }
     const rp = M.resumoPreventivas(prevs.preventivas);
 
@@ -126,6 +135,12 @@ export async function montar(raiz, ctx) {
           (rp.reprogramadas ? `, mais ${rp.reprogramadas} adiadas para o próximo mês` : "") +
           (prevs.fora.length ? `. O quadro "fora do plano" (${prevs.fora.length} frotas) é registrado à parte, fora da contagem` : "") +
           " — como no alto da aba da planilha.") : null,
+
+        fechs.length ? el("p", { class: "nota" },
+          `Fechamento das semanas: ${fechs.length === 1 ? "o número registrado" : "os números registrados"} ` +
+          `na coluna amarela da aba Resultados (semana${fechs.length === 1 ? "" : "s"} ` +
+          `${fechs.map(x => x.semana).join(", ")}). Ficam como o número da semana, e não mudam ` +
+          "com baixas e reprogramações feitas depois.") : null,
 
         prevs.sairam.length ? grupo(
           prevs.sairam.length === 1 ? `1 preventiva de ${prevs.mes} sai do plano`
@@ -174,6 +189,9 @@ export async function montar(raiz, ctx) {
       ...[...prevs.preventivas, ...prevs.fora].map(x => ev.criar(x, "planilha", nome, "preventiva")),
       ...prevs.sairam.map(p => ({ tipo: "excluida", alvo: p.id, alvo_tipo: "preventiva",
         origem: "planilha", motivo: `não está mais na aba Preventivas de ${nome}` })),
+      ...fechs.map(x => ({ tipo: "semana_fechada", alvo: ev.chaveSemana(x.ano, x.semana),
+        alvo_tipo: "semana", origem: "planilha", motivo: "",
+        dados: { ...x, fonte: nome } })),
     ];
     await ev.aplicar(eventos, { silencioso: true });
     ev.forcarAviso();

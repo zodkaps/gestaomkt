@@ -14,7 +14,9 @@
 
 import * as ev from "../eventos.js";
 import * as M from "../modelo.js";
-import { el, limpar, br, brCurto } from "../ui.js";
+import * as pessoas from "../pessoas.js";
+import { el, limpar, br, brCurto, caixa, campo, avisar, erro } from "../ui.js";
+import { fechamentos, vale, daPlanilha } from "../fechamento.js";
 import { outrosIndicadores } from "./indicadores.js";
 import { natural } from "./grade.js";
 import { cartaoGrafico, graficoLinhas, graficoColunas, graficoBarras, minilinha } from "../graficos.js";
@@ -133,35 +135,68 @@ export async function montar(raiz, ctx, params) {
     const semanas = [];
     for (let k = estado.janela - 1; k >= 0; k--) semanas.push(semanaMenos(ano, semana, k));
     const serie = semanas.map(w => M.resultados(ats, w.ano, w.semana));
-    const ant = serie[serie.length - 2] || null;
+    // O fechamento vale para a oficina inteira: com filtro, só o calculado.
+    const fs = filtrado ? null : fechamentos(semanas, { atividades: todas });
+    const valeEm = (i, k) => fs ? vale(fs[i], k) : serie[i][k];
+    const f = fs ? fs[fs.length - 1] : null;
+    const reg = f && f.numeros;
+    const ant = serie.length > 1 ? { aderencia: valeEm(serie.length - 2, "aderencia"),
+      cumprimento: valeEm(serie.length - 2, "cumprimento") } : null;
     const xs = semanas.map(w => "S" + w.semana);
     const marcado = semanas.length - 1;
 
     corpo.append(el("p", { class: "nota", style: "margin-top:0" }, filtrado
       ? `Filtrado: ${[estado.frota && "frota " + estado.frota, estado.tipo && estado.tipo,
         estado.executante && estado.executante].filter(Boolean).join(" · ")}. Mesmas contas da ` +
-        "planilha, sobre o recorte. Sem filtro, cada número é o da aba Resultados."
+        "planilha, sobre o recorte, calculadas hoje — o número registrado no fechamento é da " +
+        "oficina inteira."
       : "A semana escolhida, só a oficina interna — extra programação, serviço de terceiro e " +
         "cancelada ficam fora dos dois lados, como na planilha. Clique nos gráficos para filtrar."));
 
+    if (f) corpo.append(seloFechamento(f));
+
     // ── os dois números da reunião, grandes, com a tendência
-    const grande = (titulo, valor, texto, valores, delta) =>
+    const aderencia = reg ? vale(f, "aderencia") : r.aderencia;
+    const cumprimento = reg ? vale(f, "cumprimento") : r.cumprimento;
+    const comContas = reg && reg.plano != null;
+    // Registrado sem as contas (planilha ou digitado): a observação já está no selo.
+    const semContas = reg && daPlanilha(reg) ? "número registrado na planilha." : "número digitado no fechamento.";
+    const textoAder = !reg || comContas
+      ? `do plano da semana, ${(comContas ? reg : r).concluidas_plano} de ${(comContas ? reg : r).plano} atividades foram concluídas.`
+      : semContas;
+    const textoCump = !reg || comContas
+      ? `incluindo extras, a oficina concluiu ${(comContas ? reg : r).concluidas} de ${(comContas ? reg : r).total} atividades.`
+      : semContas;
+    const grande = (titulo, valor, texto, valores, delta, hoje) =>
       el("div", { class: "grande " + cor(valor) },
         el("div", { class: "g-tit" }, titulo),
         el("div", { class: "g-val" }, valor == null ? "—" : Math.round(valor * 100) + "%"),
         delta,
         el("div", { class: "g-txt" }, texto),
+        hoje,
         el("div", { class: "g-tend" }, minilinha(valores, { largura: 180, altura: 30 }),
           el("span", {}, `${estado.janela} semanas`)));
+    // O quanto o calculado de hoje se afastou do registrado — a coluna
+    // Diferença da planilha. É ela que mostra a semana "subindo sozinha".
+    const hojeDa = (registrado, calculado) => {
+      if (!reg || calculado == null || registrado == null) return null;
+      const d = Math.round((calculado - registrado) * 100);
+      if (!d) return el("div", { class: "g-hoje" }, "o cálculo de hoje dá o mesmo");
+      return el("div", { class: "g-hoje" }, `hoje o cálculo daria ${pc0(calculado)} ` +
+        `(${d > 0 ? "+" : ""}${d} p.p.) — baixas e reprogramações feitas depois do fechamento`);
+    };
     corpo.append(el("div", { class: "grandes" },
-      grande("Aderência à programação", r.aderencia,
-        `do plano da semana, ${r.concluidas_plano} de ${r.plano} atividades foram concluídas.`,
-        serie.map(x => x.aderencia), variacao(r.aderencia, ant && ant.aderencia)),
-      grande("Cumprimento geral", r.cumprimento,
-        `incluindo extras, a oficina concluiu ${r.concluidas} de ${r.total} atividades.`,
-        serie.map(x => x.cumprimento), variacao(r.cumprimento, ant && ant.cumprimento))));
+      grande("Aderência à programação", aderencia, textoAder,
+        serie.map((_, i) => valeEm(i, "aderencia")), variacao(aderencia, ant && ant.aderencia),
+        hojeDa(aderencia, r.aderencia)),
+      grande("Cumprimento geral", cumprimento, textoCump,
+        serie.map((_, i) => valeEm(i, "cumprimento")), variacao(cumprimento, ant && ant.cumprimento),
+        hojeDa(cumprimento, r.cumprimento))));
 
     // ── os cartões de apoio
+    if (reg) corpo.append(el("p", { class: "nota" },
+      "Os cartões abaixo são o detalhe calculado hoje — já incluem baixas e reprogramações " +
+      "feitas depois do fechamento."));
     corpo.append(el("div", { class: "kpis" },
       kpi("Concluídas", `${r.concluidas}`, `de ${r.total} · ${r.extras_concluidas} eram extra`, r.concluidas ? "ok" : ""),
       kpi("Extra programação", pc0(r.parte_extra), `${r.extra} de ${r.total} incluídas depois`, r.extra ? "extra" : ""),
@@ -189,13 +224,21 @@ export async function montar(raiz, ctx, params) {
 
     // 1. a tendência
     pendurar(cartaoGrafico("Aderência e cumprimento, semana a semana",
-      "clique numa semana para vê-la", el("div", { class: "g-corpo" }),
+      fs ? "o número registrado no fechamento de cada semana · clique numa semana para vê-la"
+        : "clique numa semana para vê-la", el("div", { class: "g-corpo" }),
       { legendaDe: [{ nome: "Aderência à programação", cor: S1 }, { nome: "Cumprimento geral", cor: S2 }] }),
     w => graficoLinhas({ largura: w, xs, marcado, meta: 0.9,
-      series: [{ nome: "Aderência", cor: S1, valores: serie.map(x => x.aderencia) },
-        { nome: "Cumprimento", cor: S2, valores: serie.map(x => x.cumprimento) }],
-      detalhe: i => [{ valor: `${serie[i].concluidas_plano} de ${serie[i].plano}`, rotulo: "do plano" },
-        { valor: `${serie[i].concluidas} de ${serie[i].total}`, rotulo: "no total" }],
+      series: [{ nome: "Aderência", cor: S1, valores: serie.map((_, i) => valeEm(i, "aderencia")) },
+        { nome: "Cumprimento", cor: S2, valores: serie.map((_, i) => valeEm(i, "cumprimento")) }],
+      detalhe: i => {
+        const n = fs && fs[i].numeros;
+        if (fs && fs[i].modo === "sem_fechamento") return [{ valor: "sem registro", rotulo: "calculado hoje" },
+          { valor: `${serie[i].concluidas_plano} de ${serie[i].plano}`, rotulo: "do plano" }];
+        if (n && n.plano == null) return [{ valor: "registrado", rotulo: daPlanilha(n) ? "na planilha" : "digitado" }];
+        const x = n || serie[i];
+        return [{ valor: `${x.concluidas_plano} de ${x.plano}`, rotulo: "do plano" },
+          { valor: `${x.concluidas} de ${x.total}`, rotulo: "no total" }];
+      },
       aoClicar: irSemana }), true);
 
     // 2. o que a oficina teve por semana
@@ -303,8 +346,9 @@ export async function montar(raiz, ctx, params) {
     corpo.append(tabela);
 
     corpo.append(el("div", { class: "titulo-secao" }, "Fechamento das semanas",
-      el("span", { class: "n" }, "· a tabela dos gráficos acima")));
-    corpo.append(fechamento(serie));
+      el("span", { class: "n" }, fs ? "· o número registrado e o calculado hoje, lado a lado"
+        : "· a tabela dos gráficos acima")));
+    corpo.append(fs ? tabelaFechamento(fs) : fechamento(serie));
 
     const outros = el("details", { class: "outros", open: estado.outrosAberto },
       el("summary", {}, "Outros indicadores — concluídas nos últimos sete dias, backlog, responsáveis pelos atrasos, pontualidade da operação"));
@@ -314,6 +358,147 @@ export async function montar(raiz, ctx, params) {
       if (outros.open && outros.children.length === 1) outros.append(outrosIndicadores(ano, semana));
     });
     corpo.append(outros);
+  }
+
+  /** Como a semana está: fechada (por quem, quando), automática, em andamento
+   *  ou sem número — e o botão de fechar, para o PCM. */
+  function seloFechamento(f) {
+    const n = f.numeros;
+    let titulo, texto, cls;
+    if (f.modo === "registrado" && daPlanilha(n)) {
+      titulo = "Semana fechada"; cls = "ok";
+      texto = "número registrado na planilha (coluna amarela)";
+    } else if (f.modo === "registrado") {
+      titulo = "Semana fechada"; cls = "ok";
+      texto = `por ${n.fechada_por} em ${br(String(n.fechada_em).slice(0, 10))} ` +
+        `às ${new Date(n.fechada_em).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}` +
+        (n.fonte === "sexta" ? " · com os números de sexta às 23h59"
+          : n.fonte === "digitar" ? " · número digitado" : "");
+    } else if (f.modo === "automatico") {
+      titulo = "Semana fechada automaticamente"; cls = "ok";
+      texto = "como as atividades estavam na sexta às 23h59 — baixas e reprogramações feitas " +
+        "depois não mudam este número";
+    } else if (f.modo === "em_andamento") {
+      titulo = "Semana em andamento"; cls = "andando";
+      texto = "o número ainda está sendo feito. Ele fica registrado quando o PCM fechar a semana " +
+        "ou, se ninguém fechar, sozinho na sexta às 23h59";
+    } else {
+      titulo = "Sem número registrado"; cls = "hoje";
+      texto = "a semana acabou antes de o site existir e a planilha não tinha o número na coluna " +
+        "amarela. O valor abaixo é o calculado hoje, e muda com baixas e reprogramações";
+    }
+    const comeca = M.datasDaSemana(f.ano, f.semana)[0];
+    const podeFechar = pessoas.pode("fechar_semana") && comeca <= M.hoje();
+    return el("div", { class: "selo-fechamento " + cls },
+      el("div", { class: "sf-texto" },
+        el("b", {}, titulo), " · ", texto,
+        n && n.obs ? el("div", { class: "sf-obs" }, n.obs) : null,
+        n && n.motivo ? el("div", { class: "sf-obs" }, "Fechada de novo: " + n.motivo) : null),
+      podeFechar ? el("button", { class: f.modo === "registrado" ? "" : "primario",
+        onclick: () => fecharSemana(f) }, f.modo === "registrado" ? "Fechar de novo" : "Fechar a semana") : null);
+  }
+
+  async function fecharSemana(f) {
+    const agoraN = M.numerosDoFechamento(f.ao_vivo);
+    const sexta = f.sexta;
+    const linha = n => `aderência ${pc(n.aderencia)} (${n.concluidas_plano} de ${n.plano}) · ` +
+      `cumprimento ${pc(n.cumprimento)} (${n.concluidas} de ${n.total})`;
+    let escolha = sexta ? "sexta" : f.encerrada ? "digitar" : "agora";
+    const radios = [];
+    const opcao = (valor, titulo, detalhe) => {
+      const r = el("input", { type: "radio", name: "fech-de", value: valor, checked: escolha === valor,
+        onchange: () => { escolha = valor; } });
+      radios.push(r);
+      return el("label", { class: "opcao-check opcao-fech" }, r,
+        el("span", {}, el("b", {}, titulo), el("br"), el("span", { class: "seg" }, detalhe)));
+    };
+    const escolher = v => { escolha = v; for (const r of radios) r.checked = r.value === v; };
+    // O número digitado é a coluna amarela da planilha: o que foi apresentado
+    // na reunião, quando o site não tem como saber (semana antes dele existir).
+    // Texto com teclado numérico, não "number": o campo numérico do navegador
+    // recusa a vírgula conforme o idioma do aparelho, e aqui se escreve 62,9.
+    const eAder = el("input", { type: "text", inputmode: "decimal", class: "pct",
+      placeholder: "ex.: 84", oninput: () => escolher("digitar") });
+    const eCump = el("input", { type: "text", inputmode: "decimal", class: "pct",
+      placeholder: "ex.: 62,9", oninput: () => escolher("digitar") });
+    const eObs = el("textarea", { rows: 2,
+      placeholder: "opcional — ex.: número apresentado na reunião; 21 das 37 eram da F-818, não liberada" });
+    const eMotivo = el("input", { type: "text", placeholder: "por que fechar de novo" });
+    const jaFechada = f.modo === "registrado";
+    const d = M.datasDaSemana(f.ano, f.semana);
+    const r = await caixa({
+      titulo: `${jaFechada ? "Fechar de novo" : "Fechar"} a semana ${f.semana}`,
+      corpo: el("div", {},
+        el("p", { class: "nada" }, `${brCurto(d[0])} a ${brCurto(d[4])}. Os números registrados ` +
+          "não mudam mais — baixa dada depois e atividade movida para outra semana não mexem neles. " +
+          "O calculado de hoje continua aparecendo ao lado."),
+        el("div", { class: "lista-check" },
+          sexta ? opcao("sexta", "Como estava na sexta às 23h59", linha(sexta)) : null,
+          opcao("agora", "Como está agora", linha(agoraN)),
+          el("div", {},
+            opcao("digitar", "Digitar o número apresentado", "como a coluna amarela da planilha"),
+            el("div", { class: "pcts" },
+              el("label", {}, "Aderência ", eAder, " %"),
+              el("label", {}, "Cumprimento ", eCump, " %")))),
+        campo("Observação", eObs),
+        jaFechada ? campo("Motivo", eMotivo, "Obrigatório: este número já foi registrado.") : null),
+      acoes: [{ rotulo: "Cancelar", valor: false },
+        { rotulo: jaFechada ? "Fechar de novo" : "Fechar a semana", classe: "primario", valor: true }],
+    });
+    if (r !== true) return;
+    let numeros;
+    if (escolha === "digitar") {
+      const v = e => { const t = String(e.value).replace("%", "").replace(",", ".").trim();
+        return t === "" ? null : Number(t); };
+      const a = v(eAder), c = v(eCump);
+      if (a == null || !(a >= 0 && a <= 100) || (c != null && !(c >= 0 && c <= 100))) {
+        return erro("Digite a aderência, de 0 a 100.");
+      }
+      numeros = { aderencia: Math.round(a * 10) / 1000, cumprimento: c == null ? null : Math.round(c * 10) / 1000 };
+    } else {
+      numeros = escolha === "sexta" && sexta ? sexta : agoraN;
+    }
+    try {
+      await ev.aplicar(ev.fecharSemana(f.ano, f.semana, numeros,
+        { obs: eObs.value, motivo: eMotivo.value, fonte: escolha }));
+    } catch (e) { return erro(e.message); }
+    avisar(`Semana ${f.semana} fechada: aderência ${pc(numeros.aderencia)}.`);
+  }
+
+  /** O quadro da planilha: o registrado, o calculado de hoje e a diferença. */
+  function tabelaFechamento(fs) {
+    const linhas = fs.filter(f => f.ao_vivo.plano || f.ao_vivo.extra || f.numeros).slice().reverse();
+    if (!linhas.length) return el("p", { class: "nada" }, "Sem semanas com programação.");
+    const como = f => f.modo === "registrado"
+      ? (daPlanilha(f.numeros) ? "planilha" : `${f.numeros.fechada_por} · ${brCurto(String(f.numeros.fechada_em).slice(0, 10))}`)
+      : f.modo === "automatico" ? "automático (sexta 23h59)"
+      : f.modo === "em_andamento" ? "em andamento" : "sem registro";
+    const cab = [["Semana"], ["Aderência", "registrada", "c-reg num"], ["Cumprimento", "registrado", "c-reg num"],
+      ["Aderência", "hoje", "num"], ["Diferença", "", "num"], ["Plano", "", "num"], ["Concl.", "", "num"],
+      ["Extra", "", "num"], ["Fechamento"]];
+    return el("div", { class: "rolagem" }, el("table", { class: "tabela indicadores fechamentos" },
+      el("thead", {}, el("tr", {}, cab.map(([a, b, cls]) =>
+        el("th", { class: cls || "" }, a, b ? el("br") : null, b || null)))),
+      el("tbody", {}, linhas.map(f => {
+        const r = f.ao_vivo, n = f.numeros;
+        const dif = n && n.aderencia != null && r.aderencia != null
+          ? Math.round((r.aderencia - n.aderencia) * 100) : null;
+        return el("tr", {
+          class: f.semana === estado.semana && f.ano === estado.ano ? "forte" : "",
+          style: "cursor:pointer", title: n && n.obs ? n.obs : "Ver esta semana",
+          onclick: () => { estado.ano = f.ano; estado.semana = f.semana; pintar(); window.scrollTo(0, 0); },
+        },
+          el("td", {}, el("b", {}, String(f.semana)), el("span", { class: "seg" },
+            ` · ${brCurto(r.datas[0])} a ${brCurto(r.datas[4])}`)),
+          el("td", { class: "num c-reg " + (n ? cor(n.aderencia) : "") }, n ? pc(n.aderencia) : "—"),
+          el("td", { class: "num c-reg " + (n ? cor(n.cumprimento) : "") }, n ? pc(n.cumprimento) : "—"),
+          el("td", { class: "num fraco" }, pc(r.aderencia)),
+          el("td", { class: "num" + (dif > 0 ? " c-extra" : "") }, dif == null ? "" : dif ? `${dif > 0 ? "+" : ""}${dif} p.p.` : "="),
+          el("td", { class: "num" }, String(r.plano)),
+          el("td", { class: "num" }, String(r.concluidas_plano)),
+          el("td", { class: "num c-extra" }, String(r.extra)),
+          el("td", { class: "c-como" }, como(f), n && n.obs ? el("span", { class: "tem-obs", title: n.obs }, " ✎") : null));
+      }))));
   }
 
   function tabelaIndicadores(r) {

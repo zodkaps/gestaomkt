@@ -600,6 +600,82 @@ if (abas) {
     JSON.stringify(cg36));
 }
 
+// ── o fechamento da semana ──────────────────────────────────────────────────
+// O pedido: o número da semana não pode subir sozinho depois que ela acaba —
+// baixa dada na segunda e atividade empurrada para a frente faziam a semana
+// velha virar 100%. Na planilha, a coluna amarela; aqui, o fechamento.
+titulo("fechamento.js — a semana fechada não muda");
+{
+  const fech = await import("../js/fechamento.js");
+  igual("a semana 41 fecha na sexta 09/10 às 23h59 de Mossoró",
+    modelo.corteDaSemana(2026, 41), "2026-10-10T03:00:00.000Z");
+
+  const base = { ...modelo.molde(), frota: "F-T", tipo: "Corretiva", origem: "Programada", oficina: "Interna" };
+  const nova = (id, ts, atividade, dia) => ({ id: "i" + id, ts, tipo: "importada", alvo: id,
+    alvo_tipo: "atividade", origem: "planilha", dados: { ...base, atividade, ano: 2026, semana: 41, dia, dias: 1 } });
+  const fita = [
+    nova("T1", "2026-10-05T10:00:00.000Z", "um", "Seg"),
+    nova("T2", "2026-10-05T10:00:00.001Z", "dois", "Ter"),
+    nova("T3", "2026-10-05T10:00:00.002Z", "três", "Qua"),
+    { id: "c1", ts: "2026-10-06T12:00:00.000Z", tipo: "concluida", alvo: "T1", alvo_tipo: "atividade", dados: { em: "2026-10-05" } },
+    // segunda-feira seguinte: a baixa da T2 dada atrasada, com a data de sexta…
+    { id: "c2", ts: "2026-10-12T12:00:00.000Z", tipo: "concluida", alvo: "T2", alvo_tipo: "atividade", dados: { em: "2026-10-09" } },
+    // …e a T3 empurrada para a semana 42
+    { id: "r3", ts: "2026-10-12T12:05:00.000Z", tipo: "reprogramada", alvo: "T3", alvo_tipo: "atividade",
+      motivo: "frota em viagem", dados: { de: { ano: 2026, semana: 41, dia: "Qua", dias: 1, hh: 0 },
+        para: { ano: 2026, semana: 42, dia: "Seg", dias: 1, hh: 0 } } },
+  ];
+  const op = { fita, registrados: new Map(), agora: "2026-10-13T12:00:00.000Z", hoje: "2026-10-13" };
+  const f41 = fech.fechamento(2026, 41, op);
+  igual("calculada hoje, a semana 41 já deu 100%", f41.ao_vivo.aderencia, 1);
+  igual("mas ninguém fechou e ela fecha sozinha", f41.modo, "automatico");
+  igual("com o número da sexta: 1 de 3", [f41.numeros.concluidas_plano, f41.numeros.plano], [1, 3]);
+  igual("e é esse que vale", fech.vale(f41, "aderencia"), 1 / 3);
+
+  const durante = fech.fechamento(2026, 41, { ...op, agora: "2026-10-09T18:00:00.000Z", hoje: "2026-10-09" });
+  igual("antes da sexta 23h59 a semana está em andamento", durante.modo, "em_andamento");
+  ok("e não tem número congelado", durante.numeros === null);
+
+  const f40 = fech.fechamento(2026, 40, op);
+  igual("semana que acabou antes de existir a fita fica sem fechamento", f40.modo, "sem_fechamento");
+
+  const registrados = new Map([[ev.chaveSemana(2026, 41), { aderencia: 0.84, cumprimento: 0.6292, origem: "planilha" }]]);
+  const fr = fech.fechamento(2026, 41, { ...op, registrados });
+  igual("o registrado vale acima do automático", [fr.modo, fech.vale(fr, "aderencia")], ["registrado", 0.84]);
+  ok("e o da sexta continua à mão para comparar", fr.sexta && fr.sexta.aderencia === 1 / 3);
+
+  // pelo registro, como na tela
+  await entrarComo("Mateus");
+  await ev.aplicar(ev.fecharSemana(2026, 39, { aderencia: 0.647, cumprimento: 0.707 }, { obs: "fechada na reunião" }));
+  const r39 = ev.fechamentoDe(2026, 39);
+  igual("o PCM fecha a semana e o número fica", [r39.aderencia, r39.fechada_por, r39.obs], [0.647, "Mateus", "fechada na reunião"]);
+  let semMotivo = "";
+  try { ev.fecharSemana(2026, 39, { aderencia: 1 }); } catch (e) { semMotivo = e.message; }
+  ok("fechar de novo sem motivo não passa", /motivo/i.test(semMotivo), semMotivo);
+  await ev.aplicar(ev.fecharSemana(2026, 39, { aderencia: 0.7, cumprimento: 0.75 }, { motivo: "faltou a baixa da F-401" }));
+  igual("com motivo, o novo número substitui", [ev.fechamentoDe(2026, 39).aderencia, ev.fechamentoDe(2026, 39).motivo],
+    [0.7, "faltou a baixa da F-401"]);
+  igual("e os dois fechamentos ficam no registro",
+    ev.log.filter(e => e.alvo === ev.chaveSemana(2026, 39)).length, 2);
+  ok("a fita fecha com as semanas dentro", ev.conferir().ok);
+  await entrarComo("Pedro");
+  let operacao = "";
+  try { ev.fecharSemana(2026, 40, { aderencia: 1 }); } catch (e) { operacao = e.message; }
+  ok("a operação não fecha a semana", /permiss/i.test(operacao), operacao);
+  await entrarComo("Mateus");
+
+  const c83 = "/root/.claude/uploads/3a385572-107b-54f9-9b46-4352cfa98089/f239cce9-Programacao_Servicos_Makro_83_2.xlsx";
+  let abas83 = null;
+  try { abas83 = await pl.ler(arquivoFalso(c83, await readFile(c83))); } catch (e) { console.log("  (pulando a 83_2: não achei)"); }
+  if (abas83) {
+    const lidos = imp.lerFechamentos(abas83, 2026);
+    igual("a coluna amarela da 83_2 tem as semanas 35 a 39", lidos.map(x => x.semana), [35, 36, 37, 38, 39]);
+    igual("a 35 foi registrada com 84% e 62,92%", [lidos[0].ano, lidos[0].aderencia, lidos[0].cumprimento], [2026, 0.84, 0.6292]);
+    ok("com a observação da reunião", /^Número apresentado na reunião: 21 de 25/.test(lidos[0].obs), lidos[0].obs);
+    ok("a 40 e a 41, com a amarela vazia, ficam de fora", !lidos.some(x => x.semana >= 40));
+  }
+}
+
 // ── nunca ficar trancado para fora ──────────────────────────────────────────
 // Um problema de nuvem chegou a trancar a porta de um site que funciona sem
 // nuvem: com o endereço no código, a única entrada era a senha do Supabase, e

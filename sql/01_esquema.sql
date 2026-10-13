@@ -14,7 +14,7 @@ create table if not exists public.eventos (
   ts         timestamptz not null default now(),
   autor      text        not null,           -- Mateus, Lucas, Pedro, João Victor
   tipo       text        not null,
-  alvo_tipo  text        not null,           -- atividade | movimentacao | preventiva
+  alvo_tipo  text        not null,           -- atividade | movimentacao | preventiva | semana
   alvo       text        not null,
   dados      jsonb       not null default '{}'::jsonb,
   motivo     text        not null default '',
