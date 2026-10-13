@@ -83,6 +83,7 @@ olhando:
 | Justificar | PCM (OS) e os dois (movimentação) | motivo do atraso e responsável |
 | Cancelar, Desfazer o cancelamento | PCM (OS); os dois (movimentação) | cancelada não conta como concluída |
 | Concluir, Definir o prazo, Aprovar, Devolver à operação | operação conclui; PCM aprova ou devolve | |
+| Editar (movimentação) | PCM e operação | o que fazer, onde, prioridade, prazo e detalhes, enquanto não for cancelada; aprovação não se edita |
 | Programar a parada, Registrar realização, Marcar em andamento, Adiar para o próximo mês | PCM | |
 | Informar liberação | operação | data em que a frota fica disponível para a manutenção |
 | **Excluir** | **só o PCM** | deixa de aparecer nas telas; o histórico é mantido |
@@ -342,6 +343,26 @@ fórmulas (ver *Os números são os da planilha*, abaixo).
   motivo à vista. Quando o próprio PCM conclui, ela já entra aprovada. O banco
   confere: a operação não consegue gravar uma aprovação. Os números do alto são
   os da aba Movimentações, com as mesmas contas.
+- **Solicitação de movimentação**: o formulário pede o que importa, em ordem —
+  **Frota**, **Prioridade** (Alta, Média ou Baixa, em um toque), **O que fazer**
+  (a ação: coletar, levar, buscar, realizar TOP…), **Onde** (para onde a frota
+  vai, ou onde ela está), **Prazo**, e **Detalhes** opcionais. Os campos são
+  texto livre; as sugestões são só o que a equipe já escreveu antes. Embaixo,
+  uma prévia mostra como a solicitação vai aparecer na lista. Na lista, o título
+  é "o que fazer · onde", a prioridade tem coluna própria e, dentro da mesma
+  situação, a alta vem primeiro. **Depois de criada, edita-se pelo ⋯ ou pela
+  ficha** (PCM e operação); só o que mudou vai para o Registro, e a mudança de
+  prazo entra como lançamento de prazo. As que vieram da planilha não têm "o que
+  fazer" nem prioridade — aparecem com o destino, como antes, até alguém editar.
+- **Baixar imagem** (Movimentações): a lista que está na tela — com o recorte,
+  o filtro e a busca — vira uma imagem PNG de fundo claro, para cobrar no
+  grupo. No celular abre o compartilhar (WhatsApp direto); no computador, baixa
+  o arquivo.
+- **Imprimir pendências** (Programação e Frota): uma folha A4 com as
+  atividades em aberto, por frota — OS, atividade, executante, semana, prazo,
+  situação, e colunas para marcar o feito e anotar à mão. Escolhe-se de quais
+  **executantes** (e "sem executante"), a frota, se a carteira entra, e se sai
+  **uma folha para cada executante**. Imprimir não grava nada.
 
 Hoje, Programação e Semana usam a **mesma grade** (`js/tela/grade.js`): um lugar
 só desenha uma atividade em lista, e as três telas nunca mostram a mesma coisa
@@ -623,6 +644,7 @@ porque toda escrita já passa por `aplicar()`.
 | `js/pessoas.js` | quem está usando, o papel, o que esse papel pode |
 | `js/tela/*.js` | entrar, operacao, hoje, programacao, semana, resultados, movimentacoes, preventivas, frota, historico, importar, diagnostico |
 | `js/tela/acoes.js` | as ações do ⋯ de cada item — um menu por tipo, com as opções que valem para quem está olhando |
+| `js/tela/imprimir.js` | a folha de pendências por frota e executante, para imprimir |
 | `js/tela/grade.js` | a lista no formato da aba Programação — Hoje, Programação e Semana usam a mesma; a OS digitada na linha |
 | `js/graficos.js` | os gráficos do painel de Resultados, em SVG puro: linha, colunas, barras, minilinha, dica |
 | `js/tela/indicadores.js` | os painéis que a planilha não tem, recolhidos em Resultados |

@@ -11,7 +11,7 @@ import * as M from "../modelo.js";
 import * as pessoas from "../pessoas.js";
 import { el, caixa, campo, confirmar, erro, avisar } from "../ui.js";
 import { concluir, reprogramar, devolverParaCarteira, justificar } from "./comum.js";
-import { concluirMov, aprovar, devolver, prometerData, cancelarMov } from "./movimentacoes.js";
+import { concluirMov, aprovar, devolver, prometerData, cancelarMov, editarMov, tituloMov } from "./movimentacoes.js";
 import { informarDisponibilidade, marcarParada, darPorFeita, passarParaOMesSeguinte,
   cancelarPrev, andamento, reabrirPrev } from "./preventivas.js";
 
@@ -70,7 +70,7 @@ export async function menuAtividade(a, ctx) {
     op.push({ chave: "reabrir", rotulo: "Reabrir", explica: "remove a data de conclusão" });
   }
   if (pode("editar_atividade") && !a.cancelada) {
-    op.push({ chave: "justificar", rotulo: a.motivo ? "Mudar justificativa" : "Justificar",
+    op.push({ chave: "justificar", rotulo: a.motivo ? "Alterar a justificativa" : "Justificar",
       explica: "motivo do atraso e responsável" });
   }
   if (pode("editar_atividade") && aberta) {
@@ -125,10 +125,15 @@ export async function menuMovimentacao(m, ctx) {
   const op = [];
   if (aberta && pode("movimentar")) {
     op.push({ chave: "concluir", rotulo: "Concluir", explica: "a frota retornou ou o serviço foi concluído" });
+  }
+  if (!m.cancelada && pode("movimentar")) {
+    op.push({ chave: "editar", rotulo: "Editar", explica: "o que fazer, onde, prioridade, prazo e detalhes" });
+  }
+  if (aberta && pode("movimentar")) {
     op.push({ chave: "prazo", rotulo: m.prometida_para ? "Alterar o prazo" : "Definir o prazo" });
   }
   if (!m.cancelada && pode("movimentar") && (M.atrasoMovimentacao(m) > 0 || m.motivo_atraso || m.justificativa)) {
-    op.push({ chave: "justificar", rotulo: m.motivo_atraso ? "Mudar justificativa" : "Justificar",
+    op.push({ chave: "justificar", rotulo: m.motivo_atraso ? "Alterar a justificativa" : "Justificar",
       explica: "motivo do atraso e responsável" });
   }
   if (m.chegou_em && !m.cancelada && pode("aprovar")) {
@@ -146,8 +151,9 @@ export async function menuMovimentacao(m, ctx) {
   }
   if (!op.length) return;
 
-  const r = await escolher(`${m.frota || "Movimentação"} · ${m.destino || ""}`.trim(), op);
+  const r = await escolher(`${m.frota || "Movimentação"} · ${tituloMov(m)}`, op);
   if (r === "concluir") return concluirMov(m);
+  if (r === "editar") return editarMov(m);
   if (r === "prazo") return prometerData(m);
   if (r === "justificar") return justificar(m, "movimentacao");
   if (r === "aprovar") return aprovar(m);

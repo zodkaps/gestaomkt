@@ -864,8 +864,23 @@ button.mini.acao-pcm, button.mini.acao-op { background: transparent; color: var(
 .grade.mov .c-quem  { width: 110px; }
 .grade.mov td.c-quem { color: var(--fraco); font-size: 12px; }
 .grade.mov .c-feito { width: 124px; }
+.grade.mov .c-prio  { width: 84px; }
 .grade.mov .venceu  { color: var(--vencida); font-weight: 650; }
-@media (max-width: 1100px) { .grade.mov .c-dt:nth-child(4) { display: none; } }
+/* em tela estreita sai a data da solicitação (5ª coluna) */
+@media (max-width: 1100px) { .grade.mov .c-dt:nth-child(5) { display: none; } }
+
+/* prioridade da movimentação: só a alta chama atenção */
+.chip.prio-alta  { color: var(--hoje); border-color: var(--hoje); font-weight: 650; }
+.chip.prio-media { color: var(--texto); }
+.chip.prio-baixa { color: var(--muito-fraco); }
+
+/* o formulário da solicitação */
+.form-mov textarea { width: 100%; resize: vertical; }
+.prio-escolha { display: flex; width: 100%; }
+.prio-escolha .seg-op { flex: 1 1 0; text-align: center; padding: 7px 6px; }
+.previa-rot { font-size: 11.5px; color: var(--fraco); margin: 4px 0 4px; font-weight: 600; }
+.previa-mov { font-weight: 600; padding: 9px 11px; border: 1px dashed var(--linha); border-radius: 6px;
+  background: var(--papel2); overflow-wrap: anywhere; }
 .grade .dois { display: inline-flex; gap: 4px; }
 button.mini.concluir { border-color: var(--linha); color: var(--texto); background: transparent; }
 button.mini.concluir:hover { border-color: var(--ok); color: var(--ok); background: transparent; }
@@ -938,6 +953,49 @@ details.outros[open] > summary { margin-bottom: 12px; }
   body { background: #fff; color: #000; }
   .at, .painel, .cartao-num { break-inside: avoid; }
 }
+
+/* ── a folha de pendências (js/tela/imprimir.js) ───────────────────────────
+   Na tela ela não existe; na impressão, é a única coisa que sai. */
+#impressao { display: none; }
+@media print {
+  @page { size: A4; margin: 12mm 10mm; }
+  body.imprimindo > *:not(#impressao) { display: none !important; }
+  body.imprimindo #impressao { display: block; }
+  /* papel é claro: sem isso o esquema escuro do site pinta as margens da página */
+  :root { color-scheme: light !important; }
+  html, body.imprimindo { background: #fff !important; }
+  #impressao { color: #000; font: 10pt/1.35 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+  #impressao .imp-folha { break-after: page; }
+  #impressao .imp-folha:last-child { break-after: auto; }
+  #impressao header { border-bottom: 2px solid #000; padding-bottom: 5px; margin-bottom: 8px; }
+  #impressao h1 { font-size: 15pt; margin: 0 0 2px; }
+  #impressao .imp-sub { font-size: 9.5pt; color: #333; }
+  #impressao h2 { font-size: 11.5pt; margin: 10px 0 4px; break-after: avoid; }
+  #impressao h2 small { font-weight: 400; color: #444; font-size: 9.5pt; }
+  #impressao table { width: 100%; border-collapse: collapse; table-layout: fixed; }
+  #impressao th, #impressao td { border: 1px solid #777; padding: 3px 5px; text-align: left; vertical-align: top; }
+  #impressao th { background: #eee; font-size: 8.5pt; text-transform: uppercase; letter-spacing: .03em; }
+  #impressao tr { break-inside: avoid; }
+  #impressao .i-ok { width: 12mm; text-align: center; }
+  #impressao td.i-ok { font-size: 12pt; }
+  #impressao th.i-ok { font-size: 7.5pt; }
+  #impressao .i-os { width: 17mm; }
+  #impressao .i-quem { width: 28mm; }
+  #impressao .i-sem { width: 17mm; }
+  #impressao .i-dt { width: 14mm; }
+  #impressao .i-sit { width: 25mm; }
+  #impressao .i-obs { width: 38mm; }
+  #impressao .i-venc { font-weight: 700; }
+  #impressao footer { margin-top: 10px; font-size: 8.5pt; color: #444; border-top: 1px solid #999; padding-top: 4px; }
+}
+
+/* o diálogo de escolher o que imprimir */
+.lista-check { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 2px 12px;
+  max-height: 240px; overflow-y: auto; padding: 6px 0; }
+.opcao-check { display: flex; align-items: center; gap: 6px; font-size: 13px; padding: 3px 0; cursor: pointer; }
+.opcao-check input { width: auto; margin: 0; }
+.opcao-check .n { color: var(--muito-fraco); font-size: 12px; }
+.linha-botoes { display: flex; gap: 6px; margin: 2px 0 4px; }
 
 /* A tela de entrar é a porta: a casca some atrás dela. */
 body.entrando #menu, body.entrando #topo, body.entrando #faixa { display: none; }

@@ -218,6 +218,10 @@ export function aberta(a) {
 export function moldeMovimentacao() {
   return {
     id: "", frota: "", destino: "", para_que: "",
+    // O que fazer (coletar, levar, realizar TOP…) e a prioridade de quem pede.
+    // `destino` é o "onde": para onde a frota vai, ou onde ela está; `para_que`
+    // virou os detalhes. As que vieram da planilha não têm ação nem prioridade.
+    acao: "", prioridade: "",
     pedida_em: "", prometida_para: "", chegou_em: "",
     quem_prometeu: "Operação", obs: "",
     // Conclusão e aprovação. `chegou_em` é a data em que a movimentação foi

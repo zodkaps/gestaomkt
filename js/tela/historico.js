@@ -58,7 +58,7 @@ export async function montar(raiz, ctx, params) {
       const a = achado && achado.item;
       if (fFrota.value && (!a || a.frota !== fFrota.value)) return false;
       if (q) {
-        const alvo = semAcento([a && a.frota, a && a.os, a && a.atividade, a && a.destino,
+        const alvo = semAcento([a && a.frota, a && a.os, a && a.atividade, a && a.acao, a && a.destino,
           e.motivo, e.tipo, e.origem, e.autor].filter(Boolean).join(" "));
         if (!alvo.includes(q)) return false;
       }

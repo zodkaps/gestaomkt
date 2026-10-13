@@ -467,6 +467,22 @@ if (abas) {
     chegou_em: "2026-10-08", aprovada: true }));
   ok("nem criar uma já aprovada",
     !ev.porId(criadaJa.alvo, "movimentacao").aprovada);
+  // A solicitação diz o que fazer, onde e com que prioridade — e muda depois.
+  const [pedida] = await ev.aplicar(ev.pedirMovimentacao({ frota: "F-EDITA", acao: "Coletar",
+    destino: "Cardan Service", prioridade: "Média", para_que: "peça do câmbio" }));
+  const antesEd = ev.porId(pedida.alvo, "movimentacao");
+  igual("a solicitação guarda o que fazer, onde e a prioridade",
+    [antesEd.acao, antesEd.destino, antesEd.prioridade], ["Coletar", "Cardan Service", "Média"]);
+  await ev.aplicar(ev.editar(antesEd,
+    { acao: "Realizar TOP", destino: "Box de óleo", prioridade: "Alta", para_que: "peça do câmbio" }, "movimentacao"));
+  const depoisEd = ev.porId(pedida.alvo, "movimentacao");
+  igual("a operação edita a solicitação depois de criada",
+    [depoisEd.acao, depoisEd.destino, depoisEd.prioridade, depoisEd.para_que],
+    ["Realizar TOP", "Box de óleo", "Alta", "peça do câmbio"]);
+  igual("e só o que mudou vai para o registro",
+    Object.keys(ev.historicoDe(pedida.alvo)[0].dados.para).sort(), ["acao", "destino", "prioridade"]);
+  ok("editar sem mudar nada não grava",
+    ev.editar(depoisEd, { acao: "Realizar TOP", prioridade: "Alta" }, "movimentacao") === null);
   // A justificativa: quem está no pátio diz por que a frota atrasou.
   await ev.aplicar(ev.justificar(ev.porId(movAberta.id, "movimentacao"),
     { motivo: "A frota estava em viagem para Natal", quem: "Operação", texto: "" }, "movimentacao"));

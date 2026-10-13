@@ -123,7 +123,7 @@ export async function justificar(alvo, tipo = "atividade") {
     : { motivo: alvo.motivo, quem: alvo.quem_atrasou, texto: alvo.justificativa };
   const j = camposJustificativa(tipo, atual);
   const titulo = tipo === "movimentacao"
-    ? `${alvo.frota} · ${alvo.destino || "movimentação"}`
+    ? `${alvo.frota} · ${[alvo.acao, alvo.destino].filter(Boolean).join(" · ") || "movimentação"}`
     : `${alvo.frota} · ${alvo.atividade || "atividade"}`;
   const r = await caixa({
     titulo: "Justificar",
@@ -489,7 +489,7 @@ export async function abrirFicha(id, ctx) {
     } });
   }
   if (pessoas.pode("editar_atividade") && !a.cancelada) {
-    acoes.push({ rotulo: a.motivo ? "Mudar justificativa" : "Justificar",
+    acoes.push({ rotulo: a.motivo ? "Alterar a justificativa" : "Justificar",
       acao: async () => { await justificar(a, "atividade"); } });
   }
   acoes.push({ rotulo: "Editar", acao: async () => { await editar(a, ctx); } });
@@ -506,7 +506,7 @@ export function descreverEvento(e, comAtividade = false) {
   const d = e.dados || {};
   const q = [];
   if (comAtividade && a) {
-    const oque = achado.tipo === "movimentacao" ? `movimentação ${a.destino || ""}`.trim()
+    const oque = achado.tipo === "movimentacao" ? `movimentação ${[a.acao, a.destino].filter(Boolean).join(" · ")}`.trim()
       : achado.tipo === "preventiva" ? `preventiva ${a.plano || ""}`.trim()
       : a.atividade;
     q.push(el("b", {}, `${a.frota || "—"} · ${oque || "—"} — `));

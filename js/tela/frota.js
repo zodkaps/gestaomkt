@@ -10,6 +10,7 @@ import { el, limpar, br, cartaoNumero, vazio, selecao } from "../ui.js";
 import { cartao, botaoConcluir, secao, criarNova, frotas, descreverEvento } from "./comum.js";
 import { cartaoMov } from "./movimentacoes.js";
 import { cartaoPrev } from "./preventivas.js";
+import { imprimirPendencias } from "./imprimir.js";
 
 export async function montar(raiz, ctx, params) {
   let frota = params.get("f") || "";
@@ -22,6 +23,7 @@ export async function montar(raiz, ctx, params) {
     el("div", { class: "cabec" },
       el("h1", {}, "Frota"), escolha,
       el("div", { class: "espaco" }),
+      el("button", { onclick: () => imprimirPendencias({ frota }) }, "Imprimir pendências"),
       el("button", { class: "primario", onclick: () => criarNova(ctx, { frota }) }, "+ Nova")),
     corpo);
 

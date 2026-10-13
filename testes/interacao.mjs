@@ -9,6 +9,7 @@
 // Precisa do servidor de mentira (`testes/supabase_falso.mjs`) e do site
 // servido (`python3 -m http.server 8123`).
 import pw from "/opt/node-tools/node_modules/playwright/index.js";
+import { readFile } from "node:fs/promises";
 import { servirCopia, entrarComo, entrarLocalComo, emailDoTeste } from "./sitefalso.mjs";
 const { chromium } = pw;
 
@@ -483,6 +484,89 @@ ok("um clique aprova: Concluída com atraso, concluída pelo Pedro, aprovada pel
     opcoes.includes("Excluir") && opcoes.includes("Cancelar"), JSON.stringify(opcoes));
   await p.keyboard.press("Escape");
   await p.waitForTimeout(300);
+}
+
+// ── solicitação de movimentação: criar, editar, virar imagem ───────────────
+// O formulário diz o que fazer e onde, com prioridade; depois de criada, o ⋯
+// edita; e a lista da tela vira uma imagem para cobrar no grupo.
+{
+  const FR = "F-SOL-" + Date.now().toString(36);
+  await p.evaluate(() => { location.hash = "#/movimentacoes?v=todas"; });
+  await p.waitForTimeout(900);
+  await p.click('.cabec button:has-text("+ Nova")');
+  await p.waitForSelector(".caixa .form-mov", { timeout: 5000 });
+  await p.fill('.caixa .form-mov input[placeholder="ex.: F-745"]', FR);
+  await p.fill('.caixa .form-mov input[placeholder^="ex.: Coletar"]', "Coletar");
+  await p.fill('.caixa .form-mov input[placeholder^="ex.: Cardan"]', "Cardan Service");
+  await p.click('.caixa .prio-escolha button[data-prio="Alta"]');
+  const previa = await p.textContent(".caixa .previa-mov");
+  ok("o formulário mostra como a solicitação vai aparecer",
+    previa.includes(FR) && previa.includes("Coletar · Cardan Service"), previa);
+  await p.click('.caixa button:has-text("Registrar")');
+  await p.waitForFunction(f => mkt.ev.lista("movimentacao").some(m => m.frota === f), FR, { timeout: 5000 });
+  const criada = await p.evaluate(f => { const m = mkt.ev.lista("movimentacao").find(x => x.frota === f);
+    return { acao: m.acao, destino: m.destino, prioridade: m.prioridade }; }, FR);
+  ok("criada com o que fazer, onde e prioridade",
+    criada.acao === "Coletar" && criada.destino === "Cardan Service" && criada.prioridade === "Alta",
+    JSON.stringify(criada));
+  await p.waitForTimeout(500);
+  const linhaSol = p.locator(`.so-tabela tr.lin:has-text("${FR}")`);
+  ok("a linha mostra o título e a prioridade",
+    (await linhaSol.textContent()).includes("Coletar · Cardan Service") &&
+    (await linhaSol.textContent()).includes("Alta"));
+
+  await linhaSol.locator(".mais").click();
+  await p.waitForSelector(".caixa .menu-acoes", { timeout: 5000 });
+  await p.click('.caixa .opcao-acao:has-text("Editar")');
+  await p.waitForSelector(".caixa .form-mov", { timeout: 5000 });
+  await p.fill('.caixa .form-mov input[placeholder^="ex.: Cardan"]', "Borracharia");
+  await p.click('.caixa button:has-text("Salvar alterações")');
+  await p.waitForFunction(f => mkt.ev.lista("movimentacao").find(m => m.frota === f).destino === "Borracharia",
+    FR, { timeout: 5000 });
+  await p.waitForTimeout(400);
+  ok("editar pelo ⋯ muda a solicitação na lista",
+    (await p.locator(`.so-tabela tr.lin:has-text("${FR}")`).textContent()).includes("Coletar · Borracharia"));
+
+  const [baixado] = await Promise.all([
+    p.waitForEvent("download", { timeout: 10000 }),
+    p.click('.cabec button:has-text("Baixar imagem")'),
+  ]);
+  const bytes = await readFile(await baixado.path());
+  ok("a lista vira uma imagem PNG para o grupo",
+    baixado.suggestedFilename().endsWith(".png") && bytes.length > 5000 &&
+    bytes.subarray(1, 4).toString() === "PNG", `${baixado.suggestedFilename()} · ${bytes.length} bytes`);
+}
+
+// ── imprimir as pendências, só do executante escolhido ─────────────────────
+{
+  const SUF = Date.now().toString(36);
+  const [A, B] = ["Exec A " + SUF, "Exec B " + SUF];
+  await p.evaluate(async ([a, b, suf]) => {
+    for (const [ex, n] of [[a, 1], [b, 2]]) await mkt.ev.aplicar(mkt.ev.criar({ frota: "F-IMP-" + suf,
+      atividade: `Serviço ${n} ${suf}`, tipo: "Corretiva", semana: 41, ano: 2026, dia: "Ter",
+      dias: 1, hh: 2, executantes: [ex], oficina: "Interna" }), { silencioso: true });
+    window.__impressoes = 0;
+    window.print = () => { window.__impressoes++; };
+  }, [A, B, SUF]);
+  await p.evaluate(() => { location.hash = "#/programacao?m=tudo"; });
+  await p.waitForTimeout(900);
+  await p.click('.cabec button:has-text("Imprimir pendências")');
+  await p.waitForSelector(".caixa .lista-check", { timeout: 5000 });
+  await p.click('.caixa button:has-text("Limpar")');
+  await p.check(`.caixa .lista-check label:has-text("${A}") input`);
+  await p.click('.caixa button:has-text("Imprimir")');
+  await p.waitForSelector("#impressao .imp-folha", { state: "attached", timeout: 5000 });
+  const folha = await p.evaluate(() => ({
+    texto: document.querySelector("#impressao").textContent,
+    folhas: document.querySelectorAll("#impressao .imp-folha").length,
+    naTela: getComputedStyle(document.querySelector("#impressao")).display,
+    impressoes: window.__impressoes,
+  }));
+  ok("imprimir pendências: só as do executante escolhido, numa folha",
+    folha.texto.includes(`Serviço 1 ${SUF}`) && !folha.texto.includes(`Serviço 2 ${SUF}`) &&
+    folha.folhas === 1 && folha.impressoes === 1, JSON.stringify({ ...folha, texto: folha.texto.slice(0, 120) }));
+  ok("e a folha não aparece na tela, só no papel", folha.naTela === "none", folha.naTela);
+  await p.evaluate(() => { document.getElementById("impressao")?.remove(); document.body.classList.remove("imprimindo"); });
 }
 
 // ── a barra de baixo do celular ────────────────────────────────────────────

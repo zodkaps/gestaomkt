@@ -15,6 +15,7 @@ import * as M from "../modelo.js";
 import * as pessoas from "../pessoas.js";
 import { el, limpar, brCurto, caixa, campo } from "../ui.js";
 import { criarNova, frotas, programarEmLote, gravarOS } from "./comum.js";
+import { imprimirPendencias } from "./imprimir.js";
 import { grade, faixaSituacoes, progresso, natural, repintarMantendoFoco } from "./grade.js";
 import { busca as semAcento } from "../texto.js";
 
@@ -78,6 +79,8 @@ export async function montar(raiz, ctx, params) {
       el("h1", {}, "Programação"),
       periodos,
       el("div", { class: "espaco" }),
+      el("button", { title: "Folha com as atividades em aberto por frota, para a oficina",
+        onclick: () => imprimirPendencias({ frota: estado.frota || "" }) }, "Imprimir pendências"),
       pessoas.pode("programar")
         ? el("button", { class: "primario", onclick: () => criarNova(ctx,
           estado.periodo === "semana" ? { ano: estado.ano, semana: estado.semana } : {}) }, "+ Nova")
