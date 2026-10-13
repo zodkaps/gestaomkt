@@ -14,7 +14,10 @@ import * as ev from "./eventos.js";
 import * as M from "./modelo.js";
 import { chave } from "./texto.js";
 
-const LEVA = new Set(["concluida", "justificada", "excluida", "cancelada", "reaberta",
+// A exclusão feita numa cópia NÃO vai: com tudo aparecendo duas vezes, quem
+// excluía uma cópia estava tirando a duplicata da tela, não a atividade — levar
+// a exclusão apagou uma atividade em aberto (A-0467, 13/10).
+const LEVA = new Set(["concluida", "justificada", "cancelada", "reaberta",
   "programada", "reprogramada"]);
 
 const soLetras = f => String(f || "").toUpperCase().replace(/[^A-Z0-9]/g, "");
@@ -35,6 +38,7 @@ export function lancamentosEmCopias(legado = ev.legado, fita = ev.log, atual = e
     porChave.get(k).push(a);
   }
   const r = [];
+  const baixaJaTinha = new Set();   // cópias cuja baixa a certa já tinha
   for (const e of fita) {
     if ((e.alvo_tipo || "atividade") !== "atividade" || !LEVA.has(e.tipo)) continue;
     if (atual.has(e.alvo) || !copias.has(e.alvo)) continue;
@@ -46,9 +50,15 @@ export function lancamentosEmCopias(legado = ev.legado, fita = ev.log, atual = e
       por = "OS";
     }
     const certa = candidatas.length === 1 ? atual.get(candidatas[0].id) : null;
+    let feito = certa ? jaEsta(e, certa) : false;
+    // A cópia era de uma atividade que, no banco, já estava concluída: a baixa
+    // não vai, e a justificativa que a acompanhava também não — ela falava de
+    // um atraso que a certa não teve, e apagaria o motivo dela.
+    if (certa && e.tipo === "concluida" && feito) baixaJaTinha.add(e.alvo);
+    if (certa && e.tipo === "justificada" && (baixaJaTinha.has(e.alvo) || M.feita(certa))) feito = true;
     r.push({ e, copia, certa, por: certa ? por : "",
       porque: certa ? "" : candidatas.length > 1 ? `${candidatas.length} parecidas — escolha na tela` : "não achei a atividade no banco",
-      feito: certa ? jaEsta(e, certa) : false });
+      feito });
   }
   return r;
 }
@@ -90,7 +100,6 @@ export function levarParaAsCertas(itens) {
     switch (it.e.tipo) {
       case "concluida": novo = ev.concluir(a, d.em); a.concluida_em = d.em; a.feita_sem_data = false; break;
       case "justificada": novo = ev.justificar(a, d, "atividade"); a.motivo = String(d.motivo || "").trim(); break;
-      case "excluida": novo = ev.excluir(a, it.e.motivo || ""); a.excluida = true; break;
       case "cancelada": novo = ev.cancelar(a, it.e.motivo || "Lançado numa cópia antiga deste aparelho"); a.cancelada = true; break;
       case "reaberta": novo = ev.reabrir(a, it.e.motivo || ""); a.concluida_em = ""; a.feita_sem_data = false; break;
       case "programada": case "reprogramada": {

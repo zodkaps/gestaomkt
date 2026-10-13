@@ -823,7 +823,10 @@ titulo("legado.js — lançamentos que caíram nas cópias antigas do aparelho")
     { id: "c1", ts: "2026-10-13T18:38:00.000Z", tipo: "concluida", alvo: "mu-1", alvo_tipo: "atividade", dados: { em: "2026-10-09" } },
     { id: "j1", ts: "2026-10-13T18:38:01.000Z", tipo: "justificada", alvo: "mu-1", alvo_tipo: "atividade", dados: { motivo: "Peça atrasou", quem: "Fornecedor", texto: "" } },
     { id: "c2", ts: "2026-10-13T18:38:02.000Z", tipo: "concluida", alvo: "mu-2", alvo_tipo: "atividade", dados: { em: "2026-10-13" } },
+    { id: "j2", ts: "2026-10-13T18:38:02.500Z", tipo: "justificada", alvo: "mu-2", alvo_tipo: "atividade", dados: { motivo: "Frota não chegou na oficina", quem: "", texto: "" } },
     { id: "x3", ts: "2026-10-13T18:38:03.000Z", tipo: "excluida", alvo: "mu-3", alvo_tipo: "atividade", motivo: "" },
+    { id: "c3", ts: "2026-10-13T18:38:03.500Z", tipo: "concluida", alvo: "mu-3", alvo_tipo: "atividade", dados: { em: "2026-10-13" } },
+    { id: "x2", ts: "2026-10-13T18:38:03.700Z", tipo: "excluida", alvo: "mu-2", alvo_tipo: "atividade", motivo: "" },
     { id: "c4", ts: "2026-10-13T18:38:04.000Z", tipo: "concluida", alvo: "mu-4", alvo_tipo: "atividade", dados: { em: "2026-10-12" } },
   ];
   const fita = [...banco, ...depois];
@@ -832,11 +835,13 @@ titulo("legado.js — lançamentos que caíram nas cópias antigas do aparelho")
     [...atual.values()].filter(a => a.frota === "F-617").length === 3 && !atual.has("mu-1"));
   const itens = leg.lancamentosEmCopias(legado, fita, atual);
   const de = id => itens.filter(it => it.e.id === id)[0];
-  igual("acha os cinco lançamentos que foram para cópias", itens.map(it => it.e.id), ["c1", "j1", "c2", "x3", "c4"]);
+  igual("acha os lançamentos que foram para cópias — exclusão de cópia não entra (era tirar a duplicata)",
+    itens.map(it => it.e.id), ["c1", "j1", "c2", "j2", "c3", "c4"]);
   ok("a baixa da cópia acha a certa pela atividade, mesmo com maiúsculas diferentes",
     de("c1").certa && de("c1").certa.id === "A-0205" && de("c1").por === "atividade" && !de("c1").feito, JSON.stringify(de("c1").certa));
   ok("a certa que já tem baixa não leva de novo", de("c2").certa.id === "A-0935" && de("c2").feito);
-  ok("a que o banco não tem fica sem correspondência, dizendo por quê", !de("x3").certa && /não achei/.test(de("x3").porque));
+  ok("nem a justificativa que acompanhava essa baixa (não apaga o motivo da certa)", de("j2").feito);
+  ok("a que o banco não tem fica sem correspondência, dizendo por quê", !de("c3").certa && /não achei/.test(de("c3").porque));
   ok("texto diferente, mesma OS na mesma frota: acha pela OS", de("c4").certa && de("c4").certa.id === "A-0300" && de("c4").por === "OS");
   const novos = leg.levarParaAsCertas(itens);
   igual("levar faz a baixa e a justificativa na certa, com a data e o motivo da cópia",
@@ -844,7 +849,8 @@ titulo("legado.js — lançamentos que caíram nas cópias antigas do aparelho")
     [["concluida", "A-0205", "2026-10-09"], ["justificada", "A-0205", "Peça atrasou"], ["concluida", "A-0300", "2026-10-12"]]);
   const depoisDeLevar = ev.reconstruir([...fita, ...novos.map((e, i) => ({ ...e, id: "n" + i, ts: "2026-10-13T19:00:0" + i + ".000Z" }))]).atividade;
   ok("e, levado, nada mais fica pendente", leg.lancamentosEmCopias(legado, fita, depoisDeLevar).filter(it => it.certa && !it.feito).length === 0);
-  igual("em palavras", [leg.descrever(depois[0]), leg.descrever(depois[1]), leg.descrever(depois[3])],
+  const porId = id => depois.find(e => e.id === id);
+  igual("em palavras", [leg.descrever(porId("c1")), leg.descrever(porId("j1")), leg.descrever(porId("x3"))],
     ["baixa em 09/10/2026", "justificativa: Peça atrasou (Fornecedor)", "exclusão"]);
 }
 

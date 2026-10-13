@@ -43,7 +43,8 @@ export async function abrirCopias() {
         "próprios. Cada atividade aparecia duas vezes, e estes lançamentos foram feitos na cópia antiga — ",
         el("b", {}, "a atividade de verdade, a do banco, não recebeu"), ". As cópias já não aparecem nas telas."),
       comCerta.length ? el("p", {}, `${comCerta.length} têm a atividade certa encontrada (mesma frota e mesma atividade). ` +
-        "Levar faz o mesmo lançamento nela, com a mesma data e o mesmo motivo.") : null,
+        "Levar faz o mesmo lançamento nela, com a mesma data e o mesmo motivo. Exclusões feitas nas cópias não " +
+        "aparecem aqui (eram para tirar a duplicata), nem baixas e justificativas de atividades que já estavam concluídas.") : null,
       semCerta.length ? el("p", { class: "nada" }, `${semCerta.length} sem correspondência certa: confira na Programação e lance à mão, ` +
         "depois dispense aqui.") : null,
       el("div", { class: "tabela-rolagem" }, el("table", { class: "tabela" },

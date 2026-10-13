@@ -618,6 +618,13 @@ mesma OS na mesma frota) e **Levar para as certas** refaz o lançamento nela,
 com a mesma data e o mesmo motivo. O que não tem correspondência fica listado
 para lançar à mão, e pode ser dispensado. `js/legado.js` e `js/tela/copias.js`.
 
+Duas coisas **não** são levadas, depois do que aconteceu em 13/10: a
+**exclusão** feita numa cópia (com tudo em dobro, excluir a cópia era tirar a
+duplicata da tela — levá-la excluiu a A-0467, em aberto) e a **justificativa**
+de uma cópia cuja atividade certa já estava concluída (falava de um atraso que
+a certa não teve, e apagava o motivo da planilha — A-0502, A-0503, A-0514). As
+quatro foram desfeitas no banco no mesmo dia.
+
 ### Dois caminhos para alimentar o site: a planilha e os pedidos ao Claude
 
 O site é alimentado pela **planilha** (aba Importar, que atualiza por ID e não
