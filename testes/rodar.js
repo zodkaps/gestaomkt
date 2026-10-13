@@ -688,6 +688,14 @@ titulo("fechamento.js — a semana fechada não muda");
     ok("com a observação da reunião", /^Número apresentado na reunião: 21 de 25/.test(lidos[0].obs), lidos[0].obs);
     ok("a 40 e a 41, com a amarela vazia, ficam de fora", !lidos.some(x => x.semana >= 40));
   }
+  // A linha de tendência não mostra a conta de hoje de semana que acabou sem número
+  const { naTendencia } = await import("../js/fechamento.js");
+  igual("na tendência: semana encerrada sem número fica em branco; registrada, automática e em andamento entram",
+    [naTendencia({ modo: "sem_fechamento", numeros: null, ao_vivo: { aderencia: 1 } }, "aderencia"),
+      naTendencia({ modo: "registrado", numeros: { aderencia: 0.88 }, ao_vivo: { aderencia: 1 } }, "aderencia"),
+      naTendencia({ modo: "automatico", numeros: { aderencia: 0.4 }, ao_vivo: { aderencia: 1 } }, "aderencia"),
+      naTendencia({ modo: "em_andamento", numeros: null, ao_vivo: { aderencia: 0.5 } }, "aderencia")],
+    [null, 0.88, 0.4, 0.5]);
 }
 
 // ── preventivas: reprogramar, incluir, editar, o que mudou ─────────────────

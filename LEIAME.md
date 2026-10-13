@@ -719,6 +719,16 @@ com o banco ligado, o botão *Fechar a semana* some e a importação não traz a
 coluna amarela — um lançamento recusado prenderia a fila de quem fechou. O
 automático da sexta e os números já registrados valem do mesmo jeito.
 
+**Semana encerrada sem número fica em branco na linha de tendência.** A conta
+de hoje de uma semana velha só sobe: conta a baixa lançada depois e tira do
+plano o que foi empurrado para a frente — com o tempo, toda semana passada
+chega a 100% nela (em 13/10, da 35 à 41, todas davam 100%). A semana 40, que não
+tinha número na planilha, apareceu assim. Agora a linha mostra só o registrado
+e o automático (e a semana em andamento); a semana que acabou antes do site e
+sem coluna amarela fica em branco, e o tooltip diz por quê. A semana 40 foi
+registrada em 13/10 com a conta da planilha como estava na importação de 09/10
+(88,2%, 30 de 34).
+
 O **calculado de hoje fica sempre ao lado** — "hoje o cálculo daria 100% (+35
 p.p.)" — e o quadro de fechamento mostra registrado, hoje e a diferença, como a
 coluna *Diferença* da planilha. A tendência usa o número registrado. Com filtro

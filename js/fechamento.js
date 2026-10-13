@@ -101,6 +101,15 @@ export function daPlanilha(n) {
   return !!n && (n.origem === "planilha" || /\.(xlsx|xlsm|xls|csv)$/i.test(n.fonte || ""));
 }
 
+/** O valor de uma semana na LINHA DE TENDÊNCIA. A semana que acabou sem
+ *  número — antes do site existir e sem a coluna amarela — fica fora (lacuna):
+ *  a conta de hoje dela só sobe, porque conta a baixa lançada depois e tira do
+ *  plano o que foi empurrado para a frente. Foi assim que a semana 40 apareceu
+ *  com 100% (34 de 34) em 13/10. A semana em andamento entra com a de hoje. */
+export function naTendencia(f, campo) {
+  return f.modo === "sem_fechamento" ? null : vale(f, campo);
+}
+
 /** O valor que vale para um indicador: o registrado, se houver; senão o de hoje. */
 export function vale(f, campo) {
   if (f.numeros && f.numeros[campo] != null) return f.numeros[campo];

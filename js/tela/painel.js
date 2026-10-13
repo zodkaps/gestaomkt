@@ -16,7 +16,7 @@ import * as M from "../modelo.js";
 import * as pessoas from "../pessoas.js";
 import { el, limpar, br, brCurto } from "../ui.js";
 import { todas as todasDecisoes, planoVigente, resumir } from "../decisoes.js";
-import { fechamentos, vale } from "../fechamento.js";
+import { fechamentos, naTendencia } from "../fechamento.js";
 import { listaDecisoes } from "./decidir.js";
 import { cartaoGrafico, graficoLinhas } from "../graficos.js";
 
@@ -59,7 +59,7 @@ export async function montar(raiz, ctx) {
     corpo.append(el("div", { class: "grandes quatro" },
       grande("Aderência da semana", pc(r.aderencia),
         `${r.concluidas_plano} de ${r.plano} do plano · semana ${semana} em andamento` +
-        (anterior ? ` · a ${anterior.semana} fechou em ${pc(vale(anterior, "aderencia"))}` : ""),
+        (anterior && naTendencia(anterior, "aderencia") != null ? ` · a ${anterior.semana} fechou em ${pc(naTendencia(anterior, "aderencia"))}` : ""),
         cor(r.aderencia), () => ctx.ir("resultados")),
       grande("Vencidas na oficina", String(vencidas), "atividades com o período encerrado sem conclusão",
         vencidas ? "vencida" : "ok", () => ctx.ir("programacao", "m=abertas&sit=VENCIDA")),
@@ -119,7 +119,7 @@ export async function montar(raiz, ctx) {
     const grade = el("div", { class: "bi-grade" });
     corpo.append(grade);
     const card = cartaoGrafico("Aderência e cumprimento, semana a semana",
-      "o número registrado no fechamento de cada semana; a atual, calculada hoje · clique para abrir",
+      "o número registrado no fechamento de cada semana; a atual, calculada hoje; sem número, em branco · clique para abrir",
       el("div", { class: "g-corpo" }), { legendaDe: [{ nome: "Aderência à programação", cor: "var(--s1)" },
         { nome: "Cumprimento geral", cor: "var(--s2)" }] });
     card.classList.add("larga");
@@ -127,8 +127,9 @@ export async function montar(raiz, ctx) {
     card.querySelector(".g-corpo").append(graficoLinhas({
       largura: Math.max(280, (card.clientWidth || 600) - 28), xs: semanas.map(w => "S" + w.semana), meta: 0.9,
       marcado: semanas.length - 1,
-      series: [{ nome: "Aderência", cor: "var(--s1)", valores: fs.map(f => vale(f, "aderencia")) },
-        { nome: "Cumprimento", cor: "var(--s2)", valores: fs.map(f => vale(f, "cumprimento")) }],
+      // semana que acabou sem número registrado fica de fora (ver naTendencia)
+      series: [{ nome: "Aderência", cor: "var(--s1)", valores: fs.map(f => naTendencia(f, "aderencia")) },
+        { nome: "Cumprimento", cor: "var(--s2)", valores: fs.map(f => naTendencia(f, "cumprimento")) }],
       aoClicar: i => ctx.ir("resultados", `s=${semanas[i].semana}&a=${semanas[i].ano}`) }));
   }
 

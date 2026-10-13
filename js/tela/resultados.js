@@ -16,7 +16,7 @@ import * as ev from "../eventos.js";
 import * as M from "../modelo.js";
 import * as pessoas from "../pessoas.js";
 import { el, limpar, br, brCurto, caixa, campo, avisar, erro } from "../ui.js";
-import { fechamentos, vale, daPlanilha, podeGravarFechamento } from "../fechamento.js";
+import { fechamentos, vale, naTendencia, daPlanilha, podeGravarFechamento } from "../fechamento.js";
 import { outrosIndicadores } from "./indicadores.js";
 import { natural } from "./grade.js";
 import { cartaoGrafico, graficoLinhas, graficoColunas, graficoBarras, minilinha } from "../graficos.js";
@@ -137,7 +137,7 @@ export async function montar(raiz, ctx, params) {
     const serie = semanas.map(w => M.resultados(ats, w.ano, w.semana));
     // O fechamento vale para a oficina inteira: com filtro, só o calculado.
     const fs = filtrado ? null : fechamentos(semanas, { atividades: todas });
-    const valeEm = (i, k) => fs ? vale(fs[i], k) : serie[i][k];
+    const valeEm = (i, k) => fs ? naTendencia(fs[i], k) : serie[i][k];
     const f = fs ? fs[fs.length - 1] : null;
     const reg = f && f.numeros;
     const ant = serie.length > 1 ? { aderencia: valeEm(serie.length - 2, "aderencia"),
@@ -224,7 +224,7 @@ export async function montar(raiz, ctx, params) {
 
     // 1. a tendência
     pendurar(cartaoGrafico("Aderência e cumprimento, semana a semana",
-      fs ? "o número registrado no fechamento de cada semana · clique numa semana para vê-la"
+      fs ? "o número registrado no fechamento de cada semana (semana sem número fica em branco) · clique numa semana para vê-la"
         : "clique numa semana para vê-la", el("div", { class: "g-corpo" }),
       { legendaDe: [{ nome: "Aderência à programação", cor: S1 }, { nome: "Cumprimento geral", cor: S2 }] }),
     w => graficoLinhas({ largura: w, xs, marcado, meta: 0.9,
@@ -232,8 +232,8 @@ export async function montar(raiz, ctx, params) {
         { nome: "Cumprimento", cor: S2, valores: serie.map((_, i) => valeEm(i, "cumprimento")) }],
       detalhe: i => {
         const n = fs && fs[i].numeros;
-        if (fs && fs[i].modo === "sem_fechamento") return [{ valor: "sem registro", rotulo: "calculado hoje" },
-          { valor: `${serie[i].concluidas_plano} de ${serie[i].plano}`, rotulo: "do plano" }];
+        if (fs && fs[i].modo === "sem_fechamento") return [{ valor: "sem número registrado", rotulo: "fora da linha" },
+          { valor: "a conta de hoje", rotulo: `daria ${serie[i].concluidas_plano} de ${serie[i].plano} — conta baixa lançada depois` }];
         if (n && n.plano == null) return [{ valor: "registrado", rotulo: daPlanilha(n) ? "na planilha" : "digitado" }];
         const x = n || serie[i];
         return [{ valor: `${x.concluidas_plano} de ${x.plano}`, rotulo: "do plano" },
