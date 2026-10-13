@@ -80,12 +80,16 @@ create policy eventos_insere on public.eventos
       public.papel_atual() = 'pcm'
       or (
         public.papel_atual() = 'operacao'
-        and alvo_tipo in ('movimentacao', 'preventiva')
         -- sem 'importada': importar é do PCM. Com ela, um lançamento feito
         -- à mão poderia chegar já "aprovado" e pular a conferência do PCM.
-        and tipo in ('criada', 'editada',
-                     'mov_prometida', 'mov_chegou', 'mov_cancelada',
-                     'justificada', 'prev_disponivel')
+        and (
+          (alvo_tipo = 'movimentacao'
+            and tipo in ('criada', 'editada',
+                         'mov_prometida', 'mov_chegou', 'mov_cancelada', 'justificada'))
+          -- na preventiva, a operação só informa a liberação da frota:
+          -- incluir uma frota no plano e editar a preventiva são do PCM
+          or (alvo_tipo = 'preventiva' and tipo = 'prev_disponivel')
+        )
       )
     )
 

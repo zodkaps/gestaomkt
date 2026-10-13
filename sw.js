@@ -7,7 +7,7 @@
 // A estratégia é rede primeiro, cache como rede reserva: assim uma versão nova
 // do site chega sem precisar de truque, e a falta de rede não trava nada.
 
-const VERSAO = "mkt-v16";
+const VERSAO = "mkt-v17";
 const ARQUIVOS = [
   "./",
   "./index.html",
@@ -32,6 +32,9 @@ const ARQUIVOS = [
   "./js/tela/acoes.js",
   "./js/tela/imprimir.js",
   "./js/tela/contexto.js",
+  "./js/tela/decidir.js",
+  "./js/tela/painel.js",
+  "./js/decisoes.js",
   "./js/tela/resultados.js",
   "./js/graficos.js",
   "./js/tela/frota.js",

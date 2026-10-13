@@ -1176,3 +1176,75 @@ body.entrando main { padding: 0; max-width: none; }
 .g-dica-lin { display: flex; align-items: center; gap: 7px; padding: 1px 0; }
 .g-dica-lin b { font-variant-numeric: tabular-nums; }
 .g-dica-lin span { color: var(--fraco); overflow-wrap: anywhere; }
+
+/* ── painel de controle e decisões (js/tela/painel.js, js/tela/decidir.js) ──
+   As decisões: uma linha por item, com o nível escrito (Urgente, Atenção,
+   Oportunidade) — a cor da borda acompanha o rótulo, nunca o substitui. */
+.decisoes { display: flex; flex-direction: column; gap: 8px; margin-bottom: 18px; }
+.decisao {
+  display: grid; grid-template-columns: 128px 1fr auto; gap: 12px; align-items: start;
+  background: var(--papel); border: 1px solid var(--linha); border-left: 3px solid var(--borda);
+  border-radius: var(--raio); padding: 10px 12px;
+}
+.decisao.n1 { border-left-color: var(--vencida); }
+.decisao.n2 { border-left-color: var(--hoje); }
+.decisao.n3 { border-left-color: var(--ok); }
+.decisao .d-cab { display: flex; flex-direction: column; align-items: flex-start; gap: 4px; }
+.decisao .d-area { font-size: 11px; color: var(--muito-fraco); }
+.decisao .d-tit { font-weight: 650; font-size: 13.5px; line-height: 1.35; }
+.decisao .d-det { font-size: 12.5px; color: var(--fraco); line-height: 1.45; margin-top: 2px; overflow-wrap: anywhere; }
+.decisao .d-acoes { display: flex; gap: 6px; flex-wrap: wrap; justify-content: flex-end; max-width: 300px; }
+button.primario-leve { border-color: var(--marca); color: var(--texto); }
+button.primario-leve:hover { background: var(--marca-clara); }
+.ver-mais { align-self: flex-start; }
+.decisao-vazia { padding: 10px 0 18px; }
+@media (max-width: 860px) {
+  .decisao { grid-template-columns: 1fr; gap: 6px; }
+  .decisao .d-cab { flex-direction: row; align-items: center; }
+  .decisao .d-acoes { justify-content: flex-start; max-width: none; }
+}
+
+.grandes.quatro { grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); }
+.grande.clicavel, .kpi.clicavel { cursor: pointer; }
+.grande.clicavel:hover, .kpi.clicavel:hover { border-color: var(--borda); background: var(--papel2); }
+.grande.ok { border-top-color: var(--ok); } .grande.ok .g-val { color: var(--ok); }
+.grande .g-val { white-space: nowrap; }
+.painel .grande .g-val { font-size: 38px; }
+/* No celular, os quatro números do Painel em duas colunas, para a lista de
+ * decisões aparecer sem rolar meia tela. */
+@media (max-width: 600px) {
+  .grandes.quatro { grid-template-columns: 1fr 1fr; gap: 8px; }
+  .grandes.quatro .grande { padding: 10px 10px; }
+  .painel .grande .g-val { font-size: 30px; margin: 4px 0 2px; }
+  .grandes.quatro .grande .g-tit { font-size: 10px; letter-spacing: .04em; }
+  .grandes.quatro .grande .g-txt { font-size: 11.5px; }
+  .titulo-secao { flex-wrap: wrap; row-gap: 2px; }
+}
+/* No celular, os cartões de número em duas colunas: em três, um rótulo como
+ * "Reprogramações" não cabe. Se ainda assim não couber, quebra, sem vazar. */
+@media (max-width: 600px) { .kpis { grid-template-columns: 1fr 1fr; } }
+.kpi .k-rot { overflow-wrap: break-word; }
+
+.areas { display: grid; gap: 12px; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); margin-bottom: 18px; }
+.area-card { background: var(--papel); border: 1px solid var(--linha); border-radius: var(--raio); padding: 12px 14px; }
+.area-card .a-tit { font-weight: 650; margin-bottom: 8px; }
+.area-card .a-lin { display: flex; justify-content: space-between; gap: 10px; font-size: 13px; padding: 4px 0;
+  border-bottom: 1px solid var(--linha); color: var(--fraco); }
+.area-card .a-lin b { color: var(--texto); font-variant-numeric: tabular-nums; }
+.area-card .a-lin b.t-vencida { color: var(--vencida); }
+.area-card .a-lin b.t-hoje { color: var(--hoje); }
+.area-card button { margin-top: 10px; }
+
+/* O ritmo do mês: realizadas × mês decorrido, lado a lado */
+.ritmo { display: grid; grid-template-columns: 140px 1fr 1fr; gap: 14px; align-items: center;
+  background: var(--papel); border: 1px solid var(--linha); border-radius: var(--raio); padding: 12px 14px; margin-bottom: 16px; }
+.ritmo-tit { font-size: 11px; text-transform: uppercase; letter-spacing: .07em; color: var(--muito-fraco); font-weight: 700; }
+.ritmo .medidor .num { font-size: 24px; }
+@media (max-width: 860px) { .ritmo { grid-template-columns: 1fr; } }
+
+/* O registro de mudanças da preventiva */
+.evento.mudanca .qdo small { display: block; color: var(--muito-fraco); font-size: 10.5px; }
+.evento.mudanca .chip.tipo-mud { font-size: 10.5px; margin-right: 2px; }
+.mud-det { font-size: 12px; color: var(--fraco); margin-top: 2px; }
+.lista-mudancas .evento.mudanca:hover { background: var(--papel2); }
+.form-prev .dupla, .form-prev .tripla { align-items: end; }

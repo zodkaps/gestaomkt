@@ -22,6 +22,36 @@ begin;
   insert into eventos (id,autor,tipo,alvo_tipo,alvo) values ('t1c','Pedro','justificada','atividade','A-0001');
 rollback;
 
+\echo '── 1d. Pedro cria uma solicitação de movimentação — TEM de passar'
+begin;
+  set local role authenticated;
+  set local request.jwt.claims = '{"email":"pedro@makroteste.com.br"}';
+  insert into eventos (id,autor,tipo,alvo_tipo,alvo) values ('t1d','Pedro','criada','movimentacao','M-0002');
+  select '   → passou' as resultado;
+commit;
+
+\echo '── 1e. Pedro informa a liberação de uma frota para a preventiva — TEM de passar'
+begin;
+  set local role authenticated;
+  set local request.jwt.claims = '{"email":"pedro@makroteste.com.br"}';
+  insert into eventos (id,autor,tipo,alvo_tipo,alvo,dados) values ('t1e','Pedro','prev_disponivel','preventiva','P-0001','{"quando":"agora"}');
+  select '   → passou' as resultado;
+commit;
+
+\echo '── 1f. Pedro tenta incluir uma frota no plano de preventivas — RECUSADO'
+begin;
+  set local role authenticated;
+  set local request.jwt.claims = '{"email":"pedro@makroteste.com.br"}';
+  insert into eventos (id,autor,tipo,alvo_tipo,alvo) values ('t1f','Pedro','criada','preventiva','P-0009');
+rollback;
+
+\echo '── 1g. Pedro tenta editar uma preventiva — RECUSADO'
+begin;
+  set local role authenticated;
+  set local request.jwt.claims = '{"email":"pedro@makroteste.com.br"}';
+  insert into eventos (id,autor,tipo,alvo_tipo,alvo) values ('t1g','Pedro','editada','preventiva','P-0001');
+rollback;
+
 \echo '── 2. Pedro tenta dar baixa numa ATIVIDADE — tem de ser RECUSADO'
 begin;
   set local role authenticated;

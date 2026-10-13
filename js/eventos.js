@@ -263,16 +263,29 @@ function aplicarNoAlvo(a, ev, d) {
       break;
 
     // ── preventiva ──
-    case "prev_disponivel":
+    case "prev_disponivel": {
       // "agora" e uma data são respostas diferentes à mesma pergunta, e na
       // planilha moram na mesma coluna — o que impede qualquer ordenação.
+      const antes = a.disponivel_agora ? "agora" : (a.disponivel_em || "");
       a.disponivel_agora = d.quando === "agora";
       a.disponivel_em = d.quando === "agora" ? "" : (d.quando || "");
+      const depois = a.disponivel_agora ? "agora" : a.disponivel_em;
+      if (antes && depois !== antes) a.reprog_liberacao = (a.reprog_liberacao || 0) + 1;
       break;
-    case "prev_parada":
+    }
+    case "prev_parada": {
+      // Mudar o dia de uma parada já marcada é reprogramar: conta, e o motivo
+      // fica. A primeira data nunca muda — é contra ela que se vê o empurrão.
+      const antes = a.dia_parada || "";
       a.dia_parada = d.dia || "";
       if (d.onde) a.onde_fazer = d.onde;
+      if (!a.parada_orig) a.parada_orig = antes || a.dia_parada;
+      if (antes && a.dia_parada && antes !== a.dia_parada) {
+        a.reprog_parada = (a.reprog_parada || 0) + 1;
+        a.motivo_parada = ev.motivo || "";
+      }
       break;
+    }
     case "prev_realizada":
       a.realizada_em = d.em || "";
       a.realizada_sem_data = false;
@@ -559,6 +572,7 @@ export function justificar(alvo, { motivo = "", quem = "", texto = "" }, alvoTip
 /** Edição comum de campos. Só entra no log o que realmente mudou. */
 export function editar(a, campos, alvoTipo = "atividade") {
   if (alvoTipo === "atividade") pessoas.exigir("editar_atividade");
+  else if (alvoTipo === "preventiva") pessoas.exigir("parada");
   else pessoas.exigir("movimentar");
   const de = {}, para = {};
   for (const [k, v] of Object.entries(campos)) {
@@ -573,6 +587,13 @@ export function editar(a, campos, alvoTipo = "atividade") {
   if (alvoTipo === "atividade") {
     for (const k of DE_PROGRAMACAO) {
       if (k in para) throw new Error("Programação se muda por reprogramar(), não por editar().");
+    }
+  }
+  // Na preventiva, parada, liberação e realização têm lançamento próprio — é
+  // por eles que a reprogramação se conta e o motivo se pede.
+  if (alvoTipo === "preventiva") {
+    for (const k of ["dia_parada", "disponivel_em", "disponivel_agora", "realizada_em", "adiada", "cancelada"]) {
+      if (k in para) throw new Error("Parada, liberação e realização têm lançamento próprio.");
     }
   }
   return { tipo: "editada", alvo: a.id, alvo_tipo: alvoTipo, dados: { de, para } };
@@ -627,19 +648,35 @@ export function cancelarMovimentacao(m, motivo) {
 
 
 /** A operação diz quando o caminhão fica livre. "agora" é resposta válida. */
-export function informarDisponibilidade(p, quando) {
+export function informarDisponibilidade(p, quando, motivo = "") {
   pessoas.exigir("disponibilidade");
   if (!quando) throw new Error("Informe 'agora' ou uma data.");
+  const antes = p.disponivel_agora ? "agora" : (p.disponivel_em || "");
   return { tipo: "prev_disponivel", alvo: p.id, alvo_tipo: "preventiva",
-    dados: { quando } };
+    motivo: antes && antes !== quando ? String(motivo || "").trim() : "",
+    dados: { quando, de: antes } };
 }
 
-/** O PCM marca o dia em que o caminhão para. */
-export function marcarParada(p, dia, onde = "") {
+/** O PCM marca o dia em que o caminhão para. Trocar o dia de uma parada já
+ *  marcada é reprogramar, e — como na atividade — exige motivo. */
+export function marcarParada(p, dia, onde = "", motivo = "") {
   pessoas.exigir("parada");
   if (!dia) throw new Error("Programar a parada exige a data.");
+  const reprograma = !!p.dia_parada && p.dia_parada !== dia;
+  if (reprograma && !String(motivo || "").trim()) {
+    throw new Error("Reprogramar a parada exige motivo.");
+  }
   return { tipo: "prev_parada", alvo: p.id, alvo_tipo: "preventiva",
-    dados: { dia, onde } };
+    motivo: reprograma ? String(motivo).trim() : "",
+    dados: { dia, onde, de: p.dia_parada || "" } };
+}
+
+/** Incluir uma frota no plano de preventivas do mês, pelo site. */
+export function novaPreventiva(campos) {
+  pessoas.exigir("parada");
+  if (!String(campos.frota || "").trim()) throw new Error("Falta a frota.");
+  if (!campos.mes) throw new Error("Falta o mês do plano.");
+  return criar({ ...campos, frota: String(campos.frota).trim() }, "manual", "", "preventiva");
 }
 
 export function preventivaFeita(p, em, os = "") {
@@ -700,6 +737,33 @@ export function porId(id, tipo = "atividade") { return estado[tipo].get(id); }
 export function achar(id) {
   for (const t of ALVOS) if (estado[t].has(id)) return { tipo: t, item: estado[t].get(id) };
   return null;
+}
+
+/** O que cada lançamento mudou num item: a fita dele tocada do começo, com o
+ *  antes e o depois de cada passo. É o que deixa o registro dizer "parada
+ *  15/10 → 18/10" em vez de só "programou a parada". Do mais velho para o mais
+ *  novo. */
+export function mudancasDe(id, alvoTipo = "atividade") {
+  const mapas = reconstruir([]);
+  const r = [];
+  for (const e of log) {
+    if (e.alvo !== id || (e.alvo_tipo || "atividade") !== alvoTipo) continue;
+    const atual = mapas[alvoTipo].get(id);
+    const antes = atual ? JSON.parse(JSON.stringify(atual)) : null;
+    dobrar(mapas, e);
+    const depois = mapas[alvoTipo].get(id) ? JSON.parse(JSON.stringify(mapas[alvoTipo].get(id))) : null;
+    const mudou = [];
+    if (antes && depois) {
+      for (const k of Object.keys(depois)) {
+        if (k === "_site" || k === "criada_em" || k === "fonte" || k === "id") continue;
+        if (JSON.stringify(antes[k] ?? null) !== JSON.stringify(depois[k] ?? null)) {
+          mudou.push({ campo: k, de: antes[k], para: depois[k] });
+        }
+      }
+    }
+    r.push({ e, antes, depois, mudou });
+  }
+  return r;
 }
 
 /** O histórico de um item, do mais novo para o mais velho. */

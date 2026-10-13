@@ -690,6 +690,122 @@ titulo("fechamento.js — a semana fechada não muda");
   }
 }
 
+// ── preventivas: reprogramar, incluir, editar, o que mudou ─────────────────
+titulo("eventos.js — preventiva: reprogramar a parada, incluir frota, registro");
+{
+  await entrarComo("Mateus");
+  const [cr] = await ev.aplicar(ev.novaPreventiva({ ...modelo.moldePreventiva(), frota: "F-PREV1", mes: "Out-26",
+    plano: "15 mil km", vence: "2026-10-20", hh: 4 }));
+  const id = cr.alvo;
+  const p0 = () => ev.porId(id, "preventiva");
+  igual("incluir frota cria a preventiva no mês, lançada no site", [cr.tipo, p0().mes, p0().fonte, p0().plano],
+    ["criada", "Out-26", "", "15 mil km"]);
+  igual("e ela fica aguardando a operação", modelo.esperandoQuem(p0()), "Operação");
+  let semFrota = "";
+  try { ev.novaPreventiva({ mes: "Out-26" }); } catch (e) { semFrota = e.message; }
+  ok("sem frota não inclui", /frota/i.test(semFrota), semFrota);
+
+  await ev.aplicar(ev.informarDisponibilidade(p0(), "2026-10-14"));
+  await ev.aplicar(ev.marcarParada(p0(), "2026-10-15", "Interna"));
+  igual("a primeira parada não é reprogramação", [p0().reprog_parada, p0().parada_orig], [0, "2026-10-15"]);
+  let semMotivo = "";
+  try { ev.marcarParada(p0(), "2026-10-17"); } catch (e) { semMotivo = e.message; }
+  ok("mudar o dia da parada sem motivo não passa", /motivo/i.test(semMotivo), semMotivo);
+  ok("confirmar o mesmo dia não pede motivo", !!ev.marcarParada(p0(), "2026-10-15", "Terceiro"));
+  await ev.aplicar(ev.marcarParada(p0(), "2026-10-17", "", "frota em viagem"));
+  igual("reprogramada: conta, guarda a primeira data e o motivo",
+    [p0().dia_parada, p0().reprog_parada, p0().parada_orig, p0().motivo_parada], ["2026-10-17", 1, "2026-10-15", "frota em viagem"]);
+  await ev.aplicar(ev.informarDisponibilidade(p0(), "agora", "voltou antes"));
+  igual("a liberação alterada também conta", p0().reprog_liberacao, 1);
+
+  let editaParada = "";
+  try { ev.editar(p0(), { dia_parada: "2026-10-30" }, "preventiva"); } catch (e) { editaParada = e.message; }
+  ok("editar não troca a parada por fora da reprogramação", /próprio/i.test(editaParada), editaParada);
+  await ev.aplicar(ev.editar(p0(), { vence: "2026-10-25", hh: 6 }, "preventiva"));
+  igual("editar muda o resto", [p0().vence, p0().hh], ["2026-10-25", 6]);
+
+  const mud = ev.mudancasDe(id, "preventiva");
+  const reprog = mud.find(m => m.e.tipo === "prev_parada" && m.e.motivo);
+  igual("o registro sabe o antes e o depois de cada passo",
+    [reprog.antes.dia_parada, reprog.depois.dia_parada], ["2026-10-15", "2026-10-17"]);
+  const ed = mud.find(m => m.e.tipo === "editada");
+  igual("e o que a edição mudou", ed.mudou.map(x => x.campo).sort(), ["hh", "vence"]);
+  ok("a fita fecha com a preventiva incluída", ev.conferir().ok);
+
+  // a reimportação da planilha não tira do plano o que foi incluído no site
+  const sairam = imp.lerPreventivas([{ nome: "Preventivas Out-26", linhas: [["Frota", "Preventivas"], ["F-OUTRA", "1 ano"]] }],
+    [...ev.estado.preventiva.values()]).sairam;
+  ok("reimportar a planilha não tira a frota incluída no site", !sairam.some(x => x.id === id),
+    JSON.stringify(sairam.map(x => x.frota)));
+
+  await entrarComo("Pedro");
+  let opEdita = "";
+  try { ev.editar(p0(), { obs: "x" }, "preventiva"); } catch (e) { opEdita = e.message; }
+  ok("a operação não edita a preventiva", /permiss/i.test(opEdita), opEdita);
+  let opInclui = "";
+  try { ev.novaPreventiva({ frota: "F-X", mes: "Out-26" }); } catch (e) { opInclui = e.message; }
+  ok("nem inclui frota no plano", /permiss/i.test(opInclui), opInclui);
+  await entrarComo("Mateus");
+}
+
+titulo("decisoes.js — o que decidir agora");
+{
+  const dec = await import("../js/decisoes.js");
+  const ref = "2026-10-13";                               // terça
+  const prev = (frota, extra) => ({ ...modelo.moldePreventiva(), id: "D-" + frota, frota, mes: "Out-26", ...extra });
+  const prevs = [
+    prev("F-A", { disponivel_agora: true, vence: "2026-10-16" }),                       // liberada, vence em 3 dias
+    prev("F-B", { dia_parada: "2026-10-09", disponivel_agora: true, vence: "2026-10-20" }), // parada passou
+    prev("F-C", { vence: "2026-10-15" }),                                              // sem liberação, vence logo
+    prev("F-D", { vence: "2026-10-30" }),                                              // sem liberação
+    prev("F-E", { dia_parada: "2026-10-16", disponivel_agora: true, vence: "2026-10-30" }),
+    prev("F-F", { dia_parada: "2026-10-16", disponivel_agora: true, vence: "2026-10-30" }),
+    prev("F-G", { dia_parada: "2026-10-16", disponivel_agora: true, vence: "2026-10-30" }),
+    prev("F-H", { disponivel_em: "2026-10-25", prazo_service: "2026-10-20" }),          // conflito
+  ];
+  const ats = [{ ...modelo.molde(), id: "X1", frota: "F-E", atividade: "trocar lâmpada" }];
+  const ds = dec.decisoesPreventivas(prevs, ats, ref);
+  const de = f => ds.filter(d => d.frota === f);
+  igual("liberada e vencendo em 3 dias: urgente, programar a parada", [de("F-A")[0].nivel, de("F-A")[0].titulo],
+    [1, "Programar a parada da F-A"]);
+  ok("com a sugestão de data no botão", /\d{2}\/\d{2}/.test(de("F-A")[0].acoes[0].rotulo) && de("F-A")[0].acoes[0].prev === "parada",
+    JSON.stringify(de("F-A")[0].acoes));
+  igual("parada que passou sem baixa: urgente", [de("F-B")[0].nivel, de("F-B")[0].acoes.map(a => a.prev)], [1, ["realizada", "parada"]]);
+  const cobra = ds.find(d => d.titulo.startsWith("Cobrar a operação"));
+  ok("as sem liberação viram uma cobrança só, urgente porque a F-C vence em 2 dias, com o texto para copiar",
+    cobra && cobra.nivel === 1 && /F-C/.test(cobra.acoes[0].copiar) && /F-D/.test(cobra.acoes[0].copiar), JSON.stringify(cobra));
+  ok("conflito de data aparece com a saída: negociar ou adiar", de("F-H")[0] && de("F-H")[0].nivel === 1 &&
+    de("F-H")[0].acoes.some(a => a.prev === "adiar"));
+  ok("três paradas no mesmo dia pedem conferir a oficina", ds.some(d => d.titulo === "16/10 tem 3 paradas programadas"));
+  ok("e a parada da F-E é a hora de limpar a carteira dela", de("F-E").some(d => d.nivel === 3 && /pendência/.test(d.detalhe)));
+  igual("a sugestão pula o dia cheio e o fim de semana", dec.sugerirParada(prev("F-Z", { disponivel_agora: true }),
+    [...prevs, prev("F-Y", { dia_parada: "2026-10-13", disponivel_agora: true }),
+      prev("F-W", { dia_parada: "2026-10-13", disponivel_agora: true })], ref), "2026-10-14");
+  igual("liberada num sábado: sugere a segunda", dec.sugerirParada(prev("F-Z", { disponivel_em: "2026-10-17" }), [], ref), "2026-10-19");
+  igual("o nome do mês do plano", [dec.mesDoPlano("Out-26"), dec.mesDaData("2026-10-13")], ["2026-10", "Out-26"]);
+  const todas = dec.todas({ ats, movs: [], prevs, ref });
+  ok("tudo junto, do urgente para a oportunidade", todas.every((d, i) => !i || todas[i - 1].nivel <= d.nivel));
+  ok("dentro do mesmo nível, o prazo mais curto primeiro", ds.filter(d => d.nivel === 1 && d.vence)
+    .every((d, i, l) => !i || l[i - 1].vence <= d.vence), JSON.stringify(ds.map(d => [d.nivel, d.vence])));
+  const sugestoes = dec.decisoesPreventivas(["F-1", "F-2", "F-3", "F-4", "F-5"].map(f =>
+    prev(f, { disponivel_agora: true, vence: "2026-10-20" })), [], ref).filter(d => d.grupo === "programar").map(d => d.acoes[0].sugestao);
+  igual("cinco liberadas no mesmo dia: as sugestões se espalham, duas por dia",
+    sugestoes, ["2026-10-13", "2026-10-13", "2026-10-14", "2026-10-14", "2026-10-15"]);
+
+  // O Painel geral junta as do mesmo tipo
+  const muitas = dec.decisoesPreventivas(["F-1", "F-2", "F-3", "F-4"].map(f =>
+    prev(f, { disponivel_agora: true, vence: "2026-10-30" })), [], ref);
+  const juntas = dec.resumir([...muitas, { area: "Movimentação", nivel: 1, titulo: "1 movimentação atrasada" }]
+    .sort((a, b) => a.nivel - b.nivel));
+  const linha = juntas.find(d => d.grupo === "programar");
+  ok("no Painel geral, quatro 'Programar a parada' viram uma linha que leva ao painel de preventivas",
+    juntas.filter(d => d.area === "Preventivas" && d.titulo.startsWith("Programar")).length === 1 && linha && linha.titulo === "Programar a parada de 4 preventivas liberadas" &&
+    /F-1, F-2, F-3, F-4/.test(linha.detalhe) && linha.acoes[0].ir[0] === "preventivas", JSON.stringify(juntas));
+  ok("e duas do mesmo tipo continuam separadas", dec.resumir(muitas.filter(d => d.grupo).slice(0, 2)).length === 2);
+  const vig = dec.planoVigente([prev("F-1", { mes: "Set-26" }), prev("F-2", { mes: "Ago-26" })], ref);
+  igual("sem plano do mês corrente, vale o mais recente", [vig.mes, vig.prevs.length], ["Set-26", 1]);
+}
+
 // ── nunca ficar trancado para fora ──────────────────────────────────────────
 // Um problema de nuvem chegou a trancar a porta de um site que funciona sem
 // nuvem: com o endereço no código, a única entrada era a senha do Supabase, e

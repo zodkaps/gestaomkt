@@ -889,6 +889,131 @@ ok("um clique aprova: Concluída com atraso, concluída pelo Pedro, aprovada pel
     JSON.stringify(digitado));
 }
 
+// ── preventivas: incluir frota, reprogramar com motivo, registro, painel ───
+{
+  const F = "F-PV" + Date.now().toString(36).slice(-4).toUpperCase();
+  const { ref, mes, d1, d2, venc } = await p.evaluate(async () => {
+    const { mesDaData } = await import("/js/decisoes.js");
+    const ref = mkt.M.hoje();
+    const util = (d, n) => { let k = 0; while (k < n) { d = mkt.M.somaDias(d, 1); const w = mkt.M.data(d).getUTCDay(); if (w >= 1 && w <= 5) k++; } return d; };
+    return { ref, mes: mesDaData(ref), d1: util(ref, 2), d2: util(ref, 4), venc: mkt.M.somaDias(ref, 20) };
+  });
+  await p.evaluate(() => { location.hash = "#/preventivas"; });
+  await p.waitForTimeout(900);
+  await p.click('.cabec button:has-text("+ Incluir frota")');
+  await p.waitForSelector(".caixa .form-prev");
+  await p.click('.caixa footer button:has-text("Incluir")');
+  await p.waitForTimeout(300);
+  ok("incluir sem a frota não fecha a caixa", await p.isVisible(".caixa .form-prev"));
+  await p.fill('.caixa .form-prev input[placeholder="ex.: F-745"]', F);
+  await p.fill('.caixa .form-prev input[placeholder^="ex.: 15 mil"]', "15 mil km");
+  await p.fill('.caixa .form-prev input[type=date] >> nth=0', venc);
+  await p.click('.caixa footer button:has-text("Incluir")');
+  await p.waitForTimeout(900);
+  const nova = await p.evaluate(f => {
+    const x = mkt.ev.lista("preventiva").find(y => y.frota === f);
+    return x && { id: x.id, mes: x.mes, plano: x.plano, vence: x.vence, espera: mkt.M.esperandoQuem(x) };
+  }, F);
+  ok("+ Incluir frota entra no plano do mês, aguardando a operação",
+    !!nova && nova.mes === mes && nova.plano === "15 mil km" && nova.vence === venc && nova.espera === "Operação",
+    JSON.stringify(nova));
+
+  // liberada e com parada; depois, reprogramar pela caixa
+  await p.evaluate(async ([id, d1]) => {
+    const ev = mkt.ev;
+    await ev.aplicar(ev.informarDisponibilidade(ev.porId(id, "preventiva"), "agora"), { silencioso: true });
+    await ev.aplicar(ev.marcarParada(ev.porId(id, "preventiva"), d1, "Interna"), { silencioso: true });
+  }, [nova.id, d1]);
+  await p.evaluate(async id => { const pv = await import("/js/tela/preventivas.js"); pv.marcarParada(mkt.ev.porId(id, "preventiva")); }, nova.id);
+  await p.waitForSelector(".caixa");
+  ok("com a parada marcada, a caixa é de reprogramar", (await p.textContent(".caixa header h2")) === "Reprogramar a parada");
+  await p.fill(".caixa input[type=date]", d2);
+  await p.click('.caixa footer button:has-text("Reprogramar")');
+  await p.waitForTimeout(400);
+  const semMotivo = await p.evaluate(id => mkt.ev.porId(id, "preventiva").dia_parada, nova.id);
+  ok("mudar o dia sem motivo: a caixa fica aberta, com o dia, e nada grava",
+    await p.isVisible(".caixa") && await p.inputValue(".caixa input[type=date]") === d2 && semMotivo === d1, semMotivo);
+  await p.fill('.caixa input[placeholder^="ex.: frota em viagem"]', "Frota em viagem");
+  await p.click('.caixa footer button:has-text("Reprogramar")');
+  await p.waitForTimeout(700);
+  const rep = await p.evaluate(id => { const x = mkt.ev.porId(id, "preventiva");
+    return { dia: x.dia_parada, n: x.reprog_parada, mot: x.motivo_parada, orig: x.parada_orig }; }, nova.id);
+  ok("com o motivo, reprograma, conta 1× e guarda a primeira data",
+    rep.dia === d2 && rep.n === 1 && rep.mot === "Frota em viagem" && rep.orig === d1, JSON.stringify(rep));
+
+  // o registro de mudanças
+  await p.evaluate(() => { location.hash = "#/preventivas?v=mudancas"; });
+  await p.waitForTimeout(900);
+  const linhas = await p.evaluate(f => [...document.querySelectorAll(".evento.mudanca")]
+    .map(e => e.textContent).filter(t => t.includes(f)), F);
+  ok("Mudanças mostra a inclusão e a reprogramação com o motivo",
+    linhas.some(t => t.includes("incluiu no plano")) &&
+    linhas.some(t => t.includes("reprogramou a parada") && t.includes("Frota em viagem")), JSON.stringify(linhas.slice(0, 4)));
+  await p.click('.fsit:has-text("Reprogramações")');
+  await p.waitForTimeout(400);
+  ok("e o filtro por tipo deixa só as reprogramações", await p.evaluate(() =>
+    [...document.querySelectorAll(".evento.mudanca .tipo-mud")].every(c => c.textContent === "Reprogramação")));
+
+  // a ficha conta as reprogramações
+  await p.evaluate(async id => { const pv = await import("/js/tela/preventivas.js"); pv.abrirFichaPrev(id, mkt.ctx); }, nova.id);
+  await p.waitForSelector(".caixa");
+  const ficha = await p.textContent(".caixa");
+  ok("a ficha mostra as reprogramações e o histórico", ficha.includes("Reprogramações da parada") && ficha.includes("Frota em viagem"));
+  await p.keyboard.press("Escape");
+  await p.waitForTimeout(300);
+
+  // uma liberada sem parada, vencendo logo: vira decisão no Painel, com o botão que programa
+  const F2 = F + "B";
+  const id2 = await p.evaluate(async ([f, mes, v]) => {
+    const ev = mkt.ev;
+    const [e] = await ev.aplicar(ev.novaPreventiva({ ...mkt.M.moldePreventiva(), frota: f, mes, plano: "1 ano", vence: v, id: undefined }), { silencioso: true });
+    await ev.aplicar(ev.informarDisponibilidade(ev.porId(e.alvo, "preventiva"), "agora"), { silencioso: true });
+    return e.alvo;
+  }, [F2, mes, await p.evaluate(r => mkt.M.somaDias(r, 3), ref)]);
+  await p.evaluate(() => { location.hash = "#/painel"; });
+  await p.waitForSelector(".grandes.quatro .grande", { timeout: 5000 });
+  ok("o Painel mostra os quatro números de cima", (await p.locator(".grandes.quatro .grande").count()) === 4);
+  await p.click('.faixa-sit .fsit:has-text("Preventivas")');
+  await p.waitForTimeout(400);
+  if (await p.isVisible(".decisoes .ver-mais")) { await p.click(".decisoes .ver-mais"); await p.waitForTimeout(300); }
+  ok("e, filtrado em Preventivas, a liberada sem parada está lá (sozinha ou junto das outras)",
+    await p.evaluate(f => [...document.querySelectorAll(".decisao .d-tit")].some(t =>
+      t.textContent === `Programar a parada da ${f}` || /^Programar a parada de \d+ preventivas liberadas$/.test(t.textContent)), F2));
+  await p.click('.faixa-sit .fsit:has-text("Preventivas")');
+
+  // no painel da aba, uma linha por frota, com o botão que programa
+  await p.evaluate(() => { location.hash = "#/preventivas?v=painel"; });
+  await p.waitForSelector(".decisoes", { timeout: 5000 });
+  const linha = p.locator(`.decisao[data-id="${id2}"]`);
+  const titulo = await linha.locator(".d-tit").textContent().catch(() => "");
+  ok("no painel de preventivas, a liberada e sem parada aparece como urgente",
+    titulo === `Programar a parada da ${F2}` && (await linha.getAttribute("class")).includes("n1"), titulo);
+  await linha.locator(".d-tit").click({ button: "right" });
+  await p.waitForSelector(".cm");
+  const menu = await p.evaluate(() => [...document.querySelectorAll(".cm .cm-item")].map(b => b.textContent));
+  ok("botão direito na decisão abre o menu da preventiva", menu.includes("Programar a parada") && menu.includes("Abrir a ficha"), JSON.stringify(menu));
+  await p.keyboard.press("Escape");
+  const botao = linha.locator(".d-acoes button").first();
+  const sug = (await botao.textContent()).match(/(\d\d)\/(\d\d)/);
+  await botao.click();
+  await p.waitForSelector(".caixa");
+  const diaNaCaixa = await p.inputValue(".caixa input[type=date]");
+  ok("o botão da decisão abre a parada já com a data sugerida",
+    !!sug && diaNaCaixa.slice(8, 10) === sug[1] && diaNaCaixa.slice(5, 7) === sug[2], diaNaCaixa);
+  await p.click('.caixa footer button:has-text("Marcar")');
+  await p.waitForTimeout(900);
+  const marcada = await p.evaluate(id => mkt.ev.porId(id, "preventiva").dia_parada, id2);
+  ok("e Marcar grava a parada, e a decisão sai da lista",
+    marcada === diaNaCaixa && !(await p.locator(`.decisao[data-id="${id2}"] .d-tit:text-is("Programar a parada da ${F2}")`).count()), marcada);
+
+  // o número de reprogramações leva ao registro filtrado
+  await p.locator('.kpis .clicavel:has-text("Reprogramações")').click();
+  await p.waitForTimeout(500);
+  ok("Reprogramações no painel da aba abre as mudanças desse tipo",
+    await p.evaluate(() => !!document.querySelector(".evento.mudanca") &&
+      [...document.querySelectorAll(".evento.mudanca .tipo-mud")].every(c => c.textContent === "Reprogramação")));
+}
+
 // ── o + Extra da tela Hoje entra no dia que está na tela ───────────────────
 {
   const F = "F-EXTRA-" + Date.now().toString(36);

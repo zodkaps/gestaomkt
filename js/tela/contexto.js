@@ -72,7 +72,7 @@ export function abrirMenu(x, y, titulo, itens) {
   menu.querySelector("button.cm-item")?.focus({ preventScroll: true });
 }
 
-async function copiar(texto, rotulo) {
+export async function copiar(texto, rotulo) {
   try {
     await navigator.clipboard.writeText(texto);
     avisar(`${rotulo} copiado.`);
@@ -150,8 +150,9 @@ async function itensPreventiva(p, ctx) {
   return [
     { rotulo: "Abrir a ficha", acao: () => pv.abrirFichaPrev(p.id, ctx) },
     aberta && pode("disponibilidade") ? { rotulo: "Informar liberação", acao: () => pv.informarDisponibilidade(p) } : null,
-    aberta && pode("parada") ? { rotulo: "Programar a parada", acao: () => pv.marcarParada(p) } : null,
+    aberta && pode("parada") ? { rotulo: p.dia_parada ? "Reprogramar a parada" : "Programar a parada", acao: () => pv.marcarParada(p) } : null,
     aberta && pode("parada") ? { rotulo: "Registrar realização", acao: () => pv.darPorFeita(p) } : null,
+    !p.excluida && pode("parada") ? { rotulo: "Editar", acao: () => pv.editarPreventiva(p) } : null,
     "-",
     p.frota ? { rotulo: `Abrir a frota ${p.frota}`, acao: () => ctx.ir("frota", "f=" + encodeURIComponent(p.frota)) } : null,
     p.os ? { rotulo: `Copiar a OS ${p.os}`, acao: () => copiar(p.os, "OS") } : null,

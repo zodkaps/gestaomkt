@@ -297,8 +297,8 @@ export function graficoColunas({ largura, altura = 220, xs, series, marcado = -1
 // vertical de referência (a capacidade, por exemplo).
 
 export function graficoBarras({ largura, itens, formato = v => String(v), aoClicar = null,
-  marca = null, maximo = null, rotuloTotal = null }) {
-  const larguraRot = Math.min(150, Math.max(70, largura * 0.26));
+  marca = null, maximo = null, rotuloTotal = null, larguraRotulo = null }) {
+  const larguraRot = larguraRotulo || Math.min(150, Math.max(70, largura * 0.26));
   const m = { e: larguraRot, d: 54, c: marca ? 18 : 4, b: 4 };
   const linha = 26, grossura = 14;
   const W = Math.max(280, largura), H = m.c + m.b + itens.length * linha;
@@ -380,10 +380,16 @@ export function minilinha(valores, { largura = 120, altura = 30, marcado = valor
   return s;
 }
 
-/** Um topo "redondo" para o eixo: 7 → 10, 23 → 25, 140 → 150. */
+/** Um topo "redondo" para o eixo, cuja metade (a linha do meio) também é um
+ *  número inteiro: 3 → 4, 7 → 8, 11 → 12, 23 → 30, 150 → 160. */
 export function bonito(v) {
-  if (v <= 5) return 5;
+  if (v <= 2) return 2;
+  if (v <= 4) return 4;
+  if (v <= 6) return 6;
   const p = Math.pow(10, Math.floor(Math.log10(v)));
-  for (const k of [1, 1.5, 2, 2.5, 3, 4, 5, 6, 8, 10]) if (k * p >= v) return k * p;
+  for (const k of [1, 1.2, 1.4, 1.6, 2, 3, 4, 5, 6, 8, 10]) {
+    const t = Math.round(k * p);
+    if (t >= v && t % 2 === 0) return t;
+  }
   return 10 * p;
 }

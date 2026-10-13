@@ -335,6 +335,9 @@ export function moldePreventiva() {
     vence: "", prazo_service: "", prazo_service_texto: "", mes: "",
     disponivel_agora: false, disponivel_em: "",
     dia_parada: "", onde_fazer: "", os: "", hh: 0,
+    // A parada mudou de dia: a primeira data fica guardada, e cada troca conta
+    // — com o motivo da última. A liberação da operação também se conta.
+    parada_orig: "", reprog_parada: 0, motivo_parada: "", reprog_liberacao: 0,
     pendencias: 0, realizada_em: "", realizada_sem_data: false,
     em_andamento: false, adiada: false, cancelada: false,
     // O quadro do pé da aba: frota que está no mapa mas não entra na conta do

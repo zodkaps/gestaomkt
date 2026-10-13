@@ -16,6 +16,10 @@ const TELAS = [
   { id: "operacao", icone: "✋", nome: "Para você", grupo: "Operação", papeis: ["operacao"],
     carregar: () => import("./tela/operacao.js"),
     contar: () => contagemOperacao() },
+  { id: "painel", icone: "◎", nome: "Painel", grupo: "Oficina", papeis: ["pcm"],
+    carregar: () => import("./tela/painel.js"),
+    // O número no menu: quantas decisões urgentes há.
+    contar: () => contarUrgentes() },
   { id: "hoje", icone: "☀", nome: "Hoje", grupo: "Oficina", papeis: ["pcm"], celular: true,
     carregar: () => import("./tela/hoje.js") },
   { id: "programacao", icone: "☰", nome: "Programação", grupo: "Oficina", papeis: ["pcm"], celular: true,
@@ -52,6 +56,18 @@ const TELAS = [
 // exatamente quando não se consegue entrar que ele precisa abrir — trancá-lo
 // atrás do login seria guardar a chave dentro de casa.
 const PORTAS = new Set(["entrar", "diagnostico"]);
+
+// As decisões urgentes do painel, para o número no menu. O módulo é pequeno e
+// puro; carregado uma vez, o número sai na hora em toda repintura do menu.
+let decisoesMod = null;
+import("./decisoes.js").then(m => { decisoesMod = m; }).catch(() => {});
+function contarUrgentes() {
+  if (!decisoesMod) return 0;
+  const ref = M.hoje();
+  return decisoesMod.todas({ ats: ev.lista(), movs: ev.lista("movimentacao"),
+    prevs: decisoesMod.planoVigente(ev.lista("preventiva"), ref).prevs, ref,
+    podeAprovar: pessoas.pode("aprovar") }).filter(d => d.nivel === 1).length;
+}
 
 function contagemOperacao() {
   const hoje = M.hoje();

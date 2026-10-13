@@ -42,7 +42,7 @@ export async function montar(raiz, ctx, params) {
   if (params.get("s")) { estado.semana = Number(params.get("s")); estado.ano = Number(params.get("a")) || agora.ano; }
   if (params.get("os") === "sem") estado.semOS = true;
   // Vindo dos Resultados: a situação e a frota em que ele clicou.
-  if (params.get("sit")) { estado.periodo = "semana"; estado.situacoes = new Set([params.get("sit")]); }
+  if (params.get("sit")) { estado.periodo = pedido || "semana"; estado.situacoes = new Set([params.get("sit")]); }
   if (params.get("f") != null && params.get("f") !== "") estado.frota = params.get("f");
 
   const fBusca = el("input", { class: "busca", type: "search", value: estado.busca,

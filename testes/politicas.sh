@@ -82,7 +82,7 @@ passou=$(echo "$saida" | grep -c "→ passou" || true)
 recusado=$(( $(echo "$saida" | grep -c "ERROR" || true) + $(echo "$fora_de_ordem" | grep -c "ERROR" || true) ))
 vazio=$(echo "$saida" | grep -c "→ não viu nada" || true)
 echo
-echo "$passou de 4 permitidas passaram · $recusado de 11 proibidas foram recusadas · $vazio de 1 conta sem papel não viu nada"
-[ "$passou" = "4" ] && [ "$recusado" = "11" ] && [ "$vazio" = "1" ] || { echo "FALHOU"; exit 1; }
+echo "$passou de 6 permitidas passaram · $recusado de 13 proibidas foram recusadas · $vazio de 1 conta sem papel não viu nada"
+[ "$passou" = "6" ] && [ "$recusado" = "13" ] && [ "$vazio" = "1" ] || { echo "FALHOU"; exit 1; }
 [ "$soltas" = "estranho@gmail.com=false,pedro@makroteste.com.br=true" ] || { echo "FALHOU: o 03 soltou errado"; exit 1; }
 echo "tudo como projetado"

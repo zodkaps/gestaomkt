@@ -14,8 +14,11 @@ const dominioDeTeste = email => {
   const d = String(email || "").toLowerCase().split("@")[1] || "";
   return /\.(local|test|example|invalid|localhost)$/.test(d) || /^example\.(com|net|org)$/.test(d);
 };
-const TIPOS_OPERACAO = new Set(["criada", "editada",
-  "mov_prometida", "mov_chegou", "mov_cancelada", "justificada", "prev_disponivel"]);
+// O que a operação lança, por tipo de alvo — o mesmo do sql/02_acesso.sql.
+const TIPOS_OPERACAO = {
+  movimentacao: new Set(["criada", "editada", "mov_prometida", "mov_chegou", "mov_cancelada", "justificada"]),
+  preventiva: new Set(["prev_disponivel"]),
+};
 
 // Modos de falha, para provar que as mensagens de instalação aparecem.
 // Ligados em tempo de execução por POST /__falha {modo}.
@@ -218,7 +221,7 @@ createServer(async (req, res) => {
           return json(res, 403, { message: `new row violates row-level security policy (autor ${e.autor} ≠ ${eu.nome})` });
         }
         if (eu.papel !== "pcm" &&
-            !(["movimentacao", "preventiva"].includes(e.alvo_tipo) && TIPOS_OPERACAO.has(e.tipo))) {
+            !(TIPOS_OPERACAO[e.alvo_tipo] && TIPOS_OPERACAO[e.alvo_tipo].has(e.tipo))) {
           return json(res, 403, { message: `new row violates row-level security policy (${eu.papel} não lança ${e.tipo} em ${e.alvo_tipo})` });
         }
         const g = { ...e, seq: eventos.length + 1 };

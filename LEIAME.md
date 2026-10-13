@@ -84,7 +84,8 @@ olhando:
 | Cancelar, Desfazer o cancelamento | PCM (OS); os dois (movimentação) | cancelada não conta como concluída |
 | Concluir, Definir o prazo, Aprovar, Devolver à operação | operação conclui; PCM aprova ou devolve | |
 | Editar (movimentação) | PCM e operação | o que fazer, onde, prioridade, prazo e detalhes, enquanto não for cancelada; aprovação não se edita |
-| Programar a parada, Registrar realização, Marcar em andamento, Adiar para o próximo mês | PCM | |
+| Programar a parada, Reprogramar a parada, Registrar realização, Marcar em andamento, Adiar para o próximo mês | PCM | reprogramar a parada exige motivo e conta |
+| Editar (preventiva) | PCM | frota, plano, vencimento, prazo do Service, local, onde fazer, HH, OS, observação |
 | Informar liberação | operação | data em que a frota fica disponível para a manutenção |
 | **Excluir** | **só o PCM** | deixa de aparecer nas telas; o histórico é mantido |
 
@@ -94,7 +95,8 @@ olhando:
 qualquer tela, na linha ou no cartão, abre as ações mais usadas daquele item ali
 onde o mouse está: abrir a ficha, dar baixa, reprogramar, retirar da
 programação, justificar, imprimir a folha da frota, abrir a frota, copiar a OS
-ou o texto, e **Mais ações…** (o menu completo do ⋯). Fora de um item, abre o
+ou o texto, e **Mais ações…** (o menu completo do ⋯). Nas linhas de *O que
+decidir agora* de uma preventiva, abre o menu da preventiva. Fora de um item, abre o
 básico: voltar, atualizar, imprimir a página e ir para as outras telas. Em
 campo de texto, com texto selecionado, ou com **Shift + botão direito**, fica o
 menu do navegador (para copiar e colar). Esc fecha; as setas andam no menu.
@@ -156,7 +158,8 @@ na tela lançava como PCM. Agora quem recusa é o **Postgres**:
 ```sql
 autor = nome_atual()          -- não dá para assinar como outra pessoa
 and ( papel_atual() = 'pcm'   -- PCM faz tudo
-      or (alvo_tipo in ('movimentacao','preventiva') and tipo in (...)) )
+      or (alvo_tipo = 'movimentacao' and tipo in (...))   -- operação
+      or (alvo_tipo = 'preventiva' and tipo = 'prev_disponivel') )
 ```
 
 O papel mora na tabela `pessoas`, **que o site não consegue escrever** — não
@@ -174,10 +177,13 @@ cria política nenhuma — quem abre, do jeito certo, é o `02_acesso.sql`. Ante
 depois do 02 e derrubou a separação entre PCM e operação sem ninguém ver.
 
 Para provar isso em vez de prometer, `bash testes/politicas.sh` sobe um
-Postgres de verdade, roda as duas migrações e tenta dezesseis coisas — quatro
-que têm de passar (entre elas o PCM fechar a semana), onze que têm de ser
-recusadas (a operação fechar a semana é uma; outra é depois de rodar o 01 de
-novo, fora de ordem) e uma conta sem papel que não pode ver nada.
+Postgres de verdade, roda as duas migrações e tenta vinte coisas — seis
+que têm de passar (entre elas o PCM fechar a semana e a operação informar a
+liberação de uma frota), treze que têm de ser recusadas (a operação fechar a
+semana, incluir uma frota no plano de preventivas ou editar uma preventiva;
+outra é depois de rodar o 01 de novo, fora de ordem) e uma conta sem papel que
+não pode ver nada. Na preventiva, a operação só informa a liberação: incluir,
+editar e programar a parada são do PCM.
 
 ## Ligar a sincronização da equipe (Supabase)
 
@@ -289,8 +295,24 @@ mais — ou, se o acervo antigo não interessa, um projeto novo só para este si
 O menu tem as abas da planilha, na mesma ordem: **Hoje · Programação · Semana ·
 Resultados · Preventivas · Movimentações**. É o mapa que o PCM já tem na cabeça,
 e os números de cada tela são os da aba de mesmo nome — calculados pelas mesmas
-fórmulas (ver *Os números são os da planilha*, abaixo).
+fórmulas (ver *Os números são os da planilha*, abaixo). Antes delas vem o
+**Painel**, que a planilha não tem.
 
+- **Painel** é o resultado geral numa tela só, e o que fazer com ele. Em cima,
+  um número de cada área, os que vão para a reunião: a **aderência da semana**
+  (com o número registrado da semana anterior ao lado), as **vencidas na
+  oficina**, as **preventivas realizadas** no plano do mês e a **pontualidade
+  da operação**. Cada um abre a tela dele. No meio, **O que decidir agora**: a
+  lista que junta as três áreas, do urgente para a oportunidade, cada item com
+  o porquê e o botão que já abre a ação (programar a parada na data sugerida,
+  copiar a cobrança para a operação, abrir as vencidas…). Os chips filtram por
+  área. Quando a mesma decisão se repete em várias frotas (doze "programar a
+  parada"), aqui ela vira **uma linha** que leva ao painel de preventivas, onde
+  cada uma tem o seu botão — senão uma área esconderia as outras. Embaixo, um
+  cartão por área com o detalhe e a aderência e o cumprimento **registrados**
+  das últimas oito semanas. O número ao lado de *Painel*, no menu, é quantas
+  decisões urgentes há. As regras estão em *O que decidir agora*, mais abaixo.
+  Nenhum número do Painel é conta nova: são as mesmas das abas.
 - **Programação** é a aba principal: uma linha por atividade, **em blocos por
   frota**, com a **Situação colorida na frente** e a **linha feita com fundo
   verde** — o mesmo código de cor da planilha. Cada bloco abre com o resumo da
@@ -343,15 +365,46 @@ fórmulas (ver *Os números são os da planilha*, abaixo).
   — e o fechamento das semanas. Sem filtro, cada número é o da planilha.
 - **Fechamento da semana — o número não sobe sozinho.** Ver a seção *A semana
   fechada não muda*, abaixo.
-- **Preventivas** é a aba Preventivas: os mesmos números no alto (preventivas a
-  fazer, frotas, com e sem liberação da operação, parada programada, conflitos,
-  vencidas, realizadas, HH) e a mesma Situação, pela mesma fórmula. Separada
-  por **quem precisa agir**: *aguardando o PCM* (programar a parada),
-  *aguardando a operação* (informar a liberação da frota), *em execução*
-  (parada programada ou em andamento), *encerradas no mês* (realizadas,
-  adiadas e canceladas) e, à parte, o quadro *fora do plano*. O Status da
-  planilha (Em andamento, Realizada, Reprogramada, Cancelada) entra como está e
-  também se marca aqui.
+- **Preventivas** é a aba Preventivas, com três vistas no alto:
+  - **Plano** — os mesmos números da aba (preventivas a fazer, frotas, com e
+    sem liberação da operação, parada programada, conflitos, vencidas,
+    realizadas, HH) e a mesma Situação, pela mesma fórmula. Separada por **quem
+    precisa agir**: *aguardando o PCM* (programar a parada), *aguardando a
+    operação* (informar a liberação da frota), *em execução* (parada programada
+    ou em andamento), *encerradas no mês* (realizadas, adiadas e canceladas) e,
+    à parte, o quadro *fora do plano*. O Status da planilha (Em andamento,
+    Realizada, Reprogramada, Cancelada) entra como está e também se marca aqui.
+    Debaixo da data da parada, **↻ 2×** diz quantas vezes ela já foi
+    reprogramada.
+  - **Painel** — o painel de controle do mês: os números (plano, realizadas, no
+    prazo, vencidas, aguardando a operação, aguardando o PCM, reprogramações,
+    HH; clicar leva à lista certa), o **ritmo do mês** (quanto já saiu contra
+    quanto do mês já passou), as decisões das preventivas uma a uma, e os
+    gráficos: onde está cada preventiva, vencimentos por semana (e se já têm
+    parada), paradas nos próximos dez dias úteis, **por que mudou** (os motivos
+    das reprogramações, adiamentos e cancelamentos), onde se faz, e as
+    realizadas mês a mês.
+  - **Mudanças** — o registro de tudo o que aconteceu com as preventivas do mês,
+    do mais novo para o mais antigo: inclusão, liberação, parada,
+    **reprogramação** (de → para, com o motivo), realização, edição,
+    cancelamento. Quem lançou, quando, e o que mudou. Filtra por tipo e busca
+    por frota, pessoa ou motivo; clicar abre a ficha. Reimportação da planilha
+    que não mudou nada não aparece.
+- **Reprogramar a parada exige motivo.** Mudar o dia de uma parada já marcada
+  é reprogramar, como na atividade: a caixa pede o motivo (com os usados por
+  último à mão) e **não fecha sem ele** — o dia escolhido continua lá. Cada
+  reprogramação conta na preventiva (e a primeira data fica guardada) e no
+  número *Reprogramações* do mês. Mudar a **liberação** já informada também
+  fica no registro, com motivo opcional. A ficha da preventiva mostra as
+  reprogramações e o histórico inteiro.
+- **+ Incluir frota** (PCM): uma preventiva nova no plano — frota, mês do plano,
+  preventivas (15 mil km, 1 ano…), quantidade, vencimento, prazo do Service,
+  equipamento, local, onde fazer, HH, OS e observação. Entra aguardando a
+  liberação da operação, fica no registro como incluída no site, e a
+  reimportação da planilha não a tira. Se a frota já está no plano daquele mês,
+  o site pergunta antes. **Editar** (no ⋯, no botão direito ou na ficha) muda
+  os mesmos campos; parada, liberação e realização não se editam aí — têm
+  botão próprio, que é por onde a reprogramação se conta.
 - **Os nomes de situação na tela** são os da planilha com redação revisada:
   *Vencida*, *Vence hoje*, *Em carteira*, *Dia a definir*; nas preventivas,
   *Baixa pendente*, *Disponível: programar parada*, *Liberação prevista:
@@ -469,7 +522,7 @@ memória. Divergência ali é bug, não opinião.
 
 | tipo | quando | exige |
 |---|---|---|
-| `criada` | atividade feita à mão | — |
+| `criada` | atividade feita à mão, ou preventiva incluída no site (+ Incluir frota) | — (preventiva: frota e mês) |
 | `importada` | veio da planilha ou do Protheus | — |
 | `programada` | ganhou semana pela **primeira** vez | — |
 | `reprogramada` | já tinha semana e mudou | **motivo** |
@@ -477,15 +530,15 @@ memória. Divergência ali é bug, não opinião.
 | `reaberta` | a baixa estava errada | — |
 | `cancelada` | não vai ser feita | **motivo** |
 | `restaurada` | desfaz o cancelamento | — |
-| `editada` | mudou texto, OS, executante, tipo… | — |
+| `editada` | mudou texto, OS, executante, tipo… (na preventiva: frota, plano, vencimento, local…) | — |
 | `excluida` | sai das telas; o registro fica | — |
 | `mov_prometida` | a operação deu o prazo | a data |
 | `mov_chegou` | a movimentação foi concluída — fica aguardando aprovação | a data |
 | `mov_aprovada` | o PCM conferiu e aprovou (só o PCM) | — |
 | `mov_devolvida` | o PCM devolveu para a operação (só o PCM) | **motivo** |
 | `justificada` | motivo do atraso ou da não execução, e o responsável (OS: PCM; movimentação: os dois) | **o motivo** |
-| `prev_disponivel` | a operação informou a liberação da frota | "agora" ou data |
-| `prev_parada` | o PCM programou a data da parada | a data |
+| `prev_disponivel` | a operação informou a liberação da frota; mudar a já informada é *liberação alterada* | "agora" ou data; motivo opcional ao mudar |
+| `prev_parada` | o PCM programou a data da parada; mudar a data já marcada é **reprogramar** e conta | a data; **motivo** se mudar |
 | `prev_andamento` | a preventiva está em execução (Status Em andamento) | — |
 | `prev_realizada` | a preventiva foi realizada | a data |
 | `prev_adiada` | adiada para o próximo mês (Status Reprogramada) | **motivo** |
@@ -493,14 +546,17 @@ memória. Divergência ali é bug, não opinião.
 | `prev_reaberta` | desfaz realizada, adiada ou cancelada | — |
 | `semana_fechada` | o PCM registrou o número da semana (alvo `semana`, ex.: `2026-S42`) | **motivo**, se já estava fechada |
 
-### As três regras que o sistema impõe
+### As regras que o sistema impõe
 
 1. **Reprogramar exige motivo.** Mudar semana, ano, dia ou duração de uma
    atividade que já estava programada, sem motivo, é recusado — em qualquer
    caminho, inclusive na programação em lote. É o número pelo qual PCM
-   responde.
+   responde. Vale igual para a **parada da preventiva**: mudar o dia já
+   marcado sem motivo é recusado.
 2. **`editar()` não mexe em programação.** Se mexesse, haveria um jeito de
    contornar a regra acima sem querer. Programação se muda por `reprogramar()`.
+   Na preventiva, `editar()` recusa parada, liberação, realização, adiamento e
+   cancelamento: cada um tem o seu lançamento.
 3. **A semana original nunca muda.** É a da primeira programação, e é contra
    ela que se mede o quanto uma atividade foi empurrada.
 4. **Reimportar a planilha não apaga o que foi lançado no site.** Planilha e
@@ -652,6 +708,35 @@ data* — um clique dá o dia. O sistema não inventa o dia em que o serviço sa
 
 ---
 
+### O que decidir agora
+
+As regras do Painel ficam em `js/decisoes.js`, um módulo puro (sem tela), e
+estão nos testes. Nenhuma grava nada: cada uma só aponta e abre a ação de
+sempre. O plano de preventivas que vale é o do mês corrente; sem ele, o mais
+recente.
+
+| área | quando | nível | o botão |
+|---|---|---|---|
+| Preventivas | a parada passou e não há baixa | urgente | Realizada · Reprogramar |
+| Preventivas | a operação libera depois do prazo | urgente | Programar · Adiar |
+| Preventivas | a parada está marcada depois do prazo | urgente | Reprogramar |
+| Preventivas | liberada e sem parada | urgente se vence em até 7 dias (ou venceu); senão atenção | **Programar para dd/mm** |
+| Preventivas | frotas sem liberação (todas numa linha) | urgente se alguma vence em até 5 dias | Copiar a cobrança |
+| Preventivas | três ou mais paradas no mesmo dia | atenção | — |
+| Preventivas | o mês está 20 pontos ou mais atrás do calendário | atenção | — |
+| Preventivas | a frota vai parar e tem pendências na carteira | oportunidade | Ver as pendências |
+| Programação | atividades vencidas (e quantas sem justificativa) | urgente | Ver as vencidas |
+| Programação | vencem hoje · da semana sem OS · executante acima da capacidade | atenção | abre a tela |
+| Movimentação | atrasadas | urgente | Abrir |
+| Movimentação | aguardando a sua aprovação (só para quem aprova) · vencem hoje | atenção | Abrir |
+
+**A data sugerida** para a parada é o primeiro dia útil, a partir da
+liberação, com menos de duas paradas marcadas, nos próximos dez dias úteis. As
+sugestões se distribuem na ordem do vencimento — quem vence antes escolhe
+antes —, e cada sugestão ocupa o dia: doze liberadas não caem todas na mesma
+terça. É sugestão: a caixa abre com a data, e o PCM troca se quiser. Dentro do
+mesmo nível, o prazo mais curto vem primeiro.
+
 ## Carregar a base do Protheus
 
 Solte o arquivo (XLSX ou CSV) na aba Importar. Como não tem a aba
@@ -733,7 +818,10 @@ porque toda escrita já passa por `aplicar()`.
 | `js/tela/comum.js` | o cartão e a ficha — um lugar só onde atividade é desenhada e alterada |
 | `js/nuvem.js` | o Supabase por `fetch`: ler desde um ponto, enviar, consultar de tempos em tempos |
 | `js/pessoas.js` | quem está usando, o papel, o que esse papel pode |
-| `js/tela/*.js` | entrar, operacao, hoje, programacao, semana, resultados, movimentacoes, preventivas, frota, historico, importar, diagnostico |
+| `js/tela/*.js` | entrar, operacao, painel, hoje, programacao, semana, resultados, movimentacoes, preventivas, frota, historico, importar, diagnostico |
+| `js/decisoes.js` | **o que decidir agora**: as regras do Painel, puras, e a data sugerida para a parada |
+| `js/tela/decidir.js` | a lista de decisões na tela, com o botão de cada uma |
+| `js/tela/painel.js` | o Painel: os quatro números, as decisões, um cartão por área, a aderência das semanas |
 | `js/tela/acoes.js` | as ações do ⋯ de cada item — um menu por tipo, com as opções que valem para quem está olhando |
 | `js/tela/imprimir.js` | a folha de pendências por frota e executante, para imprimir |
 | `js/tela/contexto.js` | o menu do botão direito: as ações do item, ou o básico da tela |

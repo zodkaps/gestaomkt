@@ -13,7 +13,7 @@ import { el, caixa, campo, confirmar, erro, avisar } from "../ui.js";
 import { concluir, reprogramar, devolverParaCarteira, justificar } from "./comum.js";
 import { concluirMov, aprovar, devolver, prometerData, cancelarMov, editarMov, tituloMov } from "./movimentacoes.js";
 import { informarDisponibilidade, marcarParada, darPorFeita, passarParaOMesSeguinte,
-  cancelarPrev, andamento, reabrirPrev } from "./preventivas.js";
+  cancelarPrev, andamento, reabrirPrev, editarPreventiva } from "./preventivas.js";
 
 export function menuDe(tipo, id, ctx) {
   const item = ev.porId(id, tipo);
@@ -173,8 +173,13 @@ export async function menuPreventiva(p, ctx) {
   if (aberta && pode("disponibilidade")) {
     op.push({ chave: "disponivel", rotulo: "Informar liberação", explica: "data em que a frota fica disponível para a manutenção" });
   }
+  if (!p.excluida && pode("parada")) {
+    op.push({ chave: "editar", rotulo: "Editar", explica: "frota, preventivas, vencimento, local, HH, OS e observação" });
+  }
   if (aberta && pode("parada")) {
-    op.push({ chave: "parada", rotulo: "Programar a parada", explica: "data em que a frota entra em manutenção" });
+    op.push(p.dia_parada
+      ? { chave: "parada", rotulo: "Reprogramar a parada", explica: `hoje em ${p.dia_parada.split("-").reverse().slice(0, 2).join("/")} — exige motivo` }
+      : { chave: "parada", rotulo: "Programar a parada", explica: "data em que a frota entra em manutenção" });
     op.push({ chave: "andamento", rotulo: p.em_andamento ? "Retirar de em andamento" : "Marcar em andamento" });
     op.push({ chave: "feita", rotulo: "Registrar realização", explica: "preventiva concluída, com a data" });
     op.push({ chave: "mes", rotulo: "Adiar para o próximo mês", explica: "sai da contagem deste mês, com o motivo" });
@@ -190,6 +195,7 @@ export async function menuPreventiva(p, ctx) {
   if (!op.length) return;
 
   const r = await escolher(`${p.frota || "Preventiva"} · ${p.plano || ""}`.trim(), op);
+  if (r === "editar") return editarPreventiva(p);
   if (r === "disponivel") return informarDisponibilidade(p);
   if (r === "parada") return marcarParada(p);
   if (r === "andamento") return andamento(p, !p.em_andamento);
