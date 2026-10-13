@@ -45,8 +45,23 @@ function naSexta(semanas, fita) {
     if (i === 0) continue;                         // o site ainda não existia
     const lista = [...mapas.atividade.values()].filter(a => !a.excluida);
     const sexta = M.datasDaSemana(w.ano, w.semana)[4];
-    porSemana.set(ev.chaveSemana(w.ano, w.semana),
-      M.numerosDoFechamento(M.resultados(lista, w.ano, w.semana, sexta)));
+    const naSextaN = M.numerosDoFechamento(M.resultados(lista, w.ano, w.semana, sexta));
+    // A mesma sexta, mais as baixas LANÇADAS depois com data até a sexta: o
+    // serviço saiu na semana, só a baixa atrasou. Reprogramação feita depois
+    // continua fora — é ela que faz a semana velha subir para 100%.
+    const tardias = fita.slice(i).filter(e => e.tipo === "concluida" &&
+      (e.alvo_tipo || "atividade") === "atividade" && e.dados && e.dados.em && e.dados.em <= sexta);
+    let comBaixas = null;
+    if (tardias.length) {
+      const copia = new Map(lista.map(a => [a.id, { ...a }]));
+      for (const e of tardias) {
+        const a = copia.get(e.alvo);
+        if (a && !a.concluida_em && !a.cancelada) { a.concluida_em = e.dados.em; a.feita_sem_data = false; }
+      }
+      comBaixas = M.numerosDoFechamento(M.resultados([...copia.values()], w.ano, w.semana, sexta));
+      if (comBaixas.concluidas === naSextaN.concluidas) comBaixas = null;   // nada mudou
+    }
+    porSemana.set(ev.chaveSemana(w.ano, w.semana), { naSexta: naSextaN, comBaixas });
   }
   memo = { chave, porSemana };
   return porSemana;
@@ -66,11 +81,13 @@ export function fechamentos(semanas, { agora = new Date().toISOString(), hoje = 
     const ao_vivo = M.resultados(ats, w.ano, w.semana, hoje);
     const encerrada = M.corteDaSemana(w.ano, w.semana) <= agora;
     const reg = registrados.get(chave);
-    const sexta = auto.get(chave) || null;           // como estava na sexta às 23h59
-    if (reg) return { ...w, modo: "registrado", numeros: reg, ao_vivo, sexta, encerrada };
-    if (sexta) return { ...w, modo: "automatico", numeros: sexta, ao_vivo, sexta, encerrada };
-    return { ...w, modo: encerrada ? "sem_fechamento" : "em_andamento", numeros: null, ao_vivo,
-      sexta: null, encerrada };
+    const a = auto.get(chave);
+    const sexta = a ? a.naSexta : null;              // como estava na sexta às 23h59
+    const sextaComBaixas = a ? a.comBaixas : null;   // e com as baixas lançadas depois
+    const base = { ...w, ao_vivo, sexta, sextaComBaixas, encerrada };
+    if (reg) return { ...base, modo: "registrado", numeros: reg };
+    if (sexta) return { ...base, modo: "automatico", numeros: sexta };
+    return { ...base, modo: encerrada ? "sem_fechamento" : "em_andamento", numeros: null };
   });
 }
 

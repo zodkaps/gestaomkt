@@ -592,7 +592,8 @@ export function descreverEvento(e, comAtividade = false) {
     case "semana_fechada": {
       const p = v => v == null ? "—" : (Math.round(v * 1000) / 10).toLocaleString("pt-BR") + "%";
       txt = `semana ${d.semana} fechada: aderência ${p(d.aderencia)} · cumprimento ${p(d.cumprimento)}` +
-        (d.fonte === "sexta" ? " (como estava na sexta às 23h59)" : "") +
+        (d.fonte === "sexta" ? " (como estava na sexta às 23h59)"
+          : d.fonte === "sexta_baixas" ? " (na sexta, com as baixas lançadas depois)" : "") +
         (d.obs ? ` · ${d.obs}` : "");
       break;
     }

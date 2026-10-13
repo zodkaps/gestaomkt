@@ -658,7 +658,10 @@ textarea.sql {
 
 /* larguras: a atividade fica com o que sobrar */
 .grade .c-sel   { width: 30px; text-align: center; padding-left: 4px; padding-right: 4px; }
-.grade .c-sit   { width: 182px; }
+.grade .c-sit   { width: 140px; }
+/* o ⋯: sem largura, ele dividia com a Atividade o que sobrava — e a atividade
+   ficava espremida, com uma faixa vazia à direita */
+.grade .c-mais  { width: 38px; padding-left: 2px; padding-right: 6px; }
 .grade .c-os    { width: 74px; }
 .grade .c-quem  { width: 150px; }
 .grade td.c-quem { color: var(--fraco); font-size: 12px; }
@@ -668,8 +671,19 @@ textarea.sql {
 .grade .c-hh    { width: 44px; }
 .grade .c-prazo { width: 58px; }
 .grade .c-feito { width: 98px; text-align: right; }
-@media (max-width: 1180px) { .grade .c-quem { display: none; } }
-@media (max-width: 1000px) { .grade .c-hh { display: none; } }
+/* Coluna que sai em tela estreita fica com largura zero em vez de sumir: a
+   linha da frota ocupa todas as colunas (colspan), e uma coluna a menos nas
+   linhas abria uma coluna fantasma, vazia, à direita da tabela. */
+@media (max-width: 1180px) {
+  .grade .c-quem, .grade td.c-quem, .grade.mov th.c-quem, .grade.mov td.c-quem { width: 0; padding: 0; border-left: 0; border-right: 0;
+    overflow: hidden; visibility: hidden; font-size: 0; white-space: nowrap; }
+  .grade td.c-quem > * { display: none; }
+}
+.grade .quem-inline { display: none; font-size: 11.5px; color: var(--fraco); margin-top: 2px; }
+@media (max-width: 1180px) { .grade .quem-inline { display: block; } }
+@media (max-width: 1000px) {
+  .grade .c-hh, .grade td.c-hh { width: 0; padding: 0; overflow: hidden; visibility: hidden; font-size: 0; }
+}
 
 .grade tr.lin { cursor: pointer; }
 .grade tr.lin:hover td { background: var(--papel2); }
@@ -839,6 +853,17 @@ button.mini.sem-data { border-color: var(--hoje); background: var(--hoje-fundo);
   .barra-sel .espaco { flex-basis: 100%; height: 0; }
 }
 
+/* Frota: todas para tocar, com as pendências de cada uma */
+.grade-frotas { display: grid; gap: 8px; grid-template-columns: repeat(auto-fill, minmax(118px, 1fr)); }
+.frota-chip { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; text-align: left;
+  padding: 10px 12px; border-radius: var(--raio); background: var(--papel); border: 1px solid var(--linha); }
+.frota-chip b { font-size: 15px; }
+.frota-chip span { font-size: 11.5px; color: var(--hoje); }
+.frota-chip.sem span { color: var(--muito-fraco); }
+.frota-chip:hover { border-color: var(--marca); }
+.cabec .busca-frota { width: 180px; flex: 0 1 180px; }
+button.imprimir-bloco { margin-left: 8px; }
+
 /* Motivos usados por último: um toque preenche o campo */
 .motivos-rapidos { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-top: 8px; }
 .motivos-rapidos .seg { font-size: 12px; margin-right: 2px; }
@@ -876,17 +901,17 @@ button.mini.acao-pcm, button.mini.acao-op { background: transparent; color: var(
 .tabela.fora td { font-size: 12.5px; }
 
 /* Movimentações: a mesma grade, com as colunas da aba Movimentações */
-.grade.mov .c-sit   { width: 160px; }
-.grade.mov .c-fr    { width: 92px; }
-.grade.mov .c-dt    { width: 76px; }
+.grade.mov .c-sit   { width: 132px; }
+.grade.mov .c-fr    { width: 76px; }
+.grade.mov .c-dt    { width: 74px; }
 .grade.mov .c-atr   { width: 56px; }
 .grade.mov .c-quem  { width: 110px; }
 .grade.mov td.c-quem { color: var(--fraco); font-size: 12px; }
-.grade.mov .c-feito { width: 124px; }
-.grade.mov .c-prio  { width: 84px; }
+.grade.mov .c-feito { width: 112px; }
+.grade.mov .c-prio  { width: 86px; }
 .grade.mov .venceu  { color: var(--vencida); font-weight: 650; }
 /* em tela estreita sai a data da solicitação (5ª coluna) */
-@media (max-width: 1100px) { .grade.mov .c-dt:nth-child(5) { display: none; } }
+@media (max-width: 1280px) { .grade.mov .c-dt:nth-child(5) { display: none; } }
 
 /* prioridade da movimentação: só a alta chama atenção */
 .chip.prio-alta  { color: var(--hoje); border-color: var(--hoje); font-weight: 650; }
@@ -910,7 +935,7 @@ button.mini.devolver { color: var(--hoje); }
 .seg-op.destaque.on { background: var(--papel3); color: var(--texto); }
 
 /* os números do topo, como as caixas das abas Hoje e Semana */
-.kpis { display: grid; gap: 10px; grid-template-columns: repeat(auto-fit, minmax(124px, 1fr)); margin: 4px 0 14px; }
+.kpis { display: grid; gap: 10px; grid-template-columns: repeat(auto-fit, minmax(104px, 1fr)); margin: 4px 0 14px; }
 /* no celular, com duas colunas, o último cartão de um número ímpar ocupa a linha toda */
 @media (max-width: 860px) { .kpis > :last-child:nth-child(odd) { grid-column: 1 / -1; } }
 .kpi {
@@ -999,38 +1024,45 @@ details.outros[open] > summary { margin-bottom: 12px; }
 }
 
 /* ── a folha de pendências (js/tela/imprimir.js) ───────────────────────────
-   Na tela ela não existe; na impressão, é a única coisa que sai. */
+   O desenho da folha que o PCM já usava: a frota grande, o resumo, o filete
+   vermelho, grupos por executante e janela de dias, quadrado para marcar e a
+   linha "Quem fez". Na tela ela não aparece; a cópia de medir fica fora da
+   vista, na largura do papel, para a paginação contar a altura de verdade.
+   Só padding, nunca margem, nos blocos: a medida não enxerga margem. */
 #impressao { display: none; }
+#impressao-medida { position: fixed; left: -10000px; top: 0; width: 186mm; visibility: hidden; pointer-events: none; }
+.fl { color: #111; background: #fff; font: 10.5pt/1.3 system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+.fl-pagina { height: 271mm; display: flex; flex-direction: column; overflow: hidden; }
+.fl-cab { padding: 0 0 2.5mm; border-bottom: 0.6mm solid #c8102e; }
+.fl-cab h1 { margin: 0; padding: 0 0 1mm; font-size: 24pt; line-height: 1.1; font-weight: 800; color: #13243b; letter-spacing: .01em; }
+.fl-cab .fl-extra { font-weight: 800; }
+.fl-cab.fl-cont h1 { font-size: 13pt; }
+.fl-cab.fl-cont .fl-extra { font-weight: 500; color: #6b7280; }
+.fl-resumo { font-size: 9.5pt; color: #5b6472; }
+.fl-linha { display: grid; grid-template-columns: 9mm 20mm 1fr 47mm; align-items: stretch; }
+.fl-linha > span:nth-child(3) { padding-left: 1mm; padding-right: 3mm; }
+.fl-colunas { align-items: start; padding: 2mm 0 1mm; font-size: 7pt; letter-spacing: .06em; text-transform: uppercase; color: #6b7280; }
+.fl-grupo { padding: 2.5mm 0 1mm; font-size: 12pt; font-weight: 800; color: #13243b; text-transform: uppercase; letter-spacing: .01em; }
+.fl-grupo .fl-n { font-weight: 500; color: #6b7280; font-size: 9.5pt; text-transform: none; }
+.fl-janela { padding: 1mm 0 1mm 2mm; font-size: 7.5pt; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; color: #6b7280; }
+.fl-corpo > .fl-linha { padding: 1.4mm 0 1.2mm; }
+.fl-corpo > .fl-linha > span:nth-child(2), .fl-corpo > .fl-linha > span:nth-child(3) { border-bottom: 0.25mm solid #cfd5dd; padding-bottom: 1.2mm; min-height: 5mm; }
+.fl-ok { width: 4.2mm; height: 4.2mm; border: 0.3mm solid #333; border-radius: 0.6mm; margin: 0.4mm 0 0 2mm; align-self: start; }
+.fl-os { font-weight: 700; font-variant-numeric: tabular-nums; }
+.fl-quem { border-bottom: 0.3mm solid #5b6472; height: 6mm; align-self: end; }
+.fl-top { display: inline-block; margin-left: 1.5mm; padding: 0 1mm; border: 0.3mm solid #c8102e; border-radius: 0.8mm;
+  color: #c8102e; font-size: 6.5pt; font-weight: 800; line-height: 1.5; vertical-align: 1px; }
+.fl-rodape { margin-top: auto; padding-top: 3mm; text-align: right; font-size: 7.5pt; color: #6b7280; }
 @media print {
-  @page { size: A4; margin: 12mm 10mm; }
+  @page { size: A4; margin: 12mm 12mm; }
   body.imprimindo > *:not(#impressao) { display: none !important; }
   body.imprimindo #impressao { display: block; }
   /* papel é claro: sem isso o esquema escuro do site pinta as margens da página */
   :root { color-scheme: light !important; }
   html, body.imprimindo { background: #fff !important; }
-  #impressao { color: #000; font: 10pt/1.35 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
-  #impressao .imp-folha { break-after: page; }
-  #impressao .imp-folha:last-child { break-after: auto; }
-  #impressao header { border-bottom: 2px solid #000; padding-bottom: 5px; margin-bottom: 8px; }
-  #impressao h1 { font-size: 15pt; margin: 0 0 2px; }
-  #impressao .imp-sub { font-size: 9.5pt; color: #333; }
-  #impressao h2 { font-size: 11.5pt; margin: 10px 0 4px; break-after: avoid; }
-  #impressao h2 small { font-weight: 400; color: #444; font-size: 9.5pt; }
-  #impressao table { width: 100%; border-collapse: collapse; table-layout: fixed; }
-  #impressao th, #impressao td { border: 1px solid #777; padding: 3px 5px; text-align: left; vertical-align: top; }
-  #impressao th { background: #eee; font-size: 8.5pt; text-transform: uppercase; letter-spacing: .03em; }
-  #impressao tr { break-inside: avoid; }
-  #impressao .i-ok { width: 12mm; text-align: center; }
-  #impressao td.i-ok { font-size: 12pt; }
-  #impressao th.i-ok { font-size: 7.5pt; }
-  #impressao .i-os { width: 17mm; }
-  #impressao .i-quem { width: 28mm; }
-  #impressao .i-sem { width: 17mm; }
-  #impressao .i-dt { width: 14mm; }
-  #impressao .i-sit { width: 25mm; }
-  #impressao .i-obs { width: 38mm; }
-  #impressao .i-venc { font-weight: 700; }
-  #impressao footer { margin-top: 10px; font-size: 8.5pt; color: #444; border-top: 1px solid #999; padding-top: 4px; }
+  .fl-pagina { break-after: page; }
+  .fl-pagina:last-child { break-after: auto; }
 }
 
 /* o diálogo de escolher o que imprimir */

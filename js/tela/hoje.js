@@ -14,6 +14,7 @@ import * as pessoas from "../pessoas.js";
 import { el, limpar, br } from "../ui.js";
 import { criarNova } from "./comum.js";
 import { grade, repintarMantendoFoco } from "./grade.js";
+import { imprimirFrota, imprimirPorFrota } from "./imprimir.js";
 
 const NOMES = ["domingo", "segunda-feira", "terça-feira", "quarta-feira",
   "quinta-feira", "sexta-feira", "sábado"];
@@ -24,6 +25,8 @@ export async function montar(raiz, ctx, params) {
   const entradaDia = el("input", { type: "date", value: dia, style: "width:auto",
     onchange: () => { dia = entradaDia.value || M.hoje(); pintar(); } });
   const quando = el("span", { class: "sub" });
+  // Está no dia: o período de execução (do início ao prazo) inclui a data.
+  const emExecucaoNoDia = a => { const i = M.inicioDe(a), p = M.prazoDe(a); return a.dia && i && i <= dia && p >= dia; };
   const corpo = el("div", {});
   raiz.append(
     el("div", { class: "cabec" },
@@ -31,6 +34,9 @@ export async function montar(raiz, ctx, params) {
       el("button", { onclick: () => { entradaDia.value = M.hoje(); dia = M.hoje(); pintar(); } },
         "Voltar para hoje"),
       el("div", { class: "espaco" }),
+      el("button", { title: "Uma folha por frota, com o que está programado para o dia",
+        onclick: () => imprimirPorFrota(ev.lista().filter(a => M.aberta(a) && emExecucaoNoDia(a)),
+          `dia ${br(dia).slice(0, 5)}`) }, "Imprimir o dia"),
       pessoas.pode("programar")
         ? el("button", { class: "primario", onclick: () => {
           // A extra entra no dia que está na tela — criar na carteira fazia a
@@ -53,7 +59,7 @@ export async function montar(raiz, ctx, params) {
     quando.textContent = `${NOMES[M.data(dia).getUTCDay()]} · semana ${sem.semana}`;
 
     const vivas = ev.lista().filter(a => (a.atividade || a.frota) && !a.cancelada);
-    const naJanela = a => { const i = M.inicioDe(a), p = M.prazoDe(a); return a.dia && i && i <= dia && p >= dia; };
+    const naJanela = emExecucaoNoDia;
     const interna = a => M.oficinaDe(a) === "Interna";
 
     const doDia = vivas.filter(naJanela);
@@ -80,13 +86,16 @@ export async function montar(raiz, ctx, params) {
 
     corpo.append(el("div", { class: "titulo-secao" }, "Programadas para o dia",
       el("span", { class: "n" }, `· período de execução inclui ${br(dia)} · ${doDia.length}`)));
+    const doDiaTexto = `dia ${M.DIAS[(M.data(dia).getUTCDay() + 6) % 7].toLowerCase()} ${br(dia).slice(0, 5)}`;
     corpo.append(grade(doDia, { ctx, agrupar: "frota", ref: dia,
+      imprimirBloco: (frota, lista) => imprimirFrota(frota, lista, doDiaTexto),
       vazioTexto: "Nenhuma atividade em execução neste dia. A programação da semana está na aba Programação." }));
 
     if (atrasadas.length) {
       corpo.append(el("div", { class: "titulo-secao" }, "Atrasadas",
         el("span", { class: "n" }, `· prazo vencido, ainda em aberto · ${atrasadas.length}`)));
-      corpo.append(grade(atrasadas, { ctx, agrupar: "frota", ref: dia }));
+      corpo.append(grade(atrasadas, { ctx, agrupar: "frota", ref: dia,
+        imprimirBloco: (frota, lista) => imprimirFrota(frota, lista, "atrasadas") }));
     }
 
     if (fechadasNoDia.length) {

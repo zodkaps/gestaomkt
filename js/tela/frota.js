@@ -6,39 +6,67 @@
 
 import * as ev from "../eventos.js";
 import * as M from "../modelo.js";
-import { el, limpar, br, cartaoNumero, vazio, selecao } from "../ui.js";
+import { el, limpar, br, cartaoNumero, vazio } from "../ui.js";
+import { busca as semAcento } from "../texto.js";
 import { cartao, botaoConcluir, secao, criarNova, frotas, descreverEvento } from "./comum.js";
 import { cartaoMov } from "./movimentacoes.js";
 import { cartaoPrev } from "./preventivas.js";
-import { imprimirPendencias } from "./imprimir.js";
+import { imprimirFrota } from "./imprimir.js";
 
 export async function montar(raiz, ctx, params) {
   let frota = params.get("f") || "";
 
-  const escolha = el("select", { style: "width:auto;min-width:150px",
-    onchange: () => { frota = escolha.value; pintar(); } });
+  // A frota se pesquisa, como na Programação: "969" acha a F-969. Sem frota
+  // escolhida, a tela mostra todas para tocar, com quantas pendências cada uma tem.
+  const chave = t => semAcento(String(t || "")).replace(/[^a-z0-9]/g, "");
+  const escolha = el("input", { type: "search", class: "busca-frota", placeholder: "Pesquisar frota",
+    list: "dl-frotas-tela", autocomplete: "off", spellcheck: false, value: frota,
+    oninput: () => {
+      const exata = frotas().find(f => chave(f) === chave(escolha.value));
+      frota = exata || "";
+      busca = exata ? "" : escolha.value.trim();
+      pintar();
+    } });
+  const lista = el("datalist", { id: "dl-frotas-tela" });
+  let busca = "";
   const corpo = el("div", {});
+  const bImprimir = el("button", { title: "A folha com todas as pendências em aberto desta frota",
+    onclick: () => frota && imprimirFrota(frota) }, "Imprimir folha");
 
   raiz.append(
     el("div", { class: "cabec" },
-      el("h1", {}, "Frota"), escolha,
+      el("h1", {}, "Frota"), escolha, lista,
       el("div", { class: "espaco" }),
-      el("button", { onclick: () => imprimirPendencias({ frota }) }, "Imprimir pendências"),
+      bImprimir,
       el("button", { class: "primario", onclick: () => criarNova(ctx, { frota }) }, "+ Nova")),
     corpo);
 
   function pintarEscolha() {
-    const lista = frotas();
-    if (!frota && lista.length) frota = lista[0];
-    limpar(escolha);
-    escolha.append(el("option", { value: "" }, "— escolha a frota —"));
-    for (const f of lista) escolha.append(el("option", { value: f, selected: f === frota }, f));
+    limpar(lista);
+    for (const f of frotas()) lista.append(el("option", { value: f }));
+    if (document.activeElement !== escolha && frota && escolha.value !== frota) escolha.value = frota;
+  }
+
+  /** Todas as frotas para tocar, as com mais pendência primeiro. */
+  function grade() {
+    const abertasPor = new Map();
+    for (const a of ev.lista()) if (a.frota && M.aberta(a)) abertasPor.set(a.frota, (abertasPor.get(a.frota) || 0) + 1);
+    const q = chave(busca);
+    const todas = frotas().filter(f => !q || chave(f).includes(q))
+      .sort((x, y) => (abertasPor.get(y) || 0) - (abertasPor.get(x) || 0) ||
+        x.localeCompare(y, "pt-BR", { numeric: true }));
+    if (!todas.length) return vazio("Nenhuma frota com esse número.");
+    return el("div", { class: "grade-frotas" }, todas.map(f => el("button", {
+      class: "frota-chip" + ((abertasPor.get(f) || 0) ? "" : " sem"),
+      onclick: () => { frota = f; busca = ""; escolha.value = f; pintar(); window.scrollTo(0, 0); },
+    }, el("b", {}, f), el("span", {}, (abertasPor.get(f) || 0) ? `${abertasPor.get(f)} em aberto` : "nada em aberto"))));
   }
 
   function pintar() {
     pintarEscolha();
+    bImprimir.hidden = !frota;
     limpar(corpo);
-    if (!frota) { corpo.append(vazio("Escolha uma frota.")); return; }
+    if (!frota) { corpo.append(grade()); return; }
 
     const todas = ev.lista().filter(a => a.frota === frota);
     const abertas = todas.filter(M.aberta);

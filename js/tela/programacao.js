@@ -15,7 +15,7 @@ import * as M from "../modelo.js";
 import * as pessoas from "../pessoas.js";
 import { el, limpar, brCurto, caixa, campo } from "../ui.js";
 import { criarNova, programarEmLote, gravarOS, retirarDaProgramacao } from "./comum.js";
-import { imprimirPendencias } from "./imprimir.js";
+import { imprimirSemana, imprimirPorFrota, imprimirFrota, imprimirPorExecutante } from "./imprimir.js";
 import { grade, faixaSituacoes, progresso, natural, repintarMantendoFoco } from "./grade.js";
 import { busca as semAcento } from "../texto.js";
 
@@ -77,6 +77,16 @@ export async function montar(raiz, ctx, params) {
     botaoPeriodo("carteira", "Carteira"),
     botaoPeriodo("tudo", "Tudo"));
 
+  // Imprimir: na semana, a semana inteira — uma folha por frota; nos outros
+  // recortes, o que está na tela. Cada bloco de frota tem o seu botão.
+  const bImprimir = el("button", { title: "Uma folha por frota, com as pendências em aberto",
+    onclick: () => estado.periodo === "semana"
+      ? imprimirSemana(estado.ano, estado.semana)
+      : imprimirPorFrota(filtrar(doPeriodo()), rotuloRecorte()) });
+  const rotuloRecorte = () => estado.periodo === "semana"
+    ? (() => { const d = M.datasDaSemana(estado.ano, estado.semana);
+      return `semana ${estado.semana} · ${brCurto(d[0])} a ${brCurto(d[4])}`; })()
+    : estado.periodo === "carteira" ? "carteira" : "";
   const topoResumo = el("div", {});
   const barraSel = el("div", { class: "barra-sel", hidden: true });
   const corpo = el("div", {});
@@ -86,8 +96,9 @@ export async function montar(raiz, ctx, params) {
       el("h1", {}, "Programação"),
       periodos,
       el("div", { class: "espaco" }),
-      el("button", { title: "Folha com as atividades em aberto por frota, para a oficina",
-        onclick: () => imprimirPendencias({ frota: frotaExata(doPeriodo()) }) }, "Imprimir pendências"),
+      bImprimir,
+      el("button", { class: "discreto", title: "Folhas por executante, com a escolha de quem",
+        onclick: () => imprimirPorExecutante({ frota: frotaExata(doPeriodo()) }) }, "Por executante"),
       pessoas.pode("programar")
         ? el("button", { class: "primario", onclick: () => criarNova(ctx,
           estado.periodo === "semana" ? { ano: estado.ano, semana: estado.semana } : {}) }, "+ Nova")
@@ -151,6 +162,7 @@ export async function montar(raiz, ctx, params) {
 
   function pintarPeriodo() {
     rotSemana.textContent = `Semana ${estado.semana}`;
+    bImprimir.textContent = estado.periodo === "semana" ? `Imprimir semana ${estado.semana}` : "Imprimir";
     for (const b of periodos.querySelectorAll("[data-p]")) {
       b.classList.toggle("on", b.dataset.p === estado.periodo);
     }
@@ -244,6 +256,7 @@ export async function montar(raiz, ctx, params) {
       ctx, agrupar: estado.agrupar || null,
       datas: estado.periodo === "semana" ? M.datasDaSemana(estado.ano, estado.semana) : null,
       selecao: pessoas.pode("programar") ? sel : null,
+      imprimirBloco: (frota, lista) => imprimirFrota(frota, lista, rotuloRecorte()),
       aoSelecionar: tudo => (tudo ? pintarCorpo() : pintarBarraSel()),
       vazioTexto: estado.semOS ? "Todas as atividades em aberto deste recorte já têm OS."
         : estado.periodo === "semana"

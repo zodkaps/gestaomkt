@@ -373,6 +373,7 @@ export async function montar(raiz, ctx, params) {
       texto = `por ${n.fechada_por} em ${br(String(n.fechada_em).slice(0, 10))} ` +
         `às ${new Date(n.fechada_em).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}` +
         (n.fonte === "sexta" ? " · com os números de sexta às 23h59"
+          : n.fonte === "sexta_baixas" ? " · na sexta, com as baixas lançadas depois"
           : n.fonte === "digitar" ? " · número digitado" : "");
     } else if (f.modo === "automatico") {
       titulo = "Semana fechada automaticamente"; cls = "ok";
@@ -434,6 +435,8 @@ export async function montar(raiz, ctx, params) {
           "O calculado de hoje continua aparecendo ao lado."),
         el("div", { class: "lista-check" },
           sexta ? opcao("sexta", "Como estava na sexta às 23h59", linha(sexta)) : null,
+          f.sextaComBaixas ? opcao("sexta_baixas", "Na sexta, com as baixas lançadas depois",
+            linha(f.sextaComBaixas) + " — serviço da semana com a baixa atrasada; reprogramação feita depois não conta") : null,
           opcao("agora", "Como está agora", linha(agoraN)),
           el("div", {},
             opcao("digitar", "Digitar o número apresentado", "como a coluna amarela da planilha"),
@@ -456,7 +459,8 @@ export async function montar(raiz, ctx, params) {
       }
       numeros = { aderencia: Math.round(a * 10) / 1000, cumprimento: c == null ? null : Math.round(c * 10) / 1000 };
     } else {
-      numeros = escolha === "sexta" && sexta ? sexta : agoraN;
+      numeros = escolha === "sexta" && sexta ? sexta
+        : escolha === "sexta_baixas" && f.sextaComBaixas ? f.sextaComBaixas : agoraN;
     }
     try {
       await ev.aplicar(ev.fecharSemana(f.ano, f.semana, numeros,

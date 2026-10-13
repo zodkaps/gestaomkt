@@ -550,7 +550,7 @@ ok("um clique aprova: Concluída com atraso, concluída pelo Pedro, aprovada pel
   }, [A, B, SUF]);
   await p.evaluate(() => { location.hash = "#/programacao?m=tudo"; });
   await p.waitForTimeout(900);
-  await p.click('.cabec button:has-text("Imprimir pendências")');
+  await p.click('.cabec button:has-text("Por executante")');
   await p.waitForSelector(".caixa .lista-check", { timeout: 5000 });
   await p.click('.caixa button:has-text("Limpar")');
   await p.check(`.caixa .lista-check label:has-text("${A}") input`);
@@ -567,6 +567,66 @@ ok("um clique aprova: Concluída com atraso, concluída pelo Pedro, aprovada pel
     folha.folhas === 1 && folha.impressoes === 1, JSON.stringify({ ...folha, texto: folha.texto.slice(0, 120) }));
   ok("e a folha não aparece na tela, só no papel", folha.naTela === "none", folha.naTela);
   await p.evaluate(() => { document.getElementById("impressao")?.remove(); document.body.classList.remove("imprimindo"); });
+}
+
+// ── a folha da frota: semana inteira, uma frota, paginação medida ──────────
+{
+  const S = Date.now().toString(36).slice(-5).toUpperCase();
+  const sem = await p.evaluate(() => mkt.M.semanaAtual());
+  const [FA, FB] = [`F-FA${S}`, `F-FB${S}`];
+  await p.evaluate(async ([fa, fb, sem, s]) => {
+    const ev = [];
+    // a FA tem tanta coisa que não cabe numa página só
+    for (let k = 1; k <= 70; k++) ev.push(mkt.ev.criar({ frota: fa, atividade: `Item ${String(k).padStart(2, "0")} da ${fa} com um texto comprido o bastante para quebrar em duas linhas na folha impressa`,
+      tipo: "Corretiva", origem: "Programada", oficina: "Interna", ano: sem.ano, semana: sem.semana, dia: "Qua", dias: 2,
+      executantes: k % 3 ? ["Exec " + s] : [], obs: k === 1 ? "[06/10] TOP: item do TOP" : (k === 2 ? "Backlog · TOP 06/10: conferir" : "") }));
+    ev.push(mkt.ev.criar({ frota: fb, atividade: `Único da ${fb}`, tipo: "Corretiva", origem: "Programada",
+      oficina: "Interna", ano: sem.ano, semana: sem.semana, dia: "Qui", dias: 1 }));
+    await mkt.ev.aplicar(ev, { silencioso: true });
+    window.__impressoes = 0;
+    window.print = () => { window.__impressoes++; };
+  }, [FA, FB, sem, S]);
+  const paginas = async () => {
+    await p.emulateMedia({ media: "print" });
+    const r = await p.evaluate(() => [...document.querySelectorAll("#impressao .fl-pagina")].map(pg => ({
+      titulo: pg.querySelector(".fl-cab h1").textContent, rodape: pg.querySelector(".fl-rodape").textContent,
+      cortou: pg.scrollHeight > pg.clientHeight + 1,
+      // o rodapé tem de estar dentro da página, não escondido embaixo
+      rodapeDentro: pg.querySelector(".fl-rodape").getBoundingClientRect().bottom <= pg.getBoundingClientRect().bottom + 1,
+      linhas: pg.querySelectorAll(".fl-corpo > .fl-linha").length,
+      top: [...pg.querySelectorAll(".fl-top")].map(t => t.parentElement.textContent),
+    })));
+    await p.emulateMedia({ media: "screen" });
+    await p.evaluate(() => { document.getElementById("impressao")?.remove(); document.body.classList.remove("imprimindo"); });
+    return r;
+  };
+
+  await p.evaluate(() => { location.hash = "#/programacao?m=semana"; });
+  await p.waitForTimeout(900);
+  await p.fill(".filtros input.busca-frota", S);
+  await p.waitForTimeout(400);
+  await p.locator(`.so-tabela tr.bloco:has-text("${FA}") button.imprimir-bloco`).click();
+  const pgA = await paginas();
+  const linhasA = pgA.reduce((n, x) => n + x.linhas, 0);
+  ok("imprimir a frota pelo bloco: as 70 em várias páginas, nenhuma linha cortada, rodapé 'página i de n' em cada",
+    pgA.length >= 2 && linhasA === 70 && pgA.every(x => !x.cortou && x.rodapeDentro) &&
+    pgA.every((x, i) => x.rodape === `${FA} · página ${i + 1} de ${pgA.length}`) &&
+    pgA[0].titulo === FA && pgA.slice(1).every(x => x.titulo.includes("continuação")),
+    JSON.stringify(pgA.map(x => ({ ...x, top: x.top.length }))));
+  ok("a etiqueta TOP só no que nasceu no TOP, não no que só cita",
+    pgA.flatMap(x => x.top).length === 1 && pgA.flatMap(x => x.top)[0].includes("Item 01"),
+    JSON.stringify(pgA.flatMap(x => x.top)));
+
+  await p.fill(".filtros input.busca-frota", "");
+  await p.waitForTimeout(300);
+  await p.click('.cabec button:has-text("Imprimir semana")');
+  const pgS = await paginas();
+  const titulos = [...new Set(pgS.map(x => x.titulo.replace(" · continuação", "")))];
+  const esperadas = await p.evaluate(sem => [...new Set(mkt.ev.lista().filter(a => a.semana === sem.semana &&
+    a.ano === sem.ano && mkt.M.aberta(a)).map(a => a.frota))].length, sem);
+  ok("imprimir a semana: uma folha por frota em aberto na semana, cada uma começando em página nova",
+    titulos.length === esperadas && titulos.includes(FA) && titulos.includes(FB) && pgS.every(x => !x.cortou),
+    `${titulos.length} frotas na folha, ${esperadas} na semana`);
 }
 
 // ── a frota se pesquisa, e retirar da programação é em lote ────────────────
@@ -643,8 +703,29 @@ ok("um clique aprova: Concluída com atraso, concluída pelo Pedro, aprovada pel
   await p.fill(".filtros input.busca-frota", "");
 }
 
+// ── a tela Frota: pesquisar e tocar ────────────────────────────────────────
+{
+  const numero = String(70000 + Date.now() % 20000);
+  const alvo = "F-" + numero;
+  await p.evaluate(async f => { await mkt.ev.aplicar(mkt.ev.criar({ frota: f, atividade: "Teste da tela Frota",
+    tipo: "Corretiva", origem: "Programada", oficina: "Interna" }), { silencioso: true }); }, alvo);
+  await p.evaluate(() => { location.hash = "#/frota"; });
+  await p.waitForTimeout(800);
+  await p.fill(".cabec input.busca-frota", numero);
+  await p.waitForTimeout(400);
+  const chips = await p.evaluate(() => [...document.querySelectorAll(".grade-frotas .frota-chip b")].map(b => b.textContent));
+  ok("na tela Frota, digitar o número filtra as frotas para tocar",
+    chips.includes(alvo) && chips.every(c => c.replace(/\D/g, "").includes(numero)), JSON.stringify(chips.slice(0, 8)));
+  await p.locator(`.grade-frotas .frota-chip:has(b:text-is("${alvo}"))`).click();
+  await p.waitForTimeout(500);
+  ok("e tocar abre a frota", await p.evaluate(() => !document.querySelector(".grade-frotas") &&
+    !!document.querySelector(".numeros")));
+}
+
 // ── no tablet em pé, os cartões também têm a caixinha ──────────────────────
 {
+  await p.evaluate(() => { location.hash = "#/programacao?m=tudo"; });
+  await p.waitForTimeout(700);
   await p.setViewportSize({ width: 800, height: 1000 });
   await p.waitForTimeout(500);
   const temCaixa = await p.evaluate(() => {

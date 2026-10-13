@@ -171,10 +171,14 @@ function celulaAtividade(a, o) {
   } else if (atrasou && pode) {
     porque = el("button", { class: "mini justificar", onclick: abrirJust }, "+ justificar");
   }
+  // Quando a tela é estreita e a coluna Executante some, quem faz aparece aqui.
+  const quemFaz = (a.executantes || []).length
+    ? el("div", { class: "quem-inline" }, a.executantes.join(", ")) : null;
   return [
     el("div", { class: "t" },
       o.mostrarFrota && a.frota ? el("b", { class: "fr" }, a.frota + " ") : null,
       a.atividade || "—", tags.length ? " " : null, tags),
+    quemFaz,
     porque,
   ];
 }
@@ -262,10 +266,17 @@ function marcarBloco(g, o) {
   });
 }
 
+/** Imprimir a folha de uma frota, no cabeçalho do bloco dela. */
+function botaoImprimir(g, o) {
+  if (!o.imprimirBloco || o.agrupar !== "frota" || !g.chave || !g.itens.some(M.aberta)) return null;
+  return el("button", { class: "mini imprimir-bloco", type: "button", title: `Imprimir a folha da ${g.chave}`,
+    onclick: e => { e.stopPropagation(); o.imprimirBloco(g.chave, g.itens); } }, "Imprimir");
+}
+
 /** A grade inteira: tabela no computador, cartões no celular.
  *
  *  `o`: { ctx, agrupar: "frota" | "dia" | null, ref, datas, selecao (Set),
- *         aoSelecionar, vazioTexto } */
+ *         aoSelecionar, vazioTexto, imprimirBloco(frota, itens) } */
 export function grade(itens, o = {}) {
   if (!itens.length) return vazio(o.vazioTexto || "Nada aqui com estes filtros.");
   const opc = { ...o, mostrarFrota: o.agrupar !== "frota" };
@@ -293,7 +304,7 @@ export function grade(itens, o = {}) {
         el("td", { colspan: ncol },
           el("div", { class: "bloco-cab" },
             marcarBloco(g, o), rotuloBloco(g.chave, o.agrupar, g.itens, o.datas),
-            contagem(r), el("span", { class: "espaco" }), barrinha(r)))));
+            contagem(r), el("span", { class: "espaco" }), barrinha(r), botaoImprimir(g, o)))));
     }
     for (const a of g.itens) corpo.append(linha(a, opc));
   }
@@ -306,7 +317,8 @@ export function grade(itens, o = {}) {
     if (o.agrupar) {
       const r = resumo(g.itens, o.ref);
       cartoes.append(el("div", { class: "bloco-cel" },
-        marcarBloco(g, o), rotuloBloco(g.chave, o.agrupar, g.itens, o.datas), contagem(r), barrinha(r)));
+        marcarBloco(g, o), rotuloBloco(g.chave, o.agrupar, g.itens, o.datas), contagem(r), barrinha(r),
+        botaoImprimir(g, o)));
     }
     const lista = el("div", { class: "lista" });
     for (const a of g.itens) {

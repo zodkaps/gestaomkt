@@ -374,11 +374,28 @@ fórmulas (ver *Os números são os da planilha*, abaixo).
   o filtro e a busca — vira uma imagem PNG de fundo claro, para cobrar no
   grupo. No celular abre o compartilhar (WhatsApp direto); no computador, baixa
   o arquivo.
-- **Imprimir pendências** (Programação e Frota): uma folha A4 com as
-  atividades em aberto, por frota — OS, atividade, executante, semana, prazo,
-  situação, e colunas para marcar o feito e anotar à mão. Escolhe-se de quais
-  **executantes** (e "sem executante"), a frota, se a carteira entra, e se sai
-  **uma folha para cada executante**. Imprimir não grava nada.
+- **Imprimir — a folha da frota.** O desenho é o da folha que o PCM já usava
+  (a da F-617): a frota grande no alto, a linha de resumo (quantas pendências,
+  a semana, quando foi impressa), um filete vermelho, e as atividades
+  **agrupadas por executante** ("Executante a definir" por último) e, dentro,
+  pela **janela de dias** ("terça 06/10 a sexta 09/10"). Cada linha: o quadrado
+  para marcar, a OS, a atividade e a linha **Quem fez** para escrever à mão. Com
+  OS primeiro; o que nasceu no TOP (a observação começa com "[06/10] TOP") leva
+  a etiqueta **TOP** e vem no fim. Frota que não cabe numa página continua na
+  seguinte, com "continuação" no alto e **"página 1 de 2"** no pé — a paginação
+  é medida na largura do papel, não chutada. Os botões:
+  - **Imprimir semana 42** (Programação): todas as frotas com pendência na
+    semana, **uma folha por frota**. Nos outros recortes o botão é *Imprimir* e
+    leva o que está na tela.
+  - **Imprimir** no cabeçalho de **cada bloco de frota** (Programação e Hoje): só
+    aquela frota, com o que está no bloco.
+  - **Imprimir folha** (tela Frota): todas as pendências em aberto da frota,
+    programadas e na carteira. **Imprimir o dia** (Hoje): o que está no dia.
+  - **Por executante** (Programação): escolhe os executantes, a frota e se a
+    carteira entra; com *uma folha para cada executante*, cada um recebe a sua
+    (agrupada por frota). Imprimir não grava nada.
+- **Frota** se pesquisa: sem frota escolhida, a tela mostra todas para tocar,
+  as com mais pendência primeiro; digitar "969" filtra.
 
 Hoje, Programação e Semana usam a **mesma grade** (`js/tela/grade.js`): um lugar
 só desenha uma atividade em lista, e as três telas nunca mostram a mesma coisa
@@ -570,8 +587,11 @@ fechamento como lançamento (`semana_fechada`, só do PCM — o banco recusa o d
 operação). Cada semana tem o seu número de um destes jeitos, nesta ordem:
 
 1. **Registrado.** O PCM fecha a semana em Resultados (**Fechar a semana**),
-   escolhendo *como estava na sexta às 23h59*, *como está agora* ou **digitando
-   o número apresentado na reunião** — e uma observação. Os números da coluna
+   escolhendo *como estava na sexta às 23h59*, *na sexta, com as baixas
+   lançadas depois* (serviço que saiu na semana e só teve a baixa atrasada — a
+   data da baixa até a sexta; reprogramação feita depois continua fora), *como
+   está agora* ou **digitando o número apresentado na reunião** — e uma
+   observação. Os números da coluna
    amarela da planilha também entram assim, pela tela Importar. Fechar de novo
    exige motivo; os dois fechamentos ficam no Registro.
 2. **Automático.** Se ninguém fechou, a semana fecha **sozinha na sexta às

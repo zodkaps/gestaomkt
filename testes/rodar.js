@@ -643,6 +643,14 @@ titulo("fechamento.js — a semana fechada não muda");
   const fr = fech.fechamento(2026, 41, { ...op, registrados });
   igual("o registrado vale acima do automático", [fr.modo, fech.vale(fr, "aderencia")], ["registrado", 0.84]);
   ok("e o da sexta continua à mão para comparar", fr.sexta && fr.sexta.aderencia === 1 / 3);
+  // a baixa da T2 foi lançada na segunda com data de sexta: o serviço saiu na
+  // semana, só a baixa atrasou. A T3, empurrada para a 42, segue contando como não feita.
+  igual("na sexta com as baixas lançadas depois: 2 de 3, a reprogramada continua fora",
+    [f41.sextaComBaixas.concluidas_plano, f41.sextaComBaixas.plano], [2, 3]);
+  const soDepois = [...fita, { id: "c9", ts: "2026-10-13T09:00:00.000Z", tipo: "concluida", alvo: "T3",
+    alvo_tipo: "atividade", dados: { em: "2026-10-13" } }];
+  igual("baixa com data depois da sexta não entra",
+    fech.fechamento(2026, 41, { ...op, fita: soDepois }).sextaComBaixas.concluidas_plano, 2);
 
   // pelo registro, como na tela
   await entrarComo("Mateus");
