@@ -189,7 +189,7 @@ export function decisoesProgramacao(ats, ref) {
     const sem = vencidas.filter(a => !a.motivo && !a.quem_atrasou).length;
     r.push({ area: "Programação", nivel: 1, titulo: `${plural(vencidas.length, "atividade vencida", "atividades vencidas")}`,
       detalhe: (sem ? `${sem} sem justificativa. ` : "Todas justificadas. ") +
-        "Dar a baixa do que saiu, e reprogramar com motivo o que não saiu.",
+        "Dar a baixa do que saiu — dá para marcar várias e dar baixa de uma vez — e reprogramar com motivo o que não saiu.",
       acoes: [{ rotulo: "Ver as vencidas", ir: ["programacao", "m=abertas&sit=VENCIDA"] }] });
   }
   const hoje = vivas.filter(a => M.situacaoDe(a, ref) === "Fecha hoje");

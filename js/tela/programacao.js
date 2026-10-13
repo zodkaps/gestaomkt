@@ -14,7 +14,7 @@ import * as ev from "../eventos.js";
 import * as M from "../modelo.js";
 import * as pessoas from "../pessoas.js";
 import { el, limpar, brCurto, caixa, campo } from "../ui.js";
-import { criarNova, programarEmLote, gravarOS, retirarDaProgramacao } from "./comum.js";
+import { criarNova, programarEmLote, gravarOS, retirarDaProgramacao, concluirEmLote } from "./comum.js";
 import { imprimirSemana, imprimirPorFrota, imprimirFrota, imprimirPorExecutante } from "./imprimir.js";
 import { grade, faixaSituacoes, progresso, natural, repintarMantendoFoco } from "./grade.js";
 import { busca as semAcento } from "../texto.js";
@@ -200,6 +200,8 @@ export async function montar(raiz, ctx, params) {
     topoResumo.append(titulo, faixaSituacoes(base, undefined, estado.situacoes, pintarCorpo));
   }
 
+  let listaNaTela = [];
+
   function pintarBarraSel() {
     limpar(barraSel);
     // Só o que ainda existe e está em aberto conta: uma marcada que alguém
@@ -207,10 +209,24 @@ export async function montar(raiz, ctx, params) {
     for (const id of [...sel]) { const a = ev.porId(id); if (!a || !M.aberta(a)) sel.delete(id); }
     barraSel.hidden = !sel.size;
     if (!sel.size) return;
+    // As em aberto da lista que está na tela (com o filtro e a busca): com
+    // "Vencida" filtrado, marcar todas é marcar todas as vencidas.
+    const daLista = listaNaTela.filter(a => M.aberta(a));
     barraSel.append(...[
       el("b", {}, `${sel.size} marcada${sel.size === 1 ? "" : "s"}`),
+      daLista.some(a => !sel.has(a.id))
+        ? el("button", { class: "discreto", title: "Marcar todas as em aberto da lista, com o filtro de agora",
+          onclick: () => { for (const a of daLista) sel.add(a.id); pintarCorpo(); } }, `Marcar todas (${daLista.length})`)
+        : null,
       el("div", { class: "espaco" }),
       el("button", { onclick: () => { sel.clear(); pintarCorpo(); } }, "Desmarcar"),
+      pessoas.pode("baixar")
+        ? el("button", { title: "Concluir as marcadas: no último dia programado de cada uma, ou numa data só",
+          onclick: async () => {
+            const alvos = [...sel].map(id => ev.porId(id)).filter(Boolean);
+            if (await concluirEmLote(alvos)) sel.clear();
+          } }, "Dar baixa")
+        : null,
       el("button", { onclick: async () => {
         const alvos = [...sel].map(id => ev.porId(id)).filter(Boolean);
         const eOS = el("input", { inputmode: "numeric", placeholder: "ex.: 022475" });
@@ -258,6 +274,7 @@ export async function montar(raiz, ctx, params) {
     bSemOS.classList.toggle("on", estado.semOS);
     bSemOS.hidden = !faltam && !estado.semOS;
     const itens = filtrar(base);
+    listaNaTela = itens;
     repintarMantendoFoco(corpo, () => { limpar(corpo); corpo.append(grade(itens, {
       ctx, agrupar: estado.agrupar || null,
       datas: estado.periodo === "semana" ? M.datasDaSemana(estado.ano, estado.semana) : null,

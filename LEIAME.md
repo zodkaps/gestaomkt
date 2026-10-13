@@ -334,6 +334,16 @@ fórmulas (ver *Os números são os da planilha*, abaixo). Antes delas vem o
   no mesmo fornecedor, o mesmo motivo seis vezes). No tablet em pé e no celular,
   os cartões também têm a caixinha de marcar. Conta como reprogramação, como
   sempre.
+- **Dar baixa em várias de uma vez.** Marque as atividades (a caixinha da
+  linha, a do cabeçalho da frota, ou **Marcar todas (N)** na barra, que marca
+  tudo o que está em aberto na lista com o filtro de agora — com *Vencida*
+  filtrado, são todas as vencidas) e use **Dar baixa**. A data é escolha sua,
+  para todas: **o último dia programado de cada uma** (a que ainda está no
+  prazo fica com a data de hoje — baixa no futuro não existe; a que não tem
+  dia programado usa a data do campo) ou **uma data só**. A caixa mostra
+  quantas ficam em cada data antes de gravar e, se alguma sair depois do
+  prazo, pede o motivo do atraso (opcional, vale para todas as atrasadas).
+  Sem data, não grava. Semana já fechada não muda com a baixa dada depois.
 - **A OS se digita na própria linha.** Na coluna OS, a atividade em aberto sem
   OS mostra um campo tracejado *sem OS*: clica, digita, **Enter** (ou Tab) — a
   OS é gravada com os seis dígitos e o cursor desce para a próxima sem OS. O

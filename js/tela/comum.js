@@ -174,6 +174,89 @@ export async function concluir(a, ctx, quandoPadrao) {
   return true;
 }
 
+/** Dar baixa em várias de uma vez. A data é escolha de quem lança, para todas:
+ *  o último dia programado de cada uma (o prazo dela — a que ainda está no
+ *  prazo fica com a data de hoje, que baixa no futuro não existe) ou uma data
+ *  só. A que não tem dia programado usa a data do campo. Saiu depois do prazo?
+ *  Um motivo opcional vale para todas as atrasadas, como na baixa de uma. */
+export async function concluirEmLote(alvos) {
+  const abertas = alvos.filter(a => a && M.aberta(a));
+  if (!abertas.length) { avisar("Nenhuma das marcadas está em aberto."); return false; }
+  const hoje = M.hoje();
+  const comPrazo = abertas.filter(a => M.prazoDe(a));
+  let modo = comPrazo.length ? "prazo" : "uma";
+  const dataDe = a => {
+    const p = M.prazoDe(a);
+    if (modo === "prazo" && p) return p > hoje ? hoje : p;
+    return eData.value;
+  };
+
+  const eData = el("input", { type: "date", value: hoje, max: hoje });
+  const bPrazo = el("button", { type: "button" }, "Último dia programado de cada uma");
+  const bUma = el("button", { type: "button" }, "Uma data para todas");
+  const rotuloData = el("span", {});
+  const linhaData = el("label", { class: "campo" }, rotuloData, eData);
+  const resumo = el("div", { class: "lote-resumo" });
+  const j = camposJustificativa("atividade");
+  const caixaAtraso = el("div", { class: "bloco-atraso" },
+    el("p", { class: "nada" }, "Motivo do atraso (opcional) — vale para todas as concluídas depois do prazo"), j.no);
+
+  const pintar = () => {
+    bPrazo.className = modo === "prazo" ? "primario" : "";
+    bUma.className = modo === "uma" ? "primario" : "";
+    bPrazo.disabled = !comPrazo.length;
+    const semPrazo = abertas.length - comPrazo.length;
+    linhaData.hidden = modo === "prazo" && !semPrazo;
+    rotuloData.textContent = modo === "prazo"
+      ? `Data para ${semPrazo === 1 ? "a que não tem" : `as ${semPrazo} que não têm`} dia programado`
+      : "Concluídas em";
+    const porData = new Map();
+    for (const a of abertas) { const d = dataDe(a) || ""; porData.set(d, (porData.get(d) || 0) + 1); }
+    const atrasadas = abertas.filter(a => { const p = M.prazoDe(a), d = dataDe(a); return p && d && d > p; }).length;
+    caixaAtraso.hidden = !atrasadas;
+    resumo.replaceChildren(
+      el("p", {}, el("b", {}, "Datas da baixa: "),
+        [...porData].sort().map(([d, n]) => `${d ? br(d) : "falta a data"} (${n})`).join(" · ")),
+      atrasadas ? el("p", { class: "nada" },
+        `${atrasadas} fica${atrasadas === 1 ? "" : "m"} como concluída${atrasadas === 1 ? "" : "s"} com atraso.`) : "");
+  };
+  bPrazo.onclick = () => { modo = "prazo"; pintar(); };
+  bUma.onclick = () => { modo = "uma"; pintar(); };
+  eData.addEventListener("input", pintar);
+  eData.addEventListener("change", pintar);
+  pintar();
+
+  const frotas = [...new Set(abertas.map(a => a.frota).filter(Boolean))];
+  const r = await caixa({
+    titulo: `Dar baixa em ${abertas.length} atividade${abertas.length === 1 ? "" : "s"}`,
+    largura: "560px",
+    corpo: el("div", {},
+      el("p", {}, el("b", {}, frotas.slice(0, 6).join(", ") + (frotas.length > 6 ? ` e mais ${frotas.length - 6}` : "")),
+        alvos.length > abertas.length ? ` · ${alvos.length - abertas.length} já concluída(s) fica(m) como está(ão)` : ""),
+      el("div", { style: "display:flex;gap:8px;flex-wrap:wrap;margin:4px 0 12px" }, bPrazo, bUma),
+      linhaData, resumo, caixaAtraso),
+    // O lançamento se monta no botão: faltando a data, a caixa fica aberta.
+    acoes: [{ rotulo: "Cancelar", valor: false },
+      { rotulo: `Dar baixa em ${abertas.length}`, classe: "primario", acao: () => {
+        const eventos = [];
+        for (const a of abertas) {
+          const d = dataDe(a);
+          if (!d) throw new Error("Falta a data de conclusão.");
+          if (d > hoje) throw new Error("A data de conclusão não pode ser depois de hoje.");
+          eventos.push(ev.concluir(a, d));
+          const p = M.prazoDe(a);
+          if (p && d > p && j.preenchido()) eventos.push(ev.justificar(a, j.valores(), "atividade"));
+        }
+        return eventos;
+      } }],
+  });
+  if (!r) return false;
+  await ev.aplicar(r);
+  const n = r.filter(e => e.tipo === "concluida").length;
+  avisar(`${n} baixa${n === 1 ? "" : "s"} lançada${n === 1 ? "" : "s"}.`);
+  return true;
+}
+
 export async function reprogramar(a, ctx, sugestao = {}) {
   const jaEstava = a.semana != null;
   const sem = M.semanaAtual();

@@ -703,6 +703,69 @@ ok("um clique aprova: Concluída com atraso, concluída pelo Pedro, aprovada pel
   await p.fill(".filtros input.busca-frota", "");
 }
 
+// ── dar baixa em várias de uma vez ─────────────────────────────────────────
+{
+  const F = "F-LT" + Date.now().toString(36).slice(-4).toUpperCase();
+  const { sem, ref } = await p.evaluate(() => ({ sem: mkt.M.semanaAtual(), ref: mkt.M.hoje() }));
+  let s = sem.semana - 2, a = sem.ano; if (s < 1) { s += 52; a--; }
+  // três vencidas de duas semanas atrás: seg (1 dia), seg (2 dias), qua (1 dia)
+  const ids = await p.evaluate(async ([f, a, s]) => {
+    const r = [];
+    for (const [k, dia, dias] of [[1, "Seg", 1], [2, "Seg", 2], [3, "Qua", 1]]) {
+      const [e] = await mkt.ev.aplicar(mkt.ev.criar({ frota: f, atividade: `Lote ${k}`, tipo: "Corretiva",
+        origem: "Programada", oficina: "Interna", ano: a, semana: s, dia, dias }), { silencioso: true });
+      r.push(e.alvo);
+    }
+    return r;
+  }, [F, a, s]);
+  const prazos = await p.evaluate(ids => ids.map(id => mkt.M.prazoDe(mkt.ev.porId(id))), ids);
+  await p.evaluate(f => { location.hash = `#/programacao?m=abertas&sit=VENCIDA&f=${encodeURIComponent(f)}`; }, F);
+  await p.waitForTimeout(900);
+  await p.locator(".so-tabela tr.lin input.sel-item").first().check();
+  await p.waitForTimeout(250);
+  const barra = await p.textContent(".barra-sel");
+  ok("marcar uma vencida mostra Dar baixa e Marcar todas (3) na barra",
+    barra.includes("Dar baixa") && barra.includes("Marcar todas (3)"), barra);
+  await p.click('.barra-sel button:has-text("Marcar todas")');
+  await p.waitForTimeout(300);
+  ok("Marcar todas marca as três da lista filtrada", (await p.textContent(".barra-sel")).includes("3 marcadas"));
+  await p.click('.barra-sel button:has-text("Dar baixa")');
+  await p.waitForSelector(".caixa .lote-resumo", { timeout: 5000 });
+  const tit = await p.textContent(".caixa header h2");
+  const resumo = await p.textContent(".caixa .lote-resumo");
+  const br = iso => iso.split("-").reverse().join("/");
+  ok("a caixa abre no último dia programado de cada uma, com as datas à vista",
+    tit === "Dar baixa em 3 atividades" && prazos.every(d => resumo.includes(br(d))), `${tit} · ${resumo}`);
+
+  // uma data só, apagada: não fecha e não grava
+  await p.click('.caixa button:has-text("Uma data para todas")');
+  await p.fill(".caixa input[type=date]", "");
+  await p.click('.caixa footer button:has-text("Dar baixa em 3")');
+  await p.waitForTimeout(300);
+  const nada = await p.evaluate(ids => ids.every(id => !mkt.ev.porId(id).concluida_em), ids);
+  ok("uma data só, sem a data: a caixa fica aberta e nada grava", await p.isVisible(".caixa .lote-resumo") && nada);
+  // hoje para todas: depois do prazo, então aparece o motivo do atraso
+  await p.fill(".caixa input[type=date]", ref);
+  await p.waitForTimeout(150);
+  ok("com a data de hoje, as três ficam com atraso e o motivo aparece",
+    (await p.textContent(".caixa .lote-resumo")).includes("3 ficam como concluídas com atraso") &&
+    await p.isVisible(".caixa .bloco-atraso"));
+
+  // volta para o último dia programado e confirma
+  await p.click('.caixa button:has-text("Último dia programado")');
+  await p.click('.caixa footer button:has-text("Dar baixa em 3")');
+  await p.waitForTimeout(900);
+  const datas = await p.evaluate(ids => ids.map(id => mkt.ev.porId(id).concluida_em), ids);
+  ok("Dar baixa em 3: cada uma concluída no seu último dia programado",
+    JSON.stringify(datas) === JSON.stringify(prazos), JSON.stringify({ datas, prazos }));
+  ok("e a barra some, sem nada marcado", await p.evaluate(() => document.querySelector(".barra-sel").hidden));
+  // A Programação guarda os filtros entre uma tela e outra: deixa limpo para
+  // os testes de baixo, como quem apaga a frota e clica em Todas.
+  await p.fill(".filtros input.busca-frota", "");
+  await p.click(".fsit.todas");
+  await p.waitForTimeout(300);
+}
+
 // ── a tela Frota: pesquisar e tocar ────────────────────────────────────────
 {
   const numero = String(70000 + Date.now() % 20000);
