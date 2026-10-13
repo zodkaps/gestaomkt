@@ -1248,3 +1248,8 @@ button.primario-leve:hover { background: var(--marca-clara); }
 .mud-det { font-size: 12px; color: var(--fraco); margin-top: 2px; }
 .lista-mudancas .evento.mudanca:hover { background: var(--papel2); }
 .form-prev .dupla, .form-prev .tripla { align-items: end; }
+
+/* "Lançamentos em cópias antigas": a lista rola dentro da caixa */
+.tabela-rolagem { overflow: auto; max-height: 52vh; margin-top: 8px; }
+.tabela-rolagem .tabela { width: 100%; font-size: 12.5px; }
+.tabela-rolagem .t-hoje { color: var(--hoje); }

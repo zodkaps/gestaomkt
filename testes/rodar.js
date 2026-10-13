@@ -806,6 +806,48 @@ titulo("decisoes.js — o que decidir agora");
   igual("sem plano do mês corrente, vale o mais recente", [vig.mes, vig.prevs.length], ["Set-26", 1]);
 }
 
+titulo("legado.js — lançamentos que caíram nas cópias antigas do aparelho");
+{
+  await entrarComo("Mateus");
+  const leg = await import("../js/legado.js");
+  const at = (id, frota, atividade, extra = {}) => ({ id: "i-" + id, ts: "2026-09-16T02:00:00.000Z", tipo: "importada",
+    alvo: id, alvo_tipo: "atividade", origem: "planilha", dados: { ...modelo.molde(), frota, atividade, ano: 2026, semana: 41, dia: "Ter", dias: 4, ...extra } });
+  // O que o navegador guardava de antes da sincronização (ids inventados, sem `enviado`)
+  const legado = [at("mu-1", "F-617", "REPOR CORTINAS DA CABINE"), at("mu-2", "F-617", "Lavar frota"),
+    at("mu-3", "F-999", "Serviço que o banco não tem"), at("mu-4", "F-617", "Trocar lâmpada", { os: "021999" })];
+  // O banco: a mesma planilha com o id da planilha
+  const banco = [at("A-0205", "F-617", "Repor cortinas da cabine"),
+    { ...at("A-0935", "F-617", "Lavar frota"), dados: { ...at("A-0935", "F-617", "Lavar frota").dados, concluida_em: "2026-10-09" } },
+    at("A-0300", "F-617", "Substituir lâmpada do farol", { os: "021999" })];
+  const depois = [
+    { id: "c1", ts: "2026-10-13T18:38:00.000Z", tipo: "concluida", alvo: "mu-1", alvo_tipo: "atividade", dados: { em: "2026-10-09" } },
+    { id: "j1", ts: "2026-10-13T18:38:01.000Z", tipo: "justificada", alvo: "mu-1", alvo_tipo: "atividade", dados: { motivo: "Peça atrasou", quem: "Fornecedor", texto: "" } },
+    { id: "c2", ts: "2026-10-13T18:38:02.000Z", tipo: "concluida", alvo: "mu-2", alvo_tipo: "atividade", dados: { em: "2026-10-13" } },
+    { id: "x3", ts: "2026-10-13T18:38:03.000Z", tipo: "excluida", alvo: "mu-3", alvo_tipo: "atividade", motivo: "" },
+    { id: "c4", ts: "2026-10-13T18:38:04.000Z", tipo: "concluida", alvo: "mu-4", alvo_tipo: "atividade", dados: { em: "2026-10-12" } },
+  ];
+  const fita = [...banco, ...depois];
+  const atual = ev.reconstruir(fita).atividade;
+  ok("a fita do banco não tem as cópias: cada atividade uma vez só",
+    [...atual.values()].filter(a => a.frota === "F-617").length === 3 && !atual.has("mu-1"));
+  const itens = leg.lancamentosEmCopias(legado, fita, atual);
+  const de = id => itens.filter(it => it.e.id === id)[0];
+  igual("acha os cinco lançamentos que foram para cópias", itens.map(it => it.e.id), ["c1", "j1", "c2", "x3", "c4"]);
+  ok("a baixa da cópia acha a certa pela atividade, mesmo com maiúsculas diferentes",
+    de("c1").certa && de("c1").certa.id === "A-0205" && de("c1").por === "atividade" && !de("c1").feito, JSON.stringify(de("c1").certa));
+  ok("a certa que já tem baixa não leva de novo", de("c2").certa.id === "A-0935" && de("c2").feito);
+  ok("a que o banco não tem fica sem correspondência, dizendo por quê", !de("x3").certa && /não achei/.test(de("x3").porque));
+  ok("texto diferente, mesma OS na mesma frota: acha pela OS", de("c4").certa && de("c4").certa.id === "A-0300" && de("c4").por === "OS");
+  const novos = leg.levarParaAsCertas(itens);
+  igual("levar faz a baixa e a justificativa na certa, com a data e o motivo da cópia",
+    novos.map(e => [e.tipo, e.alvo, e.dados && (e.dados.em || e.dados.motivo)]),
+    [["concluida", "A-0205", "2026-10-09"], ["justificada", "A-0205", "Peça atrasou"], ["concluida", "A-0300", "2026-10-12"]]);
+  const depoisDeLevar = ev.reconstruir([...fita, ...novos.map((e, i) => ({ ...e, id: "n" + i, ts: "2026-10-13T19:00:0" + i + ".000Z" }))]).atividade;
+  ok("e, levado, nada mais fica pendente", leg.lancamentosEmCopias(legado, fita, depoisDeLevar).filter(it => it.certa && !it.feito).length === 0);
+  igual("em palavras", [leg.descrever(depois[0]), leg.descrever(depois[1]), leg.descrever(depois[3])],
+    ["baixa em 09/10/2026", "justificativa: Peça atrasou (Fornecedor)", "exclusão"]);
+}
+
 // ── nunca ficar trancado para fora ──────────────────────────────────────────
 // Um problema de nuvem chegou a trancar a porta de um site que funciona sem
 // nuvem: com o endereço no código, a única entrada era a senha do Supabase, e

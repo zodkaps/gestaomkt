@@ -416,6 +416,21 @@ async function montarFaixa() {
     return { classe: "morna", nos };
   }
 
+  // Lançamentos que caíram nas cópias antigas deste aparelho — a planilha
+  // importada aqui antes da sincronização (ver js/legado.js). A atividade de
+  // verdade, a do banco, não recebeu: isto não pode passar calado.
+  if (nuvem.ligada() && ev.legado.length) {
+    const { pendentesDeCopias, abrirCopias } = await import("./tela/copias.js");
+    const n = pendentesDeCopias().length;
+    if (n) {
+      return { classe: "morna", nos: [
+        el("span", {}, `${n} lançamento${n === 1 ? "" : "s"} feito${n === 1 ? "" : "s"} neste aparelho ` +
+          `${n === 1 ? "caiu" : "caíram"} em cópias antigas das atividades — a atividade de verdade não recebeu.`),
+        el("button", { class: "discreto", onclick: async () => { await abrirCopias(); faixa(); } }, "Ver e corrigir"),
+      ] };
+    }
+  }
+
   if (!nuvem.ligada() && ev.log.length && !pessoas.ehOperacao()) {
     const b = await bk.estado();
     const perigo = b.nunca ? b.desde > 30 : (b.desde > 50 || b.dias > 7);

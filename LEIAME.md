@@ -599,6 +599,25 @@ E agora isso aparece: sem contato com o banco por mais de 45 s, a faixa diz
 desde quando, e o botão **⟳** no alto (ou *Atualizar agora*, na faixa) busca
 as novidades na hora.
 
+### Cópias antigas no aparelho (de antes da sincronização)
+
+Até 08/10 o site era só do navegador, e a planilha era importada ali, com
+códigos inventados na hora (`mu3gj3s7…`). Quando a sincronização chegou, a
+planilha foi importada de novo no banco, com o código da própria planilha
+(`A-0205`). Num navegador que já tinha a importação antiga, **cada atividade
+aparecia duas vezes**, e uma baixa dada na cópia antiga ia para o banco
+apontando para uma atividade que o banco não tem — a de verdade continuava em
+aberto.
+
+Agora, com o banco ligado, o que está no aparelho sem a marca de enviado (nem
+na fila, nem vindo do banco — só existe antes de 08/10) **fica fora das telas**.
+E o que foi lançado nas cópias aparece numa faixa no alto: *"N lançamentos
+caíram em cópias antigas"* → **Ver e corrigir** mostra cada um com a atividade
+certa (mesma frota e mesma atividade, pela chave do importador; faltando, a
+mesma OS na mesma frota) e **Levar para as certas** refaz o lançamento nela,
+com a mesma data e o mesmo motivo. O que não tem correspondência fica listado
+para lançar à mão, e pode ser dispensado. `js/legado.js` e `js/tela/copias.js`.
+
 ### Dois caminhos para alimentar o site: a planilha e os pedidos ao Claude
 
 O site é alimentado pela **planilha** (aba Importar, que atualiza por ID e não

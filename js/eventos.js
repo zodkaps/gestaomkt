@@ -66,6 +66,10 @@ const MOLDES = {
 export const chaveSemana = (ano, semana) => `${ano}-S${String(semana).padStart(2, "0")}`;
 
 export let log = [];
+/** Os eventos antigos deste aparelho, de antes da sincronização, que ficaram
+ *  fora da fita (ver `recarregar`). `js/legado.js` os usa para achar o que foi
+ *  lançado nas cópias e levar para as atividades certas. */
+export let legado = [];
 export const estado = {
   atividade: new Map(),
   movimentacao: new Map(),
@@ -390,10 +394,24 @@ async function recarregar() {
   const lido = await dados.lerEventos();
   if (minha < ultimaAplicada) return false;
   ultimaAplicada = minha;
-  log = lido;
+  // Com o banco ligado, a fita é a do banco mais a fila deste aparelho. O que
+  // ficou gravado aqui ANTES da sincronização existir (sem a marca `enviado`,
+  // nem true nem false) nunca foi para o banco e nunca vai: era a planilha
+  // importada só neste navegador. Misturado, cada atividade aparecia duas
+  // vezes — a cópia antiga com id inventado e a do banco com o id da planilha
+  // —, e uma baixa dada na cópia não chegava à atividade de verdade. Fica
+  // guardado (ver `legado`), mas fora das telas.
+  if (nuvem.ligada()) {
+    legado = lido.filter(e => e.enviado === undefined);
+    log = legado.length ? lido.filter(e => e.enviado !== undefined) : lido;
+  } else {
+    legado = [];
+    log = lido;
+  }
   refazer();
   return true;
 }
+
 
 function refazer() {
   const m = reconstruir(log);

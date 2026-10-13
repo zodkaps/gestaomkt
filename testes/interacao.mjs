@@ -1077,6 +1077,55 @@ ok("um clique aprova: Concluída com atraso, concluída pelo Pedro, aprovada pel
       [...document.querySelectorAll(".evento.mudanca .tipo-mud")].every(c => c.textContent === "Reprogramação")));
 }
 
+// ── cópias antigas do aparelho: somem da tela, e o lançado nelas vai para a certa ──
+{
+  const F = "F-CP" + Date.now().toString(36).slice(-4).toUpperCase();
+  const COPIA = "mu" + Date.now().toString(36) + "cp";
+  // a de verdade, no banco
+  const real = await p.evaluate(async f => {
+    const [e] = await mkt.ev.aplicar(mkt.ev.criar({ frota: f, atividade: "Repor cortinas da cabine",
+      tipo: "Corretiva", origem: "Programada", oficina: "Interna" }), { silencioso: true });
+    await mkt.ev.sincronizar();
+    return e.alvo;
+  }, F);
+  // a cópia antiga: gravada neste navegador antes da sincronização (sem a marca `enviado`)
+  await p.evaluate(async ([f, id]) => {
+    const ev = { id: "imp-" + id, seq: 1, ts: "2026-09-16T02:04:03.000Z", autor: "Mateus", tipo: "importada",
+      alvo: id, alvo_tipo: "atividade", origem: "planilha",
+      dados: { ...mkt.M.molde(), frota: f, atividade: "REPOR CORTINAS DA CABINE", fonte: "planilha antiga" } };
+    await new Promise((ok, erro) => {
+      const r = indexedDB.open("mkt");
+      r.onerror = () => erro(r.error);
+      r.onsuccess = () => { const db = r.result; const tx = db.transaction("eventos", "readwrite");
+        tx.objectStore("eventos").put(ev); tx.oncomplete = () => { db.close(); ok(); }; tx.onerror = () => erro(tx.error); };
+    });
+  }, [F, COPIA]);
+  // a baixa dada na cópia (foi para o banco apontando para ela)
+  await p.evaluate(async id => {
+    await mkt.ev.aplicar({ tipo: "concluida", alvo: id, alvo_tipo: "atividade", dados: { em: mkt.M.hoje() } }, { silencioso: true });
+    await mkt.ev.sincronizar();
+  }, COPIA);
+  await p.reload({ waitUntil: "networkidle" });
+  await p.waitForTimeout(1500);
+  const vistas = await p.evaluate(f => mkt.ev.lista().filter(a => a.frota === f).map(a => a.id), F);
+  ok("depois de recarregar, a cópia antiga some: a atividade aparece uma vez só",
+    JSON.stringify(vistas) === JSON.stringify([real]), JSON.stringify(vistas));
+  await p.waitForFunction(() => /cópias antigas/.test(document.querySelector("#faixa")?.textContent || ""), null, { timeout: 8000 })
+    .catch(() => {});
+  const faixa = await p.textContent("#faixa");
+  ok("a faixa avisa que um lançamento caiu numa cópia antiga", /caiu em cópias antigas/.test(faixa), faixa);
+  await p.click('#faixa button:has-text("Ver e corrigir")');
+  await p.waitForSelector(".caixa .tabela-rolagem", { timeout: 5000 });
+  const tabela = await p.textContent(".caixa .tabela-rolagem");
+  ok("a caixa mostra a cópia, a baixa e a atividade certa", tabela.includes(F) && tabela.includes("baixa em") && tabela.includes(real), tabela);
+  await p.click('.caixa footer button:has-text("Levar 1 para as certas")');
+  await p.waitForTimeout(1000);
+  const certa = await p.evaluate(id => mkt.ev.porId(id).concluida_em, real);
+  ok("Levar dá a baixa na atividade de verdade, com a data da cópia", certa === await p.evaluate(() => mkt.M.hoje()), certa);
+  await p.waitForTimeout(600);
+  ok("e o aviso some", !/cópias antigas/.test(await p.textContent("#faixa")));
+}
+
 // ── o + Extra da tela Hoje entra no dia que está na tela ───────────────────
 {
   const F = "F-EXTRA-" + Date.now().toString(36);
