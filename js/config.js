@@ -27,8 +27,9 @@ export const NUVEM = {
 // e a fila de quem fechou ficaria presa atrás dele. Enquanto estiver `false`,
 // com o banco ligado o botão "Fechar a semana" não aparece e a importação não
 // traz o fechamento da planilha; o fechamento automático da sexta e os números
-// já registrados continuam valendo.
-export const BANCO_ACEITA_FECHAMENTO = false;
+// já registrados continuam valendo. No projeto de verdade a regra foi rodada
+// em 13/10/2026 e conferida no banco.
+export const BANCO_ACEITA_FECHAMENTO = true;
 
 // Cada um entra com o PRÓPRIO e-mail.
 //
