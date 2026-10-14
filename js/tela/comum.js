@@ -662,7 +662,7 @@ export function descreverEvento(e, comAtividade = false) {
 
   let txt;
   switch (e.tipo) {
-    case "criada": txt = "criada manualmente"; break;
+    case "criada": txt = d.fonte ? `criada — ${d.fonte}` : "criada manualmente"; break;
     case "importada": txt = `importada${d.fonte ? " de " + d.fonte : ""}`; break;
     case "programada":
       txt = `programada para a semana ${d.para.semana}${d.para.dia ? " · " + d.para.dia : ""}`;

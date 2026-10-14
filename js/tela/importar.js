@@ -35,20 +35,36 @@ export async function montar(raiz, ctx) {
           "ela traz o acervo inteiro, com as reprogramações que já existem."),
       areaArquivo(),
       el("div", { style: "height:18px" }),
+      pessoas.pode("programar") ? painelColar() : null,
+      pessoas.pode("programar") ? el("div", { style: "height:18px" }) : null,
       painelNuvem(),
       el("div", { style: "height:18px" }),
       painelBackup());
   }
 
+  // ── pendências de inspeção e TOP ──────────────────────────────────────────
+
+  function painelColar() {
+    return el("section", { class: "secao" },
+      el("h2", {}, "Pendências de inspeção ou TOP"),
+      el("p", { style: "font-size:13px;color:var(--fraco);margin:0 0 8px" },
+        "A mensagem do WhatsApp ou o PDF vira pendências na carteira da frota, depois de você conferir. " +
+        "Também dá para soltar o PDF na área acima."),
+      el("button", { class: "primario", onclick: async () => {
+        const { colarPendencias } = await import("./colar.js");
+        colarPendencias(ctx);
+      } }, "Colar inspeção/TOP"));
+  }
+
   // ── soltar arquivo ────────────────────────────────────────────────────────
 
   function areaArquivo() {
-    const entrada = el("input", { type: "file", accept: ".xlsx,.xlsm,.csv,.txt,.tsv",
+    const entrada = el("input", { type: "file", accept: ".xlsx,.xlsm,.csv,.txt,.tsv,.pdf",
       style: "display:none", onchange: () => { if (entrada.files[0]) abrir(entrada.files[0]); } });
     const area = el("div", { class: "solta", onclick: () => entrada.click() },
       el("p", { style: "font-size:15px;margin-bottom:4px" },
         el("b", {}, "Solte aqui a planilha ou o export do Protheus")),
-      el("p", { style: "font-size:13px;margin:0" }, "XLSX ou CSV · ou toque para escolher"),
+      el("p", { style: "font-size:13px;margin:0" }, "XLSX ou CSV · PDF de inspeção ou TOP · ou toque para escolher"),
       entrada);
     area.addEventListener("dragover", e => { e.preventDefault(); area.classList.add("sobre"); });
     area.addEventListener("dragleave", () => area.classList.remove("sobre"));
@@ -61,6 +77,12 @@ export async function montar(raiz, ctx) {
   }
 
   async function abrir(arquivo) {
+    // PDF é a inspeção ou o TOP de uma frota: vai para a conferência das pendências
+    if (/\.pdf$/i.test(arquivo.name) || arquivo.type === "application/pdf") {
+      if (!pessoas.pode("programar")) return erro("Lançar pendências na carteira é do PCM.");
+      const { colarPendencias } = await import("./colar.js");
+      return colarPendencias(ctx, { arquivo });
+    }
     let abas;
     try { abas = await pl.ler(arquivo); }
     catch (e) { return erro("Não consegui ler o arquivo: " + e.message); }

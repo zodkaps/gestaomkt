@@ -866,6 +866,55 @@ antes —, e cada sugestão ocupa o dia: doze liberadas não caem todas na mesma
 terça. É sugestão: a caixa abre com a data, e o PCM troca se quiser. Dentro do
 mesmo nível, o prazo mais curto vem primeiro.
 
+## Colar inspeção ou TOP
+
+O resultado da inspeção e do TOP chega como mensagem no WhatsApp ou em PDF. O
+botão **Colar inspeção/TOP** (Painel, Programação, ficha da Frota e Importar —
+onde também dá para soltar o PDF) transforma isso em pendências na carteira,
+depois de o PCM conferir:
+
+- **Cole a mensagem como veio.** A linha que é só o número ("433", "F-433",
+  "Inspeção prioridades 616:") é a frota; a linha com marcador (`-`, `•`, `1.`)
+  é a pendência, sem o traço e sem o `;`. Menção (`@fulano`), "psc", títulos em
+  negrito e recados ficam **de fora**, mas à vista: um toque em *+ é pendência*
+  põe de volta. Várias frotas na mesma mensagem viram um bloco para cada uma.
+- **PDF**: o texto é lido no próprio navegador (pdf.js, em `vendor/pdfjs`, só
+  baixa quando alguém solta um PDF). A linha quebrada é emendada, a OS na frente
+  vira a OS da pendência e "TOP" no fim marca a origem. PDF escaneado é imagem e
+  não tem texto: aí o site avisa, e o caminho é copiar o texto ou mandar para o Claude.
+- **Conferir**: cada pendência tem a caixinha, o texto para corrigir e a
+  prioridade; ⚠️ na mensagem sugere P1. As que a frota **já tem em aberto** (o
+  mesmo serviço no mesmo lugar, pela identidade de atividade de `js/texto.js`)
+  vêm desmarcadas, com *já está na carteira* ou *já programada*. Se a frota tem
+  preventiva no plano do mês, a caixa diz — a parada é a hora de fazer as pendências.
+- **Prioridade de todas** e **Oficina** (Interna ou Terceirizada) valem para o
+  lote. **Lançar** cria cada uma na carteira, com a observação *[14/10] Inspeção*
+  (ou *TOP*) — é dela que a carteira conta há quantos dias a pendência espera — e
+  o Registro diz *criada — Inspeção de 14/10/2026, colada no site*.
+
+O leitor fica em `js/pendencias.js`, puro, e os testes usam as mensagens de
+verdade (a 433, a 616 com ⚠️, a folha da F-617 em PDF, várias frotas juntas).
+
+## O banco tem espaço para quantos anos
+
+Medido em 14/10/2026: o banco inteiro tem 16 MB (a maior parte é o próprio
+Supabase) e a fita de eventos **1,1 MB** para 1.285 lançamentos — uns 860 bytes
+cada, com os índices. O plano grátis passa a **só leitura aos 500 MB** de dados.
+Uma pendência lançada (pelo site ou pelo Claude) é um lançamento; uma baixa,
+outro. No ritmo de 100 a 250 lançamentos por dia, são 30 a 80 MB por ano:
+**de 6 a mais de 10 anos** até o limite. Reimportar a planilha inteira é o que
+mais pesa (~850 lançamentos de uma vez); depois da transição, isso acaba.
+
+O **Diagnóstico** mostra o espaço usado e quanto ainda cabe no ritmo atual, e
+avisa aos 60%. Se um dia chegar lá, há dois caminhos, nesta ordem:
+
+1. **Arquivar o histórico antigo**: tirar a cópia de segurança completa (Importar
+   → Cópia de segurança — fica com a fita inteira), e trocar os lançamentos das
+   atividades encerradas há mais de um ano por um retrato de cada uma. As telas
+   continuam iguais; o detalhe antigo fica no arquivo. Apagar da fita só o dono
+   do banco faz, pelo SQL Editor — o site não consegue, de propósito.
+2. **Passar o projeto do Supabase para um plano pago**, se arquivar não bastar.
+
 ## Carregar a base do Protheus
 
 Solte o arquivo (XLSX ou CSV) na aba Importar. Como não tem a aba
@@ -950,7 +999,11 @@ porque toda escrita já passa por `aplicar()`.
 | `js/tela/*.js` | entrar, operacao, painel, hoje, programacao, semana, resultados, movimentacoes, preventivas, frota, historico, importar, diagnostico |
 | `js/decisoes.js` | **o que decidir agora**: as regras do Painel, puras, e a data sugerida para a parada |
 | `js/vinculo.js` | o *Ver e ligar*: o que fazer, preventiva por preventiva, para ligar o que já existia à Programação |
-| `js/registro.js` | as contas do Registro: o dia de cada lançamento, o filtro e o resumo do dia |
+| `js/registro.js` | as contas do Registro: o dia de cada lançamento, o filtro, o resumo do dia e o tamanho da fita |
+| `js/pendencias.js` | lê a mensagem ou o PDF da inspeção/TOP: frota, pendências, conversa de fora, duplicadas |
+| `js/tela/colar.js` | a caixa *Colar inspeção/TOP*: conferir e lançar na carteira; lê o texto do PDF |
+| `vendor/pdfjs/` | pdf.js 4.10.38 (Apache 2.0), carregado só quando alguém solta um PDF |
+| `CLAUDE.md` | as regras e a rotina que o Claude segue quando a pessoa pede pelo chat |
 | `js/tela/decidir.js` | a lista de decisões na tela, com o botão de cada uma |
 | `js/tela/painel.js` | o Painel: os quatro números, as decisões, um cartão por área, a aderência das semanas |
 | `js/tela/acoes.js` | as ações do ⋯ de cada item — um menu por tipo, com as opções que valem para quem está olhando |

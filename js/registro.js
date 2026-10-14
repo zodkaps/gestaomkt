@@ -72,3 +72,30 @@ export function resumoDoDia(log, dia) {
     porPessoa: conta(e => e.autor || "—"),
   };
 }
+
+// ── o tamanho da fita no banco ──────────────────────────────────────────────
+//
+// O plano grátis do Supabase passa a só leitura quando os dados passam de
+// 500 MB. Cada lançamento ocupa ~860 bytes na tabela, contando os índices
+// (medido no banco em 14/10/2026: 1.285 lançamentos, 1,08 MB). A conta usa
+// 900 para sobrar.
+
+export const BYTES_POR_LANCAMENTO = 900;
+export const LIMITE_PLANO_GRATIS = 500 * 1024 * 1024;
+
+/** Quanto a fita ocupa, a que ritmo cresce e em quantos anos chega ao limite.
+ *  O ritmo é o dos lançamentos do dia a dia nos últimos 30 dias: importar a
+ *  planilha ou o Protheus é de uma vez só e, contado como ritmo, assustaria à
+ *  toa. Com menos de uma semana de uso (`cedo`), o ritmo ainda não diz nada. */
+export function tamanhoDaFita(log, agora = new Date()) {
+  const n = log.length;
+  const bytes = n * BYTES_POR_LANCAMENTO;
+  const fim = agora.getTime();
+  const doDia = log.filter(e => !["planilha", "protheus"].includes(e.origem));
+  const inicio = doDia.length ? Math.max(new Date(doDia[0].ts).getTime(), fim - 30 * 864e5) : fim;
+  const dias = Math.max(1, (fim - inicio) / 864e5);
+  const recentes = doDia.filter(e => new Date(e.ts).getTime() >= inicio).length;
+  const porDia = recentes / dias;
+  const anos = porDia ? (LIMITE_PLANO_GRATIS - bytes) / (porDia * BYTES_POR_LANCAMENTO * 365) : Infinity;
+  return { lancamentos: n, bytes, pct: bytes / LIMITE_PLANO_GRATIS, porDia, anos, dias: Math.round(dias), cedo: dias < 7 };
+}

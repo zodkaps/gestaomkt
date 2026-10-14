@@ -1234,6 +1234,77 @@ ok("um clique aprova: Concluída com atraso, concluída pelo Pedro, aprovada pel
     document.querySelector('select[aria-label="Pessoa"]').value === ""));
 }
 
+// ── colar inspeção ou TOP: a mensagem vira pendências na carteira ─────────
+{
+  const num = String(5000 + Date.now() % 4000);
+  const F = "F-" + num;
+  await p.evaluate(async f => { await mkt.ev.aplicar(mkt.ev.criar({ frota: f, atividade: "Substituir lona de freio do segundo eixo LE",
+    tipo: "Corretiva", origem: "Programada" }), { silencioso: true }); }, F);
+  await p.evaluate(() => { location.hash = "#/programacao?m=carteira"; });
+  await p.waitForTimeout(800);
+  await p.click('.cabec button:has-text("Colar inspeção/TOP")');
+  await p.waitForSelector(".caixa .colar-texto");
+  const msg = [num, "*PENDENCIAS IDENTIFICADAS NA INSPEÇÃO*",
+    "- Soldar trincas no lastro dianteiro LD;", "- Substituir lonas de freio do segundo eixo LE;",
+    "- Reapertar tirantes folgados;", "- Freio puxando para a direita; ⚠️", "@Fulano enviar para o fornecedor", "psc"].join("\n");
+  await p.fill(".caixa .colar-texto", msg);
+  await p.waitForTimeout(500);
+  const previa = await p.evaluate(() => ({
+    frota: document.querySelector(".colar-bloco .colar-frota").value,
+    fonte: document.querySelector(".colar-bloco select").value,
+    linhas: [...document.querySelectorAll(".colar-tabela tr")].map(tr => ({ txt: tr.querySelector(".colar-item").value,
+      on: tr.querySelector("input[type=checkbox]").checked, tags: tr.querySelector(".colar-tags").textContent,
+      prio: tr.querySelector("select").value })),
+    fora: (document.querySelector(".colar-fora summary") || {}).textContent || "",
+    botao: document.querySelector(".caixa footer button.primario").textContent }));
+  ok("colar a mensagem: a frota, de inspeção, quatro pendências e a conversa de fora",
+    previa.frota === F && previa.fonte === "Inspeção" && previa.linhas.length === 4 && /^3 linhas ficaram de fora/.test(previa.fora), JSON.stringify(previa));
+  ok("a que a frota já tem em aberto vem desmarcada, com o aviso; a urgente vem P1",
+    !previa.linhas[1].on && /já está na carteira/.test(previa.linhas[1].tags) && previa.linhas[3].prio === "P1" &&
+    previa.linhas[0].on && previa.botao === "Lançar 3 na carteira", JSON.stringify(previa.linhas));
+  await p.selectOption('.caixa select[aria-label="Prioridade de todas"]', "P2");
+  await p.selectOption('.caixa select[aria-label="Oficina de todas"]', "Terceirizada");
+  // Enter num campo da prévia não lança
+  await p.click(".colar-tabela tr:first-child .colar-item");
+  await p.keyboard.press("Enter");
+  await p.waitForTimeout(200);
+  ok("Enter num campo da prévia não lança tudo", await p.isVisible(".caixa .colar-texto"));
+  await p.click('.caixa footer button:has-text("Lançar")');
+  await p.waitForTimeout(900);
+  const lancadas = await p.evaluate(f => mkt.ev.lista().filter(a => a.frota === f && a.obs && /Inspeção/.test(a.obs))
+    .map(a => ({ t: a.atividade, p: a.prioridade, o: a.oficina, obs: a.obs, semana: a.semana })), F);
+  ok("Lançar cria as três na carteira: P2 para todas, terceirizada, com o dia da inspeção na observação",
+    lancadas.length === 3 && lancadas.every(a => a.p === "P2" && a.o === "Terceirizada" && /^\[\d\d\/\d\d\] Inspeção$/.test(a.obs) && a.semana == null),
+    JSON.stringify(lancadas));
+  const reg = await p.evaluate(f => { const e = [...mkt.ev.log].reverse().find(x => x.tipo === "criada" && x.dados.frota === f && /colada/.test(x.dados.fonte || ""));
+    return e ? e.dados.fonte : ""; }, F);
+  ok("e o Registro diz de onde veio", /^Inspeção de \d\d\/\d\d\/\d{4}, colada no site$/.test(reg), reg);
+
+  // o PDF: um PDF de verdade, gerado aqui, com a mesma lista
+  const gerador = await p.context().newPage();
+  await gerador.setContent(`<pre style="font:14px sans-serif">${num}\nTOP da frota\n- Corrigir iluminação da placa;\n- Fixar para-lama traseiro LE;</pre>`);
+  const pdf = await gerador.pdf();
+  await gerador.close();
+  await p.click('.cabec button:has-text("Colar inspeção/TOP")');
+  await p.waitForSelector(".caixa .colar-texto");
+  await p.setInputFiles('.caixa input[type=file]', { name: "top.pdf", mimeType: "application/pdf", buffer: pdf });
+  await p.waitForSelector(".colar-tabela tr", { timeout: 8000 }).catch(() => {});
+  const doPdf = await p.evaluate(() => ({ frota: (document.querySelector(".colar-bloco .colar-frota") || {}).value,
+    fonte: (document.querySelector(".colar-bloco select") || {}).value,
+    itens: [...document.querySelectorAll(".colar-item")].map(i => i.value) }));
+  ok("soltar o PDF: o texto é lido e vira a mesma prévia, como TOP",
+    doPdf.frota === F && doPdf.fonte === "TOP" && doPdf.itens.join("|") === "Corrigir iluminação da placa|Fixar para-lama traseiro LE",
+    JSON.stringify(doPdf));
+  await p.keyboard.press("Escape");
+  await p.waitForTimeout(300);
+  // o Diagnóstico diz quanto do banco o registro ocupa
+  await p.evaluate(() => { location.hash = "#/diagnostico"; });
+  await p.waitForSelector(".diag-item", { timeout: 8000 }).catch(() => {});
+  const espaco = await p.evaluate(() => [...document.querySelectorAll(".diag-item .tit")].map(t => t.textContent)
+    .find(t => t.startsWith("Espaço no banco")) || "");
+  ok("o Diagnóstico mostra o espaço no banco, contra os 500 MB do plano grátis", /≈ [\d,]+ MB de 500 MB \([\d,]+%\)$/.test(espaco), espaco);
+}
+
 // ── cópias antigas do aparelho: somem da tela, e o lançado nelas vai para a certa ──
 {
   const F = "F-CP" + Date.now().toString(36).slice(-4).toUpperCase();

@@ -13,6 +13,7 @@ import { cartaoMov } from "./movimentacoes.js";
 import { cartaoPrev, abrirFichaPrev, ordemMes, rotuloMes } from "./preventivas.js";
 import { imprimirFrota } from "./imprimir.js";
 import { planoVigente } from "../decisoes.js";
+import * as pessoas from "../pessoas.js";
 
 export async function montar(raiz, ctx, params) {
   let frota = params.get("f") || "";
@@ -41,6 +42,9 @@ export async function montar(raiz, ctx, params) {
       el("h1", {}, "Frota"), escolha, lista, bTodas,
       el("div", { class: "espaco" }),
       bImprimir,
+      pessoas.pode("programar") ? el("button", { title: "A mensagem ou o PDF da inspeção/TOP desta frota vira pendências na carteira",
+        onclick: async () => { const { colarPendencias } = await import("./colar.js"); colarPendencias(ctx, { frota }); } },
+      "Colar inspeção/TOP") : null,
       el("button", { class: "primario", onclick: () => criarNova(ctx, { frota }) }, "+ Nova")),
     corpo);
 

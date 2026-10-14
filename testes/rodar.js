@@ -853,6 +853,64 @@ titulo("modelo.js — a carteira por idade e prioridade");
     l.sort(modelo.ordemCarteira(ref)).map(a => a.id), ["prev", "p1-velha", "p1-nova", "p2-nova", "velha-sem"]);
 }
 
+titulo("pendencias.js — a mensagem da inspeção ou do TOP vira pendências");
+{
+  const P = await import("../js/pendencias.js");
+  const frotas = ["F-433", "F-616", "F-617", "F-971", "F-971 G", "F-969", "F-974"];
+  // a mensagem da 433, como chegou no WhatsApp (com os caracteres da menção)
+  const m433 = ["433", "*TEMOS PREVENTIVA PARA ESSE MES* ", "", "*PENDENCIAS IDENTIFICADAS NA INSPEÇÃO*",
+    "- Soldar trincas no lastro dianteiro LD, junção com o pescoço;",
+    "- Substituir lonas de freio do primeiro eixo LE e LD;",
+    "- Substituir lonas de freio do segundo eixo LE;",
+    "- Substituir lonas do quarto eixo LD gastas;",
+    "@\u2068lukkas souza CHEFE\u2069  enviar para o fornecedor( resolvemos duas coisas) ", "", "",
+    "@\u2068Dias\u2069 ", "psc", "alinhar fornecedor, já adianto que provavelmente vai ser reprovado no TOP"].join("\n");
+  const [b433, ...resto433] = P.lerPendencias(m433, { frotas });
+  igual("433 vira a F-433, de inspeção, com as quatro pendências", [b433.frota, b433.fonte, b433.itens.length, resto433.length],
+    ["F-433", "Inspeção", 4, 0]);
+  igual("sem o ';' do fim e sem o traço", b433.itens[0].texto, "Soldar trincas no lastro dianteiro LD, junção com o pescoço");
+  ok("a conversa fica de fora, à vista (menções, psc, o recado do TOP)", b433.ignoradas.length === 6 &&
+    b433.ignoradas.some(l => l.startsWith("@lukkas")) && b433.ignoradas.includes("psc"), JSON.stringify(b433.ignoradas));
+  ok("e o aviso de que a mensagem fala em preventiva", b433.temPreventiva);
+
+  const m616 = "Inspeção prioridades 616:\n- Realizar limpeza dos bornes das baterias;\n- Veículo está esquentando, conforme relato do motorista; ⚠️⚠️\nAinda tem essas pendências aqui do 616 adicine em carteira";
+  const [b616] = P.lerPendencias(m616, { frotas });
+  igual("'Inspeção prioridades 616:' é a frota; o ⚠️ marca urgente e sai do texto",
+    [b616.frota, b616.itens.map(i => [i.texto, i.alerta])],
+    ["F-616", [["Realizar limpeza dos bornes das baterias", false], ["Veículo está esquentando, conforme relato do motorista", true]]]);
+
+  // o texto do PDF da folha: OS na frente, linha quebrada, TOP no fim, rodapé com a frota de novo
+  const folha = ["F-617 · CAVALO TRATOR", "Pendências em aberto · 29 atividades · chegou em 06/10 · TOP: não liberado",
+    "OS ATIVIDADE QUEM FEZ", "021333 Repor cortinas da cabine", "021336",
+    "Substituir tomada da bomba do ARLA sem proteção (item em", "estoque)", "— Corrigir banco do passageiro solto", "—",
+    "Verificar vazamento de água debaixo da cabine e completar o", "nível do radiador TOP", "F-617  ·  página 1 de 1"].join("\n");
+  const bf = P.lerPendencias(folha, { frotas });
+  igual("PDF da folha: uma frota só, com OS, a linha quebrada emendada e o TOP marcado",
+    [bf.length, bf[0].itens.map(i => [i.os, i.texto, i.top])],
+    [1, [["021333", "Repor cortinas da cabine", false],
+      ["021336", "Substituir tomada da bomba do ARLA sem proteção (item em estoque)", false],
+      ["", "Corrigir banco do passageiro solto", false],
+      ["", "Verificar vazamento de água debaixo da cabine e completar o nível do radiador", true]]]);
+
+  const varias = P.lerPendencias("969\n1. Trocar lâmpada do farol LD\n2. Fixar para-choque\n974:\n• Corrigir vazamento de ar\n971 G\n- Soldar suporte", { frotas });
+  igual("várias frotas na mesma mensagem, com numeração e bolinha; '971 G' é a F-971 G",
+    varias.map(b => [b.frota, b.itens.length]), [["F-969", 2], ["F-974", 1], ["F-971 G", 1]]);
+  igual("frota que o site não conhece entra como nova", P.resolverFrota("1234", frotas), { frota: "F-1234", nova: true });
+  igual("sem número de frota no texto, vale a da tela; sem marcador, cada linha é uma pendência",
+    P.lerPendencias("Trocar lona de freio\nFixar para-lama LE", { frotas, frotaPadrao: "F-969" }).map(b => [b.frota, b.itens.map(i => i.texto)]),
+    [["F-969", ["Trocar lona de freio", "Fixar para-lama LE"]]]);
+
+  const abertas = [{ ...modelo.molde(), id: "X", frota: "F-433", atividade: "Substituir lona de freio do segundo eixo LE", semana: 42, dia: "Qua" }];
+  const d = P.marcarDuplicadas("F-433", b433.itens, abertas);
+  igual("a que a frota já tem em aberto é marcada (o mesmo serviço, no mesmo lugar); a do outro eixo não",
+    d.map(i => !!i.duplicada), [false, false, true, false]);
+  igual("e a repetida dentro da própria mensagem também",
+    P.marcarDuplicadas("F-1", [{ texto: "Fixar descarga" }, { texto: "fixar descarga;" }], []).map(i => i.repetida), [false, true]);
+  igual("a observação leva o dia e a origem", P.obsDaOrigem("Inspeção", "2026-10-14"), "[14/10] Inspeção");
+  igual("e a carteira conta a idade a partir do dia da inspeção",
+    modelo.desdeQuando({ obs: "[14/10] Inspeção" }, "2026-10-20"), { data: "2026-10-14", fonte: "dia da inspeção" });
+}
+
 titulo("registro.js — o Registro por dia, por pessoa e pelo Painel");
 {
   const reg = await import("../js/registro.js");
@@ -891,6 +949,20 @@ titulo("registro.js — o Registro por dia, por pessoa e pelo Painel");
   const r = reg.resumoDoDia(ev.log, reg.diaDe(parada.ts));
   ok("o resumo do dia conta o que saiu do Painel e quem lançou",
     r.painel === 1 && r.porPessoa.some(([q]) => q === parada.autor) && r.porTipo.some(([t]) => t === "prev_parada"), JSON.stringify(r));
+
+  // o tamanho da fita: 1.285 lançamentos em 5 dias, como no banco em 14/10
+  const t0 = Date.parse("2026-10-09T14:00:00Z");
+  const fita = Array.from({ length: 1285 }, (_, i) => ({ ts: new Date(t0 + i * (5 * 864e5 / 1285)).toISOString() }));
+  const tam = reg.tamanhoDaFita(fita, new Date("2026-10-14T14:00:00Z"));
+  ok("o tamanho da fita: ~1,1 MB, 0,2% dos 500 MB, e com cinco dias de uso ainda é cedo para projetar",
+    Math.abs(tam.bytes / 1048576 - 1.1) < 0.05 && tam.pct < 0.003 && Math.round(tam.porDia) === 257 && tam.dias === 5 && tam.cedo,
+    JSON.stringify(tam));
+  // 850 da planilha num dia e 100 por dia depois, por 20 dias: o ritmo é 100, não o da importação
+  const fita2 = [...Array.from({ length: 850 }, () => ({ ts: "2026-10-01T12:00:00Z", origem: "planilha" })),
+    ...Array.from({ length: 2000 }, (_, i) => ({ ts: new Date(Date.parse("2026-10-01T12:00:00Z") + i * 864e5 / 100).toISOString(), origem: "manual" }))];
+  const tam2 = reg.tamanhoDaFita(fita2, new Date("2026-10-21T12:00:00Z"));
+  ok("a importação da planilha não entra no ritmo: 100 por dia dá uns 15 anos até os 500 MB",
+    Math.round(tam2.porDia) === 100 && !tam2.cedo && Math.floor(tam2.anos) === 15, JSON.stringify(tam2));
 
   // O dia é o do relógio de quem olha: 22h30 em Mossoró já é amanhã em UTC.
   const tz = process.env.TZ;

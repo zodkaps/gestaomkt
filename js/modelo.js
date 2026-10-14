@@ -517,11 +517,13 @@ export function desdeQuando(a, ref = hoje()) {
   const obs = String(a.obs || "");
   let m = obs.match(/Aberta no Protheus em (\d{2})\/(\d{2})\/(\d{4})/);
   if (m) return { data: `${m[3]}-${m[2]}-${m[1]}`, fonte: "abertura no Protheus" };
-  m = obs.match(/^\s*\[(\d{1,2})\/(\d{1,2})\]/);
+  m = obs.match(/^\s*\[(\d{1,2})\/(\d{1,2})\]\s*(\S*)/);
   if (m) {
     let ano = Number(ref.slice(0, 4));
     const d = `${ano}-${m[2].padStart(2, "0")}-${m[1].padStart(2, "0")}`;
-    return { data: d > ref ? `${ano - 1}${d.slice(4)}` : d, fonte: "dia do TOP" };
+    // "[14/10] Inspeção" vem do Colar inspeção/TOP; o resto, da planilha ("[06/10] TOP: …")
+    const fonte = /^inspe/i.test(m[3]) ? "dia da inspeção" : "dia do TOP";
+    return { data: d > ref ? `${ano - 1}${d.slice(4)}` : d, fonte };
   }
   if (a.criada_em) return { data: String(a.criada_em).slice(0, 10), fonte: "primeiro registro no site" };
   return null;

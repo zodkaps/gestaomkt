@@ -13,6 +13,8 @@
 
 import * as nuvem from "../nuvem.js";
 import * as pessoas from "../pessoas.js";
+import * as ev from "../eventos.js";
+import { tamanhoDaFita } from "../registro.js";
 import { el, limpar, caixa, avisar, erro } from "../ui.js";
 
 const MARCA = {
@@ -66,6 +68,7 @@ export async function montar(raiz, ctx) {
       botao.disabled = false;
       return;
     }
+    if (!porta && ev.log.length) itens.push(itemTamanho());
     for (const it of itens) lista.append(linha(it));
     const faltando = itens.filter(i => i.estado === "falta").length;
     const avisos = itens.filter(i => i.estado === "aviso").length;
@@ -78,6 +81,26 @@ export async function montar(raiz, ctx) {
 
   await conferir();
   return { desmontar: () => document.body.classList.remove("entrando") };
+}
+
+/** Quanto do banco o registro ocupa. O plano grátis do Supabase para de
+ *  aceitar lançamento aos 500 MB; o aviso vem bem antes, aos 60%. */
+function itemTamanho() {
+  const t = tamanhoDaFita(ev.log);
+  const mb = v => (v / 1024 / 1024).toLocaleString("pt-BR", { maximumFractionDigits: v < 10 * 1024 * 1024 ? 1 : 0 });
+  const pct = (t.pct * 100).toLocaleString("pt-BR", { maximumFractionDigits: t.pct < 0.01 ? 2 : 0 });
+  const ritmo = t.porDia >= 1 ? `${Math.round(t.porDia)} lançamentos por dia nos últimos ${t.dias} dias` : "menos de um lançamento por dia";
+  const folga = !isFinite(t.anos) || t.anos > 50 ? "mais de 50 anos" : t.anos >= 2 ? `uns ${Math.floor(t.anos)} anos`
+    : t.anos >= 1 / 12 ? `uns ${Math.max(1, Math.round(t.anos * 12))} meses` : "poucas semanas";
+  const projecao = t.cedo ? "Quanto ainda cabe aparece depois de uma semana de uso, quando o ritmo do dia a dia já diz alguma coisa."
+    : `No ritmo do dia a dia (${ritmo}, sem contar importação de planilha), cabe mais ${folga}.`;
+  return {
+    estado: t.pct >= 0.6 ? "aviso" : "ok",
+    titulo: `Espaço no banco: ≈ ${mb(t.bytes)} MB de 500 MB (${pct}%)`,
+    detalhe: `${t.lancamentos.toLocaleString("pt-BR")} lançamentos no registro. ${projecao}`,
+    resolver: t.pct >= 0.6 ? "Faça uma cópia de segurança (Importar → Cópia de segurança) e peça ao Claude para arquivar " +
+      "o histórico antigo — ou passe o projeto do Supabase para um plano pago." : "",
+  };
 }
 
 function linha(it) {

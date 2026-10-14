@@ -108,6 +108,11 @@ export async function montar(raiz, ctx, params) {
       el("button", { class: "discreto", title: "Folhas por executante, com a escolha de quem",
         onclick: () => imprimirPorExecutante({ frota: frotaExata(doPeriodo()) }) }, "Por executante"),
       pessoas.pode("programar")
+        ? el("button", { title: "A mensagem do WhatsApp ou o PDF da inspeção/TOP vira pendências na carteira",
+          onclick: async () => { const { colarPendencias } = await import("./colar.js");
+            colarPendencias(ctx, { frota: frotaExata(doPeriodo()) || "" }); } }, "Colar inspeção/TOP")
+        : null,
+      pessoas.pode("programar")
         ? el("button", { class: "primario", onclick: () => criarNova(ctx,
           estado.periodo === "semana" ? { ano: estado.ano, semana: estado.semana } : {}) }, "+ Nova")
         : null),
