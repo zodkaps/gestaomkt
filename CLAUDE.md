@@ -26,8 +26,15 @@ chat, seguir os mesmos passos e as mesmas regras:
    — só aplicar se a pessoa confirmar.
 2. **Ler a fita da frota no banco** (eventos cujo `alvo` tem `dados->>'frota'`
    igual à frota) e montar o estado com `eventos.reconstruir`.
-3. **Duplicadas**: `marcarDuplicadas` contra as atividades em aberto da frota
-   (mesmo serviço no mesmo lugar, `texto.chave`). Não lançar a repetida; dizer qual era.
+3. **Duplicadas e parecidas**: `marcarDuplicadas` contra as atividades em aberto
+   da frota — `duplicada` (mesmo serviço no mesmo lugar), `parecida` (a mesma
+   escrita de outro jeito: "Providenciar estepe" × "Sem estepe") e `repetida`.
+   Não lançar nenhuma das três; dizer quais eram. Conferir também à mão a lista
+   em aberto da frota: o que o comparador não pega, a pessoa decide.
+   O TOP vem sem marcador, uma por linha, às vezes duas grudadas por "-": o
+   leitor separa (`separarJuntas`); linha solta que completa a de cima ("nível
+   muito baixo") se pergunta antes de juntar. O bloco "Veículo não liberado
+   devido a…" é o porquê da reprovação — sugerir P1 nas pendências dele.
 4. **Preventiva do mês**: `planoVigente` + a preventiva da frota — dizer se existe,
    a situação e se tem dia de parada (as pendências podem ir junto na parada).
 5. **Gerar os eventos com o código do site** (`ev.criar`): Corretiva, origem
