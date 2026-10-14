@@ -906,6 +906,48 @@ titulo("pendencias.js — a mensagem da inspeção ou do TOP vira pendências");
     d.map(i => !!i.duplicada), [false, false, true, false]);
   igual("e a repetida dentro da própria mensagem também",
     P.marcarDuplicadas("F-1", [{ texto: "Fixar descarga" }, { texto: "fixar descarga;" }], []).map(i => i.repetida), [false, true]);
+  // o formato do TOP, como chegou em 14/10: frota sem traço, uma pendência por
+  // linha, duas grudadas por "-", o porquê da reprovação, a situação na linha da frota
+  const top = ["TOP REPROVADOS 14/10- PENDENCIAS  DO TOP ", "", "F616", "",
+    "realizar limpeza dos bornes das baterias",
+    "fixar base do cinto de segurança do motorista desobstruir esguicho do limpador ",
+    "fixar saia lateral da cabine ( LE )-veículo esquentando ", "", "",
+    "F508", "PREVENTENTIVA ", "luz de ré revisar-", "luz da placa revisar regular freios ( lona LD 1º eixo )", "", "",
+    "F620", "", "revisar banco do passageiro ", "revisar banco do passageiro",
+    "fixar corote-lubrificar tirantes da porta-corrigir falha no motor ( sistema NOX )-corrigir iluminação traseira LE", "",
+    "Veículo nao liberado devido as seguintes observações:", "Terminal da bateria ", "Falha no sistema NOX", "", "",
+    "F434 LIBERADO COM RESTRIÇÃO ", "", "vazamento na válvula distribuidora ", "sirene de ré", "", "",
+    "974", "", "Verificar ar-condicionado (fraco).", "Providenciar estepe.", "",
+    "Observação: Veículo em manutenção para verificar possível rompimento do trocador de calor."].join("\n");
+  const bt = P.lerPendencias(top, { frotas: ["F-616", "F-508", "F-620", "F-434", "F-974"], ref: "2026-10-14" });
+  igual("TOP: as cinco frotas, de TOP, do dia 14/10", bt.map(b => [b.frota, b.fonte, b.dia]),
+    [["F-616", "TOP", "2026-10-14"], ["F-508", "TOP", "2026-10-14"], ["F-620", "TOP", "2026-10-14"],
+      ["F-434", "TOP", "2026-10-14"], ["F-974", "TOP", "2026-10-14"]]);
+  igual("as grudadas se separam: pelo '-' antes de verbo ou depois de ')', e pelo verbo que começa outra",
+    bt[0].itens.map(i => i.texto), ["Realizar limpeza dos bornes das baterias", "Fixar base do cinto de segurança do motorista",
+      "Desobstruir esguicho do limpador", "Fixar saia lateral da cabine (LE)", "Veículo esquentando"]);
+  igual("'luz da placa revisar regular freios' são duas; o '-' do fim some; PREVENTIVA não é pendência",
+    [bt[1].itens.map(i => i.texto), bt[1].temPreventiva],
+    [["Luz de ré revisar", "Luz da placa revisar", "Regular freios (lona LD 1º eixo)"], true]);
+  igual("quatro numa linha só; o porquê da reprovação fica à parte",
+    [bt[2].itens.length, bt[2].itens.slice(2).map(i => i.texto), bt[2].motivos],
+    [6, ["Fixar corote", "Lubrificar tirantes da porta", "Corrigir falha no motor (sistema NOX)", "Corrigir iluminação traseira LE"],
+      ["Terminal da bateria", "Falha no sistema NOX"]]);
+  igual("a situação na linha da frota; a observação não vira pendência; palavra com hífen fica inteira",
+    [bt[3].situacao, bt[4].itens.map(i => i.texto), bt[4].notas.length],
+    ["LIBERADO COM RESTRIÇÃO", ["Verificar ar-condicionado (fraco)", "Providenciar estepe"], 1]);
+  const ja = [
+    { ...modelo.molde(), id: "J1", frota: "F-616", atividade: "Veículo está esquentando, conforme relato do motorista" },
+    { ...modelo.molde(), id: "J2", frota: "F-974", atividade: "Sem estepe" },
+    { ...modelo.molde(), id: "J3", frota: "F-974", atividade: "Motor falhando" },
+    { ...modelo.molde(), id: "J4", frota: "F-974", atividade: "Diagnosticar e sanar falha no módulo FR, acionamento do freio motor" },
+    { ...modelo.molde(), id: "J5", frota: "F-974", atividade: "Revisar esguicho do limpador de parabrisa" },
+    { ...modelo.molde(), id: "J6", frota: "F-974", atividade: "Revisar luz de freio (LD)" }];
+  const par = (f, t) => { const [r] = P.marcarDuplicadas(f, [{ texto: t }], ja); return (r.duplicada || r.parecida || {}).id || null; };
+  igual("parecidas: escrita de outro jeito é a mesma; o outro lado (LE × LD) não é",
+    [par("F-616", "Veículo esquentando"), par("F-974", "Providenciar estepe"), par("F-974", "Diagnosticar falhas no motor"),
+      par("F-974", "Revisar esguicho do limpador de para-brisa"), par("F-974", "Revisar luz de freio LE"), par("F-974", "Providenciar cortina")],
+    ["J1", "J2", "J3", "J5", null, null]);
   igual("a observação leva o dia e a origem", P.obsDaOrigem("Inspeção", "2026-10-14"), "[14/10] Inspeção");
   igual("e a carteira conta a idade a partir do dia da inspeção",
     modelo.desdeQuando({ obs: "[14/10] Inspeção" }, "2026-10-20"), { data: "2026-10-14", fonte: "dia da inspeção" });

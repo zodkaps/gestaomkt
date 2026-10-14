@@ -131,8 +131,8 @@ export async function colarPendencias(ctx, { frota = "", texto = "", arquivo = n
   }
 
   function ler() {
-    const lidos = lerPendencias(eTexto.value, { frotas: conhecidas, frotaPadrao: frota });
-    blocos = lidos.map(b => ({ ...b, fonte: b.fonte || "Inspeção", dia: hoje,
+    const lidos = lerPendencias(eTexto.value, { frotas: conhecidas, frotaPadrao: frota, ref: hoje });
+    blocos = lidos.map(b => ({ ...b, fonte: b.fonte || "Inspeção", dia: b.dia || hoje,
       itens: b.itens.map(it => ({ ...it, prioridade: it.alerta ? "P1" : comum.prioridade })) }));
     duplicadas();
     pintar();
@@ -143,7 +143,7 @@ export async function colarPendencias(ctx, { frota = "", texto = "", arquivo = n
     for (const b of blocos) {
       const marcadas = marcarDuplicadas(b.frota, b.itens, abertas);
       b.itens = marcadas.map((it, i) => ({ ...it,
-        marcado: b.itens[i].marcado != null && !b._frotaMudou ? b.itens[i].marcado : !(it.duplicada || it.repetida) }));
+        marcado: b.itens[i].marcado != null && !b._frotaMudou ? b.itens[i].marcado : !(it.duplicada || it.parecida || it.repetida) }));
       b._frotaMudou = false;
     }
   }
@@ -211,7 +211,13 @@ export async function colarPendencias(ctx, { frota = "", texto = "", arquivo = n
         tags.push(el("span", { class: "chip hoje", title: `"${d.atividade}" — ${M.rotulo(M.situacaoDe(d))}` },
           d.semana ? `já programada · sem ${d.semana}${d.dia ? " " + d.dia : ""}` : "já está na carteira"));
       }
+      if (it.parecida && !it.duplicada) {
+        const d = it.parecida;
+        tags.push(el("span", { class: "chip hoje", title: `Parece a mesma que "${d.atividade}" — ${M.rotulo(M.situacaoDe(d))}` },
+          `parecida com uma ${d.semana ? `da sem ${d.semana}` : "da carteira"}: “${d.atividade.length > 38 ? d.atividade.slice(0, 36) + "…" : d.atividade}”`));
+      }
       if (it.repetida) tags.push(chip("repetida na mensagem", "hoje"));
+      if (it.dividida) tags.push(el("span", { class: "chip", title: "Vinha grudada com outra na mesma linha; o site separou" }, "separada da linha"));
       if (it.alerta) tags.push(chip("⚠ urgente: P1", "vencida"));
       if (it.top) tags.push(chip("TOP"));
       if (it.os) tags.push(chip("OS " + it.os, "os"));
@@ -225,7 +231,7 @@ export async function colarPendencias(ctx, { frota = "", texto = "", arquivo = n
       el("ul", {}, b.ignoradas.map((l, k) => el("li", {}, el("span", {}, l), " ",
         el("button", { type: "button", class: "mini", onclick: () => {
           b.ignoradas.splice(k, 1);
-          b.itens.push({ texto: l.replace(/^[*\s]+|[*\s;.]+$/g, ""), alerta: false, top: false, os: "",
+          b.itens.push({ texto: l.replace(/^[*\s]+|[*\s;.\-]+$/g, ""), alerta: false, top: false, os: "", dividida: false,
             prioridade: comum.prioridade, marcado: true });
           duplicadas(); pintar();
         } }, "+ é pendência"))))) : null;
@@ -239,6 +245,10 @@ export async function colarPendencias(ctx, { frota = "", texto = "", arquivo = n
           b.nova && b.frota ? chip("frota nova no site", "hoje") : null,
           el("b", {}, String(b.itens.length)), ` pendência${b.itens.length === 1 ? "" : "s"}`)),
       avisoPrev,
+      b.situacao ? el("p", { class: "colar-prev" }, chip(b.situacao, /restri/i.test(b.situacao) ? "hoje" : "")) : null,
+      b.motivos.length ? el("p", { class: "colar-prev colar-motivos" }, chip("não liberado", "vencida"), " por: ",
+        el("b", {}, b.motivos.join(" · ")), " — são das pendências abaixo; vale pôr P1.") : null,
+      b.notas.length ? el("p", { class: "colar-prev" }, "Observação: ", b.notas.join(" · ")) : null,
       b.itens.length ? el("div", { class: "tabela-rolagem" }, el("table", { class: "tabela colar-tabela" },
         el("tbody", {}, linhas))) : el("p", { class: "nada" }, "Nenhuma pendência nesta frota."),
       fora);

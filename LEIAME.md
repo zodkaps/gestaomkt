@@ -886,6 +886,20 @@ depois de o PCM conferir:
   é a pendência, sem o traço e sem o `;`. Menção (`@fulano`), "psc", títulos em
   negrito e recados ficam **de fora**, mas à vista: um toque em *+ é pendência*
   põe de volta. Várias frotas na mesma mensagem viram um bloco para cada uma.
+- **O TOP como chega** ("TOP REPROVADOS 14/10 – PENDÊNCIAS DO TOP", depois
+  "F616", "974", uma pendência por linha, sem traço) também é lido: a data do
+  título vira o dia das pendências; "F434 LIBERADO COM RESTRIÇÃO" vira a
+  situação da frota; "PREVENTIVA" sozinho na linha avisa da preventiva; o
+  bloco "Veículo não liberado devido a…" é o **porquê da reprovação** (fica à
+  parte, não vira pendência); "Observação:" também fica à parte. Duas
+  pendências grudadas na mesma linha se separam — no "-" antes de verbo
+  ("fixar corote-lubrificar tirantes"), depois de ")" ("cabine (LE)-veículo
+  esquentando") e no verbo que começa outra ("…do motorista desobstruir
+  esguicho…") — com a marca *separada da linha*, para conferir.
+- **Parecidas**: além da idêntica, a caixa acha a mesma pendência escrita de
+  outro jeito ("Providenciar estepe" × "Sem estepe", "Diagnosticar falhas no
+  motor" × "Motor falhando", "para-brisa" × "parabrisa"), sem confundir o lado
+  (LE × LD). Vêm desmarcadas, dizendo com qual se parecem.
 - **PDF**: o texto é lido no próprio navegador (pdf.js, em `vendor/pdfjs`, só
   baixa quando alguém solta um PDF). A linha quebrada é emendada, a OS na frente
   vira a OS da pendência e "TOP" no fim marca a origem. PDF escaneado é imagem e
