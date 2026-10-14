@@ -299,6 +299,9 @@ async function pintar() {
   const minha = ++geracaoTela;
   const { id, params } = alvo();
   const tela = TELAS.find(t => t.id === id);
+  // Saiu da tela que a decisão do Painel abriu: o que se lançar daqui em
+  // diante já não é por causa dela.
+  ev.decisaoEmCurso(id);
   pintarMenu(id);
   pintarPessoa();
   pintarVoltar();

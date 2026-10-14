@@ -17,7 +17,8 @@
 import * as dados from "./dados.js";
 import * as nuvem from "./nuvem.js";
 import * as pessoas from "./pessoas.js";
-import { molde, moldeMovimentacao, moldePreventiva } from "./modelo.js";
+import { molde, moldeMovimentacao, moldePreventiva, semanaISO, DIAS, aberta, feita,
+  preventivaFeita as prevFeita } from "./modelo.js";
 
 export const TIPOS = {
   criada: "criada manualmente",
@@ -479,10 +480,32 @@ export async function receber(novos) {
 // ── escrever ────────────────────────────────────────────────────────────────
 
 /** A única porta de escrita. Tudo que muda qualquer coisa passa por aqui. */
+// ── de onde veio: a decisão do Painel ──────────────────────────────────────
+//
+// O que se lança a partir de uma decisão do Painel ("Marcar a parada",
+// "Ver as vencidas"…) leva o título dela em `dados.via`, para o Registro
+// mostrar e filtrar. Vale enquanto a pessoa fica na tela que a decisão abriu,
+// e no máximo meia hora. Fica em `dados` porque a montagem do estado não lê
+// esse campo, e assim o banco guarda sem mudar de formato.
+
+let via = null;
+const VIA_MAX_MS = 30 * 60 * 1000;
+
+/** `d`: a decisão ({ titulo, area }) e a tela que ela abriu; null encerra. */
+export function porDecisao(d, tela = "") {
+  via = d ? { decisao: String(d.titulo || "").slice(0, 200), area: d.area || "", tela, desde: Date.now() } : null;
+}
+/** A decisão em curso, se ainda vale para esta tela. */
+export function decisaoEmCurso(tela) {
+  if (!via) return null;
+  if (Date.now() - via.desde > VIA_MAX_MS || (tela && via.tela && tela !== via.tela)) { via = null; return null; }
+  return via;
+}
+
 export async function aplicar(evs, { silencioso = false } = {}) {
   // Uma operação pode devolver mais de um evento (concluir e aprovar, quando é
   // o PCM que conclui): a lista é achatada antes de gravar.
-  const lista = (Array.isArray(evs) ? evs : [evs]).flat().filter(Boolean).map(ev => ({
+  const comPadrao = ev => ({
     id: novoId(),
     ts: agora(),
     autor: pessoas.nome() || "—",
@@ -491,8 +514,16 @@ export async function aplicar(evs, { silencioso = false } = {}) {
     motivo: "",
     dados: {},
     ...ev,
-  }));
-  if (!lista.length) return lista;
+  });
+  const v = decisaoEmCurso();
+  // Criar e importar põem `dados` dentro do item: a marca fica só nos outros.
+  const marcar = e => v && e.tipo !== "criada" && e.tipo !== "importada" && !(e.dados && e.dados.via)
+    ? { ...e, dados: { ...(e.dados || {}), via: { decisao: v.decisao, area: v.area } } } : e;
+  const principais = (Array.isArray(evs) ? evs : [evs]).flat().filter(Boolean).map(comPadrao).map(marcar);
+  if (!principais.length) return principais;
+  // A preventiva do plano e a OS preventiva andam juntas: o que acontece num
+  // lado gera o lançamento do outro, no mesmo lote e logo depois.
+  const lista = [...principais, ...derivados(principais).map(comPadrao)];
 
   await dados.gravarEventos(lista);
   await recarregar();
@@ -724,6 +755,124 @@ export function cancelarPreventiva(p, motivo) {
 export function reabrirPreventiva(p) {
   pessoas.exigir("parada");
   return { tipo: "prev_reaberta", alvo: p.id, alvo_tipo: "preventiva" };
+}
+
+// ── a preventiva do plano e a OS preventiva da oficina ─────────────────────
+//
+// São a mesma coisa vista de dois lugares. A aba Preventivas cuida do aperto
+// de mão (a operação libera a frota, o PCM marca a parada); a Programação é
+// onde a oficina vê o que fazer no dia. Antes não se falavam: a parada
+// marcada não aparecia no dia da oficina, e a mesma preventiva era anotada
+// duas vezes (a OS 022446 da F-328 estava nas duas, uma com baixa e a outra
+// "baixa pendente"). Agora a atividade guarda `preventiva_id`, e:
+//   parada marcada ou mudada  → a OS preventiva entra (ou muda) no dia da parada;
+//   baixa na OS               ⇄ preventiva realizada;
+//   reabrir                   ⇄ reabrir;
+//   preventiva adiada         → a OS volta para a carteira, com o motivo;
+//   preventiva cancelada      → a OS é cancelada, com o motivo.
+// O lançamento derivado vai com origem "vinculo" e não deriva outro.
+
+const soLetras = f => String(f || "").toUpperCase().replace(/[^A-Z0-9]/g, "");
+
+/** A OS preventiva (atividade) que executa esta preventiva do plano. */
+export function atividadeDaPreventiva(p, mapa = estado.atividade) {
+  for (const a of mapa.values()) if (!a.excluida && a.preventiva_id === p.id) return a;
+  return null;
+}
+
+/** A preventiva do plano que esta atividade executa. */
+export function preventivaDaAtividade(a, mapa = estado.preventiva) {
+  return a && a.preventiva_id ? mapa.get(a.preventiva_id) || null : null;
+}
+
+/** O dia da parada ("2026-10-15") como programação de atividade. */
+export function programacaoDoDia(dia) {
+  const w = dia ? semanaISO(dia) : null;
+  if (!w) return null;
+  const n = new Date(dia + "T00:00:00Z").getUTCDay();
+  return { ano: w.ano, semana: w.semana, dia: DIAS[(n + 6) % 7] };
+}
+
+/** A OS preventiva nova de uma preventiva do plano: mesmo nome de plano, mesma
+ *  OS, a oficina de onde fazer, o HH previsto. */
+export function novaOSPreventiva(p) {
+  return criar({ ...molde(), id: undefined, frota: p.frota,
+    atividade: `Preventiva ${String(p.plano || "").trim()}`.trim(),
+    tipo: "Preventiva", origem: "Programada", os: p.os || "",
+    oficina: p.onde_fazer === "Terceiro" ? "Terceirizada" : "Interna",
+    hh: Number(p.hh) || 0, obs: `Plano de preventivas ${p.mes || ""}`.trim(), preventiva_id: p.id });
+}
+
+/** Uma OS preventiva em aberto, sem ligação, com a mesma frota e a mesma OS
+ *  da preventiva — a que já estava na carteira. Só se for uma. */
+export function osPreventivaExistente(p, mapa = estado.atividade) {
+  if (!p.os) return null;
+  const c = [...mapa.values()].filter(a => !a.excluida && !a.cancelada && !a.preventiva_id &&
+    a.os === p.os && soLetras(a.frota) === soLetras(p.frota));
+  return c.length === 1 ? c[0] : null;
+}
+
+function derivados(lista) {
+  const r = [];
+  const vinc = e => e && r.push({ ...e, origem: "vinculo" });
+  const noLote = new Set(lista.map(e => `${e.alvo_tipo}|${e.alvo}|${e.tipo}`));
+  const criadas = new Map();      // preventiva → OS criada neste lote
+  for (const e of lista) {
+    if (e.origem === "vinculo") continue;
+    // Derivado que a pessoa não pode lançar (permissão) não trava o principal.
+    try {
+      if (e.alvo_tipo === "preventiva") {
+        const p = estado.preventiva.get(e.alvo);
+        if (!p) continue;
+        const a = atividadeDaPreventiva(p) || criadas.get(p.id) || null;
+        if (e.tipo === "prev_parada") {
+          const para = programacaoDoDia(e.dados && e.dados.dia);
+          if (!para) continue;
+          let alvo = a;
+          if (!alvo) {
+            const existente = osPreventivaExistente(p);
+            if (existente) {
+              vinc(editar(existente, { preventiva_id: p.id }));
+              alvo = existente;
+            } else {
+              const c = novaOSPreventiva(p);
+              vinc(c);
+              alvo = { ...molde(), ...c.dados, id: c.alvo };
+              criadas.set(p.id, alvo);
+            }
+          }
+          if (!aberta(alvo)) continue;
+          if (alvo.semana === para.semana && alvo.ano === para.ano && alvo.dia === para.dia) continue;
+          const dia = e.dados.dia.split("-").reverse().slice(0, 2).join("/");
+          vinc(reprogramar(alvo, { ...para, dias: alvo.dias || 1, hh: alvo.hh },
+            e.motivo || `Parada da preventiva marcada para ${dia}`));
+        } else if (e.tipo === "prev_realizada") {
+          if (a && aberta(a) && !noLote.has(`atividade|${a.id}|concluida`)) vinc(concluir(a, e.dados.em));
+        } else if (e.tipo === "prev_reaberta") {
+          if (a && feita(a) && !noLote.has(`atividade|${a.id}|reaberta`)) vinc(reabrir(a, "A preventiva foi reaberta"));
+        } else if (e.tipo === "prev_adiada") {
+          if (a && aberta(a) && a.semana != null) {
+            vinc(reprogramar(a, { semana: null, ano: null, dia: "", dias: a.dias, hh: a.hh },
+              `Preventiva adiada para o próximo mês: ${e.motivo || ""}`.trim()));
+          }
+        } else if (e.tipo === "prev_cancelada") {
+          if (a && aberta(a)) vinc(cancelar(a, `Preventiva cancelada: ${e.motivo || ""}`.trim()));
+        }
+      } else if ((e.alvo_tipo || "atividade") === "atividade") {
+        const a = estado.atividade.get(e.alvo);
+        const p = preventivaDaAtividade(a);
+        if (!p || p.excluida || p.cancelada) continue;
+        if (e.tipo === "concluida" && !prevFeita(p) && !noLote.has(`preventiva|${p.id}|prev_realizada`)) {
+          noLote.add(`preventiva|${p.id}|prev_realizada`);
+          vinc(preventivaFeita(p, e.dados.em, a.os || p.os || ""));
+        } else if (e.tipo === "reaberta" && prevFeita(p) && !noLote.has(`preventiva|${p.id}|prev_reaberta`)) {
+          noLote.add(`preventiva|${p.id}|prev_reaberta`);
+          vinc(reabrirPreventiva(p));
+        }
+      }
+    } catch (x) { /* sem permissão para o derivado: o lançamento principal vale */ }
+  }
+  return r;
 }
 
 // ── as operações: semana ────────────────────────────────────────────────────

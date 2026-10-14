@@ -112,6 +112,23 @@ Programação, **Semana atual** aparece quando se andou para outra semana.
 **Registro**, cada exclusão e cada cancelamento tem o botão *Desfazer*, e o item
 volta do jeito que estava. A operação não exclui nada: o banco não deixa.
 
+### O Registro
+
+O Registro é a fita inteira, do mais novo para o mais velho, **separada por
+dia** — cada dia com quantos lançamentos e de quem. O dia é o do relógio de
+quem olha: o lançamento das 22h em Mossoró não cai no dia seguinte.
+
+- **Resumo do dia**, no alto (hoje, com ‹ › para os outros dias): lançamentos,
+  baixas (atividade, preventiva e movimentação), reprogramações, novas e
+  **pelo Painel**; e, em linha, quem lançou e o quê. Tocar em qualquer um filtra
+  a lista para aquele dia.
+- **Filtros**: busca (frota, OS, atividade, motivo, título da decisão),
+  **pessoa**, tipo de lançamento (ou *baixas*, as três juntas), onde
+  (atividades, movimentações, preventivas, semanas fechadas), frota, origem
+  (site, planilha, pedido ao Claude, **decisão do Painel**, preventiva ↔ OS) e
+  período — **Hoje · Ontem · 7 dias · 30 dias · Tudo**, ou de/até. Os filtros
+  ligados aparecem como etiquetas com ×, e **Limpar filtros** tira todos.
+
 ## O que as cores querem dizer
 
 A tela é quase toda neutra. A cor aparece só quando avisa algo:
@@ -400,6 +417,33 @@ fórmulas (ver *Os números são os da planilha*, abaixo). Antes delas vem o
     cancelamento. Quem lançou, quando, e o que mudou. Filtra por tipo e busca
     por frota, pessoa ou motivo; clicar abre a ficha. Reimportação da planilha
     que não mudou nada não aparece.
+- **A preventiva do plano e a OS preventiva são uma coisa só.** A atividade
+  guarda qual preventiva ela executa (`preventiva_id`), e o que acontece num
+  lado vai para o outro no mesmo lote, sem ninguém lançar duas vezes:
+
+  | na aba Preventivas | na Programação |
+  |---|---|
+  | parada marcada (ou mudada) | a OS preventiva entra (ou muda) no dia da parada — se não existe, é criada; se a mesma OS já estava na carteira, é ligada |
+  | realizada | baixa na OS, com a mesma data |
+  | reaberta | a OS volta a ficar em aberto |
+  | adiada para o mês seguinte | a OS volta para a carteira, com o motivo |
+  | cancelada | a OS é cancelada, com o motivo |
+
+  E ao contrário: **baixa na OS registra a preventiva como realizada**, e
+  reabrir a OS reabre a preventiva. O lançamento que nasce sozinho vai com
+  origem `vinculo` (no Registro, a etiqueta *preventiva ↔ OS*) e não gera
+  outro. A ficha da preventiva tem a linha **Na Programação** (situação, semana
+  e dia, OS) e o botão **Abrir na Programação**; na tabela do plano, debaixo da
+  OS, aparece onde ela está.
+- **Ver e ligar**: o que já existia antes da ligação (a OS anotada nos dois
+  lados, como a 022446 da F-328, ou parada marcada sem a OS no dia) aparece numa
+  faixa no alto do Plano. O botão mostra, frota por frota, o que vai acontecer
+  (ligar, dar a baixa que faltou, criar a OS no dia) e só grava ao confirmar.
+  Uma OS programada em outra semana **não** é movida sozinha para o dia da
+  parada: a lista só avisa — é decisão do PCM.
+- **Preventiva vem primeiro.** Em Hoje, Programação, Semana, na carteira e na
+  folha impressa, a OS preventiva tem o selo **Preventiva**, a faixa magenta à
+  esquerda e fica no topo do bloco da frota.
 - **Reprogramar a parada exige motivo.** Mudar o dia de uma parada já marcada
   é reprogramar, como na atividade: a caixa pede o motivo (com os usados por
   último à mão) e **não fecha sem ele** — o dia escolhido continua lá. Cada
@@ -475,8 +519,31 @@ fórmulas (ver *Os números são os da planilha*, abaixo). Antes delas vem o
   - **Por executante** (Programação): escolhe os executantes, a frota e se a
     carteira entra; com *uma folha para cada executante*, cada um recebe a sua
     (agrupada por frota). Imprimir não grava nada.
+- **Os filtros da Programação ficam à vista.** Cada filtro ligado (frota,
+  busca, situação, só sem OS) vira uma etiqueta com ×, debaixo da barra, e
+  **Limpar filtros** tira todos. O recorte continua quando se troca de tela —
+  e antes um filtro esquecido escondia metade da lista sem ninguém perceber.
+- **A carteira por prioridade e idade.** Na carteira, a ordem é preventiva
+  primeiro, depois P1, P2, P3, sem prioridade — e, dentro de cada uma, a que
+  espera há mais tempo. Cada linha mostra a prioridade e **há N d**; passando o
+  mouse, *esperando desde dd/mm/aaaa* e de onde veio a data: a abertura no
+  Protheus ("Aberta no Protheus em…"), o dia do TOP ("[06/10] TOP…") ou, sem
+  nenhuma das duas, o primeiro registro no site. A planilha não tem data de
+  abertura, e o site não inventa uma. Com 30 dias ou mais, a etiqueta fica
+  marcada.
 - **Frota** se pesquisa: sem frota escolhida, a tela mostra todas para tocar,
-  as com mais pendência primeiro; digitar "969" filtra.
+  as com mais pendência primeiro; digitar "969" filtra. Cada frota leva os
+  **selos** do que pede atenção antes de abrir: *preventiva vencida*, *parada
+  dd/mm* (marcada), *parada passou* (sem baixa) e *em movimentação*. A
+  preventiva dos selos é a do plano do mês, a mesma que a aba Preventivas
+  acompanha.
+- **A ficha da frota** junta tudo o que se pergunta de um caminhão. No alto,
+  um resumo para tocar: a preventiva do mês (situação, parada, vencimento —
+  abre a ficha dela), a próxima na programação, a movimentação em aberto e a
+  última baixa. Depois, nesta ordem: **Preventivas do plano** (todos os meses,
+  as abertas primeiro), em movimentação agora, programadas, **na carteira** (na
+  ordem da carteira, com a idade), histórico de serviços, movimentações
+  recentes, canceladas e o registro da frota.
 
 Hoje, Programação e Semana usam a **mesma grade** (`js/tela/grade.js`): um lugar
 só desenha uma atividade em lista, e as três telas nunca mostram a mesma coisa
@@ -769,7 +836,12 @@ data* — um clique dá o dia. O sistema não inventa o dia em que o serviço sa
 
 As regras do Painel ficam em `js/decisoes.js`, um módulo puro (sem tela), e
 estão nos testes. Nenhuma grava nada: cada uma só aponta e abre a ação de
-sempre. O plano de preventivas que vale é o do mês corrente; sem ele, o mais
+sempre. **O que se lança a partir de uma decisão fica marcado com ela**: o
+título vai junto do lançamento (em `dados.via`, sem mudar o banco), e o
+Registro mostra *decisão do Painel* e *pela decisão: …*. Vale para o que se
+grava na caixa que a decisão abriu e para o que se lança na tela que ela abriu
+(por exemplo, as baixas depois de *Ver as vencidas*), até sair dessa tela ou
+por meia hora. O que nasce sozinho (preventiva ↔ OS) não leva a marca. O plano de preventivas que vale é o do mês corrente; sem ele, o mais
 recente.
 
 | área | quando | nível | o botão |
@@ -877,6 +949,8 @@ porque toda escrita já passa por `aplicar()`.
 | `js/pessoas.js` | quem está usando, o papel, o que esse papel pode |
 | `js/tela/*.js` | entrar, operacao, painel, hoje, programacao, semana, resultados, movimentacoes, preventivas, frota, historico, importar, diagnostico |
 | `js/decisoes.js` | **o que decidir agora**: as regras do Painel, puras, e a data sugerida para a parada |
+| `js/vinculo.js` | o *Ver e ligar*: o que fazer, preventiva por preventiva, para ligar o que já existia à Programação |
+| `js/registro.js` | as contas do Registro: o dia de cada lançamento, o filtro e o resumo do dia |
 | `js/tela/decidir.js` | a lista de decisões na tela, com o botão de cada uma |
 | `js/tela/painel.js` | o Painel: os quatro números, as decisões, um cartão por área, a aderência das semanas |
 | `js/tela/acoes.js` | as ações do ⋯ de cada item — um menu por tipo, com as opções que valem para quem está olhando |

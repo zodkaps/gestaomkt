@@ -35,8 +35,9 @@ function janelaDe(a) {
   return { chave: `${ini}|${fim}`, rotulo: ini === fim ? nome(ini) : `${nome(ini)} a ${nome(fim)}` };
 }
 
-/** Com OS primeiro, depois o resto em ordem alfabética, e o que veio do TOP no fim. */
-const ordemLinha = (a, b) => (a.os ? 0 : 1) - (b.os ? 0 : 1) ||
+/** A preventiva primeiro; depois com OS, o resto em ordem alfabética, e o que
+ *  veio do TOP no fim. */
+const ordemLinha = (a, b) => (M.ehPreventiva(b) ? 1 : 0) - (M.ehPreventiva(a) ? 1 : 0) || (a.os ? 0 : 1) - (b.os ? 0 : 1) ||
   (doTOP(a) ? 1 : 0) - (doTOP(b) ? 1 : 0) || natural(a.atividade || "", b.atividade || "");
 
 function porJanela(itens) {
@@ -217,7 +218,8 @@ const tituloJanela = rotulo => el("div", { class: "fl-janela" }, rotulo);
 const linha = a => el("div", { class: "fl-linha" },
   el("span", { class: "fl-ok" }),
   el("span", { class: "fl-os" }, a.os || "—"),
-  el("span", { class: "fl-ativ" }, a.atividade || "—", doTOP(a) ? el("span", { class: "fl-top" }, "TOP") : null),
+  el("span", { class: "fl-ativ" }, M.ehPreventiva(a) ? el("span", { class: "fl-top fl-prev" }, "PREVENTIVA") : null,
+    a.atividade || "—", doTOP(a) ? el("span", { class: "fl-top" }, "TOP") : null),
   el("span", { class: "fl-quem" }));
 
 const rodape = (f, i, n) => el("div", { class: "fl-rodape" }, `${f.rodape} · página ${i} de ${n}`);

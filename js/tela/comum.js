@@ -29,7 +29,7 @@ export function executantes() { return valoresDe("executantes"); }
 
 // ── cartão ──────────────────────────────────────────────────────────────────
 
-export function cartao(a, { ctx, acoes = [], seletor = null, compacto = false } = {}) {
+export function cartao(a, { ctx, acoes = [], seletor = null, compacto = false, idade = false } = {}) {
   const s = M.situacaoDe(a);
   const cor = M.corDe(s);
   const tags = [];
@@ -41,10 +41,18 @@ export function cartao(a, { ctx, acoes = [], seletor = null, compacto = false } 
   // Prioridade só no cartão completo: na lista ela aparece em quase toda linha
   // e vira ruído — na planilha a coluna é oculta.
   if (!compacto && a.prioridade) tags.push(chip(a.prioridade, a.prioridade === "P1" ? "p1" : ""));
+  if (M.ehPreventiva(a)) tags.push(chip("Preventiva", "prev"));
   if (a.origem === "Extra") tags.push(chip("Extra"));
   if (a.reprogramacoes > 0) tags.push(chip(`reprogramada ${a.reprogramacoes}×`, "reprog"));
   if (a.oficina === "Terceirizada") tags.push(chip("terceirizada"));
-  if (!compacto && a.tipo && a.tipo !== "Corretiva") tags.push(chip(a.tipo));
+  if (!compacto && a.tipo && a.tipo !== "Corretiva" && a.tipo !== "Preventiva") tags.push(chip(a.tipo));
+  // Na carteira, há quanto tempo espera — e de onde veio a data (M.desdeQuando).
+  const desde = idade && M.aberta(a) ? M.desdeQuando(a) : null;
+  if (desde) {
+    const n = M.idadeDias(a);
+    tags.push(el("span", { class: "chip idade" + (n >= 30 ? " velha" : ""),
+      title: `esperando desde ${br(desde.data)} — ${desde.fonte}` }, n === 0 ? "desde hoje" : `há ${n} d`));
+  }
 
   const sub = [];
   if (a.servico && a.servico !== a.atividade) sub.push(a.servico);
@@ -55,7 +63,7 @@ export function cartao(a, { ctx, acoes = [], seletor = null, compacto = false } 
   else if (a.semana && M.prazoDe(a)) sub.push("prazo " + brCurto(M.prazoDe(a)));
 
   const n = el("div", {
-    class: `at ${cor}${M.feita(a) ? " feito" : ""}`,
+    class: `at ${cor}${M.feita(a) ? " feito" : ""}${M.ehPreventiva(a) ? " prev" : ""}`,
     dataset: { id: a.id },
   },
     seletor,
@@ -578,6 +586,13 @@ export async function abrirFicha(id, ctx) {
     linha("OS", [a.os, ...a.os_outras].filter(Boolean).join(", ")),
     linha("Serviço", a.servico),
     linha("Tipo", `${a.tipo} · ${a.origem} · oficina ${a.oficina || "Interna"}`),
+    linha("Preventiva do plano", (() => {
+      const p = ev.preventivaDaAtividade(a);
+      if (!p) return null;
+      const sp = M.situacaoPreventiva(p);
+      return el("span", {}, `${p.plano || "preventiva"} · plano ${p.mes || ""} · `, chip(M.rotulo(sp), M.corDe(sp)),
+        el("span", { class: "nada" }, " — a baixa aqui registra a preventiva como realizada"));
+    })()),
     linha("HH previsto", a.hh ? `${a.hh} (horas × pessoas)` : null),
     linha("Prioridade", a.prioridade),
     linha("Semana", a.semana ? `${a.semana}/${a.ano} · ${a.dia || "sem dia"} · ${a.dias || 1} dia(s)` : null),
@@ -690,13 +705,19 @@ export function descreverEvento(e, comAtividade = false) {
   // O que entrou por pedido ao Claude, pelo banco, fica marcado: é lançamento
   // como outro qualquer, assinado por quem pediu, mas tem de dar para saber.
   if (e.origem === "claude") q.push(" ", el("span", { class: "tag claude" }, "pedido ao Claude"));
+  else if (e.origem === "vinculo") q.push(" ", el("span", { class: "tag vinc",
+    title: "Lançado sozinho: a preventiva do plano e a OS preventiva andam juntas" }, "preventiva ↔ OS"));
   else if (e.origem && e.origem !== "manual") q.push(el("i", { style: "color:var(--muito-fraco)" }, ` (${e.origem})`));
+  // Saiu de uma decisão do Painel (ver ev.porDecisao).
+  const via = d.via && d.via.decisao ? d.via : null;
+  if (via) q.push(" ", el("span", { class: "tag painel", title: "Lançado a partir do Painel" }, "decisão do Painel"));
 
-  return el("div", { class: "evento" },
+  return el("div", { class: "evento" + (via ? " pela-decisao" : "") },
     el("div", { class: "qdo" }, quando(e.ts)),
     el("div", { class: "oq" },
       e.autor ? el("span", { class: "autor" }, e.autor + " — ") : null, q,
-      e.motivo ? el("div", { class: "mot" }, "motivo: " + e.motivo) : null));
+      e.motivo ? el("div", { class: "mot" }, "motivo: " + e.motivo) : null,
+      via ? el("div", { class: "via" }, "pela decisão: " + via.decisao) : null));
 }
 
 /** Agrupa mantendo a ordem de uma lista de chaves. */

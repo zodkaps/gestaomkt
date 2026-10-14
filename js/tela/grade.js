@@ -29,14 +29,18 @@ const peso = s => { const i = ORDEM.indexOf(s); return i < 0 ? 50 : i; };
 export const natural = (x, y) =>
   String(x || "").localeCompare(String(y || ""), "pt-BR", { numeric: true });
 
+// A preventiva em aberto vem primeiro, em qualquer bloco: é a que não pode
+// ficar para trás. Depois, a ordem de sempre — situação e prazo.
+const prevAberta = a => M.ehPreventiva(a) && M.aberta(a) ? 1 : 0;
+
 export function ordenarPorSituacao(ref) {
-  return (x, y) => peso(M.situacaoDe(x, ref)) - peso(M.situacaoDe(y, ref)) ||
+  return (x, y) => prevAberta(y) - prevAberta(x) || peso(M.situacaoDe(x, ref)) - peso(M.situacaoDe(y, ref)) ||
     String(M.prazoDe(x) || "9").localeCompare(String(M.prazoDe(y) || "9")) ||
     natural(x.frota, y.frota) || natural(x.atividade, y.atividade);
 }
 
-function blocos(itens, por, ref) {
-  if (!por) return [{ chave: null, itens: itens.slice().sort(ordenarPorSituacao(ref)) }];
+function blocos(itens, por, ref, ordem = ordenarPorSituacao(ref)) {
+  if (!por) return [{ chave: null, itens: itens.slice().sort(ordem) }];
   const m = new Map();
   for (const a of itens) {
     const k = por === "dia" ? (a.dia || "") : (a.frota || "");
@@ -45,7 +49,7 @@ function blocos(itens, por, ref) {
   }
   const ordemDia = k => { const i = M.DIAS.indexOf(k); return i < 0 ? 99 : i; };
   const chaves = [...m.keys()].sort(por === "dia" ? (x, y) => ordemDia(x) - ordemDia(y) : natural);
-  return chaves.map(k => ({ chave: k, itens: m.get(k).sort(ordenarPorSituacao(ref)) }));
+  return chaves.map(k => ({ chave: k, itens: m.get(k).sort(ordem) }));
 }
 
 /** Quantas, quantas saíram, quantas venceram — o resumo de cada bloco. */
@@ -146,8 +150,19 @@ function celulaOS(a) {
 
 function celulaAtividade(a, o) {
   const tags = [];
+  if (M.ehPreventiva(a)) tags.push(el("span", { class: "tag prev",
+    title: a.preventiva_id ? "OS preventiva do plano — a baixa aqui registra a preventiva" : "OS preventiva" }, "Preventiva"));
   if (a.origem === "Extra") tags.push(el("span", { class: "tag extra" }, "Extra"));
-  if (a.tipo && a.tipo !== "Corretiva") tags.push(el("span", { class: "tag" }, a.tipo));
+  if (a.tipo && a.tipo !== "Corretiva" && a.tipo !== "Preventiva") tags.push(el("span", { class: "tag" }, a.tipo));
+  // Na carteira, a prioridade e há quanto tempo espera — é por elas que ela se
+  // ordena. A dica diz de onde veio a data.
+  if (o.carteira && M.aberta(a)) {
+    if (a.prioridade) tags.push(el("span", { class: "tag" + (a.prioridade === "P1" ? " p1" : "") }, a.prioridade));
+    const d = M.desdeQuando(a, o.ref || M.hoje());
+    const n = d ? M.idadeDias(a, o.ref || M.hoje()) : null;
+    if (d) tags.push(el("span", { class: "tag idade" + (n >= 30 ? " velha" : ""),
+      title: `esperando desde ${d.data.split("-").reverse().join("/")} — ${d.fonte}` }, n === 0 ? "desde hoje" : `há ${n} d`));
+  }
   // Prioridade fica na ficha: na planilha a coluna é oculta, e P1 em quase toda
   // linha vira ruído que esconde o que importa na olhada — a situação.
   if (a.reprogramacoes > 0) {
@@ -226,7 +241,7 @@ function linha(a, o) {
   const s = M.situacaoDe(a, o.ref);
   const cor = M.corDe(s);
   const tr = el("tr", {
-    class: `lin ${cor}${M.feita(a) ? " feita" : ""}${a.cancelada ? " cancel" : ""}` +
+    class: `lin ${cor}${M.feita(a) ? " feita" : ""}${a.cancelada ? " cancel" : ""}${M.ehPreventiva(a) ? " prev" : ""}` +
       (o.selecao && o.selecao.has(a.id) ? " marcada" : ""),
     dataset: { id: a.id },
   });
@@ -280,7 +295,8 @@ function botaoImprimir(g, o) {
 export function grade(itens, o = {}) {
   if (!itens.length) return vazio(o.vazioTexto || "Nada aqui com estes filtros.");
   const opc = { ...o, mostrarFrota: o.agrupar !== "frota" };
-  const grupos = blocos(itens, o.agrupar, o.ref);
+  // Na carteira a ordem é outra: preventiva, prioridade e a mais velha primeiro.
+  const grupos = blocos(itens, o.agrupar, o.ref, o.carteira ? M.ordemCarteira(o.ref || M.hoje()) : undefined);
 
   // ── computador ──
   const cab = [

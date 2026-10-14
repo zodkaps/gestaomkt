@@ -120,6 +120,9 @@ export function molde() {
     // A justificativa: o porquê fica em `motivo` (é a coluna SE NÃO FOI, POR
     // QUÊ da planilha); quem atrasou e o detalhe ficam ao lado.
     quem_atrasou: "", justificativa: "",
+    // A OS preventiva da oficina aponta para a preventiva do plano de que ela
+    // é a execução (ver eventos.js, "a preventiva do plano e a OS preventiva").
+    preventiva_id: "",
     criada_em: "", fonte: "",
   };
 }
@@ -506,6 +509,46 @@ export function cargaHH(ats, ano, semana) {
 /** Interna ou terceirizada — como a coluna Oficina da planilha decide: algum
  *  executante "(externo)" ou "Terceirizad…" manda para fora da conta. Sem
  *  executante, vale o que a atividade trouxe. */
+/** Desde quando a pendência espera, e de onde veio a data: a abertura no
+ *  Protheus ("Aberta no Protheus em 12/09/2026"), o dia do TOP ("[06/10] TOP:
+ *  …") ou, sem nenhuma das duas, o primeiro registro dela no site — a planilha
+ *  não tem data de abertura, e o site não inventa uma. */
+export function desdeQuando(a, ref = hoje()) {
+  const obs = String(a.obs || "");
+  let m = obs.match(/Aberta no Protheus em (\d{2})\/(\d{2})\/(\d{4})/);
+  if (m) return { data: `${m[3]}-${m[2]}-${m[1]}`, fonte: "abertura no Protheus" };
+  m = obs.match(/^\s*\[(\d{1,2})\/(\d{1,2})\]/);
+  if (m) {
+    let ano = Number(ref.slice(0, 4));
+    const d = `${ano}-${m[2].padStart(2, "0")}-${m[1].padStart(2, "0")}`;
+    return { data: d > ref ? `${ano - 1}${d.slice(4)}` : d, fonte: "dia do TOP" };
+  }
+  if (a.criada_em) return { data: String(a.criada_em).slice(0, 10), fonte: "primeiro registro no site" };
+  return null;
+}
+
+/** Há quantos dias a pendência espera (ver `desdeQuando`). */
+export function idadeDias(a, ref = hoje()) {
+  const d = desdeQuando(a, ref);
+  return d ? Math.max(0, difDias(d.data, ref)) : null;
+}
+
+const PESO_PRIORIDADE = { P1: 0, P2: 1, P3: 2 };
+/** Ordem da carteira: preventiva primeiro, depois P1, P2, P3, sem prioridade,
+ *  e dentro de cada uma a mais velha primeiro. */
+export function ordemCarteira(ref = hoje()) {
+  return (x, y) => (ehPreventiva(y) ? 1 : 0) - (ehPreventiva(x) ? 1 : 0) ||
+    (PESO_PRIORIDADE[x.prioridade] ?? 3) - (PESO_PRIORIDADE[y.prioridade] ?? 3) ||
+    (idadeDias(y, ref) ?? -1) - (idadeDias(x, ref) ?? -1) ||
+    String(x.frota || "").localeCompare(String(y.frota || ""), "pt-BR", { numeric: true });
+}
+
+/** É uma OS preventiva? Pelo tipo, ou por executar uma preventiva do plano.
+ *  Preventiva tem prioridade de leitura: vem primeiro e com selo próprio. */
+export function ehPreventiva(a) {
+  return !!a && (a.tipo === "Preventiva" || !!a.preventiva_id);
+}
+
 export function oficinaDe(a) {
   const quem = (a.executantes || []).join(" ");
   if (/\(externo\)|terceirizad/i.test(quem)) return "Terceirizada";

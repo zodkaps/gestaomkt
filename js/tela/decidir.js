@@ -8,16 +8,21 @@ import { copiar } from "./contexto.js";
 
 const NIVEL = { 1: ["Urgente", "vencida"], 2: ["Atenção", "hoje"], 3: ["Oportunidade", "ok"] };
 
-async function executar(a, ctx) {
-  if (a.ir) return ctx.ir(a.ir[0], a.ir[1]);
+// O que se lança a partir daqui leva o título da decisão (ver
+// `ev.porDecisao`): o Registro mostra e filtra o que saiu do Painel.
+async function executar(a, ctx, d = {}) {
+  if (a.ir) { ev.porDecisao(d, a.ir[0]); return ctx.ir(a.ir[0], a.ir[1]); }
   if (a.copiar) return copiar(a.copiar, "Texto");
   if (a.prev) {
     const pv = await import("./preventivas.js");
     const p = ev.porId(a.id, "preventiva");
     if (!p) return erro("Esta preventiva não existe mais.");
-    if (a.prev === "parada") return pv.marcarParada(p, { sugestao: a.sugestao || "" });
-    if (a.prev === "realizada") return pv.darPorFeita(p);
-    if (a.prev === "adiar") return pv.passarParaOMesSeguinte(p);
+    ev.porDecisao(d);
+    try {
+      if (a.prev === "parada") return await pv.marcarParada(p, { sugestao: a.sugestao || "" });
+      if (a.prev === "realizada") return await pv.darPorFeita(p);
+      if (a.prev === "adiar") return await pv.passarParaOMesSeguinte(p);
+    } finally { ev.porDecisao(null); }
   }
 }
 
@@ -37,7 +42,7 @@ export function listaDecisoes(ds, ctx, { max = 0, comArea = false } = {}) {
           d.detalhe ? el("div", { class: "d-det" }, d.detalhe) : null),
         el("div", { class: "d-acoes" }, (d.acoes || []).map((a, i) => el("button", {
           type: "button", class: i === 0 ? "mini primario-leve" : "mini",
-          onclick: () => executar(a, ctx).catch(e => erro(e.message)) }, a.rotulo))));
+          onclick: () => executar(a, ctx, d).catch(e => erro(e.message)) }, a.rotulo))));
     }), ds.length > limite ? el("button", { class: "discreto ver-mais",
       onclick: () => { limite = ds.length; pintar(); } }, `Ver todas (${ds.length})`) : "");
   };

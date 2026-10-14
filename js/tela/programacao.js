@@ -93,6 +93,10 @@ export async function montar(raiz, ctx, params) {
     "Semana atual");
   const topoResumo = el("div", {});
   const barraSel = el("div", { class: "barra-sel", hidden: true });
+  // Cada filtro ligado vira uma etiqueta com ×. O recorte sobrevive à troca
+  // de tela (ver `estado`), e sem isto um filtro esquecido escondia metade da
+  // lista sem ninguém perceber.
+  const etiquetas = el("div", { class: "etiquetas", hidden: true });
   const corpo = el("div", {});
 
   raiz.append(
@@ -114,7 +118,24 @@ export async function montar(raiz, ctx, params) {
           el("option", { value: "frota", selected: estado.agrupar === "frota" }, "frota"),
           el("option", { value: "dia", selected: estado.agrupar === "dia" }, "dia"),
           el("option", { value: "", selected: estado.agrupar === "" }, "nada")))),
-    barraSel, corpo);
+    etiquetas, barraSel, corpo);
+
+  function pintarEtiquetas() {
+    const tags = [];
+    const tira = (rotulo, fazer) => el("button", { class: "etiqueta", type: "button", title: "Tirar este filtro",
+      onclick: () => { fazer(); pintarCorpo(); } }, rotulo, el("span", { class: "x", "aria-hidden": "true" }, "×"));
+    if (estado.frota) tags.push(tira(`Frota: ${estado.frota}`, () => { estado.frota = ""; fFrota.value = ""; }));
+    if (estado.busca.trim()) tags.push(tira(`Busca: “${estado.busca.trim()}”`, () => { estado.busca = ""; fBusca.value = ""; }));
+    for (const s of estado.situacoes) tags.push(tira(`Situação: ${M.rotulo(s)}`, () => estado.situacoes.delete(s)));
+    if (estado.semOS) tags.push(tira("Só sem OS", () => { estado.semOS = false; }));
+    etiquetas.hidden = !tags.length;
+    etiquetas.replaceChildren(...(tags.length ? [el("span", { class: "seg" }, "Filtrando:"), ...tags,
+      el("button", { class: "discreto limpar-filtros", type: "button", onclick: () => {
+        Object.assign(estado, { frota: "", busca: "", semOS: false });
+        estado.situacoes.clear(); fFrota.value = ""; fBusca.value = "";
+        pintarCorpo();
+      } }, "Limpar filtros")] : []));
+  }
 
   function andar(n) {
     let { ano, semana } = estado;
@@ -275,10 +296,12 @@ export async function montar(raiz, ctx, params) {
     bSemOS.hidden = !faltam && !estado.semOS;
     const itens = filtrar(base);
     listaNaTela = itens;
+    pintarEtiquetas();
     repintarMantendoFoco(corpo, () => { limpar(corpo); corpo.append(grade(itens, {
       ctx, agrupar: estado.agrupar || null,
       datas: estado.periodo === "semana" ? M.datasDaSemana(estado.ano, estado.semana) : null,
       selecao: pessoas.pode("programar") ? sel : null,
+      carteira: estado.periodo === "carteira",
       imprimirBloco: (frota, lista) => imprimirFrota(frota, lista, rotuloRecorte()),
       aoSelecionar: tudo => (tudo ? pintarCorpo() : pintarBarraSel()),
       vazioTexto: estado.semOS ? "Todas as atividades em aberto deste recorte já têm OS."

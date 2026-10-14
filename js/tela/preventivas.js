@@ -16,13 +16,14 @@ import * as ev from "../eventos.js";
 import * as M from "../modelo.js";
 import * as pessoas from "../pessoas.js";
 import { el, limpar, br, brCurto, chip, caixa, campo, selecao, comSugestoes,
-  avisar, erro, vazio, cliqueLimpo, confirmar, medidor } from "../ui.js";
+  avisar, erro, vazio, cliqueLimpo, confirmar, medidor, fecharCaixa } from "../ui.js";
 import { busca as semAcento } from "../texto.js";
 import { natural } from "./grade.js";
 import { botaoMais, frotas as frotasDasAtividades } from "./comum.js";
 import { mesDaData, mesDoPlano, decisoesPreventivas } from "../decisoes.js";
 import { cartaoGrafico, graficoBarras, graficoColunas, graficoLinhas, graficoRosca } from "../graficos.js";
 import { listaDecisoes } from "./decidir.js";
+import { conciliacao, descrever as descreverLigacao, eventosDaConciliacao } from "../vinculo.js";
 
 // ── o cartão (celular, e a tela Para você) ──────────────────────────────────
 
@@ -161,6 +162,35 @@ export async function marcarParada(p, { sugestao = "" } = {}) {
     avisar(`${p.frota}: parada ${reprograma && eDia.value !== p.dia_parada ? "reprogramada" : "programada"} para ${br(eDia.value)}.`);
     return true;
   } catch (e) { erro(e.message); return false; }
+}
+
+// ── ligar à Programação o que existia antes ─────────────────────────────────
+
+export async function ligarAProgramacao(prevs) {
+  const todos = conciliacao(prevs);
+  const itens = todos.filter(it => it.passos.length);
+  const avisos = todos.filter(it => !it.passos.length);
+  if (!itens.length) { avisar("Tudo já está ligado à Programação."); return false; }
+  const linha = it => el("tr", {}, el("td", {}, el("b", {}, it.p.frota)),
+    el("td", {}, it.p.plano || "—"), el("td", {}, descreverLigacao(it)));
+  const r = await caixa({
+    titulo: "Ligar as preventivas à Programação",
+    largura: "820px",
+    corpo: el("div", {},
+      el("p", {}, "A preventiva do plano e a OS preventiva da oficina passam a ser uma coisa só: a parada marcada ",
+        "entra no dia da Programação, e a baixa num lado registra a realização no outro. Para as que já existiam:"),
+      el("div", { class: "tabela-rolagem" }, el("table", { class: "tabela" },
+        el("thead", {}, el("tr", {}, el("th", {}, "Frota"), el("th", {}, "Preventiva"), el("th", {}, "O que acontece"))),
+        el("tbody", {}, itens.map(linha)))),
+      avisos.length ? el("p", { class: "nada" }, `${avisos.length} só com aviso (nada é mudado): ` +
+        avisos.map(it => `${it.p.frota} — ${it.aviso}`).join("; ") + ".") : null),
+    acoes: [{ rotulo: "Agora não", valor: false },
+      { rotulo: `Ligar ${itens.length}`, classe: "primario", acao: () => eventosDaConciliacao(itens) }],
+  });
+  if (!r) return false;
+  await ev.aplicar(r);
+  avisar(`${itens.length} preventiva${itens.length === 1 ? "" : "s"} ligada${itens.length === 1 ? "" : "s"} à Programação.`);
+  return true;
 }
 
 // ── incluir uma frota no plano, e editar ────────────────────────────────────
@@ -424,6 +454,16 @@ export async function abrirFichaPrev(id, ctx) {
       linha("Liberação alterada", p.reprog_liberacao ? `${p.reprog_liberacao}×` : null),
       linha("Onde fazer", p.onde_fazer),
       linha("OS", p.os),
+      linha("Na Programação", (() => {
+        const a = ev.atividadeDaPreventiva(p);
+        if (!a) return M.preventivaAberta(p) ? el("span", { class: "nada" }, "ainda não — entra no dia da parada, quando ela for marcada") : null;
+        const s2 = M.situacaoDe(a);
+        return el("span", {}, chip(M.rotulo(s2), M.corDe(s2)), " ",
+          a.semana ? `semana ${a.semana}${a.dia ? " · " + a.dia : ""}` : "na carteira", a.os ? ` · OS ${a.os}` : "", " ",
+          el("button", { class: "mini", onclick: () => { fecharCaixa(); ctx && ctx.ir("programacao",
+            a.semana ? `s=${a.semana}&a=${a.ano}&f=${encodeURIComponent(a.frota)}` : `m=carteira&f=${encodeURIComponent(a.frota)}`); } },
+            "Abrir na Programação"));
+      })()),
       linha("HH previsto", p.hh ? String(p.hh).replace(".", ",") : null),
       linha("Pendências na carteira", p.pendencias ? String(p.pendencias) : null),
       linha("Realizada em", p.realizada_em ? br(p.realizada_em)
@@ -531,7 +571,14 @@ function tabelaPrev(itens, ctx, ref) {
         p.reprog_parada ? el("div", { class: "tag reprog", title: `primeira data ${br(p.parada_orig)}` +
           (p.motivo_parada ? ` · ${p.motivo_parada}` : "") }, `↻ ${p.reprog_parada}×`) : null),
       el("td", { class: "c-onde" }, p.onde_fazer || el("span", { class: "seg" }, "—")),
-      el("td", { class: "c-os" }, p.os ? el("span", { class: "os" }, p.os) : el("span", { class: "seg" }, "—")),
+      el("td", { class: "c-os" }, p.os ? el("span", { class: "os" }, p.os) : el("span", { class: "seg" }, "—"),
+        // onde a OS preventiva está na Programação (ligação com o plano)
+        (() => {
+          const a = ev.atividadeDaPreventiva(p);
+          if (!a) return null;
+          const t = M.feita(a) ? "com baixa" : a.semana ? `S${a.semana}${a.dia ? " · " + a.dia : ""}` : "carteira";
+          return el("small", { class: "na-prog", title: "A OS preventiva na Programação" }, "▸ " + t);
+        })()),
       el("td", { class: "c-hh num" }, p.hh ? String(p.hh).replace(".", ",") : el("span", { class: "seg" }, "—")),
       el("td", { class: "c-feito" }, botaoDaLinha(p, ref), botaoMais("preventiva", p.id, ctx)));
     tr.addEventListener("click", cliqueLimpo(() => abrirFichaPrev(p.id, ctx)));
@@ -569,12 +616,12 @@ const MESES = ["jan", "fev", "mar", "abr", "mai", "jun", "jul", "ago", "set", "o
 const NOME_MES = ["janeiro", "fevereiro", "março", "abril", "maio", "junho", "julho",
   "agosto", "setembro", "outubro", "novembro", "dezembro"];
 /** "Out-26" → 202610, para ordenar os meses. */
-const ordemMes = m => {
+export const ordemMes = m => {
   const [nome, aa] = String(m || "").split("-");
   const i = MESES.indexOf(String(nome || "").toLowerCase().slice(0, 3));
   return i < 0 ? 0 : (2000 + Number(aa || 0)) * 100 + i + 1;
 };
-const rotuloMes = m => {
+export const rotuloMes = m => {
   const [nome, aa] = String(m || "").split("-");
   const i = MESES.indexOf(String(nome || "").toLowerCase().slice(0, 3));
   return i < 0 ? (m || "sem mês") : `${NOME_MES[i]}/20${aa}`;
@@ -657,6 +704,16 @@ export async function montar(raiz, ctx, params = new URLSearchParams()) {
       kpi("Realizadas", r.realizadas, `${Math.round(r.pct_realizadas * 100)}% do mês`, r.realizadas ? "ok" : ""),
       kpi("HH previsto", String(r.hh).replace(".", ","), "tempos padrão por tipo")));
 
+    // ── o que dá para ligar à Programação (o que existia antes da ligação)
+    if (pessoas.pode("parada")) {
+      const lig = conciliacao(doMes).filter(it => it.passos.length);
+      if (lig.length) corpo.append(el("div", { class: "faixa-ligar" },
+        el("span", {}, el("b", {}, `${lig.length} preventiva${lig.length === 1 ? "" : "s"}`),
+          " deste mês ainda não conversa" + (lig.length === 1 ? "" : "m") + " com a Programação " +
+          "(OS anotada nos dois lados, ou parada marcada sem a OS no dia)."),
+        el("button", { class: "primario-leve", onclick: () => ligarAProgramacao(doMes) }, "Ver e ligar")));
+    }
+
     // ── a faixa de situações: conta e filtra
     const conta = new Map();
     for (const p of plano) {
@@ -704,7 +761,8 @@ export async function montar(raiz, ctx, params = new URLSearchParams()) {
     };
 
     if (!visiveis.length) corpo.append(vazio("Nada com estes filtros."));
-    corpo.append(
+    // Seção sem item volta null — e `append(null)` escreve "null" na tela.
+    corpo.append(...[
       secao("Aguardando o PCM — programar a parada",
         "A operação já informou a liberação da frota (ou a parada passou e falta a baixa). " +
         "Falta o PCM definir a data da parada.", comPCM, "pcm"),
@@ -712,7 +770,8 @@ export async function montar(raiz, ctx, params = new URLSearchParams()) {
         "Sem essa informação, a manutenção não consegue programar a parada.", comOp, "op"),
       secao("Em execução — parada programada ou em andamento", "", andando),
       secao("Encerradas no mês — realizadas, adiadas e canceladas",
-        "Adiada corresponde ao Status Reprogramada da planilha e não entra na contagem acima.", fechadas));
+        "Adiada corresponde ao Status Reprogramada da planilha e não entra na contagem acima.", fechadas),
+    ].filter(Boolean));
 
     if (fora.length && !estado.situacoes.size) {
       const det = el("details", { class: "outros", open: estado.foraAberto },

@@ -1087,6 +1087,15 @@ ok("um clique aprova: Concluída com atraso, concluída pelo Pedro, aprovada pel
   const marcada = await p.evaluate(id => mkt.ev.porId(id, "preventiva").dia_parada, id2);
   ok("e Marcar grava a parada, e a decisão sai da lista",
     marcada === diaNaCaixa && !(await p.locator(`.decisao[data-id="${id2}"] .d-tit:text-is("Programar a parada da ${F2}")`).count()), marcada);
+  const doPainel = await p.evaluate(id => {
+    const e = [...mkt.ev.log].reverse().find(x => x.alvo === id && x.tipo === "prev_parada");
+    const os = mkt.ev.atividadeDaPreventiva(mkt.ev.porId(id, "preventiva"));
+    return { via: e && e.dados.via && e.dados.via.decisao, os: os && { semana: os.semana, dia: os.dia, tipo: os.tipo } };
+  }, id2);
+  ok("a parada lançada pela decisão leva o título dela, para o Registro", doPainel.via === `Programar a parada da ${F2}`,
+    JSON.stringify(doPainel));
+  ok("e a parada virou a OS preventiva no dia, na Programação",
+    !!doPainel.os && doPainel.os.semana != null && !!doPainel.os.dia && doPainel.os.tipo === "Preventiva", JSON.stringify(doPainel));
 
   // o número de reprogramações leva ao registro filtrado
   await p.locator('.kpis .clicavel:has-text("Reprogra")').click();
@@ -1094,6 +1103,135 @@ ok("um clique aprova: Concluída com atraso, concluída pelo Pedro, aprovada pel
   ok("Reprogramações no painel da aba abre as mudanças desse tipo",
     await p.evaluate(() => !!document.querySelector(".evento.mudanca") &&
       [...document.querySelectorAll(".evento.mudanca .tipo-mud")].every(c => c.textContent === "Reprogramação")));
+}
+
+// ── a preventiva ligada à Programação, os filtros, a frota e o Registro ─────
+{
+  const F = "F-LG" + Date.now().toString(36).slice(-4).toUpperCase();
+  const { mes, dia } = await p.evaluate(async () => {
+    const { mesDaData } = await import("/js/decisoes.js");
+    const ref = mkt.M.hoje();
+    let d = mkt.M.somaDias(ref, 3);
+    while ([0, 6].includes(mkt.M.data(d).getUTCDay())) d = mkt.M.somaDias(d, 1);
+    return { mes: mesDaData(ref), dia: d };
+  });
+  // parada marcada antes de a ligação existir: sem a OS no dia
+  const idL = await p.evaluate(async ([f, mes, dia]) => {
+    const ev = mkt.ev;
+    const [e] = await ev.aplicar(ev.novaPreventiva({ ...mkt.M.moldePreventiva(), frota: f, mes, plano: "30 mil km",
+      vence: mkt.M.somaDias(dia, 10), id: undefined }), { silencioso: true });
+    await ev.aplicar(ev.informarDisponibilidade(ev.porId(e.alvo, "preventiva"), "agora"), { silencioso: true });
+    await ev.aplicar({ ...ev.marcarParada(ev.porId(e.alvo, "preventiva"), dia, "Interna"), origem: "vinculo" }, { silencioso: true });
+    return e.alvo;
+  }, [F, mes, dia]);
+  await p.evaluate(() => { location.hash = "#/preventivas?v=plano"; });
+  await p.waitForSelector(".faixa-ligar", { timeout: 5000 }).catch(() => {});
+  ok("a aba Preventivas avisa o que ainda não conversa com a Programação", await p.isVisible(".faixa-ligar"));
+  // seção vazia não pode virar a palavra "null" na tela (append(null) escreve "null")
+  const semNull = async () => p.evaluate(() => !/(^|\W)null(\W|$)/.test(document.querySelector("main").innerText));
+  ok("nenhum \"null\" solto na aba Preventivas", await semNull());
+  await p.click('.faixa-ligar button:has-text("Ver e ligar")');
+  await p.waitForSelector(".caixa table");
+  const linhaL = await p.evaluate(f => [...document.querySelectorAll(".caixa tbody tr")].map(t => t.textContent)
+    .find(t => t.includes(f)) || "", F);
+  ok("Ver e ligar mostra, frota por frota, o que vai acontecer", /cria a OS preventiva no dia da parada/.test(linhaL), linhaL);
+  await p.click('.caixa footer button:has-text("Ligar")');
+  await p.waitForTimeout(900);
+  const osL = await p.evaluate(id => { const a = mkt.ev.atividadeDaPreventiva(mkt.ev.porId(id, "preventiva"));
+    return a && { semana: a.semana, dia: a.dia }; }, idL);
+  ok("e Ligar cria a OS preventiva no dia da parada", !!osL && osL.semana != null && !!osL.dia, JSON.stringify(osL));
+
+  // a ficha da preventiva diz onde ela está na Programação, e leva até lá
+  await p.evaluate(async id => { const pv = await import("/js/tela/preventivas.js"); pv.abrirFichaPrev(id, mkt.ctx); }, idL);
+  await p.waitForSelector(".caixa");
+  ok("a ficha da preventiva mostra a linha Na Programação", (await p.textContent(".caixa")).includes("Na Programação"));
+  await p.click('.caixa button:has-text("Abrir na Programação")');
+  await p.waitForTimeout(1000);
+  const naProg = await p.evaluate(() => ({ hash: location.hash, caixa: !!document.querySelector(".caixa"),
+    prev: document.querySelectorAll("tr.lin.prev, .at.prev").length,
+    etiquetas: [...document.querySelectorAll(".etiquetas .etiqueta")].map(b => b.textContent) }));
+  ok("Abrir na Programação fecha a ficha e abre a semana, com a OS preventiva em destaque",
+    !naProg.caixa && /programacao/.test(naProg.hash) && naProg.prev > 0, JSON.stringify(naProg));
+  ok("e o filtro da frota aparece como etiqueta", naProg.etiquetas.some(t => t.includes(`Frota: ${F}`)), JSON.stringify(naProg.etiquetas));
+  await p.click(".etiquetas .limpar-filtros");
+  await p.waitForTimeout(400);
+  ok("Limpar filtros tira todos de uma vez", await p.evaluate(() =>
+    document.querySelector(".etiquetas").hidden && !document.querySelector(".etiquetas .etiqueta")));
+
+  // a carteira mostra há quanto tempo cada pendência espera
+  const idC = await p.evaluate(async f => {
+    const [e] = await mkt.ev.aplicar(mkt.ev.criar({ frota: f, atividade: "Fixar saia lateral da cabine LE",
+      tipo: "Corretiva", prioridade: "P1", obs: "[01/09] TOP: saia solta" }), { silencioso: true });
+    return e.alvo;
+  }, F);
+  await p.evaluate(f => { location.hash = "#/programacao?m=carteira&f=" + encodeURIComponent(f); }, F);
+  await p.waitForTimeout(900);
+  const idade = await p.evaluate(id => {
+    const tr = document.querySelector(`tr.lin[data-id="${id}"]`);
+    const t = tr && tr.querySelector(".tag.idade");
+    return t && { txt: t.textContent, title: t.title, velha: t.classList.contains("velha"), p1: !!tr.querySelector(".tag.p1") };
+  }, idC);
+  ok("na carteira, a pendência mostra a prioridade e há quantos dias espera, com a fonte da data",
+    !!idade && /^há \d+ d$/.test(idade.txt) && idade.velha && idade.p1 && /desde 01\/09\/\d{4} — dia do TOP/.test(idade.title),
+    JSON.stringify(idade));
+  await p.evaluate(() => { const b = document.querySelector(".etiquetas .limpar-filtros"); if (b) b.click(); });
+
+  // a grade de frotas: o selo da parada
+  await p.evaluate(() => { location.hash = "#/frota"; });
+  await p.waitForTimeout(800);
+  await p.fill(".cabec input.busca-frota", F.slice(2, -1));
+  await p.waitForTimeout(400);
+  const selos = await p.evaluate(f => {
+    const c = [...document.querySelectorAll(".frota-chip")].find(x => x.querySelector("b").textContent === f);
+    return c ? [...c.querySelectorAll(".selo")].map(x => x.textContent) : null;
+  }, F);
+  ok("na grade de frotas, o selo da parada marcada", !!selos && selos.some(t => /^parada \d\d\/\d\d$/.test(t)), JSON.stringify(selos));
+  await p.locator(`.grade-frotas .frota-chip:has(b:text-is("${F}"))`).click();
+  await p.waitForTimeout(700);
+  const ficha = await p.evaluate(() => ({
+    resumo: [...document.querySelectorAll(".resumo-frota .r-rot")].map(x => x.textContent),
+    secoes: [...document.querySelectorAll("section.secao > h2")].map(h => h.firstChild.textContent),
+    idade: !!document.querySelector("#frota-carteira .chip.idade") }));
+  ok("a ficha da frota abre com o resumo: a preventiva do mês e a próxima na programação",
+    ficha.resumo.some(t => t.startsWith("Preventiva de")) && ficha.resumo.includes("Próxima na programação"), JSON.stringify(ficha));
+  ok("nenhum \"null\" solto na ficha da frota", await semNull());
+  ok("as preventivas vêm primeiro, e a carteira mostra a idade",
+    ficha.secoes[0] === "Preventivas do plano" && ficha.idade, JSON.stringify(ficha));
+  await p.click(".resumo-frota button.prev");
+  await p.waitForSelector(".caixa", { timeout: 3000 }).catch(() => {});
+  ok("o quadro da preventiva abre a ficha dela", await p.isVisible(".caixa") && (await p.textContent(".caixa")).includes(F));
+  await p.keyboard.press("Escape");
+  await p.waitForTimeout(300);
+
+  // o Registro: o resumo do dia, o que saiu do Painel, pessoa e período
+  await p.evaluate(() => { location.hash = "#/historico"; });
+  await p.waitForSelector(".resumo-dia .numeros", { timeout: 5000 });
+  const nPainel = await p.evaluate(() => { const c = [...document.querySelectorAll(".resumo-dia .cartao-num")]
+    .find(x => x.textContent.includes("pelo Painel")); return c ? Number(c.querySelector(".v").textContent) : -1; });
+  ok("o resumo do dia conta o que saiu do Painel hoje", nPainel >= 1, String(nPainel));
+  ok("nenhum \"null\" solto no Registro", await semNull());
+  await p.locator('.resumo-dia .cartao-num.clicavel:has-text("pelo Painel")').click();
+  await p.waitForTimeout(500);
+  const doPainelReg = await p.evaluate(() => ({ et: [...document.querySelectorAll(".etiquetas .etiqueta")].map(b => b.textContent),
+    linhas: [...document.querySelectorAll(".dia-reg .evento")].map(e => ({ tag: !!e.querySelector(".tag.painel"),
+      via: (e.querySelector(".via") || {}).textContent || "" })) }));
+  ok("tocar nele filtra: só o que saiu do Painel, com a decisão escrita, e os filtros como etiquetas",
+    doPainelReg.linhas.length >= 1 && doPainelReg.linhas.every(l => l.tag && l.via.startsWith("pela decisão:")) &&
+    doPainelReg.et.some(t => t.includes("decisão do Painel")) && doPainelReg.et.some(t => t.includes("Dia:")), JSON.stringify(doPainelReg).slice(0, 400));
+  await p.click(".etiquetas .limpar-filtros");
+  await p.selectOption('select[aria-label="Pessoa"]', "Mateus");
+  await p.click('.segmentos [data-periodo="hoje"]');
+  await p.waitForTimeout(400);
+  const porPessoa = await p.evaluate(() => ({
+    autores: [...new Set([...document.querySelectorAll(".dia-reg .evento .autor")].map(a => a.textContent.replace(" — ", "")))],
+    dias: document.querySelectorAll(".dia-reg").length,
+    on: (document.querySelector('.segmentos [data-periodo="hoje"]') || {}).className || "" }));
+  ok("pessoa e período: só o Mateus, só hoje, num grupo de dia", porPessoa.autores.join() === "Mateus" &&
+    porPessoa.dias === 1 && porPessoa.on.includes("on"), JSON.stringify(porPessoa));
+  await p.click(".etiquetas .limpar-filtros");
+  await p.waitForTimeout(300);
+  ok("e Limpar filtros volta para tudo", await p.evaluate(() => !document.querySelector(".etiquetas .etiqueta") &&
+    document.querySelector('select[aria-label="Pessoa"]').value === ""));
 }
 
 // ── cópias antigas do aparelho: somem da tela, e o lançado nelas vai para a certa ──

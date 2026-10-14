@@ -71,6 +71,10 @@ export function quando(ts) {
 
 let aberta = null;
 
+/** Fecha a caixa aberta, como o ×. Para um botão de dentro dela que leva a
+ *  outra tela. */
+export function fecharCaixa() { if (aberta) aberta(undefined); }
+
 /** Abre uma caixa e devolve o que o botão escolhido devolver.
  *
  *  `corpo` recebe um objeto `ctx` com `fechar(valor)` para o conteúdo poder
@@ -107,7 +111,7 @@ export function caixa({ titulo, corpo, acoes = [], largura = "" }) {
     };
 
     const conteudo = typeof corpo === "function" ? corpo({ fechar }) : corpo;
-    cx.append(
+    cx.append(...[
       el("header", {},
         el("h2", {}, titulo),
         el("button", { class: "x", title: "Fechar", onclick: () => fechar(undefined) }, "×")),
@@ -119,7 +123,8 @@ export function caixa({ titulo, corpo, acoes = [], largura = "" }) {
             try { fechar(a.valor !== undefined ? a.valor : (a.acao ? await a.acao() : true)); }
             catch (e) { erro(e.message || String(e)); }
           },
-        }, a.rotulo))) : null);
+        }, a.rotulo))) : null,
+    ].filter(Boolean));
 
     fundo.append(cx);
     // Fecha só quando o clique COMEÇOU e TERMINOU no fundo. Sem guardar onde

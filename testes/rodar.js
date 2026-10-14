@@ -756,6 +756,149 @@ titulo("eventos.js — preventiva: reprogramar a parada, incluir frota, registro
   await entrarComo("Mateus");
 }
 
+titulo("a preventiva do plano e a OS preventiva da Programação andam juntas");
+{
+  await entrarComo("Mateus");
+  const vinc = await import("../js/vinculo.js");
+  const nova = async (frota, extra = {}) => {
+    const [c] = await ev.aplicar(ev.novaPreventiva({ ...modelo.moldePreventiva(), frota, mes: "Out-26",
+      plano: "15 mil km", vence: "2026-10-28", hh: 5, os: "", ...extra }), { silencioso: true });
+    return () => ev.porId(c.alvo, "preventiva");
+  };
+  const osDe = p => ev.atividadeDaPreventiva(p());
+  // 1. marcar a parada põe a OS preventiva no dia
+  const p1 = await nova("F-VINC1", { os: "022900", onde_fazer: "Terceiro" });
+  await ev.aplicar(ev.informarDisponibilidade(p1(), "agora"), { silencioso: true });
+  const lote = await ev.aplicar(ev.marcarParada(p1(), "2026-10-15", "Terceiro"), { silencioso: true });
+  const a1 = osDe(p1);
+  igual("marcar a parada cria a OS preventiva no dia da parada, com a OS e o HH do plano",
+    a1 && [a1.tipo, a1.atividade, a1.os, a1.semana, a1.dia, a1.hh, a1.oficina, a1.origem],
+    ["Preventiva", "Preventiva 15 mil km", "022900", 42, "Qui", 5, "Terceirizada", "Programada"]);
+  ok("os lançamentos derivados vão marcados como da ligação", lote.slice(1).every(e => e.origem === "vinculo") && lote.length === 3,
+    JSON.stringify(lote.map(e => [e.tipo, e.origem])));
+  // 2. reprogramar a parada move a OS, com o mesmo motivo
+  await ev.aplicar(ev.marcarParada(p1(), "2026-10-19", "Terceiro", "Peça não chegou"), { silencioso: true });
+  igual("reprogramar a parada move a OS para o dia novo, com o mesmo motivo",
+    [osDe(p1).semana, osDe(p1).dia, osDe(p1).reprogramacoes, osDe(p1).motivo], [43, "Seg", 1, "Peça não chegou"]);
+  // 3. baixa na OS = preventiva realizada; reabrir a OS reabre a preventiva
+  await ev.aplicar(ev.concluir(osDe(p1), "2026-10-19"), { silencioso: true });
+  igual("dar baixa na OS registra a preventiva como realizada, na mesma data e com a OS",
+    [p1().realizada_em, p1().os], ["2026-10-19", "022900"]);
+  await ev.aplicar(ev.reabrir(osDe(p1), "baixa errada"), { silencioso: true });
+  ok("reabrir a OS reabre a preventiva", !modelo.preventivaFeita(p1()) && modelo.aberta(osDe(p1)));
+  // 4. o caminho inverso: realizada na aba Preventivas dá a baixa na OS
+  await ev.aplicar(ev.preventivaFeita(p1(), "2026-10-20", "022900"), { silencioso: true });
+  igual("registrar a realização na aba Preventivas dá a baixa na OS", osDe(p1).concluida_em, "2026-10-20");
+  // 5. a OS que já estava na carteira (mesma frota e OS) é a que vai, sem duplicar
+  const [velha] = await ev.aplicar(ev.criar({ frota: "F-VINC2", atividade: "Preventiva de 15 mil km no Gilson",
+    tipo: "Preventiva", os: "022446", origem: "Programada", oficina: "Interna" }), { silencioso: true });
+  const p2 = await nova("F-VINC2", { os: "022446" });
+  await ev.aplicar(ev.informarDisponibilidade(p2(), "agora"), { silencioso: true });
+  await ev.aplicar(ev.marcarParada(p2(), "2026-10-16"), { silencioso: true });
+  ok("a OS que já estava anotada é ligada e programada — nenhuma OS nova",
+    osDe(p2) && osDe(p2).id === velha.alvo && osDe(p2).semana === 42 && osDe(p2).dia === "Sex" &&
+    ev.lista().filter(a => a.frota === "F-VINC2").length === 1);
+  // 6. adiar devolve a OS para a carteira; cancelar cancela
+  await ev.aplicar(ev.adiarPreventiva(p2(), "Frota em viagem longa"), { silencioso: true });
+  ok("adiar a preventiva devolve a OS para a carteira, com o motivo", osDe(p2).semana == null && /adiada/.test(osDe(p2).motivo), osDe(p2).motivo);
+  const p3 = await nova("F-VINC3");
+  await ev.aplicar(ev.informarDisponibilidade(p3(), "agora"), { silencioso: true });
+  await ev.aplicar(ev.marcarParada(p3(), "2026-10-21"), { silencioso: true });
+  await ev.aplicar(ev.cancelarPreventiva(p3(), "Frota vendida"), { silencioso: true });
+  ok("cancelar a preventiva cancela a OS", osDe(p3).cancelada);
+  ok("a fita continua fechando", ev.conferir().ok);
+
+  // 7. o que já existia: conciliação
+  const [jaFeita] = await ev.aplicar(ev.criar({ frota: "F-VINC4", atividade: "Preventiva de 10, 20 e 30 mil km",
+    tipo: "Preventiva", os: "022447", origem: "Programada", oficina: "Interna", ano: 2026, semana: 41, dia: "Seg", dias: 1 }), { silencioso: true });
+  await ev.aplicar(ev.concluir(ev.porId(jaFeita.alvo), "2026-10-06"), { silencioso: true });
+  const p4 = await nova("F-VINC4", { os: "022447" });
+  const p5 = await nova("F-VINC5");
+  // (parada marcada antes da ligação existir: o evento sem o derivado)
+  await ev.aplicar({ ...ev.marcarParada(p5(), "2026-10-22"), origem: "vinculo" }, { silencioso: true });
+  const c = vinc.conciliacao([p4(), p5()], undefined, "2026-10-14");
+  igual("a conciliação liga a OS já baixada e realiza a preventiva; a parada sem OS ganha a OS",
+    c.map(it => it.passos.map(s => s.tipo)), [["ligar", "realizar_prev"], ["criar_os"]]);
+  ok("e descreve em palavras", /realizada em 06\/10/.test(vinc.descrever(c[0])) && /cria a OS preventiva/.test(vinc.descrever(c[1])),
+    vinc.descrever(c[0]) + " | " + vinc.descrever(c[1]));
+  await ev.aplicar(vinc.eventosDaConciliacao(c), { silencioso: true });
+  ok("aplicada: a F-VINC4 realizada em 06/10 e ligada; a F-VINC5 com a OS no dia 22/10",
+    p4().realizada_em === "2026-10-06" && osDe(p4).id === jaFeita.alvo && osDe(p5) && osDe(p5).semana === 43 && osDe(p5).dia === "Qui");
+  igual("e, conciliado, nada mais a fazer", vinc.conciliacao([p4(), p5()], undefined, "2026-10-14").length, 0);
+}
+
+titulo("modelo.js — a carteira por idade e prioridade");
+{
+  const ref = "2026-10-14";
+  const at = extra => ({ ...modelo.molde(), id: "C-" + Math.random(), frota: "F-1", ...extra });
+  igual("a abertura no Protheus vale primeiro",
+    modelo.desdeQuando(at({ obs: "[06/10] TOP · Aberta no Protheus em 12/09/2026", criada_em: "2026-10-09T10:00:00Z" }), ref),
+    { data: "2026-09-12", fonte: "abertura no Protheus" });
+  igual("depois o dia do TOP", modelo.desdeQuando(at({ obs: "[06/10] TOP: folga na porca", criada_em: "2026-10-09T10:00:00Z" }), ref),
+    { data: "2026-10-06", fonte: "dia do TOP" });
+  igual("TOP de dezembro lido em janeiro é do ano anterior",
+    modelo.desdeQuando(at({ obs: "[20/12] TOP" }), "2027-01-05").data, "2026-12-20");
+  igual("sem nenhuma das duas, o primeiro registro no site",
+    modelo.desdeQuando(at({ criada_em: "2026-10-09T10:00:00Z" }), ref), { data: "2026-10-09", fonte: "primeiro registro no site" });
+  igual("sem data nenhuma, sem idade — não inventa", modelo.idadeDias(at({}), ref), null);
+  igual("idade em dias", modelo.idadeDias(at({ obs: "[06/10] TOP" }), ref), 8);
+  const l = [
+    at({ id: "velha-sem", obs: "[01/09] TOP" }),
+    at({ id: "p2-nova", prioridade: "P2", obs: "[10/10] TOP" }),
+    at({ id: "p1-nova", prioridade: "P1", obs: "[12/10] TOP" }),
+    at({ id: "p1-velha", prioridade: "P1", obs: "[02/10] TOP" }),
+    at({ id: "prev", tipo: "Preventiva", criada_em: "2026-10-13T10:00:00Z" }),
+  ];
+  igual("preventiva primeiro, depois P1, P2, sem prioridade — a mais velha primeiro em cada uma",
+    l.sort(modelo.ordemCarteira(ref)).map(a => a.id), ["prev", "p1-velha", "p1-nova", "p2-nova", "velha-sem"]);
+}
+
+titulo("registro.js — o Registro por dia, por pessoa e pelo Painel");
+{
+  const reg = await import("../js/registro.js");
+  const [cr] = await ev.aplicar(ev.novaPreventiva({ ...modelo.moldePreventiva(), frota: "F-REG1", mes: "Out-26",
+    plano: "10 mil km", vence: "2026-10-30" }), { silencioso: true });
+  const pr = () => ev.porId(cr.alvo, "preventiva");
+  await ev.aplicar(ev.informarDisponibilidade(pr(), "agora"), { silencioso: true });
+
+  ev.porDecisao({ titulo: "Programar a parada da F-REG1", area: "Preventivas" });
+  const lote = await ev.aplicar(ev.marcarParada(pr(), "2026-10-23", "Interna"), { silencioso: true });
+  ev.porDecisao(null);
+  const [parada] = lote;
+  igual("o lançamento feito pela decisão do Painel leva o título dela",
+    parada.dados.via, { decisao: "Programar a parada da F-REG1", area: "Preventivas" });
+  ok("o derivado (a OS no dia) não leva: foi o site, não a decisão",
+    lote.length > 1 && lote.slice(1).every(e => e.origem === "vinculo" && !(e.dados && e.dados.via)), JSON.stringify(lote.map(e => [e.tipo, e.origem])));
+  ok("a marca não entra no estado da preventiva", !("via" in pr()) && pr().dia_parada === "2026-10-23");
+  const [depois] = await ev.aplicar(ev.informarDisponibilidade(pr(), "agora", "voltou"), { silencioso: true });
+  ok("encerrada a decisão, o próximo lançamento sai sem marca", !depois.dados.via);
+
+  ev.porDecisao({ titulo: "Ver as vencidas", area: "Programação" }, "programacao");
+  ok("a decisão que abriu a Programação continua valendo nela", !!ev.decisaoEmCurso("programacao"));
+  const [criada] = await ev.aplicar(ev.criar({ frota: "F-REG1", atividade: "trocar lâmpada" }), { silencioso: true });
+  ok("criar não leva a marca (os dados da criação viram o item)", !criada.dados.via && !("via" in ev.porId(criada.alvo)));
+  ok("e sair para outra tela encerra", !ev.decisaoEmCurso("hoje") && !ev.decisaoEmCurso("programacao"));
+
+  const achar = id => ev.achar(id);
+  igual("filtro 'decisão do Painel' acha só o que saiu dela",
+    reg.filtrarRegistro(ev.log, { origem: "painel" }, achar).map(e => e.id), [parada.id]);
+  ok("filtro de baixas junta as três", reg.filtrarRegistro(ev.log, { tipo: "_baixas" }, achar)
+    .every(e => reg.BAIXAS.has(e.tipo)));
+  ok("busca acha pelo título da decisão", reg.filtrarRegistro(ev.log, { busca: "parada da f-reg1" }, achar)
+    .some(e => e.id === parada.id));
+  ok("filtro de pessoa e de frota", reg.filtrarRegistro(ev.log, { autor: parada.autor, frota: "F-REG1" }, achar)
+    .every(e => e.autor === parada.autor && ev.achar(e.alvo).item.frota === "F-REG1"));
+  const r = reg.resumoDoDia(ev.log, reg.diaDe(parada.ts));
+  ok("o resumo do dia conta o que saiu do Painel e quem lançou",
+    r.painel === 1 && r.porPessoa.some(([q]) => q === parada.autor) && r.porTipo.some(([t]) => t === "prev_parada"), JSON.stringify(r));
+
+  // O dia é o do relógio de quem olha: 22h30 em Mossoró já é amanhã em UTC.
+  const tz = process.env.TZ;
+  process.env.TZ = "America/Fortaleza";
+  igual("lançamento das 22h30 fica no dia em que foi feito", reg.diaDe("2026-10-15T01:30:00.000Z"), "2026-10-14");
+  if (tz === undefined) delete process.env.TZ; else process.env.TZ = tz;
+}
+
 titulo("decisoes.js — o que decidir agora");
 {
   const dec = await import("../js/decisoes.js");
