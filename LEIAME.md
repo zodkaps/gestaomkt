@@ -523,6 +523,14 @@ fórmulas (ver *Os números são os da planilha*, abaixo). Antes delas vem o
   busca, situação, só sem OS) vira uma etiqueta com ×, debaixo da barra, e
   **Limpar filtros** tira todos. O recorte continua quando se troca de tela —
   e antes um filtro esquecido escondia metade da lista sem ninguém perceber.
+- **Programar em lote.** Na Programação, **Programar várias** abre a barra de
+  seleção (marque nas caixinhas, ou filtre e **Marcar todas**); na ficha da
+  Frota, **Programar a carteira**; no **Colar inspeção/TOP**, a opção
+  **Programar** lança já com o dia. A caixa é a mesma nos três: mostra a lista
+  do que vai (dá para desmarcar), a **data** preenche semana e dia (ou só a
+  semana, sem dia), duração e equipe — e, se a frota tem a parada da preventiva
+  marcada, oferece pôr cada uma **no dia da parada**. Para a que já tinha semana
+  é reprogramação, e o motivo continua obrigatório.
 - **A carteira por prioridade e idade.** Na carteira, a ordem é preventiva
   primeiro, depois P1, P2, P3, sem prioridade — e, dentro de cada uma, a que
   espera há mais tempo. Cada linha mostra a prioridade e **há N d**; passando o

@@ -1305,6 +1305,94 @@ ok("um clique aprova: Concluída com atraso, concluída pelo Pedro, aprovada pel
   ok("o Diagnóstico mostra o espaço no banco, contra os 500 MB do plano grátis", /≈ [\d,]+ MB de 500 MB \([\d,]+%\)$/.test(espaco), espaco);
 }
 
+// ── programar em lote: à vista, pela data, e no dia da parada ──────────────
+{
+  const num = String(6000 + Date.now() % 3000);
+  const F = "F-" + num;
+  const { ids, parada } = await p.evaluate(async f => {
+    const ev = mkt.ev, M = mkt.M;
+    const ids = [];
+    for (const t of ["Trocar lâmpada do farol LD", "Fixar para-choque", "Corrigir vazamento de ar"]) {
+      const [e] = await ev.aplicar(ev.criar({ frota: f, atividade: t, tipo: "Corretiva", origem: "Programada" }), { silencioso: true });
+      ids.push(e.alvo);
+    }
+    const { mesDaData } = await import("/js/decisoes.js");
+    let d = M.somaDias(M.hoje(), 4);
+    while ([0, 6].includes(M.data(d).getUTCDay())) d = M.somaDias(d, 1);
+    const [pe] = await ev.aplicar(ev.novaPreventiva({ ...M.moldePreventiva(), frota: f, mes: mesDaData(M.hoje()), plano: "1 ano",
+      vence: M.somaDias(d, 10), id: undefined }), { silencioso: true });
+    await ev.aplicar(ev.informarDisponibilidade(ev.porId(pe.alvo, "preventiva"), "agora"), { silencioso: true });
+    await ev.aplicar(ev.marcarParada(ev.porId(pe.alvo, "preventiva"), d, "Interna"), { silencioso: true });
+    return { ids, parada: d };
+  }, F);
+  const progDe = d => p.evaluate(x => mkt.ev.programacaoDoDia(x), d);
+
+  // Programação: a barra aparece antes de marcar
+  await p.evaluate(f => { location.hash = "#/programacao?m=carteira&f=" + encodeURIComponent(f); }, F);
+  await p.waitForTimeout(900);
+  await p.click(".filtros .programar-varias");
+  await p.waitForTimeout(200);
+  const barra = await p.evaluate(() => { const b = document.querySelector(".barra-sel");
+    return { hidden: b.hidden, txt: b.textContent, prog: b.querySelector("button.primario").disabled }; });
+  ok("Programar várias abre a barra antes de marcar, com Marcar todas e o Programar esperando",
+    !barra.hidden && /Marque nas caixinhas/.test(barra.txt) && /Marcar todas \(3\)/.test(barra.txt) && barra.prog && !/null/.test(barra.txt),
+    JSON.stringify(barra));
+  await p.click('.barra-sel button:has-text("Marcar todas")');
+  await p.click('.barra-sel button.primario:has-text("Programar")');
+  await p.waitForSelector(".caixa .lote-lista");
+  await p.click(`.caixa .lote-lista input[data-id="${ids[2]}"]`);
+  const alvoDia = await p.evaluate(() => { let d = mkt.M.somaDias(mkt.M.hoje(), 7);
+    while ([0, 6].includes(mkt.M.data(d).getUTCDay())) d = mkt.M.somaDias(d, 1); return d; });
+  await p.fill('.caixa input[aria-label="Para o dia"]', alvoDia);
+  await p.waitForTimeout(150);
+  const esperado = await progDe(alvoDia);
+  const sync = await p.evaluate(() => ({ sem: document.querySelector('.caixa input[aria-label="Semana"]').value,
+    dia: document.querySelector('.caixa select[aria-label="Dia"]').value,
+    botao: document.querySelector(".caixa footer button.primario").textContent }));
+  ok("na caixa, a data preenche semana e dia, e desmarcar uma da lista tira ela do lote",
+    sync.sem === String(esperado.semana) && sync.dia === esperado.dia && sync.botao === "Programar 2", JSON.stringify(sync));
+  await p.click(".caixa footer button.primario");
+  await p.waitForTimeout(900);
+  const st = await p.evaluate(ids => ids.map(id => { const a = mkt.ev.porId(id); return [a.semana, a.dia]; }), ids);
+  ok("Programar põe as duas no dia escolhido; a desmarcada continua na carteira",
+    st[0][0] === esperado.semana && st[0][1] === esperado.dia && st[1][1] === esperado.dia && st[2][0] == null, JSON.stringify(st));
+  ok("e a barra fecha", await p.evaluate(() => document.querySelector(".barra-sel").hidden));
+
+  // Frota: a carteira inteira, no dia da parada da preventiva
+  await p.evaluate(f => { location.hash = "#/frota?f=" + encodeURIComponent(f); }, F);
+  await p.waitForTimeout(900);
+  await p.click(".programar-carteira");
+  await p.waitForSelector(".caixa .lote-lista", { timeout: 4000 }).catch(() => {});
+  const rotParada = await p.evaluate(() => (document.querySelector(".caixa .campo-check") || {}).textContent || "");
+  const curta = parada.split("-").reverse().slice(0, 2).join("/");
+  ok("na ficha da Frota, Programar a carteira oferece o dia da parada da preventiva", rotParada.includes(curta), rotParada);
+  await p.check(".caixa .usar-parada");
+  await p.click(".caixa footer button.primario");
+  await p.waitForTimeout(900);
+  const naParada = await progDe(parada);
+  const a2 = await p.evaluate(id => { const a = mkt.ev.porId(id); return [a.semana, a.dia]; }, ids[2]);
+  ok("marcada a opção, a pendência vai para o dia da parada", a2[0] === naParada.semana && a2[1] === naParada.dia, JSON.stringify([a2, naParada]));
+
+  // Colar inspeção/TOP já programando
+  await p.evaluate(() => { location.hash = "#/programacao?m=carteira"; });
+  await p.waitForTimeout(700);
+  await p.click('.cabec button:has-text("Colar inspeção/TOP")');
+  await p.waitForSelector(".caixa .colar-texto");
+  await p.fill(".caixa .colar-texto", `${num}\n- Soldar suporte do para-lama LE;\n- Trocar palheta do limpador;`);
+  await p.waitForTimeout(400);
+  await p.click('.caixa .segmentos [data-destino="programar"]');
+  await p.fill('.caixa .colar-quando input[aria-label="Para o dia"]', alvoDia);
+  await p.waitForTimeout(150);
+  const botaoColar = await p.textContent(".caixa footer button.primario");
+  ok("no Colar, a opção Programar pede o dia e muda o botão", botaoColar === "Lançar 2 e programar", botaoColar);
+  await p.click(".caixa footer button.primario");
+  await p.waitForTimeout(900);
+  const coladas = await p.evaluate(f => mkt.ev.lista().filter(a => a.frota === f && /Soldar suporte|palheta/.test(a.atividade))
+    .map(a => [a.semana, a.dia, a.reprogramacoes]), F);
+  ok("Lançar cria as duas já programadas no dia escolhido, sem contar como reprogramação",
+    coladas.length === 2 && coladas.every(c => c[0] === esperado.semana && c[1] === esperado.dia && !c[2]), JSON.stringify(coladas));
+}
+
 // ── cópias antigas do aparelho: somem da tela, e o lançado nelas vai para a certa ──
 {
   const F = "F-CP" + Date.now().toString(36).slice(-4).toUpperCase();

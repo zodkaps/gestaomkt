@@ -11,7 +11,7 @@ import * as ev from "../eventos.js";
 import * as M from "../modelo.js";
 import * as pessoas from "../pessoas.js";
 import { el, limpar, caixa, campo, selecao, comSugestoes, chip, avisar, erro, br } from "../ui.js";
-import { frotas } from "./comum.js";
+import { frotas, camposDeProgramacao, eventosDeProgramar } from "./comum.js";
 import { lerPendencias, resolverFrota, marcarDuplicadas, obsDaOrigem } from "../pendencias.js";
 import { planoVigente } from "../decisoes.js";
 import { rotuloMes } from "./preventivas.js";
@@ -65,6 +65,25 @@ export async function colarPendencias(ctx, { frota = "", texto = "", arquivo = n
   const eOficina = selecao(["Interna", "Terceirizada"], "Interna", { "aria-label": "Oficina de todas",
     onchange: () => { comum.oficina = eOficina.value; } });
 
+  // Onde entram: na carteira (o de sempre) ou já programadas — no dia, na
+  // semana ou no dia da parada da preventiva.
+  let destino = "carteira";
+  let campos = null;
+  const quando = el("div", { class: "colar-quando", hidden: true });
+  const segDestino = el("div", { class: "segmentos", role: "group", "aria-label": "Onde entram" },
+    [["carteira", "Na carteira"], ["programar", "Programar"]].map(([v, t]) => el("button", {
+      type: "button", class: "seg-op" + (v === destino ? " on" : ""), dataset: { destino: v },
+      onclick: () => {
+        destino = v;
+        for (const b of segDestino.children) b.classList.toggle("on", b.dataset.destino === v);
+        if (v === "programar") {
+          campos = camposDeProgramacao({ frotas: [...new Set(blocos.map(b => b.frota).filter(Boolean))] });
+          limpar(quando).append(campos.elemento);
+        }
+        quando.hidden = v !== "programar";
+        pintarBotao();
+      } }, t)));
+
   const corpo = el("div", { class: "colar" },
     el("p", { class: "nota" }, "Cole a mensagem (WhatsApp, e-mail) ou escolha o PDF. O site separa as pendências da conversa; " +
       "confira, corrija o que precisar e lance. As que a frota já tem em aberto vêm desmarcadas."),
@@ -74,6 +93,8 @@ export async function colarPendencias(ctx, { frota = "", texto = "", arquivo = n
       el("div", { class: "espaco" }),
       el("label", { class: "agrupar" }, "Prioridade de todas ", ePrio),
       el("label", { class: "agrupar" }, "Oficina ", eOficina)),
+    el("div", { class: "colar-linha" }, el("span", { class: "agrupar" }, "Onde entram"), segDestino),
+    quando,
     previa);
 
   // Enter num campo da prévia confirma o campo, não lança tudo (o Enter da
@@ -132,7 +153,8 @@ export async function colarPendencias(ctx, { frota = "", texto = "", arquivo = n
   function pintarBotao() {
     const n = quantas();
     const bt = corpo.closest(".caixa") && corpo.closest(".caixa").querySelector("footer button.primario");
-    if (bt) { bt.textContent = n ? `Lançar ${n} na carteira` : "Lançar na carteira"; bt.disabled = !n; }
+    const onde = destino === "programar" ? "e programar" : "na carteira";
+    if (bt) { bt.textContent = n ? `Lançar ${n} ${onde}` : `Lançar ${onde}`; bt.disabled = !n; }
   }
 
   function pintar() {
@@ -237,6 +259,15 @@ export async function colarPendencias(ctx, { frota = "", texto = "", arquivo = n
       }
     }
     if (!r.length) throw new Error("Nenhuma pendência marcada.");
+    // Programar já: cada uma nasce e é programada no mesmo lote (a primeira
+    // programação não pede motivo), com a equipe, se veio.
+    if (destino === "programar" && campos) {
+      const equipe = campos.equipe();
+      for (const c of r.slice()) {
+        const a = { ...M.molde(), ...c.dados, id: c.alvo };
+        r.push(...eventosDeProgramar(a, { ...campos.para(a.frota), hh: a.hh }, equipe));
+      }
+    }
     return r;
   }
 
@@ -251,7 +282,11 @@ export async function colarPendencias(ctx, { frota = "", texto = "", arquivo = n
   const r = await espera;
   if (!r) return 0;
   await ev.aplicar(r);
-  const porFrota = [...new Set(r.map(e => e.dados.frota))];
-  avisar(`${r.length} pendência${r.length === 1 ? "" : "s"} lançada${r.length === 1 ? "" : "s"} na carteira de ${porFrota.join(", ")}.`);
-  return r.length;
+  const criadas = r.filter(e => e.tipo === "criada");
+  const porFrota = [...new Set(criadas.map(e => e.dados.frota))];
+  const n = criadas.length;
+  avisar(destino === "programar" && campos
+    ? `${n} pendência${n === 1 ? "" : "s"} de ${porFrota.join(", ")} lançada${n === 1 ? "" : "s"} e programada${n === 1 ? "" : "s"} para ${campos.rotulo()}.`
+    : `${n} pendência${n === 1 ? "" : "s"} lançada${n === 1 ? "" : "s"} na carteira de ${porFrota.join(", ")}.`);
+  return n;
 }

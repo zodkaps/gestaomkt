@@ -8,7 +8,7 @@ import * as ev from "../eventos.js";
 import * as M from "../modelo.js";
 import { el, limpar, br, cartaoNumero, vazio } from "../ui.js";
 import { busca as semAcento } from "../texto.js";
-import { cartao, botaoConcluir, secao, criarNova, frotas, descreverEvento } from "./comum.js";
+import { cartao, botaoConcluir, secao, criarNova, frotas, descreverEvento, programarEmLote } from "./comum.js";
 import { cartaoMov } from "./movimentacoes.js";
 import { cartaoPrev, abrirFichaPrev, ordemMes, rotuloMes } from "./preventivas.js";
 import { imprimirFrota } from "./imprimir.js";
@@ -199,8 +199,13 @@ export async function montar(raiz, ctx, params) {
     if (carteira.length) {
       // Na ordem da carteira da Programação: preventiva, P1, P2, P3, e a mais
       // velha primeiro dentro de cada uma.
+      carteira.sort(M.ordemCarteira(ref));
       corpo.append(sec("carteira", "Na carteira",
-        el("div", { class: "lista" }, carteira.sort(M.ordemCarteira(ref)).map(a => cartao(a, { ctx, idade: true }))),
+        el("div", {},
+          pessoas.pode("programar") ? el("div", { class: "sec-acoes" },
+            el("button", { class: "primario-leve programar-carteira", title: "Programar todas (ou as que escolher) de uma vez",
+              onclick: () => programarEmLote(carteira) }, `Programar a carteira (${carteira.length})`)) : null,
+          el("div", { class: "lista" }, carteira.map(a => cartao(a, { ctx, idade: true })))),
         carteira.length));
     }
     if (feitas.length) {

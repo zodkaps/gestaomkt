@@ -93,6 +93,13 @@ export async function montar(raiz, ctx, params) {
     "Semana atual");
   const topoResumo = el("div", {});
   const barraSel = el("div", { class: "barra-sel", hidden: true });
+  // "Programar várias" abre a barra antes de marcar qualquer coisa: sem isto,
+  // a programação em lote só aparecia para quem descobrisse as caixinhas.
+  let selecionando = false;
+  const bVarias = pessoas.pode("programar") ? el("button", { class: "fsit programar-varias", type: "button",
+    title: "Marcar várias e programar de uma vez (semana, dia, equipe)",
+    onclick: () => { selecionando = true; pintarBarraSel(); barraSel.scrollIntoView({ block: "nearest" }); } },
+  "Programar várias") : null;
   // Cada filtro ligado vira uma etiqueta com ×. O recorte sobrevive à troca
   // de tela (ver `estado`), e sem isto um filtro esquecido escondia metade da
   // lista sem ninguém perceber.
@@ -117,7 +124,7 @@ export async function montar(raiz, ctx, params) {
           estado.periodo === "semana" ? { ano: estado.ano, semana: estado.semana } : {}) }, "+ Nova")
         : null),
     topoResumo,
-    el("div", { class: "filtros" }, fBusca, fFrota, dlFrota, bSemOS,
+    el("div", { class: "filtros" }, fBusca, fFrota, dlFrota, bSemOS, bVarias,
       el("label", { class: "agrupar" }, "Agrupar por ",
         el("select", { onchange: e => { estado.agrupar = e.target.value; pintarCorpo(); } },
           el("option", { value: "frota", selected: estado.agrupar === "frota" }, "frota"),
@@ -233,11 +240,23 @@ export async function montar(raiz, ctx, params) {
     // Só o que ainda existe e está em aberto conta: uma marcada que alguém
     // concluiu em outro aparelho não pode ir junto para a semana.
     for (const id of [...sel]) { const a = ev.porId(id); if (!a || !M.aberta(a)) sel.delete(id); }
-    barraSel.hidden = !sel.size;
-    if (!sel.size) return;
+    if (sel.size) selecionando = false;
+    barraSel.hidden = !sel.size && !selecionando;
+    if (bVarias) bVarias.hidden = sel.size > 0 || selecionando;
+    if (!sel.size && !selecionando) return;
     // As em aberto da lista que está na tela (com o filtro e a busca): com
     // "Vencida" filtrado, marcar todas é marcar todas as vencidas.
     const daLista = listaNaTela.filter(a => M.aberta(a));
+    if (!sel.size) {
+      barraSel.append(...[
+        el("span", { class: "dica-sel" }, "Marque nas caixinhas o que vai programar — ou filtre e marque todas."),
+        daLista.length ? el("button", { class: "discreto", onclick: () => { for (const a of daLista) sel.add(a.id); pintarCorpo(); } },
+          `Marcar todas (${daLista.length})`) : null,
+        el("div", { class: "espaco" }),
+        el("button", { onclick: () => { selecionando = false; pintarBarraSel(); } }, "Fechar"),
+        el("button", { class: "primario", disabled: true }, "Programar")].filter(Boolean));
+      return;
+    }
     barraSel.append(...[
       el("b", {}, `${sel.size} marcada${sel.size === 1 ? "" : "s"}`),
       daLista.some(a => !sel.has(a.id))

@@ -515,59 +515,147 @@ export async function gravarOS(alvos, texto) {
   } catch (e) { erro(e.message); return false; }
 }
 
-/** Programar (ou reprogramar) várias de uma vez — semana, dia, executantes.
- *  Para as que já tinham semana é reprogramação, e o motivo é obrigatório. */
-export async function programarEmLote(alvos) {
-  const jaProgramadas = alvos.filter(a => a.semana != null);
+/** Os campos de "para quando": a data — que preenche semana e dia — ou a
+ *  semana direto (sem dia, fica só na semana), a duração e a equipe. Mudar a
+ *  semana ou o dia acerta a data, e o contrário também.
+ *
+ *  `frotas`: se alguma tem a parada da preventiva marcada, aparece a opção de
+ *  pôr cada uma no dia da parada dela — as pendências vão junto da preventiva. */
+export function camposDeProgramacao({ frotas: fs = [] } = {}) {
   const agora = M.semanaAtual();
-
-  const eSemana = el("input", { type: "number", min: 1, max: 53, value: agora.semana });
-  const eAno = el("input", { type: "number", min: 2020, max: 2100, value: agora.ano });
-  const eDia = selecao([{ v: "", t: "— sem dia —" }, ...M.DIAS], "");
+  const eData = el("input", { type: "date", "aria-label": "Para o dia" });
+  const eSemana = el("input", { type: "number", min: 1, max: 53, value: agora.semana, "aria-label": "Semana" });
+  const eAno = el("input", { type: "number", min: 2020, max: 2100, value: agora.ano, "aria-label": "Ano" });
+  const eDia = selecao([{ v: "", t: "— sem dia —" }, ...M.DIAS], "", { "aria-label": "Dia" });
   const eDias = el("input", { type: "number", min: 1, max: 30, value: 1 });
   const eExec = el("input", { placeholder: "separe por vírgula" });
+
+  const daData = () => {
+    const p = ev.programacaoDoDia(eData.value);
+    if (p) { eSemana.value = p.semana; eAno.value = p.ano; eDia.value = p.dia; }
+  };
+  const paraData = () => {
+    const i = M.DIAS.indexOf(eDia.value);
+    const sem = Number(eSemana.value), ano = Number(eAno.value);
+    eData.value = i >= 0 && sem && ano ? M.datasDaSemana(ano, sem)[i] : "";
+  };
+  eData.addEventListener("change", daData);
+  eData.addEventListener("input", daData);
+  eSemana.addEventListener("input", paraData);
+  eAno.addEventListener("input", paraData);
+  eDia.addEventListener("change", paraData);
+
+  // a parada da preventiva de cada frota (a próxima, em aberto)
+  const ref = M.hoje();
+  const paradas = new Map();
+  for (const p of ev.lista("preventiva")) {
+    if (!fs.includes(p.frota) || !M.preventivaAberta(p) || !p.dia_parada || p.dia_parada < ref) continue;
+    if (!paradas.has(p.frota) || p.dia_parada < paradas.get(p.frota)) paradas.set(p.frota, p.dia_parada);
+  }
+  const eParada = paradas.size ? el("input", { type: "checkbox", class: "usar-parada" }) : null;
+
+  const elemento = el("div", { class: "campos-prog" },
+    campo("Para o dia", eData, "A data preenche a semana e o dia. Sem dia, fica só na semana."),
+    el("div", { class: "tripla" }, campo("Semana", eSemana), campo("Ano", eAno), campo("Dia", eDia)),
+    eParada ? el("label", { class: "campo-check" }, eParada,
+      el("span", {}, paradas.size === 1 && fs.length === 1
+        ? `No dia da parada da preventiva (${brCurto([...paradas.values()][0])})`
+        : "Cada frota no dia da parada da preventiva dela: " +
+          [...paradas].map(([f, d]) => `${f} ${brCurto(d)}`).join(", ") +
+          (paradas.size < fs.length ? " — as outras vão no dia acima" : ""))) : null,
+    el("div", { class: "dupla" },
+      campo("Duração em dias", eDias),
+      campo("Executantes", comSugestoes(eExec, executantes(), "dl-exec-prog-" + Math.random().toString(36).slice(2, 7)),
+        "Em branco: cada uma mantém os executantes que tem.")));
+
+  return {
+    elemento,
+    /** Para onde vai uma atividade desta frota. */
+    para(frota) {
+      const dias = Number(eDias.value) || 1;
+      if (eParada && eParada.checked && paradas.has(frota)) return { ...ev.programacaoDoDia(paradas.get(frota)), dias };
+      return { ano: Number(eAno.value) || agora.ano, semana: Number(eSemana.value) || agora.semana, dia: eDia.value, dias };
+    },
+    equipe: () => eExec.value.split(",").map(x => x.trim()).filter(Boolean),
+    /** "semana 42 · Qua", para o aviso. */
+    rotulo() {
+      if (eParada && eParada.checked) return "o dia da parada";
+      return `a semana ${Number(eSemana.value) || agora.semana}${eDia.value ? " · " + eDia.value : ""}`;
+    },
+  };
+}
+
+/** Os eventos de programar uma atividade (e de trocar a equipe, se veio). */
+export function eventosDeProgramar(a, para, equipe = [], motivo = "") {
+  const r = [];
+  const e = ev.reprogramar(a, para, motivo);
+  if (e) r.push(e);
+  if (equipe.length) { const ed = ev.editar(a, { executantes: equipe }); if (ed) r.push(ed); }
+  return r;
+}
+
+/** Programar (ou reprogramar) várias de uma vez — pela data ou pela semana,
+ *  com a duração e a equipe. A caixa mostra a lista do que vai, para tirar o
+ *  que não for; para as que já tinham semana é reprogramação, e o motivo é
+ *  obrigatório. */
+export async function programarEmLote(alvos) {
+  alvos = alvos.filter(a => a && M.aberta(a));
+  if (!alvos.length) { avisar("Nada em aberto para programar."); return false; }
+  const ficam = new Set(alvos.map(a => a.id));
+  const campos = camposDeProgramacao({ frotas: [...new Set(alvos.map(a => a.frota).filter(Boolean))] });
   const eMotivo = el("input", { type: "text", placeholder: "motivo da mudança de semana" });
+  const jaProgramadas = () => alvos.filter(a => ficam.has(a.id) && a.semana != null);
+
+  const contagem = el("span", {}, `${alvos.length} de ${alvos.length}`);
+  const pintarContagem = () => {
+    contagem.textContent = `${ficam.size} de ${alvos.length}`;
+    const bt = contagem.closest(".caixa") && contagem.closest(".caixa").querySelector("footer button.primario");
+    if (bt) { bt.textContent = `Programar ${ficam.size}`; bt.disabled = !ficam.size; }
+  };
+  const porFrota = new Map();
+  for (const a of alvos.slice().sort(M.ordemCarteira())) {
+    if (!porFrota.has(a.frota)) porFrota.set(a.frota, []);
+    porFrota.get(a.frota).push(a);
+  }
+  const lista = el("details", { class: "lote-lista", open: alvos.length <= 15 },
+    el("summary", {}, "O que vai: ", contagem, ` · ${porFrota.size} frota${porFrota.size === 1 ? "" : "s"}`),
+    [...porFrota].map(([f, as]) => el("div", { class: "lote-frota" },
+      el("b", {}, f || "sem frota"),
+      el("ul", {}, as.map(a => el("li", {},
+        el("label", {}, el("input", { type: "checkbox", checked: true, dataset: { id: a.id },
+          onchange: e => { e.target.checked ? ficam.add(a.id) : ficam.delete(a.id); pintarContagem(); } }),
+        " ", a.atividade || "—",
+        el("small", {}, a.semana != null ? ` · semana ${a.semana}${a.dia ? " " + a.dia : ""}` : " · carteira"))))))));
 
   const r = await caixa({
     titulo: `Programar ${alvos.length} atividade${alvos.length === 1 ? "" : "s"}`,
     corpo: el("div", {},
-      el("div", { class: "tripla" },
-        campo("Semana", eSemana), campo("Ano", eAno), campo("Dia", eDia)),
-      campo("Duração em dias", eDias),
-      campo("Executantes", comSugestoes(eExec, executantes(), "dl-exec-lote"),
-        "Deixe em branco para manter os executantes atuais."),
-      jaProgramadas.length
-        ? campo(`Motivo — ${jaProgramadas.length} já tinha${jaProgramadas.length === 1 ? "" : "m"} semana`,
-          eMotivo, "Para essas é reprogramação, que exige motivo.")
+      lista,
+      campos.elemento,
+      alvos.some(a => a.semana != null)
+        ? campo("Motivo — para as que já tinham semana", eMotivo, "Para essas é reprogramação, que exige motivo.")
         : null),
     acoes: [{ rotulo: "Cancelar", valor: false },
-      { rotulo: "Programar", classe: "primario", valor: true }],
+      { rotulo: `Programar ${alvos.length}`, classe: "primario", acao: () => {
+        if (!ficam.size) throw new Error("Nenhuma marcada.");
+        if (jaProgramadas().length && !eMotivo.value.trim()) {
+          throw new Error(`Falta o motivo: ${jaProgramadas().length} já tinha${jaProgramadas().length === 1 ? "" : "m"} semana.`);
+        }
+        return true;
+      } }],
   });
   if (r !== true) return false;
 
-  const para = {
-    ano: Number(eAno.value) || agora.ano,
-    semana: Number(eSemana.value) || agora.semana,
-    dia: eDia.value,
-    dias: Number(eDias.value) || 1,
-  };
-  const equipe = eExec.value.split(",").map(s => s.trim()).filter(Boolean);
-
+  const escolhidas = alvos.filter(a => ficam.has(a.id));
+  const equipe = campos.equipe();
   const eventos = [];
   try {
-    for (const a of alvos) {
-      const e = ev.reprogramar(a, para, eMotivo.value.trim());
-      if (e) eventos.push(e);
-      if (equipe.length) {
-        const ed = ev.editar(a, { executantes: equipe });
-        if (ed) eventos.push(ed);
-      }
-    }
+    for (const a of escolhidas) eventos.push(...eventosDeProgramar(a, campos.para(a.frota), equipe, eMotivo.value.trim()));
   } catch (e) { erro(e.message); return false; }
 
   if (!eventos.length) { avisar("Nada mudou."); return false; }
   await ev.aplicar(eventos);
-  avisar(`${alvos.length} para a semana ${para.semana}${para.dia ? " · " + para.dia : ""}.`);
+  avisar(`${escolhidas.length} programada${escolhidas.length === 1 ? "" : "s"} para ${campos.rotulo()}.`);
   return true;
 }
 
