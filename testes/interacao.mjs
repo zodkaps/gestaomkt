@@ -1455,6 +1455,64 @@ ok("um clique aprova: Concluída com atraso, concluída pelo Pedro, aprovada pel
     paraVoce.map(x => x.cat).indexOf("top") < paraVoce.map(x => x.cat).indexOf("buscar"), JSON.stringify(paraVoce));
 }
 
+// ── designar o executante num toque, e em lote ─────────────────────────────
+{
+  const F = "F-EX" + Date.now().toString(36).slice(-4).toUpperCase();
+  const ids = await p.evaluate(async f => {
+    const r = [];
+    for (const t of ["Trocar lâmpada da placa", "Fixar para-lama LD", "Revisar buzina"]) {
+      const [e] = await mkt.ev.aplicar(mkt.ev.criar({ frota: f, atividade: t, tipo: "Corretiva", origem: "Programada" }), { silencioso: true });
+      r.push(e.alvo);
+    }
+    return r;
+  }, F);
+  await p.evaluate(f => { location.hash = "#/programacao?m=carteira&f=" + encodeURIComponent(f); }, F);
+  await p.waitForTimeout(900);
+  const vazio = await p.textContent(`.so-tabela tr.lin[data-id="${ids[0]}"] td.c-quem .quem-btn`);
+  ok("sem executante, a coluna mostra '+ executante' para tocar", vazio === "+ executante", vazio);
+  await p.click(`.so-tabela tr.lin[data-id="${ids[0]}"] td.c-quem .quem-btn`);
+  await p.waitForSelector(".caixa .quem-escolha");
+  const NOME = "Adilton-" + Date.now().toString(36).slice(-3);
+  await p.fill('.caixa input[placeholder^="outro nome"]', NOME);
+  await p.keyboard.press("Enter");
+  await p.waitForTimeout(200);
+  const aberta = await p.evaluate(n => ({ caixa: !!document.querySelector(".caixa"),
+    chip: [...document.querySelectorAll(".caixa .quem-op.on")].map(b => b.textContent).includes(n) }), NOME);
+  ok("um nome novo + Enter entra na lista, marcado, sem fechar a caixa", aberta.caixa && aberta.chip, JSON.stringify(aberta));
+  await p.click('.caixa footer button:has-text("Salvar")');
+  await p.waitForTimeout(700);
+  const e1 = await p.evaluate(id => mkt.ev.porId(id).executantes, ids[0]);
+  ok("Salvar designa o executante, e a linha não abre a ficha por engano", JSON.stringify(e1) === JSON.stringify([NOME]) &&
+    !(await p.isVisible(".caixa")), JSON.stringify(e1));
+  // o nome já usado aparece como botão para a próxima
+  await p.click(`.so-tabela tr.lin[data-id="${ids[1]}"] td.c-quem .quem-btn`);
+  await p.waitForSelector(".caixa .quem-escolha");
+  await p.click(`.caixa .quem-op:text-is("${NOME}")`);
+  await p.click('.caixa footer button:has-text("Salvar")');
+  await p.waitForTimeout(700);
+  ok("na próxima, o nome já está nos botões: um toque e salvar",
+    JSON.stringify(await p.evaluate(id => mkt.ev.porId(id).executantes, ids[1])) === JSON.stringify([NOME]));
+  // em lote: marcar as três e somar um segundo nome
+  await p.click(".filtros .programar-varias");
+  await p.click('.barra-sel button:has-text("Marcar todas")');
+  await p.click('.barra-sel button:has-text("Executante")');
+  await p.waitForSelector(".caixa .quem-escolha");
+  await p.fill('.caixa input[placeholder^="outro nome"]', "Gabriel");
+  await p.keyboard.press("Enter");
+  // o que todas já tinham em comum não vem marcado (a terceira não tinha ninguém)
+  await p.click('.caixa .segmentos [data-modo="somar"]');
+  await p.click('.caixa footer button:has-text("Salvar")');
+  await p.waitForTimeout(800);
+  const lote = await p.evaluate(ids => ids.map(id => mkt.ev.porId(id).executantes), ids);
+  ok("em lote, 'Somar aos que já têm' põe o Gabriel em todas sem tirar ninguém",
+    JSON.stringify(lote) === JSON.stringify([[NOME, "Gabriel"], [NOME, "Gabriel"], ["Gabriel"]]), JSON.stringify(lote));
+  ok("e o registro guarda o antes e o depois", await p.evaluate(id => {
+    const e = [...mkt.ev.log].reverse().find(x => x.alvo === id && x.tipo === "editada");
+    return !!e && JSON.stringify(e.dados.de.executantes) === "[]" && JSON.stringify(e.dados.para.executantes) === '["Gabriel"]';
+  }, ids[2]));
+  await p.evaluate(() => { const b = document.querySelector(".etiquetas .limpar-filtros"); if (b) b.click(); });
+}
+
 // ── cópias antigas do aparelho: somem da tela, e o lançado nelas vai para a certa ──
 {
   const F = "F-CP" + Date.now().toString(36).slice(-4).toUpperCase();

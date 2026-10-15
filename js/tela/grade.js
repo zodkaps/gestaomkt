@@ -14,7 +14,7 @@ import * as ev from "../eventos.js";
 import * as M from "../modelo.js";
 import * as pessoas from "../pessoas.js";
 import { el, brCurto, cliqueLimpo, vazio } from "../ui.js";
-import { abrirFicha, concluir, cartao, botaoConcluir, gravarOS, justificar, botaoMais } from "./comum.js";
+import { abrirFicha, concluir, cartao, botaoConcluir, gravarOS, justificar, botaoMais, escolherExecutantes } from "./comum.js";
 
 // A ordem dentro do bloco: primeiro o que pede ação, por último o que já saiu.
 // Assim as cores se agrupam e o bloco se lê de cima para baixo.
@@ -187,8 +187,8 @@ function celulaAtividade(a, o) {
     porque = el("button", { class: "mini justificar", onclick: abrirJust }, "+ justificar");
   }
   // Quando a tela é estreita e a coluna Executante some, quem faz aparece aqui.
-  const quemFaz = (a.executantes || []).length
-    ? el("div", { class: "quem-inline" }, a.executantes.join(", ")) : null;
+  const quemFaz = (a.executantes || []).length || (M.aberta(a) && pessoas.pode("editar_atividade"))
+    ? el("div", { class: "quem-inline" }, celulaQuem(a)) : null;
   return [
     el("div", { class: "t" },
       o.mostrarFrota && a.frota ? el("b", { class: "fr" }, a.frota + " ") : null,
@@ -196,6 +196,16 @@ function celulaAtividade(a, o) {
     quemFaz,
     porque,
   ];
+}
+
+/** Quem executa: um toque abre a escolha (ver escolherExecutantes). Sem
+ *  ninguém, "+ executante" — é o que mais falta na lista. */
+export function celulaQuem(a) {
+  const nomes = (a.executantes || []).join(", ");
+  if (!pessoas.pode("editar_atividade") || a.cancelada) return nomes || el("span", { class: "seg" }, "—");
+  return el("button", { type: "button", class: "quem-btn" + (nomes ? "" : " vazio"),
+    title: nomes ? "Trocar o executante" : "Designar quem vai fazer",
+    onclick: e => { e.stopPropagation(); escolherExecutantes([a]); } }, nomes || "+ executante");
 }
 
 function celulaFeito(a, o) {
@@ -254,7 +264,7 @@ function linha(a, o) {
     el("td", { class: "c-sit" }, el("span", { class: "sit " + cor }, M.rotulo(s))),
     el("td", { class: "c-os" }, celulaOS(a)),
     el("td", { class: "c-ativ" }, celulaAtividade(a, o)),
-    el("td", { class: "c-quem" }, (a.executantes || []).join(", ") || el("span", { class: "seg" }, "—")),
+    el("td", { class: "c-quem" }, celulaQuem(a)),
     el("td", { class: "c-sem num" }, a.semana
       ? `${a.semana}${a.dia ? " · " + a.dia : ""}` : el("span", { class: "seg" }, "—")),
     el("td", { class: "c-hh num" }, Number(a.hh) ? String(a.hh).replace(".", ",") : el("span", { class: "seg" }, "—")),
@@ -339,7 +349,7 @@ export function grade(itens, o = {}) {
     const lista = el("div", { class: "lista" });
     for (const a of g.itens) {
       const acoes = M.aberta(a) && pessoas.pode("baixar") ? [botaoConcluir(a, o.ctx)] : [];
-      const c = cartao(a, { ctx: o.ctx, compacto: true, acoes, seletor: caixinha(a, o) });
+      const c = cartao(a, { ctx: o.ctx, compacto: true, acoes, seletor: caixinha(a, o), quem: true });
       if (o.selecao && o.selecao.has(a.id)) c.classList.add("marcada");
       lista.append(c);
     }

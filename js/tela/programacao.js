@@ -14,7 +14,7 @@ import * as ev from "../eventos.js";
 import * as M from "../modelo.js";
 import * as pessoas from "../pessoas.js";
 import { el, limpar, brCurto, caixa, campo } from "../ui.js";
-import { criarNova, programarEmLote, gravarOS, retirarDaProgramacao, concluirEmLote } from "./comum.js";
+import { criarNova, programarEmLote, gravarOS, retirarDaProgramacao, concluirEmLote, escolherExecutantes } from "./comum.js";
 import { imprimirSemana, imprimirPorFrota, imprimirFrota, imprimirPorExecutante } from "./imprimir.js";
 import { grade, faixaSituacoes, progresso, natural, repintarMantendoFoco } from "./grade.js";
 import { busca as semAcento } from "../texto.js";
@@ -288,6 +288,11 @@ export async function montar(raiz, ctx, params) {
         if (r !== true) return;
         if (await gravarOS(alvos, eOS.value)) sel.clear();
       } }, "Mesma OS"),
+      el("button", { title: "Designar quem vai fazer as marcadas",
+        onclick: async () => {
+          const alvos = [...sel].map(id => ev.porId(id)).filter(Boolean);
+          if (await escolherExecutantes(alvos)) sel.clear();
+        } }, "Executante"),
       [...sel].some(id => ev.porId(id)?.semana != null)
         ? el("button", { title: "Voltam para a carteira, sem semana — um motivo para todas",
           onclick: async () => {

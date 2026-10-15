@@ -1433,3 +1433,17 @@ tr.cat-bloco td { background: var(--papel2, var(--papel)); font-weight: 650; fon
 tr.cat-bloco .n, .mov-grupo-tit .n { color: var(--fraco); font-weight: 500; }
 .mov-grupo-tit { margin: 12px 0 4px; font-size: 12px; font-weight: 650; text-transform: uppercase; letter-spacing: .05em; color: var(--fraco); }
 .mov-grupo-tit:first-child { margin-top: 0; }
+
+/* Designar o executante: o nome é botão; sem ninguém, "+ executante" */
+.quem-btn { background: transparent; border: 1px dashed transparent; border-radius: 6px; padding: 2px 6px; margin: -2px -6px;
+  font: inherit; color: inherit; text-align: left; cursor: pointer; }
+.quem-btn:hover, .quem-btn:focus-visible { border-color: var(--marca); color: var(--texto); }
+.quem-btn.vazio { border-color: var(--linha); color: var(--fraco); font-size: 11.5px; margin: 0; }
+.quem-cartao { margin-top: 4px; font-size: 12.5px; }
+.quem-cartao .quem-btn { margin: 0; }
+.quem-escolha { display: flex; flex-wrap: wrap; gap: 6px; margin: 4px 0 12px; }
+.quem-op { padding: 6px 12px; border-radius: 999px; border: 1px solid var(--linha); background: transparent;
+  color: var(--texto); font-size: 13px; }
+.quem-op.on { border-color: var(--marca); background: var(--marca-clara); font-weight: 600; }
+.form-quem .nota { margin: 0 0 4px; font-size: 12.5px; color: var(--fraco); }
+.form-quem .segmentos { margin-top: 4px; }

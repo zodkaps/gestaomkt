@@ -29,7 +29,8 @@ export function executantes() { return valoresDe("executantes"); }
 
 // ── cartão ──────────────────────────────────────────────────────────────────
 
-export function cartao(a, { ctx, acoes = [], seletor = null, compacto = false, idade = false } = {}) {
+/** `quem`: o executante vira botão (na grade do celular), para designar ali. */
+export function cartao(a, { ctx, acoes = [], seletor = null, compacto = false, idade = false, quem = false } = {}) {
   const s = M.situacaoDe(a);
   const cor = M.corDe(s);
   const tags = [];
@@ -56,7 +57,8 @@ export function cartao(a, { ctx, acoes = [], seletor = null, compacto = false, i
 
   const sub = [];
   if (a.servico && a.servico !== a.atividade) sub.push(a.servico);
-  if ((a.executantes || []).length) sub.push(a.executantes.join(" e "));
+  const quemBotao = quem && !a.cancelada && pessoas.pode("editar_atividade") && (M.aberta(a) || (a.executantes || []).length);
+  if ((a.executantes || []).length && !quemBotao) sub.push(a.executantes.join(" e "));
   if (a.semana && !compacto) sub.push(`sem ${a.semana} · ${a.dia || "sem dia"}`);
   if (a.concluida_em) sub.push("concluída em " + br(a.concluida_em));
   else if (a.feita_sem_data) sub.push("concluída — sem a data");
@@ -71,6 +73,10 @@ export function cartao(a, { ctx, acoes = [], seletor = null, compacto = false, i
       style: "cursor:pointer" },
       el("div", { class: "tit" }, (a.frota ? a.frota + " · " : "") + (a.atividade || "—")),
       sub.length ? el("div", { class: "sub" }, sub.join(" · ")) : null,
+      quemBotao ? el("div", { class: "quem-cartao" }, el("button", { type: "button",
+        class: "quem-btn" + ((a.executantes || []).length ? "" : " vazio"),
+        onclick: e => { e.stopPropagation(); escolherExecutantes([a]); } },
+        (a.executantes || []).join(", ") || "+ executante")) : null,
       tags.length ? el("div", { class: "tags" }, tags) : null),
     el("div", { class: "acoes" }, [...acoes, botaoMais("atividade", a.id, ctx)].filter(Boolean)));
   return n;
@@ -480,6 +486,71 @@ export async function criarNova(ctx, sugestao = {}) {
   }
   avisar("Atividade criada.");
   return ev.porId(criado.alvo);
+}
+
+/** Designar quem executa — uma atividade ou várias de uma vez. Os nomes da
+ *  equipe em botões (os mais usados primeiro), um toque marca ou desmarca; um
+ *  nome novo se digita embaixo. Com várias, dá para trocar pelos escolhidos ou
+ *  somar aos que cada uma já tem. Só o que mudou vai para o registro. */
+export async function escolherExecutantes(alvos) {
+  alvos = alvos.filter(Boolean);
+  if (!alvos.length) return false;
+  const uso = new Map();
+  for (const x of ev.lista()) for (const n of x.executantes || []) if (n) uso.set(n, (uso.get(n) || 0) + 1);
+  const nomes = [...uso].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0], "pt-BR")).map(([n]) => n);
+  // marcados de início: os da atividade; com várias, os que todas têm
+  const comuns = alvos.map(a => new Set(a.executantes || []))
+    .reduce((acc, s2) => new Set([...acc].filter(n => s2.has(n))));
+  const escolhidos = new Set(comuns);
+  const lista = el("div", { class: "quem-escolha", role: "group", "aria-label": "Executantes" });
+  const pintarLista = () => {
+    const todos = [...new Set([...nomes.slice(0, 16), ...escolhidos])];
+    lista.replaceChildren(...todos.map(n => el("button", { type: "button",
+      class: "quem-op" + (escolhidos.has(n) ? " on" : ""), "aria-pressed": escolhidos.has(n) ? "true" : "false",
+      onclick: () => { escolhidos.has(n) ? escolhidos.delete(n) : escolhidos.add(n); pintarLista(); } }, n)));
+  };
+  pintarLista();
+  const eNovo = el("input", { placeholder: "outro nome — Enter para pôr na lista" });
+  const porNovo = () => {
+    const v = eNovo.value.trim();
+    if (!v) return false;
+    escolhidos.add(v); eNovo.value = ""; pintarLista();
+    return true;
+  };
+  // Enter no campo põe o nome na lista (sem salvar a caixa)
+  eNovo.addEventListener("keydown", e => {
+    if (e.key === "Enter" && eNovo.value.trim()) { e.preventDefault(); e.stopPropagation(); porNovo(); }
+  });
+  let modo = "trocar";
+  const eModo = alvos.length > 1 ? el("div", { class: "segmentos", role: "group" },
+    [["trocar", "Trocar pelos escolhidos"], ["somar", "Somar aos que já têm"]].map(([v, t]) => el("button", {
+      type: "button", class: "seg-op" + (v === modo ? " on" : ""), dataset: { modo: v },
+      onclick: e => { modo = v; for (const b of e.target.parentNode.children) b.classList.toggle("on", b.dataset.modo === v); } }, t))) : null;
+
+  const um = alvos.length === 1 ? alvos[0] : null;
+  const r = await caixa({
+    titulo: um ? `Executante — ${um.frota || ""} · ${um.atividade || ""}`.slice(0, 90) : `Executante de ${alvos.length} atividades`,
+    largura: "560px",
+    corpo: el("div", { class: "form-quem" },
+      nomes.length ? el("p", { class: "nota" }, "Toque para marcar quem vai fazer (pode ser mais de um).") : null,
+      lista,
+      campo("Outro nome", comSugestoes(eNovo, nomes, "dl-quem-novo"), "terceiro com “(externo)” no nome conta como terceirizada"),
+      eModo),
+    acoes: [{ rotulo: "Cancelar", valor: false },
+      { rotulo: "Salvar", classe: "primario", acao: () => { porNovo(); return true; } }],
+  });
+  if (r !== true) return false;
+  const eventos = alvos.map(a => {
+    const novo = modo === "somar" ? [...new Set([...(a.executantes || []), ...escolhidos])] : [...escolhidos];
+    return ev.editar(a, { executantes: novo });
+  }).filter(Boolean);
+  if (!eventos.length) { avisar("Nada mudou."); return false; }
+  try {
+    await ev.aplicar(eventos);
+    avisar(um ? (escolhidos.size ? `Executante: ${[...escolhidos].join(", ")}.` : "Sem executante.")
+      : `Executante em ${eventos.length} atividade${eventos.length === 1 ? "" : "s"}.`);
+    return true;
+  } catch (e) { erro(e.message); return false; }
 }
 
 /** Gravar a OS digitada em uma ou várias atividades.

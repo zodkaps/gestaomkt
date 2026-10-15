@@ -535,6 +535,13 @@ fórmulas (ver *Os números são os da planilha*, abaixo). Antes delas vem o
   busca, situação, só sem OS) vira uma etiqueta com ×, debaixo da barra, e
   **Limpar filtros** tira todos. O recorte continua quando se troca de tela —
   e antes um filtro esquecido escondia metade da lista sem ninguém perceber.
+- **Designar o executante num toque.** Na coluna Executante (Hoje,
+  Programação, Semana), o nome é um botão; sem ninguém, aparece
+  **+ executante**. Tocar abre os nomes da equipe em botões — os mais usados
+  primeiro —, um toque marca (pode ser mais de um), e um nome novo se digita
+  embaixo (Enter põe na lista). No celular, o mesmo pelo cartão. Para várias
+  de uma vez: marque e use **Executante** na barra — *trocar pelos escolhidos*
+  ou *somar aos que já têm*. O registro guarda o antes e o depois.
 - **Programar em lote.** Na Programação, **Programar várias** abre a barra de
   seleção (marque nas caixinhas, ou filtre e **Marcar todas**); na ficha da
   Frota, **Programar a carteira**; no **Colar inspeção/TOP**, a opção
