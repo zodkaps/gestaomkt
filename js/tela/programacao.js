@@ -27,9 +27,12 @@ const estado = {
   situacoes: new Set(),
   frota: "", busca: "",
   agrupar: "frota",
-  semOS: false,                   // só as em aberto que ainda não têm OS
+  semOS: false,                   // só as que ainda não têm OS — em aberto ou já concluídas
 };
 const sel = new Set();
+// Falta a OS: em aberto ou já concluída (a OS do Protheus às vezes só sai
+// depois do serviço). A cancelada não precisa.
+const faltaOS = a => !a.os && !a.cancelada && !a.excluida;
 
 export async function montar(raiz, ctx, params) {
   const agora = M.semanaAtual();
@@ -185,7 +188,7 @@ export async function montar(raiz, ctx, params) {
     const qf = chaveFrota(estado.frota);
     const exata = frotaExata(lista);
     return lista.filter(a => {
-      if (estado.semOS && (a.os || !M.aberta(a))) return false;
+      if (estado.semOS && !faltaOS(a)) return false;
       if (estado.situacoes.size && !estado.situacoes.has(M.situacaoDe(a))) return false;
       if (qf && (exata ? a.frota !== exata : !chaveFrota(a.frota).includes(qf))) return false;
       if (q) {
@@ -318,7 +321,7 @@ export async function montar(raiz, ctx, params) {
   function pintarCorpo() {
     const base = doPeriodo();
     pintarResumo(base);
-    const faltam = base.filter(a => !a.os && M.aberta(a)).length;
+    const faltam = base.filter(faltaOS).length;
     bSemOS.textContent = "";
     bSemOS.append(el("b", {}, String(faltam)), " sem OS");
     bSemOS.classList.toggle("on", estado.semOS);
@@ -333,7 +336,7 @@ export async function montar(raiz, ctx, params) {
       carteira: estado.periodo === "carteira",
       imprimirBloco: (frota, lista) => imprimirFrota(frota, lista, rotuloRecorte()),
       aoSelecionar: tudo => (tudo ? pintarCorpo() : pintarBarraSel()),
-      vazioTexto: estado.semOS ? "Todas as atividades em aberto deste recorte já têm OS."
+      vazioTexto: estado.semOS ? "Todas as atividades deste recorte já têm OS."
         : estado.periodo === "semana"
         ? `Nada na semana ${estado.semana} com estes filtros.`
         : "Nada aqui com estes filtros.",

@@ -357,6 +357,12 @@ fórmulas (ver *Os números são os da planilha*, abaixo). Antes delas vem o
   em aberto, a carteira ou tudo. **Dar baixa é na própria linha**, na coluna
   *Feito em*, como o FOI FEITO EM da planilha. Para programar várias de uma vez,
   marca e programa.
+- **OS também na concluída.** A OS do Protheus às vezes só sai depois do
+  serviço feito. A coluna OS aceita o número na atividade já concluída (só a
+  cancelada fica sem campo), o filtro **sem OS** mostra as concluídas junto, e
+  no ⋯ e na ficha há **Anotar a OS** — o caminho do celular, onde não há a
+  coluna. No Painel, "N atividades da semana sem OS" conta as já concluídas e
+  diz quantas são.
 - **A frota se pesquisa.** O filtro de frota é um campo: digitar **969** já
   mostra só as frotas com 969 no nome; escolher na lista que abre, ou digitar o
   nome inteiro (F-969, f969), mostra só aquela. Hífen e maiúscula não importam.
@@ -411,16 +417,26 @@ fórmulas (ver *Os números são os da planilha*, abaixo). Antes delas vem o
 - **Fechamento da semana — o número não sobe sozinho.** Ver a seção *A semana
   fechada não muda*, abaixo.
 - **Preventivas** é a aba Preventivas, com três vistas no alto:
-  - **Plano** — os mesmos números da aba (preventivas a fazer, frotas, com e
-    sem liberação da operação, parada programada, conflitos, vencidas,
-    realizadas, HH) e a mesma Situação, pela mesma fórmula. Separada por **quem
-    precisa agir**: *aguardando o PCM* (programar a parada), *aguardando a
-    operação* (informar a liberação da frota), *em execução* (parada programada
-    ou em andamento), *encerradas no mês* (realizadas, adiadas e canceladas) e,
-    à parte, o quadro *fora do plano*. O Status da planilha (Em andamento,
-    Realizada, Reprogramada, Cancelada) entra como está e também se marca aqui.
-    Debaixo da data da parada, **↻ 2×** diz quantas vezes ela já foi
-    reprogramada.
+  - **Plano** — feita para **uma olhada dizer o que tem pra fazer**. No alto,
+    o mês numa linha: *0 de 33 realizadas · 19 vencidas · 16 dias para acabar
+    o mês*, com a barra do que saiu e o traço de quanto do mês já passou (as
+    oito caixas de número continuam na vista Painel). Depois, **Para fazer**,
+    em três filas curtas, cada linha com o botão que resolve:
+    *Programar a parada* (liberadas sem dia — o botão já traz a data sugerida,
+    **Programar 16/10**, a mesma do Painel), *Dar baixa* (a parada passou, é
+    hoje ou está em andamento — **Realizada** / **Reprogramar**) e *Cobrar a
+    liberação* (sem a data da operação — **Copiar a cobrança** põe a lista
+    pronta para o grupo). Para quem é da operação, a fila dele vem primeiro e
+    se chama *Informar a liberação*. O ponto de cada linha é vermelho quando a
+    preventiva já venceu. Depois, **Próximas paradas**: os dias dos próximos 14
+    que têm parada marcada, e hoje com o que está em andamento. Por último,
+    **o plano inteiro numa tabela só**, com a faixa de situações que filtra e,
+    recolhido, o quadro *fora do plano*. A busca vale para as filas e para a
+    tabela. A **OS se digita na própria linha** (Enter), também na preventiva
+    já realizada; se a OS preventiva na Programação ainda não tem número,
+    recebe o mesmo. O Status da planilha (Em andamento, Realizada,
+    Reprogramada, Cancelada) entra como está e também se marca aqui. Debaixo
+    da data da parada, **↻ 2×** diz quantas vezes ela já foi reprogramada.
   - **Painel** — o painel de controle do mês: os números (plano, realizadas, no
     prazo, vencidas, aguardando a operação, aguardando o PCM, reprogramações,
     HH; clicar leva à lista certa), o **ritmo do mês** (quanto já saiu contra

@@ -1530,3 +1530,58 @@ tr.cat-bloco .n, .mov-grupo-tit .n { color: var(--fraco); font-weight: 500; }
 .q-col.sobre { border-color: var(--marca); background: var(--marca-clara); }
 .quadro.arrastando .q-vazio { border-color: var(--fraco); }
 :where(:root[data-tema="claro"]) :where(.q-cartao) { box-shadow: var(--sombra-cartao); }
+
+/* ── Preventivas: o mês numa linha, as três filas e as próximas paradas ─────
+   O alto da aba responde "o que tem pra fazer": a linha do mês (quanto saiu
+   contra quanto do mês passou — o traço vertical), as filas com o botão em
+   cada linha, e o calendário curto das paradas. A tabela completa vem depois. */
+.mes-linha { display: flex; flex-direction: column; gap: 7px; margin: 0 0 14px; }
+.ml-texto { font-size: 13.5px; color: var(--fraco); }
+.ml-texto b { color: var(--texto); font-variant-numeric: tabular-nums; }
+.ml-venc::before { content: ""; display: inline-block; width: 6px; height: 6px; border-radius: 50%;
+  background: var(--vencida); margin-right: 6px; vertical-align: 1px; }
+.ml-trilho { position: relative; height: 6px; border-radius: 3px; background: var(--papel3); max-width: 560px; }
+.ml-cheio { display: block; height: 100%; border-radius: 3px; background: var(--ok); min-width: 2px; }
+.ml-hoje { position: absolute; top: -3px; width: 2px; height: 12px; border-radius: 1px; background: var(--fraco); }
+
+.pf-quadro { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; align-items: start; margin-bottom: 8px; }
+@media (max-width: 1100px) { .pf-quadro { grid-template-columns: 1fr; } }
+.pf-col { background: var(--papel); border: 1px solid var(--linha); border-radius: var(--raio); padding: 12px 12px 8px; min-width: 0; }
+.pf-col.vazia { padding-bottom: 12px; }
+.pf-cab { display: flex; align-items: center; gap: 8px; justify-content: space-between; }
+.pf-titulo { display: flex; align-items: baseline; gap: 8px; }
+.pf-titulo b { font-size: 14.5px; }
+.pf-n { font-size: 13px; font-weight: 650; color: var(--fraco); font-variant-numeric: tabular-nums;
+  background: var(--papel2); border-radius: 999px; padding: 0 8px; }
+.pf-explica { font-size: 12px; color: var(--muito-fraco); margin: 3px 0 8px; }
+.pf-lista { display: flex; flex-direction: column; }
+.pf-lin { display: grid; grid-template-columns: 8px minmax(0, 1fr) auto; gap: 9px; align-items: center;
+  padding: 7px 4px; border-top: 1px solid var(--linha); cursor: pointer; }
+.pf-lin:hover { background: var(--papel2); }
+.pf-ponto { width: 8px; height: 8px; border-radius: 50%; background: var(--muito-fraco); }
+.pf-ponto.vencida { background: var(--vencida); }
+.pf-ponto.hoje { background: var(--hoje); }
+.pf-ponto.andando { background: var(--andando); }
+.pf-ponto.ok { background: var(--ok); }
+.pf-tit { font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pf-tit b { font-weight: 700; }
+.pf-sub { font-size: 11.5px; color: var(--fraco); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pf-acoes { display: flex; gap: 4px; }
+.pf-vazio { margin: 4px 0 0; font-size: 12.5px; color: var(--muito-fraco); }
+.pf-mais { align-self: center; font-size: 12px; margin-top: 4px; }
+
+.pp-faixa { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(150px, 220px); gap: 6px;
+  overflow-x: auto; padding-bottom: 4px; margin-bottom: 8px; }
+.pp-rot { font-size: 10.5px; text-transform: uppercase; letter-spacing: .05em; color: var(--muito-fraco); margin-top: 2px; }
+.pp-dia { background: var(--papel); border: 1px solid var(--linha); border-radius: var(--raio); padding: 8px;
+  display: flex; flex-direction: column; gap: 4px; min-height: 76px; }
+.pp-dia.livre { background: transparent; }
+.pp-dia.hoje { box-shadow: inset 0 2px 0 var(--marca); }
+.pp-cab { font-size: 12px; color: var(--fraco); display: flex; align-items: center; gap: 4px; }
+.pp-cab b { color: var(--texto); }
+.pp-frota { display: block; width: 100%; text-align: left; font-size: 12px; padding: 3px 7px; border-radius: 6px;
+  background: var(--papel2); border: 1px solid var(--linha); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pp-frota span { color: var(--fraco); }
+.pp-frota.andando { box-shadow: inset 2px 0 0 var(--andando); }
+.pp-nada { margin: 0 0 8px; }
+:where(:root[data-tema="claro"]) :where(.pf-col, .pp-dia:not(.livre)) { box-shadow: var(--sombra-cartao); }

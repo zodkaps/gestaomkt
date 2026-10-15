@@ -145,7 +145,9 @@ function celulaOS(a) {
     return el("span", { class: "os" }, a.os,
       a.os_outras.length ? el("span", { class: "seg" }, ` +${a.os_outras.length}`) : null);
   }
-  if (!M.aberta(a)) return el("span", { class: "seg" }, "—");
+  // A concluída também recebe a OS: muitas vezes a OS do Protheus só sai
+  // depois do serviço feito. Só a cancelada fica sem campo.
+  if (a.cancelada || a.excluida) return el("span", { class: "seg" }, "—");
   return pessoas.pode("editar_atividade") ? campoOS(a) : el("span", { class: "sem-os" }, "sem OS");
 }
 

@@ -7,10 +7,12 @@
 //
 // O que o site acrescenta é a separação: uma preventiva só anda quando duas
 // áreas respondem coisas diferentes — a operação diz QUANDO o caminhão fica
-// livre, o PCM diz QUE DIA ele para. Por isso a tela é dividida por de quem é
-// a bola, e não por frota: a pergunta que destrava é "o que está parado
-// esperando mim?". O que já saiu (realizada, mês seguinte, cancelada) e o
-// quadro "fora do plano" ficam em seções próprias, fora do caminho.
+// livre, o PCM diz QUE DIA ele para. Por isso o alto da tela é "Para fazer":
+// três filas curtas — programar a parada, dar baixa, cobrar (ou informar) a
+// liberação —, cada linha com o botão que resolve. Uma olhada diz o que está
+// parado esperando quem. Embaixo, as próximas paradas num calendário curto e,
+// por último, o plano inteiro numa tabela só, com a faixa de situações que
+// filtra. O quadro "fora do plano" fica recolhido, fora do caminho.
 
 import * as ev from "../eventos.js";
 import * as M from "../modelo.js";
@@ -20,7 +22,9 @@ import { el, limpar, br, brCurto, chip, caixa, campo, selecao, comSugestoes,
 import { busca as semAcento } from "../texto.js";
 import { natural } from "./grade.js";
 import { botaoMais, frotas as frotasDasAtividades } from "./comum.js";
-import { mesDaData, mesDoPlano, decisoesPreventivas } from "../decisoes.js";
+import { mesDaData, mesDoPlano, decisoesPreventivas, sugestoesDeParada, textoCobranca } from "../decisoes.js";
+import { copiar } from "./contexto.js";
+import { normalizarOSLista } from "../importar.js";
 import { cartaoGrafico, graficoBarras, graficoColunas, graficoLinhas, graficoRosca } from "../graficos.js";
 import { listaDecisoes } from "./decidir.js";
 import { conciliacao, descrever as descreverLigacao, eventosDaConciliacao } from "../vinculo.js";
@@ -500,6 +504,201 @@ export async function abrirFichaPrev(id, ctx) {
   await caixa({ titulo: p.frota || "Preventiva", corpo, acoes, largura: "640px" });
 }
 
+// ── a OS da preventiva, digitada na linha ───────────────────────────────────
+// Como na Programação: digita e Enter. Vale também para a já realizada — a OS
+// do Protheus às vezes só sai depois. Se a OS preventiva na Programação ainda
+// não tem número, recebe o mesmo.
+
+export async function gravarOSPrev(p, texto) {
+  const [os] = normalizarOSLista(texto);
+  if (!os) { erro("Digite o número da OS."); return false; }
+  const eventos = [ev.editar(p, { os }, "preventiva")];
+  const a = ev.atividadeDaPreventiva(p);
+  if (a && !a.os && !a.cancelada) eventos.push(ev.editar(a, { os }));
+  const validos = eventos.filter(Boolean);
+  if (!validos.length) { avisar("Nada mudou."); return false; }
+  try {
+    await ev.aplicar(validos);
+    avisar(`OS ${os} gravada na preventiva da ${p.frota}` + (validos.length > 1 ? " e na OS da Programação." : "."));
+    return true;
+  } catch (x) { erro(x.message); return false; }
+}
+
+function campoOSPrev(p) {
+  const entrada = el("input", {
+    class: "os-in", inputmode: "numeric", placeholder: "sem OS", "aria-label": `OS da preventiva da ${p.frota}`,
+    title: "Digite a OS e aperte Enter", dataset: { id: p.id },
+    onclick: e => e.stopPropagation(),
+    onkeydown: async e => {
+      if (e.key === "Escape") { entrada.value = ""; entrada.blur(); return; }
+      if (e.key !== "Enter" && e.key !== "Tab") return;
+      if (!entrada.value.trim()) return;
+      e.preventDefault();
+      if (!await gravarOSPrev(p, entrada.value)) entrada.focus();
+    },
+  });
+  return entrada;
+}
+
+// ── para fazer: as três filas do mês ───────────────────────────────────────
+
+const PROGRAMAR = ["Disponível: marcar a parada", "Com data: marcar a parada",
+  "Conflito: Operação depois do prazo", "Programada depois do prazo"];
+
+/** O que tem de ser feito agora, em três filas: programar a parada (o PCM),
+ *  dar a baixa (a parada passou, está em andamento ou é hoje) e a liberação
+ *  da frota (a operação). Da que vence primeiro para a última. */
+export function filasDoMes(plano, ref) {
+  const sit = p => M.situacaoPreventiva(p, ref);
+  const porVenc = (a, b) => String(M.venceEfetivo(a) || "9").localeCompare(String(M.venceEfetivo(b) || "9")) ||
+    natural(a.frota, b.frota);
+  const abertas = plano.filter(M.preventivaAberta);
+  return {
+    programar: abertas.filter(p => PROGRAMAR.includes(sit(p))).sort(porVenc),
+    baixa: abertas.filter(p => sit(p) === "Parada passou, sem baixa" || sit(p) === "Em andamento" ||
+      (sit(p) === "Programada" && p.dia_parada === ref))
+      .sort((a, b) => String(a.dia_parada || "").localeCompare(String(b.dia_parada || "")) || porVenc(a, b)),
+    liberar: abertas.filter(p => sit(p) === "Sem data da Operação").sort(porVenc),
+  };
+}
+
+const quandoVence = (p, ref) => {
+  const lim = M.venceEfetivo(p);
+  if (!lim) return "sem vencimento";
+  const n = M.difDias(ref, lim);
+  return n < 0 ? `venceu ${brCurto(lim)}` : n === 0 ? "vence hoje" : `vence ${brCurto(lim)}`;
+};
+
+function linhaFila(p, ref, ctx, nota, botoes = []) {
+  const s = M.situacaoPreventiva(p, ref);
+  const cor = M.preventivaVencida(p, ref) ? "vencida" : M.corDe(s);
+  return el("div", { class: "pf-lin", dataset: { id: p.id }, title: M.rotulo(s),
+    onclick: cliqueLimpo(() => abrirFichaPrev(p.id, ctx)) },
+    el("span", { class: "pf-ponto " + cor }),
+    el("div", { class: "pf-meio" },
+      el("div", { class: "pf-tit" }, el("b", {}, p.frota || "—"), " ", p.plano || "preventiva",
+        p.qtd > 1 ? el("span", { class: "tag" }, `${p.qtd}×`) : null),
+      el("div", { class: "pf-sub" }, nota)),
+    botoes.length ? el("div", { class: "pf-acoes", onclick: e => e.stopPropagation() }, botoes) : null);
+}
+
+/** Uma fila: título, quantas, o que fazer, e as primeiras oito (o resto num toque). */
+function colunaFila({ chave, titulo, explica, itens, linha, extra = null, vazioTexto }) {
+  const lista = el("div", { class: "pf-lista" });
+  const pintarLista = () => {
+    const todas = estado.filaAberta.has(chave);
+    // replaceChildren(null) escreve "null" na tela: só o que existe entra
+    lista.replaceChildren(...[...(todas ? itens : itens.slice(0, 8)).map(linha),
+      itens.length > 8 ? el("button", { type: "button", class: "discreto pf-mais",
+        onclick: () => { todas ? estado.filaAberta.delete(chave) : estado.filaAberta.add(chave); pintarLista(); } },
+      todas ? "Mostrar menos" : `Ver as ${itens.length}`) : null].filter(Boolean));
+  };
+  if (itens.length) pintarLista();
+  return el("section", { class: "pf-col" + (itens.length ? "" : " vazia"), dataset: { fila: chave } },
+    el("header", { class: "pf-cab" },
+      el("div", { class: "pf-titulo" }, el("b", {}, titulo), el("span", { class: "pf-n" }, String(itens.length))),
+      itens.length ? extra : null),
+    el("p", { class: "pf-explica" }, explica),
+    itens.length ? lista : el("p", { class: "pf-vazio" }, "✓ " + vazioTexto));
+}
+
+function paraFazer(plano, ref, ctx) {
+  const f = filasDoMes(plano, ref);
+  const sug = sugestoesDeParada(plano, ref);
+  const pcm = pessoas.pode("parada");
+  const opera = pessoas.pode("disponibilidade");
+  const mini = (rot, fn, cls = "mini") => el("button", { type: "button", class: cls, onclick: () => fn() }, rot);
+
+  const programar = colunaFila({
+    chave: "programar", titulo: "Programar a parada", itens: f.programar,
+    explica: "A operação já liberou a frota. Falta o dia da parada.",
+    vazioTexto: "Nenhuma liberada esperando a parada.",
+    linha: p => {
+      const s = M.situacaoPreventiva(p, ref);
+      const nota = s === "Programada depois do prazo" ? `parada ${brCurto(p.dia_parada)}, depois do prazo · ${quandoVence(p, ref)}`
+        : s.startsWith("Conflito") ? `libera ${brCurto(p.disponivel_em)}, depois do prazo · ${quandoVence(p, ref)}`
+        : `${quandoVence(p, ref)} · liberada ${p.disponivel_agora ? "agora" : "a partir de " + brCurto(p.disponivel_em)}`;
+      const d = sug.get(p.id);
+      return linhaFila(p, ref, ctx, nota, pcm ? [mini(d ? `Programar ${brCurto(d)}` : s === "Programada depois do prazo" ? "Antecipar" : "Programar",
+        () => marcarParada(p, { sugestao: d || "" }), "mini primario-leve")] : []);
+    },
+  });
+  const baixa = colunaFila({
+    chave: "baixa", titulo: "Dar baixa", itens: f.baixa,
+    explica: "A parada passou, é hoje ou está em andamento.",
+    vazioTexto: "Nenhuma parada esperando a baixa.",
+    linha: p => {
+      const s = M.situacaoPreventiva(p, ref);
+      const nota = s === "Em andamento" ? "em andamento na oficina"
+        : p.dia_parada === ref ? "parada hoje" : `a parada era ${brCurto(p.dia_parada)}`;
+      const botoes = !pcm ? [] : [mini("Realizada", () => darPorFeita(p), "mini primario-leve"),
+        s === "Parada passou, sem baixa" ? mini("Reprogramar", () => marcarParada(p)) : null].filter(Boolean);
+      return linhaFila(p, ref, ctx, nota, botoes);
+    },
+  });
+  const liberar = colunaFila({
+    chave: "liberar", titulo: pcm ? "Cobrar a liberação" : "Informar a liberação", itens: f.liberar,
+    explica: pcm ? "Sem a data da operação, não dá para marcar a parada." : "Quando a frota fica livre para a manutenção?",
+    vazioTexto: "Todas as frotas com liberação informada.",
+    extra: pcm ? el("button", { type: "button", class: "mini", title: "A lista, pronta para colar no grupo",
+      onclick: () => copiar(textoCobranca(f.liberar, ref), "Cobrança") }, "Copiar a cobrança") : null,
+    linha: p => linhaFila(p, ref, ctx, quandoVence(p, ref),
+      opera ? [mini("Informar", () => informarDisponibilidade(p), "mini primario-leve")] : []),
+  });
+  // Para quem é da operação, a fila dele vem primeiro.
+  return el("div", { class: "pf-quadro" }, pcm ? [programar, baixa, liberar] : [liberar, programar, baixa]);
+}
+
+/** As paradas marcadas nos próximos 14 dias, dia a dia — o que vai parar
+ *  quando. Só os dias que têm parada (e hoje, com o que está em andamento):
+ *  uma fileira de dias vazios ocupava a tela sem dizer nada. */
+function proximasParadas(plano, ref, ctx) {
+  const abertas = plano.filter(M.preventivaAberta);
+  const ate = M.somaDias(ref, 13);
+  const marcadas = abertas.filter(p => p.dia_parada && p.dia_parada >= ref && p.dia_parada <= ate);
+  const andando = abertas.filter(p => p.em_andamento);
+  if (!marcadas.length && !andando.length) {
+    return el("p", { class: "nota pp-nada" }, "Nenhuma parada marcada nos próximos 14 dias.");
+  }
+  const dias = [...new Set([...(andando.length ? [ref] : []), ...marcadas.map(p => p.dia_parada)])].sort();
+  const SEMANA = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"];
+  const chipFrota = (p, extra = "") => el("button", { type: "button", class: "pp-frota" + extra,
+    title: `${p.frota} · ${p.plano || "preventiva"}${p.em_andamento ? " · em andamento" : ""}`,
+    onclick: () => abrirFichaPrev(p.id, ctx) }, el("b", {}, p.frota), " ", el("span", {}, p.plano || ""));
+  const faixa = el("div", { class: "pp-faixa" }, dias.map(d => {
+    const doDia = marcadas.filter(p => p.dia_parada === d && !p.em_andamento).sort((a, b) => natural(a.frota, b.frota));
+    const agora = d === ref ? andando : [];
+    return el("div", { class: "pp-dia" + (d === ref ? " hoje" : "") + (doDia.length || agora.length ? "" : " livre") },
+      el("div", { class: "pp-cab" }, el("b", {}, SEMANA[M.data(d).getUTCDay()]), " ", brCurto(d),
+        d === ref ? el("span", { class: "tag" }, "hoje") : null),
+      agora.length ? el("span", { class: "pp-rot" }, "em andamento") : null,
+      agora.map(p => chipFrota(p, " andando")),
+      agora.length && doDia.length ? el("span", { class: "pp-rot" }, "parada hoje") : null,
+      doDia.map(p => chipFrota(p)));
+  }));
+  return el("div", {}, faixa, !marcadas.length
+    ? el("p", { class: "nota pp-nada" }, "Nenhuma parada nova marcada nos próximos 14 dias.") : null);
+}
+
+/** A linha do mês: quanto saiu, quanto venceu, e quanto do mês já passou. */
+function linhaDoMes(r, mes, ref) {
+  const [ano, m] = mesDoPlano(mes).split("-").map(Number);
+  const noMes = ano && ref.slice(0, 7) === mesDoPlano(mes);
+  const diasMes = ano ? new Date(Date.UTC(ano, m, 0)).getUTCDate() : 30;
+  const hojeNoMes = Number(ref.slice(8, 10));
+  const pctFeito = Math.round(r.pct_realizadas * 100);
+  const pctMes = noMes ? Math.round(hojeNoMes * 100 / diasMes) : null;
+  return el("div", { class: "mes-linha" },
+    el("div", { class: "ml-texto" },
+      el("b", {}, `${r.realizadas} de ${r.preventivas}`), " realizadas",
+      r.vencidas ? [" · ", el("span", { class: "ml-venc" }, el("b", {}, String(r.vencidas)), ` vencida${r.vencidas === 1 ? "" : "s"}`)] : null,
+      " · ", `${r.frotas} frota${r.frotas === 1 ? "" : "s"}`, " · ", `${String(r.hh).replace(".", ",")} HH previstos`,
+      noMes ? el("span", { class: "seg" }, ` · ${diasMes - hojeNoMes} dia${diasMes - hojeNoMes === 1 ? "" : "s"} para acabar o mês`) : null),
+    el("div", { class: "ml-trilho", title: noMes ? `${pctFeito}% realizadas · ${pctMes}% do mês passou` : `${pctFeito}% realizadas` },
+      el("span", { class: "ml-cheio", style: `width:${pctFeito}%` }),
+      noMes ? el("i", { class: "ml-hoje", style: `left:${pctMes}%` }) : null));
+}
+
 // ── a tabela de uma seção ───────────────────────────────────────────────────
 
 const data = (iso, cls = "") => iso
@@ -571,7 +770,8 @@ function tabelaPrev(itens, ctx, ref) {
         p.reprog_parada ? el("div", { class: "tag reprog", title: `primeira data ${br(p.parada_orig)}` +
           (p.motivo_parada ? ` · ${p.motivo_parada}` : "") }, `↻ ${p.reprog_parada}×`) : null),
       el("td", { class: "c-onde" }, p.onde_fazer || el("span", { class: "seg" }, "—")),
-      el("td", { class: "c-os" }, p.os ? el("span", { class: "os" }, p.os) : el("span", { class: "seg" }, "—"),
+      el("td", { class: "c-os" }, p.os ? el("span", { class: "os" }, p.os)
+        : !p.cancelada && pessoas.pode("parada") ? campoOSPrev(p) : el("span", { class: "seg" }, "—"),
         // onde a OS preventiva está na Programação (ligação com o plano)
         (() => {
           const a = ev.atividadeDaPreventiva(p);
@@ -634,7 +834,7 @@ const ORDEM_SIT = ["Parada passou, sem baixa", "Conflito: Operação depois do p
   "Passa para o mês seguinte", "Cancelada"];
 
 const estado = { mes: "", busca: "", situacoes: new Set(), foraAberto: false,
-  vista: "plano", tipoMud: "" };
+  vista: "plano", tipoMud: "", filaAberta: new Set() };
 
 export async function montar(raiz, ctx, params = new URLSearchParams()) {
   if (["plano", "painel", "mudancas"].includes(params.get("v"))) estado.vista = params.get("v");
@@ -693,16 +893,11 @@ export async function montar(raiz, ctx, params = new URLSearchParams()) {
     const fora = doMes.filter(p => p.fora).sort((a, b) => natural(a.frota, b.frota));
     const r = M.resumoPreventivas(doMes, ref);
 
-    // ── os números do alto da aba
-    corpo.append(el("div", { class: "kpis" },
-      kpi("Preventivas", r.preventivas, `a fazer no mês · ${r.frotas} frotas`),
-      kpi("Com liberação", r.com_data, "disponível agora ou com data"),
-      kpi("Sem liberação", r.sem_data, "aguardando a operação", r.sem_data ? "hoje" : ""),
-      kpi("Parada programada", r.parada_marcada, "data definida pelo PCM", r.parada_marcada ? "andando" : ""),
-      kpi("Conflitos de data", r.conflitos, "liberação após o prazo", r.conflitos ? "vencida" : ""),
-      kpi("Vencidas", r.vencidas, "pelo plano ou pelo prazo", r.vencidas ? "vencida" : ""),
-      kpi("Realizadas", r.realizadas, `${Math.round(r.pct_realizadas * 100)}% do mês`, r.realizadas ? "ok" : ""),
-      kpi("HH previsto", String(r.hh).replace(".", ","), "tempos padrão por tipo")));
+    const q = semAcento(estado.busca.trim());
+    const achou = p => !q || semAcento([p.frota, p.equipamento, p.local, p.plano, p.os, p.obs].join(" ")).includes(q);
+
+    // ── a linha do mês, no lugar das oito caixas (que continuam no Painel)
+    corpo.append(linhaDoMes(r, estado.mes, ref));
 
     // ── o que dá para ligar à Programação (o que existia antes da ligação)
     if (pessoas.pode("parada")) {
@@ -714,12 +909,31 @@ export async function montar(raiz, ctx, params = new URLSearchParams()) {
         el("button", { class: "primario-leve", onclick: () => ligarAProgramacao(doMes) }, "Ver e ligar")));
     }
 
-    // ── a faixa de situações: conta e filtra
+    // ── para fazer, e as próximas paradas
+    corpo.append(el("div", { class: "titulo-secao" }, "Para fazer",
+      el("span", { class: "n" }, "· cada linha com o botão que resolve · clique na frota para ver tudo")));
+    corpo.append(paraFazer(plano.filter(achou), ref, ctx));
+    corpo.append(el("div", { class: "titulo-secao" }, "Próximas paradas",
+      el("span", { class: "n" }, "· os próximos 14 dias")));
+    corpo.append(proximasParadas(plano.filter(achou), ref, ctx));
+
+    // ── o plano inteiro: a faixa de situações filtra, e uma tabela só
     const conta = new Map();
     for (const p of plano) {
       const s = M.situacaoPreventiva(p, ref);
       conta.set(s, (conta.get(s) || 0) + 1);
     }
+    const passa = p => achou(p) && (!estado.situacoes.size || estado.situacoes.has(M.situacaoPreventiva(p, ref)));
+    const ordem = (a, b) =>
+      ORDEM_SIT.indexOf(M.situacaoPreventiva(a, ref)) - ORDEM_SIT.indexOf(M.situacaoPreventiva(b, ref)) ||
+      String(M.venceEfetivo(a) || "9").localeCompare(String(M.venceEfetivo(b) || "9")) ||
+      natural(a.frota, b.frota);
+    const visiveis = plano.filter(passa).sort(ordem);
+    const qtd = l => l.reduce((s, p) => s + (Number(p.qtd) || 1), 0);
+
+    corpo.append(el("div", { class: "titulo-secao", id: "plano-do-mes" }, `O plano de ${rotuloMes(estado.mes).split("/")[0]}`,
+      el("span", { class: "n" }, `· ${visiveis.length} frota${visiveis.length === 1 ? "" : "s"}, ` +
+        `${qtd(visiveis)} preventiva${qtd(visiveis) === 1 ? "" : "s"} · toque na situação para filtrar`)));
     corpo.append(el("div", { class: "faixa-sit" },
       el("button", { class: "fsit todas" + (estado.situacoes.size ? "" : " on"),
         onclick: () => { estado.situacoes.clear(); pintar(); } },
@@ -731,47 +945,7 @@ export async function montar(raiz, ctx, params = new URLSearchParams()) {
           pintar();
         },
       }, el("b", {}, String(conta.get(s))), " ", M.rotulo(s)))));
-
-    const q = semAcento(estado.busca.trim());
-    const passa = p => {
-      if (estado.situacoes.size && !estado.situacoes.has(M.situacaoPreventiva(p, ref))) return false;
-      if (q && !semAcento([p.frota, p.equipamento, p.local, p.plano, p.os, p.obs].join(" ")).includes(q)) return false;
-      return true;
-    };
-    const ordem = (a, b) =>
-      ORDEM_SIT.indexOf(M.situacaoPreventiva(a, ref)) - ORDEM_SIT.indexOf(M.situacaoPreventiva(b, ref)) ||
-      String(M.venceEfetivo(a) || "9").localeCompare(String(M.venceEfetivo(b) || "9")) ||
-      natural(a.frota, b.frota);
-    const visiveis = plano.filter(passa).sort(ordem);
-
-    const comPCM = visiveis.filter(p => M.esperandoQuem(p, ref) === "PCM");
-    const comOp = visiveis.filter(p => M.esperandoQuem(p, ref) === "Operação");
-    const andando = visiveis.filter(p => M.preventivaAberta(p) && !M.esperandoQuem(p, ref));
-    const fechadas = visiveis.filter(p => !M.preventivaAberta(p));
-
-    const qtd = l => l.reduce((s, p) => s + (Number(p.qtd) || 1), 0);
-    const secao = (tit, explica, itens, cls = "") => {
-      if (!itens.length) return null;
-      return el("section", { class: "sec-prev " + cls },
-        el("div", { class: "titulo-secao" }, tit,
-          el("span", { class: "n" }, `· ${itens.length} frota${itens.length === 1 ? "" : "s"}, ` +
-            `${qtd(itens)} preventiva${qtd(itens) === 1 ? "" : "s"}`)),
-        explica ? el("p", { class: "nota" }, explica) : null,
-        tabelaPrev(itens, ctx, ref));
-    };
-
-    if (!visiveis.length) corpo.append(vazio("Nada com estes filtros."));
-    // Seção sem item volta null — e `append(null)` escreve "null" na tela.
-    corpo.append(...[
-      secao("Aguardando o PCM — programar a parada",
-        "A operação já informou a liberação da frota (ou a parada passou e falta a baixa). " +
-        "Falta o PCM definir a data da parada.", comPCM, "pcm"),
-      secao("Aguardando a operação — informar a liberação da frota",
-        "Sem essa informação, a manutenção não consegue programar a parada.", comOp, "op"),
-      secao("Em execução — parada programada ou em andamento", "", andando),
-      secao("Encerradas no mês — realizadas, adiadas e canceladas",
-        "Adiada corresponde ao Status Reprogramada da planilha e não entra na contagem acima.", fechadas),
-    ].filter(Boolean));
+    corpo.append(visiveis.length ? tabelaPrev(visiveis, ctx, ref) : vazio("Nada com estes filtros."));
 
     if (fora.length && !estado.situacoes.size) {
       const det = el("details", { class: "outros", open: estado.foraAberto },

@@ -10,7 +10,7 @@ import * as ev from "../eventos.js";
 import * as M from "../modelo.js";
 import * as pessoas from "../pessoas.js";
 import { el, caixa, campo, confirmar, erro, avisar } from "../ui.js";
-import { concluir, reprogramar, devolverParaCarteira, justificar } from "./comum.js";
+import { concluir, reprogramar, devolverParaCarteira, justificar, anotarOS } from "./comum.js";
 import { concluirMov, aprovar, devolver, prometerData, cancelarMov, editarMov, tituloMov } from "./movimentacoes.js";
 import { informarDisponibilidade, marcarParada, darPorFeita, passarParaOMesSeguinte,
   cancelarPrev, andamento, reabrirPrev, editarPreventiva } from "./preventivas.js";
@@ -70,6 +70,10 @@ export async function menuAtividade(a, ctx) {
     op.push({ chave: "reabrir", rotulo: "Reabrir", explica: "remove a data de conclusão" });
   }
   if (pode("editar_atividade") && !a.cancelada) {
+    op.push({ chave: "os", rotulo: a.os ? "Trocar a OS" : "Anotar a OS",
+      explica: M.aberta(a) ? "o número da OS do Protheus" : "vale também para a já concluída" });
+  }
+  if (pode("editar_atividade") && !a.cancelada) {
     op.push({ chave: "justificar", rotulo: a.motivo ? "Alterar a justificativa" : "Justificar",
       explica: "motivo do atraso e responsável" });
   }
@@ -91,6 +95,7 @@ export async function menuAtividade(a, ctx) {
   if (r === "programar") return reprogramar(a, ctx);
   if (r === "tirar") return devolverParaCarteira(a, ctx);
   if (r === "justificar") return justificar(a, "atividade");
+  if (r === "os") return anotarOS([a]);
   if (r === "reabrir") return gravarCom("Reabrir",
     "A data de conclusão é removida e a atividade volta a contar na aderência.",
     () => ev.reabrir(a), "Reabrir", "Reaberta.");

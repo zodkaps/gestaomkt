@@ -71,23 +71,38 @@ export function planoVigente(prevs, ref) {
 
 // ── preventivas ─────────────────────────────────────────────────────────────
 
-export function decisoesPreventivas(prevs, ats, ref) {
-  const r = [];
+/** A data sugerida para a parada de cada preventiva que espera o PCM. Na
+ *  ordem do vencimento, e cada sugestão ocupa o dia — senão todas cairiam no
+ *  mesmo primeiro dia livre. O Painel e a aba Preventivas usam a mesma. */
+export function sugestoesDeParada(prevs, ref) {
   const plano = prevs.filter(p => !p.excluida && !p.fora);
-  const abertas = plano.filter(M.preventivaAberta);
-  const carteiraDa = frota => ats.filter(a => a.frota === frota && M.aberta(a) && !a.semana).length;
-
-  // As que esperam o PCM ganham a sugestão na ordem do vencimento, e cada
-  // sugestão ocupa o dia — senão todas cairiam no mesmo primeiro dia livre.
   const ocupados = paradasPorDia(plano);
   const sugestao = new Map();
-  for (const p of abertas.filter(x => M.esperandoQuem(x, ref) === "PCM" && !x.dia_parada &&
+  for (const p of plano.filter(x => M.preventivaAberta(x) && M.esperandoQuem(x, ref) === "PCM" && !x.dia_parada &&
     !M.situacaoPreventiva(x, ref).startsWith("Conflito"))
     .sort((a, b) => String(M.venceEfetivo(a) || "9").localeCompare(String(M.venceEfetivo(b) || "9")))) {
     const d = sugerirParada(p, plano, ref, ocupados);
     sugestao.set(p.id, d);
     ocupados.set(d, (ocupados.get(d) || 0) + 1);
   }
+  return sugestao;
+}
+
+/** A mensagem de cobrança para o grupo: as frotas sem liberação, da que vence
+ *  primeiro para a última. */
+export function textoCobranca(semLiberacao, ref) {
+  const ordem = semLiberacao.slice().sort((a, b) => String(M.venceEfetivo(a) || "9").localeCompare(String(M.venceEfetivo(b) || "9")));
+  return "Preventivas aguardando a liberação da frota:\n" +
+    ordem.map(p => `• ${p.frota}${p.plano ? " (" + p.plano + ")" : ""} — ${prazoTexto(M.venceEfetivo(p), ref)}`).join("\n") +
+    "\nPor favor, informem quando cada uma fica disponível.";
+}
+
+export function decisoesPreventivas(prevs, ats, ref) {
+  const r = [];
+  const plano = prevs.filter(p => !p.excluida && !p.fora);
+  const abertas = plano.filter(M.preventivaAberta);
+  const carteiraDa = frota => ats.filter(a => a.frota === frota && M.aberta(a) && !a.semana).length;
+  const sugestao = sugestoesDeParada(plano, ref);
 
   const semLiberacao = [];
   for (const p of abertas) {
@@ -133,9 +148,7 @@ export function decisoesPreventivas(prevs, ats, ref) {
   if (semLiberacao.length) {
     const urgentes = semLiberacao.filter(p => { const l = M.venceEfetivo(p); return l && M.difDias(ref, l) <= 5; });
     const ordem = semLiberacao.slice().sort((a, b) => String(M.venceEfetivo(a) || "9").localeCompare(String(M.venceEfetivo(b) || "9")));
-    const texto = "Preventivas aguardando a liberação da frota:\n" +
-      ordem.map(p => `• ${p.frota}${p.plano ? " (" + p.plano + ")" : ""} — ${prazoTexto(M.venceEfetivo(p), ref)}`).join("\n") +
-      "\nPor favor, informem quando cada uma fica disponível.";
+    const texto = textoCobranca(semLiberacao, ref);
     r.push({ area: "Preventivas", nivel: urgentes.length ? 1 : 2, vence: M.venceEfetivo(ordem[0]) || "",
       titulo: `Cobrar a operação: ${plural(semLiberacao.length, "frota sem liberação", "frotas sem liberação")}`,
       detalhe: (urgentes.length ? `${plural(urgentes.length, "vence", "vencem")} em até 5 dias ou já ${urgentes.length === 1 ? "venceu" : "venceram"}: ` +
@@ -199,11 +212,15 @@ export function decisoesProgramacao(ats, ref) {
       acoes: [{ rotulo: "Abrir Hoje", ir: ["hoje", ""] }] });
   }
   const { ano, semana } = M.semanaISO(ref);
-  const daSemana = vivas.filter(a => a.semana === semana && a.ano === ano && M.aberta(a));
+  // Sem OS: as em aberto e também as já concluídas — a OS do Protheus às
+  // vezes só sai depois do serviço, e sem ela o serviço não fica registrado.
+  const daSemana = vivas.filter(a => a.semana === semana && a.ano === ano);
   const semOS = daSemana.filter(a => !a.os).length;
+  const concluidasSemOS = daSemana.filter(a => !a.os && M.feita(a)).length;
   if (semOS) {
     r.push({ area: "Programação", nivel: 2, titulo: `${plural(semOS, "atividade", "atividades")} da semana sem OS`,
-      detalhe: "Sem a OS o Protheus não registra o serviço. Lançar na própria linha, com Enter.",
+      detalhe: (concluidasSemOS ? `${plural(concluidasSemOS, "já concluída", "já concluídas")}. ` : "") +
+        "Sem a OS o Protheus não registra o serviço. Lançar na própria linha, com Enter.",
       acoes: [{ rotulo: "Lançar as OS", ir: ["programacao", `s=${semana}&a=${ano}&os=sem`] }] });
   }
   const hh = M.semanaEmHH(ats, ano, semana);

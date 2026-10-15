@@ -1588,6 +1588,92 @@ ok("um clique aprova: Concluída com atraso, concluída pelo Pedro, aprovada pel
   await p.waitForTimeout(400);
 }
 
+// ── OS na atividade já concluída ──────────────────────────────────────────
+{
+  const F = "F-OC" + Date.now().toString(36).slice(-4).toUpperCase();
+  const OSA = String(300000 + Date.now() % 600000), OSB = String(Number(OSA) + 7);
+  const [ida, idb] = await p.evaluate(async f => {
+    const r = [];
+    for (const t of ["Trocar lâmpada do baú", "Fixar tampa da bateria"]) {
+      const [e] = await mkt.ev.aplicar(mkt.ev.criar({ frota: f, atividade: t, tipo: "Corretiva", origem: "Programada" }), { silencioso: true });
+      await mkt.ev.aplicar(mkt.ev.concluir(mkt.ev.porId(e.alvo), mkt.M.hoje()), { silencioso: true });
+      r.push(e.alvo);
+    }
+    location.hash = "#/programacao?m=tudo&os=sem";
+    return r;
+  }, F);
+  await p.waitForTimeout(800);
+  await p.fill(".filtros .busca", F);
+  await p.waitForTimeout(500);
+  ok("o filtro 'sem OS' mostra também as concluídas, com o campo para digitar",
+    await p.locator(`.so-tabela input.os-in[data-id="${ida}"]`).count() === 1 &&
+    await p.locator(`.so-tabela input.os-in[data-id="${idb}"]`).count() === 1);
+  await p.click(`.so-tabela input.os-in[data-id="${ida}"]`);
+  await p.keyboard.type(OSA);
+  await p.keyboard.press("Enter");
+  await p.waitForFunction(id => mkt.ev.porId(id).os, ida, { timeout: 5000 }).catch(() => {});
+  const a = await p.evaluate(id => { const x = mkt.ev.porId(id); return { os: x.os, feita: mkt.M.feita(x) }; }, ida);
+  ok("a concluída ganha a OS e continua concluída", a.os === OSA && a.feita, JSON.stringify(a));
+  await p.evaluate(async id => { const c = await import("/js/tela/comum.js"); c.abrirFicha(id, mkt.ctx); }, idb);
+  await p.waitForSelector('.caixa footer button:has-text("Anotar a OS")');
+  await p.click('.caixa footer button:has-text("Anotar a OS")');
+  await p.waitForSelector('.caixa input[placeholder="ex.: 022475"]');
+  await p.fill('.caixa input[placeholder="ex.: 022475"]', OSB);
+  await p.click('.caixa footer button:has-text("Gravar")');
+  await p.waitForTimeout(700);
+  ok("pela ficha (o caminho do celular), Anotar a OS grava na concluída",
+    (await p.evaluate(id => mkt.ev.porId(id).os, idb)) === OSB);
+  await p.evaluate(() => { document.querySelectorAll(".caixa .x").forEach(b => b.click()); });
+  await p.evaluate(() => { const b = document.querySelector(".etiquetas .limpar-filtros"); if (b) b.click(); });
+  await p.waitForTimeout(300);
+}
+
+// ── Preventivas: o que tem pra fazer, numa olhada ──────────────────────────
+{
+  const F = "F-PF" + Date.now().toString(36).slice(-4).toUpperCase();
+  const OSP = String(400000 + Date.now() % 500000);
+  const { ids, mes } = await p.evaluate(async f => {
+    const { mesDaData } = await import("/js/decisoes.js");
+    const ev = mkt.ev, ref = mkt.M.hoje(), mes = mesDaData(ref);
+    const nova = async (plano, vence) => (await ev.aplicar(ev.novaPreventiva({ ...mkt.M.moldePreventiva(), frota: f, mes, plano,
+      vence, id: undefined }), { silencioso: true }))[0].alvo;
+    const lib = await nova("1 ano", mkt.M.somaDias(ref, 9));
+    await ev.aplicar(ev.informarDisponibilidade(ev.porId(lib, "preventiva"), "agora"), { silencioso: true });
+    const sem = await nova("15 mil km", mkt.M.somaDias(ref, 12));
+    return { ids: { lib, sem }, mes };
+  }, F);
+  await p.evaluate(() => { location.hash = "#/preventivas?v=plano"; });
+  await p.waitForSelector(".pf-quadro");
+  await p.fill(".filtros .busca", F);
+  await p.waitForTimeout(500);
+  const filas = await p.evaluate(ids => ({
+    programar: !!document.querySelector(`.pf-col[data-fila="programar"] .pf-lin[data-id="${ids.lib}"]`),
+    liberar: !!document.querySelector(`.pf-col[data-fila="liberar"] .pf-lin[data-id="${ids.sem}"]`),
+    botao: (document.querySelector(`.pf-col[data-fila="programar"] .pf-lin[data-id="${ids.lib}"] button`) || {}).textContent || "",
+    semNull: !/(^|\W)null(\W|$)/.test(document.querySelector("main").innerText),
+  }), ids);
+  ok("a liberada cai em 'Programar a parada' e a sem liberação em 'Cobrar a liberação'",
+    filas.programar && filas.liberar, JSON.stringify(filas));
+  ok("o botão já diz a data sugerida para a parada", /^Programar \d\d\/\d\d$/.test(filas.botao), filas.botao);
+  ok("nenhum \"null\" solto nas filas", filas.semNull);
+  await p.click(`.pf-col[data-fila="programar"] .pf-lin[data-id="${ids.lib}"] button`);
+  await p.waitForSelector(".caixa input[type=date]");
+  const sugerida = await p.inputValue(".caixa input[type=date]");
+  ok("e abre a caixa da parada com essa data preenchida", sugerida && filas.botao.endsWith(sugerida.slice(8, 10) + "/" + sugerida.slice(5, 7)),
+    sugerida);
+  await p.click('.caixa footer button:has-text("Cancelar")');
+  await p.waitForTimeout(300);
+  // a OS da preventiva, digitada na linha da tabela
+  await p.click(`.grade.prev input.os-in[data-id="${ids.sem}"]`);
+  await p.keyboard.type(OSP);
+  await p.keyboard.press("Enter");
+  await p.waitForFunction(id => mkt.ev.porId(id, "preventiva").os, ids.sem, { timeout: 5000 }).catch(() => {});
+  ok("a OS da preventiva se digita na linha, com Enter",
+    (await p.evaluate(id => mkt.ev.porId(id, "preventiva").os, ids.sem)) === OSP);
+  await p.fill(".filtros .busca", "");
+  await p.waitForTimeout(300);
+}
+
 // ── cópias antigas do aparelho: somem da tela, e o lançado nelas vai para a certa ──
 {
   const F = "F-CP" + Date.now().toString(36).slice(-4).toUpperCase();

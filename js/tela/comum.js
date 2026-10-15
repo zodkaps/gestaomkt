@@ -38,7 +38,7 @@ export function cartao(a, { ctx, acoes = [], seletor = null, compacto = false, i
   // A situação aparece sempre, em todo cartão: é o que se quer ver numa olhada.
   tags.push(chip(M.rotulo(s), cor));
   if (a.os) tags.push(chip("OS " + a.os + (a.os_outras.length ? ` +${a.os_outras.length}` : ""), "os"));
-  else if (M.aberta(a)) tags.push(chip("sem OS", "semos"));
+  else if (!a.cancelada) tags.push(chip("sem OS", "semos"));
   // Prioridade só no cartão completo: na lista ela aparece em quase toda linha
   // e vira ruído — na planilha a coluna é oculta.
   if (!compacto && a.prioridade) tags.push(chip(a.prioridade, a.prioridade === "P1" ? "p1" : ""));
@@ -610,6 +610,30 @@ export async function gravarOS(alvos, texto) {
   } catch (e) { erro(e.message); return false; }
 }
 
+/** A OS de uma ou várias atividades, numa caixa: no celular não há a coluna
+ *  para digitar, e na concluída a OS muitas vezes só sai depois do serviço. */
+export async function anotarOS(alvos) {
+  alvos = alvos.filter(a => a && !a.cancelada && !a.excluida);
+  if (!alvos.length) return false;
+  const uma = alvos.length === 1 ? alvos[0] : null;
+  const entrada = el("input", { inputmode: "numeric", placeholder: "ex.: 022475",
+    value: uma && uma.os ? [uma.os, ...(uma.os_outras || [])].join(", ") : "" });
+  const r = await caixa({
+    titulo: uma ? (uma.os ? "Trocar a OS" : "Anotar a OS") : `OS para ${alvos.length} atividades`,
+    corpo: el("div", {},
+      uma ? el("p", {}, el("b", {}, uma.frota || "—"), " · ", uma.atividade || "—",
+        M.feita(uma) ? el("span", { class: "seg" }, uma.concluida_em ? ` · concluída em ${br(uma.concluida_em)}` : " · concluída") : null) : null,
+      campo("OS", entrada, "Duas OS na mesma atividade: separe por vírgula.")),
+    acoes: [{ rotulo: "Cancelar", valor: false },
+      { rotulo: "Gravar", classe: "primario", acao: () => {
+        if (!entrada.value.trim()) throw new Error("Digite o número da OS.");
+        return entrada.value;
+      } }],
+  });
+  if (typeof r !== "string") return false;
+  return gravarOS(alvos, r);
+}
+
 /** Os campos de "para quando": a data — que preenche semana e dia — ou a
  *  semana direto (sem dia, fica só na semana), a duração e a equipe. Mudar a
  *  semana ou o dia acerta a data, e o contrário também.
@@ -816,6 +840,9 @@ export async function abrirFicha(id, ctx) {
       await ev.aplicar(ev.reabrir(a));
       avisar("Reaberta.");
     } });
+  }
+  if (pessoas.pode("editar_atividade") && !a.cancelada && !a.os) {
+    acoes.push({ rotulo: "Anotar a OS", acao: async () => { await anotarOS([a]); } });
   }
   if (pessoas.pode("editar_atividade") && !a.cancelada) {
     acoes.push({ rotulo: a.motivo ? "Alterar a justificativa" : "Justificar",
