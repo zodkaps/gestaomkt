@@ -1513,6 +1513,81 @@ ok("um clique aprova: Concluída com atraso, concluída pelo Pedro, aprovada pel
   await p.evaluate(() => { const b = document.querySelector(".etiquetas .limpar-filtros"); if (b) b.click(); });
 }
 
+// ── o quadro da Semana: arrastar e soltar ─────────────────────────────────
+{
+  const F = "F-QD" + Date.now().toString(36).slice(-4).toUpperCase();
+  const [id1, id2] = await p.evaluate(async f => {
+    const r = [];
+    for (const t of ["Trocar retrovisor LE", "Regular freio de estacionamento"]) {
+      const [e] = await mkt.ev.aplicar(mkt.ev.criar({ frota: f, atividade: t, tipo: "Corretiva", origem: "Programada" }), { silencioso: true });
+      r.push(e.alvo);
+    }
+    return r;
+  }, F);
+  await p.evaluate(() => { location.hash = "#/semana?v=quadro"; });
+  await p.waitForSelector(".quadro");
+  await p.evaluate(() => window.scrollTo(0, 0));
+  await p.fill(".q-busca", F);
+  await p.waitForTimeout(300);
+  ok("o quadro abre com a carteira à esquerda, e a busca acha a frota",
+    await p.locator(`.q-origem .q-cartao[data-id="${id1}"]`).count() === 1 &&
+    await p.locator(".q-origem .q-cartao").count() === 2);
+  await p.locator(`.q-origem .q-cartao[data-id="${id1}"]`).dragTo(p.locator('.q-dia[data-dia="Qua"]'));
+  await p.waitForTimeout(600);
+  const a1 = await p.evaluate(id => { const a = mkt.ev.porId(id); const e = [...mkt.ev.log].reverse().find(x => x.alvo === id);
+    return { dia: a.dia, semana: a.semana, tipo: e.tipo, caixa: !!document.querySelector(".caixa") }; }, id1);
+  ok("da carteira para Qua: programa na hora, sem pedir motivo",
+    a1.dia === "Qua" && a1.semana != null && a1.tipo === "programada" && !a1.caixa, JSON.stringify(a1));
+  ok("a busca continua digitada depois de repintar", (await p.inputValue(".q-busca")) === F);
+  await p.locator(`.q-dia[data-dia="Qua"] .q-cartao[data-id="${id1}"]`).dragTo(p.locator('.q-dia[data-dia="Sex"]'));
+  await p.waitForSelector(".caixa input");
+  await p.click(".caixa footer button.primario");
+  await p.waitForTimeout(250);
+  ok("mudar de dia sem motivo não passa", await p.isVisible(".caixa") &&
+    (await p.evaluate(id => mkt.ev.porId(id).dia, id1)) === "Qua");
+  await p.fill(".caixa input", "peça chegou na sexta");
+  await p.click(".caixa footer button.primario");
+  await p.waitForTimeout(600);
+  const a2 = await p.evaluate(id => { const a = mkt.ev.porId(id); const e = [...mkt.ev.log].reverse().find(x => x.alvo === id);
+    return { dia: a.dia, tipo: e.tipo, motivo: e.motivo, de: e.dados.de.dia }; }, id1);
+  ok("de Qua para Sex: reprogramação com o motivo e o antes no registro",
+    a2.dia === "Sex" && a2.tipo === "reprogramada" && a2.motivo === "peça chegou na sexta" && a2.de === "Qua", JSON.stringify(a2));
+  await p.locator(`.q-dia[data-dia="Sex"] .q-cartao[data-id="${id1}"]`).dragTo(p.locator('.q-dia[data-dia="Seg"]'));
+  await p.waitForSelector(".caixa input");
+  await p.click('.caixa footer button:has-text("Cancelar")');
+  await p.waitForTimeout(300);
+  ok("desistir do motivo deixa onde estava", (await p.evaluate(id => mkt.ev.porId(id).dia, id1)) === "Sex");
+  await p.locator(`.q-dia[data-dia="Sex"] .q-cartao[data-id="${id1}"]`).dragTo(p.locator(".q-origem"));
+  await p.waitForSelector(".caixa input");
+  await p.fill(".caixa input", "volta para a carteira");
+  await p.click(".caixa footer button.primario");
+  await p.waitForTimeout(600);
+  ok("soltar na coluna da esquerda tira da programação",
+    (await p.evaluate(id => mkt.ev.porId(id).semana, id1)) == null &&
+    await p.locator(`.q-origem .q-cartao[data-id="${id1}"]`).count() === 1);
+  await p.evaluate(async id => {
+    const { ano, semana } = mkt.M.semanaAtual();
+    await mkt.ev.aplicar(mkt.ev.reprogramar(mkt.ev.porId(id), { ano, semana, dia: "Ter", dias: 1, hh: 0 }), { silencioso: true });
+    await mkt.ev.aplicar(mkt.ev.concluir(mkt.ev.porId(id), mkt.M.hoje()), { silencioso: true });
+  }, id2);
+  await p.waitForTimeout(500);
+  const feito = await p.evaluate(id => {
+    const c = document.querySelector(`.q-dia[data-dia="Ter"] .q-cartao[data-id="${id}"]`);
+    return c && { arrasta: c.getAttribute("draggable"), feito: c.classList.contains("feito") };
+  }, id2);
+  ok("a concluída aparece no dia, apagada, e não arrasta", !!feito && feito.feito && feito.arrasta !== "true", JSON.stringify(feito));
+  await p.setViewportSize({ width: 390, height: 800 });
+  await p.evaluate(() => { location.hash = "#/hoje"; });
+  await p.waitForTimeout(300);
+  await p.evaluate(() => { location.hash = "#/semana?v=quadro"; });
+  await p.waitForTimeout(700);
+  ok("no celular a Semana fica em lista, sem quadro", !(await p.locator(".quadro").count()) &&
+    !(await p.isVisible('.segmentos.so-largo')));
+  await p.setViewportSize({ width: 1280, height: 860 });
+  await p.evaluate(() => { location.hash = "#/semana?v=lista"; });
+  await p.waitForTimeout(400);
+}
+
 // ── cópias antigas do aparelho: somem da tela, e o lançado nelas vai para a certa ──
 {
   const F = "F-CP" + Date.now().toString(36).slice(-4).toUpperCase();

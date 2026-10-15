@@ -342,6 +342,34 @@ function motivosRecentes(max = 4) {
   return [...vistos.values()];
 }
 
+/** Os últimos motivos como botões: um toque preenche o campo. */
+function motivosRapidos(entrada) {
+  const recentes = motivosRecentes();
+  return recentes.length ? el("div", { class: "motivos-rapidos" },
+    el("span", { class: "seg" }, "Usados por último:"),
+    recentes.map(m => el("button", { type: "button", class: "motivo-rapido",
+      onclick: () => { entrada.value = m; entrada.focus(); } }, m))) : null;
+}
+
+/** Pede o motivo de uma reprogramação, com os últimos motivos à mão.
+ *  Devolve o texto, ou null se a pessoa desistiu. */
+export async function pedirMotivo({ titulo = "Reprogramar", corpo = null, rotulo = "Reprogramar" } = {}) {
+  const entrada = el("input", { type: "text", placeholder: "ex.: frota não chegou, peça atrasou" });
+  const r = await caixa({
+    titulo,
+    corpo: el("div", {}, corpo,
+      campo("Motivo", entrada, "Obrigatório: é reprogramação, e é o motivo que explica a aderência da semana."),
+      motivosRapidos(entrada)),
+    acoes: [{ rotulo: "Cancelar", valor: false },
+      { rotulo, classe: "primario", acao: () => {
+        const m = entrada.value.trim();
+        if (!m) throw new Error("Falta o motivo.");
+        return m;
+      } }],
+  });
+  return typeof r === "string" ? r : null;
+}
+
 /** Retirar da programação: uma ou várias atividades voltam para a carteira,
  *  sem semana e sem dia, com UM motivo para todas. Conta como reprogramação —
  *  é o que a aderência precisa saber —, por isso o motivo é obrigatório. */
@@ -352,11 +380,7 @@ export async function retirarDaProgramacao(alvos) {
 
   const entradaMotivo = el("input", { type: "text",
     placeholder: "ex.: frota em fornecedor externo, peça não chegou" });
-  const recentes = motivosRecentes();
-  const sugestoes = recentes.length ? el("div", { class: "motivos-rapidos" },
-    el("span", { class: "seg" }, "Usados por último:"),
-    recentes.map(m => el("button", { type: "button", class: "motivo-rapido",
-      onclick: () => { entradaMotivo.value = m; entradaMotivo.focus(); } }, m))) : null;
+  const sugestoes = motivosRapidos(entradaMotivo);
 
   const uma = comSemana.length === 1 ? comSemana[0] : null;
   const porFrota = [...agrupar(comSemana, a => a.frota || "—")]

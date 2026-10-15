@@ -6,13 +6,18 @@
 // agrupadas por dia — a Programação mostra a semana por frota, aqui ela se lê
 // pela agenda.
 //
-// O quadro de arrastar cartões entre dias saiu: reprogramar continua sendo pela
-// ficha ou marcando várias na Programação, sempre pedindo o motivo.
+// No computador há também o Quadro (js/tela/quadro.js): os dias em colunas,
+// a carteira ao lado, e arrastar o cartão para o dia. Mudar de dia continua
+// pedindo o motivo, como na ficha e no "Programar várias".
 
 import * as ev from "../eventos.js";
 import * as M from "../modelo.js";
 import { el, limpar, brCurto } from "../ui.js";
 import { grade, repintarMantendoFoco } from "./grade.js";
+import { quadroSemana } from "./quadro.js";
+
+// Lista ou Quadro: a escolha fica para a próxima vez que a Semana abrir.
+let modo = "lista";
 
 const n1 = v => (Math.round(v * 10) / 10).toLocaleString("pt-BR");
 const pc = v => v == null ? "—" : Math.round(v * 100) + "%";
@@ -21,6 +26,7 @@ export async function montar(raiz, ctx, params) {
   const agora = M.semanaAtual();
   let ano = Number(params.get("a")) || agora.ano;
   let semana = Number(params.get("s")) || agora.semana;
+  if (params.get("v") === "quadro" || params.get("v") === "lista") modo = params.get("v");
 
   const rotulo = el("b", {});
   const corpo = el("div", {});
@@ -32,10 +38,22 @@ export async function montar(raiz, ctx, params) {
         rotulo,
         el("button", { onclick: () => andar(1), title: "Próxima semana" }, "›")),
       el("button", { onclick: () => { ano = agora.ano; semana = agora.semana; pintar(); } }, "Semana atual"),
+      el("div", { class: "segmentos so-largo", role: "group", "aria-label": "Ver como" },
+        botaoModo("lista", "Lista"), botaoModo("quadro", "Quadro")),
       el("div", { class: "espaco" }),
       el("button", { onclick: () => ctx.ir("programacao", `m=semana&s=${semana}&a=${ano}`) },
         "Ver por frota na Programação")),
     corpo);
+
+  function botaoModo(id, nome) {
+    return el("button", { type: "button", class: "seg-op" + (modo === id ? " on" : ""), dataset: { modo: id },
+      title: id === "quadro" ? "Os dias em colunas: arraste da carteira para o dia" : "As atividades da semana em lista, por dia",
+      onclick: e => {
+        modo = id;
+        e.currentTarget.parentNode.querySelectorAll(".seg-op").forEach(b => b.classList.toggle("on", b.dataset.modo === modo));
+        pintar();
+      } }, nome);
+  }
 
   function andar(n) {
     semana += n;
@@ -51,11 +69,28 @@ export async function montar(raiz, ctx, params) {
       det ? el("div", { class: "k-det" }, det) : null);
 
   function pintar() {
+    const focarBusca = !!(document.activeElement && document.activeElement.classList.contains("q-busca"));
     limpar(corpo);
     const todas = ev.lista();
     const r = M.resultados(todas, ano, semana);
     const h = M.semanaEmHH(todas, ano, semana);
     rotulo.textContent = `${semana}/${ano} · ${brCurto(r.datas[0])} a ${brCurto(r.datas[6])}`;
+
+    // O Quadro ocupa a tela: os números da semana viram uma linha só em cima,
+    // para os dias caberem inteiros sem rolar a página no meio do arrasto.
+    // No celular não há quadro (arrastar com o dedo numa lista que rola não
+    // funciona): lá a Semana é sempre a lista.
+    if (modo === "quadro" && window.matchMedia("(min-width: 861px)").matches) {
+      corpo.append(el("p", { class: "q-resumo" },
+        el("b", {}, String(r.plano)), " programadas · ",
+        el("b", {}, String(r.concluidas_plano)), " concluídas do plano · aderência ",
+        el("b", {}, pc(r.aderencia)), " · ",
+        el("b", {}, String(r.vencidas)), ` vencida${r.vencidas === 1 ? "" : "s"} · `,
+        el("b", {}, n1(h.hh_plano + h.hh_extra)), " de ", n1(h.capacidade), " HH",
+        el("span", { class: "seg" }, " · arraste o cartão para o dia; mudar de dia pede o motivo")));
+      corpo.append(quadroSemana({ ano, semana, ctx, focarBusca }));
+      return;
+    }
 
     corpo.append(el("div", { class: "titulo-secao" }, "Nesta semana",
       el("span", { class: "n" }, "· só a oficina interna, como a planilha")));

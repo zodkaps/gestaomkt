@@ -1478,3 +1478,55 @@ tr.cat-bloco .n, .mov-grupo-tit .n { color: var(--fraco); font-weight: 500; }
 .quem-op.on { border-color: var(--fraco); background: var(--papel3); font-weight: 600; }
 .form-quem .nota { margin: 0 0 4px; font-size: 12.5px; color: var(--fraco); }
 .form-quem .segmentos { margin-top: 4px; }
+
+/* ── o quadro da semana: arrastar e soltar (js/tela/quadro.js) ─────────────
+   A carteira à esquerda e os dias em colunas. Cada coluna rola por dentro,
+   para o quadro caber na tela; a rolagem de cada uma é guardada e devolvida
+   quando o quadro se repinta depois de um lançamento. */
+@media (max-width: 860px) { .so-largo { display: none !important; } }
+.q-resumo { margin: -4px 0 10px; font-size: 13px; color: var(--fraco); }
+.q-resumo b { color: var(--texto); font-variant-numeric: tabular-nums; }
+.quadro { display: grid; grid-template-columns: 240px minmax(0, 1fr); gap: 10px; align-items: start; }
+.q-dias { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(128px, 1fr); gap: 8px;
+  overflow-x: auto; padding-bottom: 4px; }
+.q-col { display: flex; flex-direction: column; min-width: 0; min-height: 300px;
+  height: calc(100vh - var(--topo) - 118px);
+  background: var(--papel2); border: 1px solid var(--linha); border-radius: var(--raio); }
+.q-col-cab { display: flex; flex-direction: column; gap: 6px; padding: 9px 10px 8px; border-bottom: 1px solid var(--linha); }
+.q-origem .segmentos { display: flex; width: 100%; }
+.q-origem .seg-op { flex: 1 1 0; text-align: center; justify-content: center; }
+.q-dia-tit { display: flex; align-items: baseline; gap: 6px; }
+.q-dia-tit b { font-size: 13.5px; }
+.q-dia-tit span:not(.tag) { font-size: 12px; color: var(--fraco); }
+.q-dia-conta { font-size: 11.5px; color: var(--muito-fraco); }
+.q-dia.hoje .q-col-cab { box-shadow: inset 0 2px 0 var(--marca); border-radius: var(--raio) var(--raio) 0 0; }
+.q-lista { display: flex; flex-direction: column; gap: 6px; padding: 8px; overflow-y: auto; flex: 1 1 auto; }
+.q-vazio { margin: 0; padding: 18px 8px; text-align: center; font-size: 12px; color: var(--muito-fraco);
+  border: 1px dashed var(--borda); border-radius: 8px; }
+.q-mais { align-self: center; font-size: 12px; }
+
+.q-cartao { background: var(--papel); border: 1px solid var(--linha); border-radius: 8px; padding: 8px 9px;
+  font-size: 12.5px; cursor: pointer; }
+.q-cartao[draggable=true] { cursor: grab; }
+.q-cartao:hover { border-color: var(--borda); }
+.q-cartao.arrastando { opacity: .35; }
+.q-cartao.feito { opacity: .6; }
+.q-cartao.feito .q-ativ { text-decoration: line-through; text-decoration-color: var(--muito-fraco); }
+.q-cartao.prev { box-shadow: inset 3px 0 0 var(--s5); }
+.q-cab { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.q-cab b { font-size: 13px; }
+.q-cab .tag { margin-left: 0; }
+.q-os { font-size: 11px; color: var(--fraco); font-variant-numeric: tabular-nums; }
+.q-os.sem { color: var(--muito-fraco); }
+.q-ativ { margin-top: 3px; line-height: 1.35; overflow-wrap: anywhere;
+  display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+.q-pe { display: flex; align-items: center; gap: 6px; margin-top: 6px; min-width: 0; }
+.q-pe .sit { font-size: 10.5px; padding: 0 7px 0 6px; }
+.q-hh { margin-left: auto; font-size: 11px; color: var(--muito-fraco); white-space: nowrap; }
+.q-quem { margin-top: 5px; font-size: 11.5px; color: var(--fraco); }
+.q-quem .quem-btn { margin: 0; }
+
+/* soltar: a coluna embaixo do cartão acende */
+.q-col.sobre { border-color: var(--marca); background: var(--marca-clara); }
+.quadro.arrastando .q-vazio { border-color: var(--fraco); }
+:where(:root[data-tema="claro"]) :where(.q-cartao) { box-shadow: var(--sombra-cartao); }

@@ -568,6 +568,19 @@ fórmulas (ver *Os números são os da planilha*, abaixo). Antes delas vem o
   semana, sem dia), duração e equipe — e, se a frota tem a parada da preventiva
   marcada, oferece pôr cada uma **no dia da parada**. Para a que já tinha semana
   é reprogramação, e o motivo continua obrigatório.
+- **Arrastar e soltar: o Quadro da Semana.** Na Semana, no computador,
+  **Lista | Quadro**. O Quadro põe os dias em colunas (Seg a Sáb, o Dom se
+  tiver algo, e "Sem dia" se houver), cada uma com quantas tem e o HH, e à
+  esquerda a **Carteira** ou as **Vencidas** de outras semanas, com busca.
+  Arrastar da carteira para um dia **programa na hora**. Mudar de dia, ou
+  trazer uma vencida, é reprogramação: abre a caixa do **motivo** (com os
+  últimos usados à mão) e, sem motivo, não muda. Soltar de volta na coluna da
+  esquerda **tira da programação**, com motivo também. Clicar no cartão abre
+  a ficha; o **+ executante** do cartão designa sem sair do quadro. A
+  concluída fica no dia, apagada, e não arrasta. No celular não há quadro —
+  arrastar com o dedo numa lista que rola erra mais do que acerta —, e lá
+  continua o **Programar várias**. Ideia tirada do quadro de programação do
+  Melvin; o resto do controle de ativos continua no Protheus.
 - **A carteira por prioridade e idade.** Na carteira, a ordem é preventiva
   primeiro, depois P1, P2, P3, sem prioridade — e, dentro de cada uma, a que
   espera há mais tempo. Cada linha mostra a prioridade e **há N d**; passando o
@@ -1062,6 +1075,7 @@ porque toda escrita já passa por `aplicar()`.
 | `js/registro.js` | as contas do Registro: o dia de cada lançamento, o filtro, o resumo do dia e o tamanho da fita |
 | `js/pendencias.js` | lê a mensagem ou o PDF da inspeção/TOP: frota, pendências, conversa de fora, duplicadas |
 | `js/tela/colar.js` | a caixa *Colar inspeção/TOP*: conferir e lançar na carteira; lê o texto do PDF |
+| `js/tela/quadro.js` | o Quadro da Semana: dias em colunas, carteira ao lado, arrastar e soltar (mudar de dia pede motivo) |
 | `vendor/pdfjs/` | pdf.js 4.10.38 (Apache 2.0), carregado só quando alguém solta um PDF |
 | `CLAUDE.md` | as regras e a rotina que o Claude segue quando a pessoa pede pelo chat |
 | `js/tela/decidir.js` | a lista de decisões na tela, com o botão de cada uma |
