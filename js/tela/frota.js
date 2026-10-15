@@ -71,7 +71,7 @@ export async function montar(raiz, ctx, params) {
       const n = abertasPor.get(f) || 0;
       const sf = selos.get(f) || [];
       return el("button", {
-        class: "frota-chip" + (n ? "" : " sem") + (sf.some(x => x.classe === "vencida") ? " atencao" : ""),
+        class: "frota-chip" + (n ? "" : " sem"),
         // pelo endereço: o voltar (botão do alto, Alt+←, gesto do celular) traz de volta à grade
         onclick: () => ctx.ir("frota", "f=" + encodeURIComponent(f)),
       }, el("b", {}, f), el("span", {}, n ? `${n} em aberto` : "nada em aberto"),

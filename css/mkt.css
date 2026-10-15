@@ -7,7 +7,12 @@
    As cores de dado (as barras dos indicadores e as tarjas de situação) saem de
    uma paleta validada para fundo escuro: faixa de luminosidade, piso de croma,
    separação para daltonismo e contraste contra a superfície. Não foram
-   escolhidas no olho. */
+   escolhidas no olho.
+
+   Cinza é a base e cor é exceção. Número, data e texto ficam na tinta; a
+   situação vai num ponto colorido ao lado do rótulo (● Vencida, ● Urgente).
+   O azul da marca é só do botão principal, do que está selecionado e do foco.
+   Assim o vermelho continua dizendo "problema" — se tudo é vermelho, nada é. */
 
 :root {
   color-scheme: dark;
@@ -20,7 +25,7 @@
   --linha: #2c2c2a;
   --borda: #383835;
 
-  --texto: #ffffff;
+  --texto: #ececea;
   --fraco: #c3c2b7;
   --muito-fraco: #898781;
 
@@ -49,6 +54,8 @@
   --s4: #c98500;
   --s5: #d55181;
 
+  --botao: var(--papel2);
+  --campo: var(--fundo);
   --raio: 8px;
   --sombra: 0 1px 2px rgba(0, 0, 0, .5), 0 4px 14px rgba(0, 0, 0, .35);
   --menu: 232px;
@@ -56,35 +63,74 @@
   --topo: 52px;
 }
 
-/* O claro continua existindo, no botão. Não é o padrão: ele pediu escuro. */
+/* O claro, no botão ◐: o jeito dos sistemas de manutenção como o Melvin —
+   fundo cinza-azulado bem claro, cartão branco com sombra macia, texto
+   grafite, a fonte Nunito e um verde-petróleo de destaque. As cores de
+   situação são as mesmas do escuro, ajustadas para fundo claro. */
+@font-face {
+  font-family: "Nunito"; font-style: normal; font-weight: 400 800; font-display: swap;
+  src: url(../vendor/fontes/nunito-latin.woff2) format("woff2");
+}
 :root[data-tema="claro"] {
   color-scheme: light;
-  --fundo: #f9f9f7;
-  --papel: #fcfcfb;
-  --papel2: #f2f2ef;
-  --papel3: #e9e9e5;
-  --linha: #e1e0d9;
-  --borda: #c3c2b7;
-  --texto: #0b0b0b;
-  --fraco: #52514e;
-  --muito-fraco: #898781;
-  --marca: #2a78d6;
-  --marca-clara: #e8f0fa;
+  --fundo: #f4f5f9;
+  --papel: #ffffff;
+  --papel2: #f4f6fa;
+  --papel3: #e9ecf2;
+  --linha: #e7eaf0;
+  --borda: #d3d9e1;
+  --texto: #313a46;
+  --fraco: #5f6b77;
+  --muito-fraco: #7a8591;
+  --marca: #0e7c76;
+  --marca-clara: #e3f2f1;
   --ok: #0ca30c;          --ok-fundo: #e4f5e4;
   --ok-tarde: #ec835a;    --ok-tarde-fundo: #fcece5;
   --vencida: #d03b3b;     --vencida-fundo: #fbe9e9;
   --hoje: #a1700a;        --hoje-fundo: #fdf3dc;
   --andando: #2a78d6;     --andando-fundo: #e8f0fa;
-  --programada: #52514e;  --programada-fundo: #eeeeea;
-  --carteira: #52514e;    --carteira-fundo: #f0f0ec;
-  --cancelada: #898781;   --cancelada-fundo: #f2f2ef;
-  --ctx: #c9c8c1;
+  --programada: #5f6b77;  --programada-fundo: #eef1f5;
+  --carteira: #7a8591;    --carteira-fundo: #f0f2f6;
+  --cancelada: #7a8591;   --cancelada-fundo: #f2f4f7;
+  --ctx: #c9ced6;
   --p1: #d03b3b;          --p1-fundo: #fbe9e9;
   --s1: #2a78d6; --s2: #eb6834; --s3: #1baf7a; --s4: #eda100; --s5: #e87ba4;
-  --sombra: 0 1px 2px rgba(11, 11, 11, .06), 0 2px 8px rgba(11, 11, 11, .05);
+  --botao: #ffffff;
+  --campo: #ffffff;
+  --raio: 10px;
+  --sombra: 0 1px 2px rgba(49, 58, 70, .05), 0 4px 18px rgba(49, 58, 70, .07);
+  --sombra-cartao: 0 1px 2px rgba(49, 58, 70, .04), 0 2px 12px rgba(49, 58, 70, .06);
 }
+:root[data-tema="claro"] body { font-family: "Nunito", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+/* Cartões: a sombra macia separa do fundo. Em :where(), sem peso nenhum,
+   para não passar por cima de quem já usa box-shadow (a faixa da preventiva,
+   o cartão marcado). */
+:where(:root[data-tema="claro"]) :where(.painel, .kpi, .grande, .area-card, .g-card, .tabela, .grade, .decisoes,
+  .cartao-num, .frota-chip, .at, .progresso, .resumo-dia, .selo-fechamento, .faixa-ligar,
+  .resumo-frota > *, .diag-item, .colar-bloco) { box-shadow: var(--sombra-cartao); }
+:root[data-tema="claro"] #menu a.ativo { background: var(--marca-clara); color: var(--marca); }
+:root[data-tema="claro"] #menu a.ativo .cont { color: var(--marca); background: var(--papel); }
+:root[data-tema="claro"] .grade th, :root[data-tema="claro"] .tabela th { color: var(--fraco); }
 
 * { box-sizing: border-box; }
+
+/* O ponto de situação: 6px, na frente do rótulo. Quem usa define --dot. */
+.chip.ok::before, .chip.ok-tarde::before, .chip.vencida::before, .chip.hoje::before, .chip.p1::before,
+.chip.prio-alta::before, .tag.p1::before, .tag.prev::before, .chip.prev::before,
+.conta .c-venc::before, .area-card .a-lin b.t-vencida::before, .area-card .a-lin b.t-hoje::before,
+.kpi.vencida .k-rot::before, .kpi.hoje .k-rot::before,
+.grande.vencida .g-tit::before, .grande.hoje .g-tit::before, .grande.ok .g-tit::before,
+.cartao-num.alerta .r::before, .resumo-frota .alerta .r-val::before {
+  content: ""; display: inline-block; width: 6px; height: 6px; border-radius: 50%;
+  background: var(--dot); margin-right: 6px; vertical-align: 1px; flex: none;
+}
+.chip.ok, .grande.ok { --dot: var(--ok); }
+.chip.ok-tarde { --dot: var(--ok-tarde); }
+.chip.vencida, .frota-chip .selo.vencida, .conta .c-venc, .area-card .a-lin b.t-vencida,
+.kpi.vencida, .grande.vencida, .cartao-num.alerta, .resumo-frota .alerta { --dot: var(--vencida); }
+.chip.hoje, .chip.prio-alta, .area-card .a-lin b.t-hoje, .kpi.hoje, .grande.hoje { --dot: var(--hoje); }
+.chip.p1, .tag.p1 { --dot: var(--p1); }
+.tag.prev, .chip.prev, .frota-chip .selo.prev { --dot: var(--s5); }
 
 body {
   margin: 0;
@@ -158,7 +204,7 @@ code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: .
 #quem-topo { display: none; }
 .chip-topo { display: inline-flex; align-items: center; gap: 7px; padding: 4px 8px 4px 4px; border-radius: 999px; }
 .chip-topo .av {
-  width: 28px; height: 28px; border-radius: 50%; background: var(--marca); color: #fff;
+  width: 28px; height: 28px; border-radius: 50%; background: var(--papel3); color: var(--texto);
   display: grid; place-items: center; font-size: 12px; font-weight: 700;
 }
 .chip-topo .nome { font-size: 13px; font-weight: 600; color: var(--texto); }
@@ -225,7 +271,7 @@ code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: .
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap; border-bottom: 1px solid var(--linha); margin-bottom: 4px; }
 .cm-item { display: flex; align-items: center; gap: 10px; width: 100%; text-align: left;
   padding: 7px 10px; border: 0; border-radius: 6px; background: transparent; color: var(--texto); font-size: 13px; }
-.cm-item:hover, .cm-item:focus-visible { background: var(--marca-clara); outline: none; }
+.cm-item:hover, .cm-item:focus-visible { background: var(--papel2); outline: none; }
 .cm-item.perigo { color: var(--vencida); }
 .cm-atalho { margin-left: auto; font-size: 11px; color: var(--muito-fraco); }
 .cm-sep { height: 1px; background: var(--linha); margin: 4px 6px; }
@@ -274,7 +320,7 @@ main { padding: 16px 18px 28px; flex: 1 1 auto; max-width: 1500px; width: 100%; 
 button, .botao {
   font: inherit; font-size: 13px;
   padding: 6px 12px; border-radius: 6px;
-  border: 1px solid var(--borda); background: var(--papel2);
+  border: 1px solid var(--borda); background: var(--botao);
   color: var(--texto); cursor: pointer;
   display: inline-flex; align-items: center; gap: 6px; white-space: nowrap;
 }
@@ -291,7 +337,7 @@ button.grande { padding: 10px 16px; font-size: 14.5px; }
 input, select, textarea {
   font: inherit; font-size: 13.5px;
   padding: 6px 9px; border-radius: 6px;
-  border: 1px solid var(--borda); background: var(--fundo);
+  border: 1px solid var(--borda); background: var(--campo);
   color: var(--texto); width: 100%; min-width: 0;
 }
 input:focus, select:focus, textarea:focus { outline: 2px solid var(--marca); outline-offset: -1px; }
@@ -332,8 +378,7 @@ textarea { min-height: 70px; resize: vertical; }
 .cartao-num .v { font-size: 25px; font-weight: 650; line-height: 1.1; }
 .cartao-num .r { font-size: 11.5px; color: var(--fraco); margin-top: 2px; }
 .cartao-num .d { font-size: 11px; color: var(--muito-fraco); margin-top: 3px; }
-.cartao-num.alerta .v { color: var(--vencida); }
-.cartao-num.bom .v { color: var(--ok); }
+
 
 /* ── tabela densa ──────────────────────────────────────────────────────── */
 
@@ -366,7 +411,6 @@ textarea { min-height: 70px; resize: vertical; }
 .lista { display: flex; flex-direction: column; gap: 8px; }
 .at {
   background: var(--papel); border: 1px solid var(--linha);
-  border-left: 3px solid var(--borda);
   border-radius: var(--raio); padding: 9px 11px;
   display: flex; gap: 10px; align-items: flex-start;
 }
@@ -376,13 +420,15 @@ textarea { min-height: 70px; resize: vertical; }
 .at .sub { font-size: 12px; color: var(--fraco); margin-top: 2px; overflow-wrap: anywhere; }
 .at .tags { display: flex; gap: 5px; flex-wrap: wrap; margin-top: 6px; }
 .at .acoes { display: flex; flex-direction: column; gap: 5px; align-items: stretch; }
+/* Numa lista, o botão de cada cartão é cinza: azul em todos virava uma
+   coluna de azul. O azul fica para o botão principal da tela (+ Nova). */
+.at .acoes button.primario { background: var(--papel3); border-color: var(--borda); color: var(--texto); font-weight: 650; }
+.at .acoes button.primario:hover { filter: none; border-color: var(--fraco); }
 .at.sel { outline: 2px solid var(--marca); }
 /* marcar no cartão: caixa grande, para o dedo */
 .at > input.sel-item { width: 22px; height: 22px; margin: 1px 0 0; flex: none; accent-color: var(--marca); }
 .at.marcada { border-color: var(--marca); background: var(--marca-clara); }
 .bloco-cel input.sel-bloco { width: 20px; height: 20px; margin: 0 8px 0 0; vertical-align: middle; accent-color: var(--marca); }
-.at.vencida { border-left-color: var(--vencida); }
-.at.hoje { border-left-color: var(--hoje); }
 .at.cancelada { opacity: .6; }
 .at.feito .tit { text-decoration: line-through; text-decoration-color: var(--muito-fraco); }
 
@@ -399,14 +445,10 @@ textarea { min-height: 70px; resize: vertical; }
   background: var(--papel2); color: var(--fraco);
   border: 1px solid var(--linha); white-space: nowrap; font-weight: 600;
 }
-.chip.ok { color: var(--ok); background: transparent; }
-.chip.ok-tarde { color: var(--ok-tarde); background: transparent; }
-.chip.vencida { background: var(--vencida-fundo); color: var(--vencida); border-color: transparent; }
-.chip.hoje { background: var(--hoje-fundo); color: var(--hoje); border-color: transparent; }
+.chip.ok, .chip.ok-tarde, .chip.vencida, .chip.hoje, .chip.p1 { background: transparent; color: var(--texto); }
 .chip.andando, .chip.programada, .chip.carteira, .chip.cancelada { background: var(--papel2); color: var(--fraco); }
-.chip.p1 { background: var(--p1-fundo); color: var(--p1); border-color: transparent; }
 .chip.os { font-variant-numeric: tabular-nums; }
-.chip.semos { color: var(--hoje); background: transparent; border-color: var(--hoje); }
+.chip.semos { color: var(--fraco); background: transparent; border: 1px dashed var(--borda); }
 .chip.reprog { color: var(--fraco); background: transparent; }
 
 /* ── seções ────────────────────────────────────────────────────────────── */
@@ -450,9 +492,9 @@ h2.mini {
 .medidor .trilho { height: 6px; background: var(--papel3); border-radius: 3px; margin: 9px 0 6px; overflow: hidden; }
 .medidor .cheio { height: 100%; border-radius: 3px; background: var(--muito-fraco); }
 .medidor .rot { font-size: 11.5px; color: var(--fraco); }
-.medidor.bom .num { color: var(--ok); }        .medidor.bom .cheio { background: var(--ok); }
-.medidor.medio .num { color: var(--hoje); }    .medidor.medio .cheio { background: var(--hoje); }
-.medidor.ruim .num { color: var(--vencida); }  .medidor.ruim .cheio { background: var(--vencida); }
+.medidor.bom .cheio { background: var(--ok); }
+.medidor.medio .cheio { background: var(--hoje); }
+.medidor.ruim .cheio { background: var(--vencida); }
 
 /* Barras: marca fina, ponta arredondada de 4px ancorada na linha de base, e
    rótulo direto em cada uma — a cor nunca carrega sozinha a identidade. */
@@ -529,15 +571,15 @@ h2.mini {
 .evento .qdo { color: var(--muito-fraco); font-size: 11px; white-space: nowrap; flex: 0 0 auto; min-width: 92px; }
 .evento .oq { flex: 1; min-width: 0; overflow-wrap: anywhere; }
 .evento .oq b { font-weight: 650; }
-.evento .oq .mot { color: var(--hoje); }
+.evento .oq .mot { color: var(--fraco); font-style: italic; }
 
 /* ── importação ────────────────────────────────────────────────────────── */
 
 .previa { display: flex; flex-direction: column; gap: 10px; }
-.grupo { border: 1px solid var(--linha); border-radius: var(--raio); background: var(--papel2); padding: 10px; }
-.grupo > summary { cursor: pointer; font-weight: 600; font-size: 13px; }
-.grupo .corpo { margin-top: 9px; max-height: 300px; overflow: auto; }
-.grupo.aviso-grupo { border-color: var(--hoje); background: var(--hoje-fundo); }
+details.grupo { border: 1px solid var(--linha); border-radius: var(--raio); background: var(--papel2); padding: 10px; }
+details.grupo > summary { cursor: pointer; font-weight: 600; font-size: 13px; }
+details.grupo .corpo { margin-top: 9px; max-height: 300px; overflow: auto; }
+details.grupo.aviso-grupo { border-color: var(--hoje); background: var(--hoje-fundo); }
 .mapa { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; align-items: center; }
 .mapa > span { font-size: 12.5px; }
 .solta {
@@ -615,18 +657,14 @@ h2.mini {
 .diag-item {
   display: flex; gap: 10px; align-items: flex-start;
   background: var(--papel); border: 1px solid var(--linha);
-  border-left: 3px solid var(--borda);
   border-radius: var(--raio); padding: 10px 12px;
 }
 /* A cor nunca carrega sozinha: o sinal ✓ ✗ ⚠ ? diz o mesmo sem depender dela. */
 .diag-item .sinal {
   font-size: 15px; line-height: 1.35; width: 16px; text-align: center; flex: none;
 }
-.diag-item.bom { border-left-color: var(--ok); }
 .diag-item.bom .sinal { color: var(--ok); }
-.diag-item.ruim { border-left-color: var(--vencida); }
 .diag-item.ruim .sinal { color: var(--vencida); }
-.diag-item.morno { border-left-color: var(--hoje); }
 .diag-item.morno .sinal { color: var(--hoje); }
 .diag-item.neutro .sinal { color: var(--muito-fraco); }
 .diag-item .oq { min-width: 0; flex: 1; }
@@ -728,40 +766,41 @@ textarea.sql {
 }
 .sit.ok         { --dot: var(--ok); }
 .sit.ok-tarde   { --dot: var(--ok-tarde); }
-.sit.vencida    { --dot: var(--vencida); color: var(--vencida); }
+.sit.vencida    { --dot: var(--vencida); }
 .sit.hoje       { --dot: var(--hoje); }
 .sit.andando    { --dot: var(--andando); }
 .sit.programada { --dot: var(--programada); }
 .sit.carteira   { --dot: var(--carteira); color: var(--fraco); }
 .sit.cancelada  { --dot: var(--cancelada); color: var(--muito-fraco); }
 
-/* o prazo pinta junto com a situação, como as colunas O e P da planilha */
-.grade tr.vencida .c-prazo { color: var(--vencida); font-weight: 650; }
-.grade tr.hoje .c-prazo    { color: var(--hoje); font-weight: 650; }
-.grade tr.andando .c-prazo { color: var(--andando); }
+/* o prazo de quem venceu ou vence hoje fica em negrito; a cor já está no
+   ponto da Situação, na mesma linha */
+.grade tr.vencida .c-prazo, .grade tr.hoje .c-prazo { font-weight: 650; }
 
 .grade .os { font-variant-numeric: tabular-nums; color: var(--texto); font-weight: 600; }
-.grade .sem-os { color: var(--hoje); font-size: 11.5px; }
-/* a OS que falta, digitada direto na linha: parece o "sem OS" âmbar até
-   receber o foco, e aí vira campo */
+.grade .sem-os { color: var(--muito-fraco); font-size: 11.5px; }
+/* a OS que falta, digitada direto na linha: um "sem OS" tracejado e cinza
+   até receber o foco, e aí vira campo. Na carteira quase tudo é sem OS —
+   em âmbar, a tela inteira virava alerta. */
 .grade input.os-in {
   width: 100%; min-width: 0; padding: 1px 6px; font-size: 12px; height: 24px;
-  font-variant-numeric: tabular-nums; border: 1px dashed var(--hoje);
+  font-variant-numeric: tabular-nums; border: 1px dashed var(--borda);
   background: transparent; color: var(--texto); border-radius: 5px;
 }
-.grade input.os-in::placeholder { color: var(--hoje); opacity: .9; }
-.grade input.os-in:focus { border-style: solid; background: var(--papel); outline: none;
-  box-shadow: 0 0 0 2px var(--hoje-fundo); }
+.grade input.os-in::placeholder { color: var(--muito-fraco); opacity: 1; }
+.grade input.os-in:hover { border-color: var(--fraco); }
+.grade input.os-in:focus { border-style: solid; border-color: var(--marca); background: var(--papel); outline: none;
+  box-shadow: 0 0 0 2px var(--marca-clara); }
 .grade .c-ativ .t { line-height: 1.4; }
 .grade .c-ativ .fr { font-weight: 650; }
-.grade .porque { font-size: 11.5px; color: var(--hoje); margin-top: 2px; }
+.grade .porque { font-size: 11.5px; color: var(--fraco); margin-top: 2px; }
 .grade .porque::before { content: "motivo: "; color: var(--muito-fraco); }
 .grade .porque.editavel { cursor: pointer; }
 .grade .porque.editavel:hover { text-decoration: underline; }
 .porque .quem-atrasou { color: var(--fraco); font-weight: 600; }
-button.mini.justificar { margin-top: 3px; color: var(--hoje); border-color: var(--hoje);
+button.mini.justificar { margin-top: 3px; color: var(--fraco); border-color: var(--borda);
   background: transparent; border-style: dashed; }
-button.mini.justificar:hover { background: var(--hoje-fundo); }
+button.mini.justificar:hover { background: var(--papel2); color: var(--texto); }
 .bloco-atraso { border-top: 1px solid var(--linha); margin-top: 10px; padding-top: 8px; }
 .bloco-atraso[hidden] { display: none; }
 .tag {
@@ -769,9 +808,8 @@ button.mini.justificar:hover { background: var(--hoje-fundo); }
   border-radius: 4px; background: var(--papel3); color: var(--fraco);
   vertical-align: 1px; margin-left: 3px; white-space: nowrap;
 }
-/* Extra em laranja, como a coluna Origem da planilha */
-.tag.extra { background: transparent; color: var(--ok-tarde); border: 1px solid var(--ok-tarde); }
-.tag.p1 { background: var(--p1-fundo); color: var(--p1); }
+.tag.extra { background: transparent; color: var(--fraco); border: 1px solid var(--borda); }
+.tag.p1 { background: transparent; color: var(--texto); border: 1px solid var(--borda); }
 .tag.reprog { background: transparent; color: var(--fraco); border: 1px dashed var(--borda); }
 .tag.claude { background: transparent; color: var(--fraco); border: 1px solid var(--borda); }
 .evento .autor { color: var(--fraco); font-weight: 600; }
@@ -781,8 +819,8 @@ button.mini { font-size: 11.5px; padding: 1px 8px; line-height: 1.5; }
 button.mini.baixa { color: var(--muito-fraco); background: transparent; }
 .grade tr.lin:hover button.mini.baixa { color: var(--fraco); background: var(--papel2); }
 button.mini.baixa:hover { color: var(--texto); border-color: var(--ok); }
-.sem-data, button.mini.sem-data { color: var(--hoje); font-weight: 650; }
-button.mini.sem-data { border-color: var(--hoje); background: var(--hoje-fundo); }
+.sem-data, button.mini.sem-data { color: var(--texto); font-weight: 650; }
+button.mini.sem-data { border-style: dashed; background: transparent; }
 
 /* o cabeçalho de cada bloco: a frota numa olhada */
 .grade tr.bloco td {
@@ -794,9 +832,8 @@ button.mini.sem-data { border-color: var(--hoje); background: var(--hoje-fundo);
 .bloco-cab b { font-size: 14px; font-weight: 700; }
 .bloco-cab .espaco { flex: 1; }
 .conta { font-size: 12px; color: var(--fraco); }
-.conta .c-ok { color: var(--ok); }
-.conta .c-venc { color: var(--vencida); font-weight: 600; }
-.conta .c-hoje { color: var(--hoje); }
+.conta .c-venc { color: var(--texto); font-weight: 600; }
+.conta .c-hoje { color: var(--texto); }
 .barrinha {
   display: inline-block; width: 90px; height: 6px; border-radius: 3px;
   background: var(--papel3); overflow: hidden; flex: 0 0 auto;
@@ -823,7 +860,7 @@ button.mini.sem-data { border-color: var(--hoje); background: var(--hoje-fundo);
 .fsit::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: var(--dot, transparent); }
 .fsit.ok { --dot: var(--ok); }
 .fsit.ok-tarde { --dot: var(--ok-tarde); }
-.fsit.vencida { --dot: var(--vencida); color: var(--vencida); }
+.fsit.vencida { --dot: var(--vencida); }
 .fsit.hoje { --dot: var(--hoje); }
 .fsit.andando { --dot: var(--andando); }
 .fsit.programada { --dot: var(--programada); }
@@ -858,15 +895,15 @@ button.mini.sem-data { border-color: var(--hoje); background: var(--hoje-fundo);
 }
 .seg-op.seta { padding: 6px 8px; color: var(--muito-fraco); }
 .segmentos > .seg-op:last-child { border-right: 0; }
-.seg-op.on, .seg-sem.on .seg-op[data-p] { background: var(--marca-clara); color: var(--texto); font-weight: 600; }
+.seg-op.on, .seg-sem.on .seg-op[data-p] { background: var(--papel3); color: var(--texto); font-weight: 600; }
 .filtros .agrupar { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: var(--fraco); }
 .filtros .agrupar select { min-width: 0; }
 
 .barra-sel {
   position: sticky; top: calc(var(--topo) + 6px); z-index: 3;
   display: flex; align-items: center; gap: 8px; margin-bottom: 10px;
-  background: var(--marca-clara); border: 1px solid var(--marca); border-radius: var(--raio);
-  padding: 8px 12px;
+  background: var(--papel2); border: 1px solid var(--borda); border-radius: var(--raio);
+  padding: 8px 12px; box-shadow: var(--sombra);
 }
 .barra-sel[hidden] { display: none; }
 .barra-sel .espaco { flex: 1; }
@@ -876,13 +913,13 @@ button.mini.sem-data { border-color: var(--hoje); background: var(--hoje-fundo);
 }
 
 /* Frota: todas para tocar, com as pendências de cada uma */
-.grade-frotas { display: grid; gap: 8px; grid-template-columns: repeat(auto-fill, minmax(118px, 1fr)); }
+.grade-frotas { display: grid; gap: 8px; grid-template-columns: repeat(auto-fill, minmax(144px, 1fr)); }
 .frota-chip { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; text-align: left;
   padding: 10px 12px; border-radius: var(--raio); background: var(--papel); border: 1px solid var(--linha); }
 .frota-chip b { font-size: 15px; }
-.frota-chip span { font-size: 11.5px; color: var(--hoje); }
+.frota-chip span { font-size: 11.5px; color: var(--fraco); }
 .frota-chip.sem span { color: var(--muito-fraco); }
-.frota-chip:hover { border-color: var(--marca); }
+.frota-chip:hover { border-color: var(--borda); background: var(--papel2); }
 .cabec .busca-frota { width: 180px; flex: 0 1 180px; }
 button.imprimir-bloco { margin-left: 8px; }
 
@@ -894,7 +931,7 @@ button.imprimir-bloco { margin-left: 8px; }
   background: var(--papel2); border: 1px solid var(--linha); color: var(--texto);
   max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
-.motivo-rapido:hover { border-color: var(--marca); }
+.motivo-rapido:hover { border-color: var(--fraco); }
 
 /* Preventivas: a mesma grade, com as colunas da aba Preventivas */
 .grade.prev .c-sit   { width: 170px; }
@@ -918,8 +955,7 @@ button.imprimir-bloco { margin-left: 8px; }
 @media (max-width: 1000px) { .grade.prev .c-os { display: none; } }
 button.mini.acao-pcm, button.mini.acao-op { background: transparent; color: var(--texto); }
 .sec-prev { margin-bottom: 6px; }
-.sec-prev.pcm .titulo-secao { color: var(--andando); }
-.sec-prev.op .titulo-secao  { color: var(--hoje); }
+.sec-prev .titulo-secao { color: var(--fraco); }
 .tabela.fora td { font-size: 12.5px; }
 
 /* Movimentações: a mesma grade, com as colunas da aba Movimentações */
@@ -931,12 +967,12 @@ button.mini.acao-pcm, button.mini.acao-op { background: transparent; color: var(
 .grade.mov td.c-quem { color: var(--fraco); font-size: 12px; }
 .grade.mov .c-feito { width: 112px; }
 .grade.mov .c-prio  { width: 86px; }
-.grade.mov .venceu  { color: var(--vencida); font-weight: 650; }
+.grade.mov .venceu  { font-weight: 650; }
 /* em tela estreita sai a data da solicitação (5ª coluna) */
 @media (max-width: 1280px) { .grade.mov .c-dt:nth-child(5) { display: none; } }
 
-/* prioridade da movimentação: só a alta chama atenção */
-.chip.prio-alta  { color: var(--hoje); border-color: var(--hoje); font-weight: 650; }
+/* prioridade da movimentação: só a alta chama atenção, com o ponto */
+.chip.prio-alta  { color: var(--texto); font-weight: 650; }
 .chip.prio-media { color: var(--texto); }
 .chip.prio-baixa { color: var(--muito-fraco); }
 
@@ -950,10 +986,9 @@ button.mini.acao-pcm, button.mini.acao-op { background: transparent; color: var(
 .grade .dois { display: inline-flex; gap: 4px; }
 button.mini.concluir { border-color: var(--linha); color: var(--texto); background: transparent; }
 button.mini.concluir:hover { border-color: var(--ok); color: var(--ok); background: transparent; }
-button.mini.aprovar  { border-color: var(--ok); color: var(--ok); background: var(--ok-fundo); font-weight: 650; }
-button.mini.devolver { color: var(--hoje); }
+button.mini.aprovar  { color: var(--texto); background: var(--papel3); font-weight: 650; }
+button.mini.devolver { color: var(--fraco); }
 .seg-op .n { color: var(--muito-fraco); font-variant-numeric: tabular-nums; }
-.seg-op.destaque { color: var(--andando); }
 .seg-op.destaque.on { background: var(--papel3); color: var(--texto); }
 
 /* os números do topo, como as caixas das abas Hoje e Semana */
@@ -962,25 +997,23 @@ button.mini.devolver { color: var(--hoje); }
 @media (max-width: 860px) { .kpis > :last-child:nth-child(odd) { grid-column: 1 / -1; } }
 .kpi {
   background: var(--papel); border: 1px solid var(--linha); border-radius: var(--raio);
-  padding: 10px 12px; border-top: 2px solid var(--linha);
+  padding: 10px 12px;
 }
 .kpi .k-rot { font-size: 10.5px; text-transform: uppercase; letter-spacing: .06em; color: var(--muito-fraco); font-weight: 650; hyphens: manual; }
 .kpi .k-val { font-size: 26px; font-weight: 700; line-height: 1.15; margin-top: 3px; font-variant-numeric: tabular-nums; }
 .kpi .k-det { font-size: 11.5px; color: var(--fraco); margin-top: 2px; }
-.kpi.vencida { border-top-color: var(--vencida); } .kpi.vencida .k-val { color: var(--vencida); }
-.kpi.hoje { border-top-color: var(--hoje); }  .kpi.hoje .k-val { color: var(--hoje); }
+
 
 /* Resultados: os dois números da reunião, grandes, lado a lado */
 .grandes { display: grid; gap: 12px; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); margin-bottom: 16px; }
 .grande {
   background: var(--papel); border: 1px solid var(--linha); border-radius: var(--raio);
-  padding: 14px 16px; text-align: center; border-top: 2px solid var(--linha);
+  padding: 14px 16px; text-align: center;
 }
 .grande .g-tit { font-size: 11px; text-transform: uppercase; letter-spacing: .07em; color: var(--muito-fraco); font-weight: 700; }
 .grande .g-val { font-size: 46px; font-weight: 750; line-height: 1.1; margin: 6px 0 4px; font-variant-numeric: tabular-nums; }
 .grande .g-txt { font-size: 12.5px; color: var(--fraco); line-height: 1.45; max-width: 46ch; margin: 0 auto; }
-.grande.hoje { border-top-color: var(--hoje); }       .grande.hoje .g-val { color: var(--hoje); }
-.grande.vencida { border-top-color: var(--vencida); } .grande.vencida .g-val { color: var(--vencida); }
+
 
 /* Resultados: como a semana está fechada, e o calculado de hoje ao lado */
 .selo-fechamento {
@@ -991,11 +1024,9 @@ button.mini.devolver { color: var(--hoje); }
 .selo-fechamento b { color: var(--texto); }
 .selo-fechamento .sf-texto { flex: 1 1 320px; line-height: 1.45; }
 .selo-fechamento .sf-obs { font-size: 12px; color: var(--muito-fraco); margin-top: 3px; }
-.selo-fechamento.ok { border-left-color: var(--ok); }
-.selo-fechamento.andando { border-left-color: var(--andando); }
 .selo-fechamento.hoje { border-left-color: var(--hoje); }
 .grande .g-hoje { font-size: 11.5px; color: var(--muito-fraco); margin-top: 6px; line-height: 1.4; }
-.tabela.indicadores th.c-reg, .tabela.indicadores td.c-reg { background: var(--hoje-fundo); }
+.tabela.indicadores th.c-reg, .tabela.indicadores td.c-reg { background: var(--papel2); }
 .tabela.indicadores td.fraco { color: var(--muito-fraco); }
 .tabela.indicadores td.c-como { font-size: 12px; color: var(--fraco); white-space: nowrap; }
 .tabela.indicadores .tem-obs { color: var(--muito-fraco); cursor: help; }
@@ -1017,8 +1048,7 @@ button.mini.devolver { color: var(--hoje); }
 .tabela.indicadores td.ok { color: var(--ok); font-weight: 650; }
 .tabela.indicadores td.hoje { color: var(--hoje); font-weight: 650; }
 .tabela.indicadores td.vencida { color: var(--vencida); font-weight: 650; }
-.tabela.indicadores td.c-extra { color: var(--ok-tarde); }
-.tabela.indicadores td.c-semos { color: var(--hoje); }
+.tabela.indicadores td.c-extra, .tabela.indicadores td.c-semos { color: var(--fraco); }
 details.outros { margin-top: 22px; }
 details.outros > summary {
   cursor: pointer; font-size: 13px; color: var(--fraco); padding: 10px 12px;
@@ -1035,7 +1065,7 @@ details.outros[open] > summary { margin-bottom: 12px; }
   font-size: 11.5px; text-transform: uppercase; letter-spacing: .07em; color: var(--muito-fraco);
   font-weight: 700; margin: 22px 0 8px; display: flex; align-items: center; gap: 8px;
 }
-.titulo-secao .n { color: var(--fraco); font-weight: 600; letter-spacing: 0; }
+.titulo-secao .n { color: var(--muito-fraco); font-weight: 500; letter-spacing: 0; text-transform: none; font-size: 12.5px; }
 .nota { font-size: 12px; color: var(--muito-fraco); margin: -4px 0 12px; }
 
 @media print {
@@ -1180,42 +1210,46 @@ body.entrando main { padding: 0; max-width: none; }
 /* ── painel de controle e decisões (js/tela/painel.js, js/tela/decidir.js) ──
    As decisões: uma linha por item, com o nível escrito (Urgente, Atenção,
    Oportunidade) — a cor da borda acompanha o rótulo, nunca o substitui. */
-.decisoes { display: flex; flex-direction: column; gap: 8px; margin-bottom: 18px; }
+.decisoes { display: flex; flex-direction: column; margin-bottom: 22px;
+  background: var(--papel); border: 1px solid var(--linha); border-radius: var(--raio); overflow: hidden; }
 .decisao {
-  display: grid; grid-template-columns: 128px 1fr auto; gap: 12px; align-items: start;
-  background: var(--papel); border: 1px solid var(--linha); border-left: 3px solid var(--borda);
-  border-radius: var(--raio); padding: 10px 12px;
+  display: grid; grid-template-columns: minmax(0, 1fr) auto; grid-template-areas: "cab acoes" "meio acoes";
+  column-gap: 16px; row-gap: 3px; align-items: start;
+  border-bottom: 1px solid var(--linha); padding: 12px 16px;
 }
-.decisao.n1 { border-left-color: var(--vencida); }
-.decisao.n2 { border-left-color: var(--hoje); }
-.decisao.n3 { border-left-color: var(--ok); }
-.decisao .d-cab { display: flex; flex-direction: column; align-items: flex-start; gap: 4px; }
-.decisao .d-area { font-size: 11px; color: var(--muito-fraco); }
-.decisao .d-tit { font-weight: 650; font-size: 13.5px; line-height: 1.35; }
+.decisao:last-child { border-bottom: 0; }
+.decisao:hover { background: var(--papel2); }
+.decisao .d-cab { grid-area: cab; display: flex; align-items: center; gap: 8px; }
+.decisao .d-cab .chip { border: 0; padding: 0; background: none; font-size: 11.5px; font-weight: 650; }
+.decisao .d-area { font-size: 11.5px; color: var(--muito-fraco); }
+.decisao .d-area::before { content: "·"; margin-right: 8px; }
+.decisao .d-meio { grid-area: meio; min-width: 0; }
+.decisao .d-tit { font-weight: 650; font-size: 14px; line-height: 1.35; }
 .decisao .d-det { font-size: 12.5px; color: var(--fraco); line-height: 1.45; margin-top: 2px; overflow-wrap: anywhere; }
-.decisao .d-acoes { display: flex; gap: 6px; flex-wrap: wrap; justify-content: flex-end; max-width: 300px; }
-button.primario-leve { border-color: var(--marca); color: var(--texto); }
-button.primario-leve:hover { background: var(--marca-clara); }
-.ver-mais { align-self: flex-start; }
+.decisao .d-acoes { grid-area: acoes; align-self: center; display: flex; gap: 6px; flex-wrap: wrap; justify-content: flex-end; max-width: 300px; }
+button.primario-leve { background: var(--papel3); border-color: var(--borda); color: var(--texto); font-weight: 600; }
+button.primario-leve:hover { border-color: var(--fraco); }
+.decisoes > .ver-mais { align-self: flex-start; margin: 8px 10px; }
 .decisao-vazia { padding: 10px 0 18px; }
 @media (max-width: 860px) {
-  .decisao { grid-template-columns: 1fr; gap: 6px; }
-  .decisao .d-cab { flex-direction: row; align-items: center; }
-  .decisao .d-acoes { justify-content: flex-start; max-width: none; }
+  .decisao { grid-template-columns: 1fr; grid-template-areas: "cab" "meio" "acoes"; padding: 12px 12px; }
+  .decisao .d-acoes { justify-content: flex-start; max-width: none; margin-top: 6px; }
 }
 
 .grandes.quatro { grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); }
 .grande.clicavel, .kpi.clicavel { cursor: pointer; }
 .grande.clicavel:hover, .kpi.clicavel:hover { border-color: var(--borda); background: var(--papel2); }
-.grande.ok { border-top-color: var(--ok); } .grande.ok .g-val { color: var(--ok); }
 .grande .g-val { white-space: nowrap; }
-.painel .grande .g-val { font-size: 38px; }
+/* Os quatro do Painel: alinhados à esquerda, como se lê um número */
+.painel-geral .grande { text-align: left; padding: 14px 16px 15px; }
+.painel-geral .grande .g-txt { margin: 0; }
+.painel-geral .grande .g-val { font-size: 34px; font-weight: 700; margin: 8px 0 4px; letter-spacing: -.01em; }
 /* No celular, os quatro números do Painel em duas colunas, para a lista de
  * decisões aparecer sem rolar meia tela. */
 @media (max-width: 600px) {
   .grandes.quatro { grid-template-columns: 1fr 1fr; gap: 8px; }
   .grandes.quatro .grande { padding: 10px 10px; }
-  .painel .grande .g-val { font-size: 30px; margin: 4px 0 2px; }
+  .painel-geral .grande .g-val { font-size: 28px; margin: 4px 0 2px; }
   .grandes.quatro .grande .g-tit { font-size: 10px; letter-spacing: .04em; }
   .grandes.quatro .grande .g-txt { font-size: 11.5px; }
   .titulo-secao { flex-wrap: wrap; row-gap: 2px; }
@@ -1231,8 +1265,7 @@ button.primario-leve:hover { background: var(--marca-clara); }
 .area-card .a-lin { display: flex; justify-content: space-between; gap: 10px; font-size: 13px; padding: 4px 0;
   border-bottom: 1px solid var(--linha); color: var(--fraco); }
 .area-card .a-lin b { color: var(--texto); font-variant-numeric: tabular-nums; }
-.area-card .a-lin b.t-vencida { color: var(--vencida); }
-.area-card .a-lin b.t-hoje { color: var(--hoje); }
+.area-card .a-lin:last-of-type { border-bottom: 0; }
 .area-card button { margin-top: 10px; }
 
 /* O ritmo do mês: realizadas × mês decorrido, lado a lado */
@@ -1285,16 +1318,17 @@ button.primario-leve:hover { background: var(--marca-clara); }
 
 /* Preventivas: o que ainda não conversa com a Programação */
 .faixa-ligar { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin: 0 0 14px;
-  padding: 10px 14px; border: 1px solid var(--linha); border-left: 3px solid var(--andando);
+  padding: 10px 14px; border: 1px solid var(--linha);
   border-radius: var(--raio); background: var(--papel); font-size: 13px; color: var(--fraco); }
 .faixa-ligar span { flex: 1 1 320px; }
 .faixa-ligar b { color: var(--texto); }
-.na-prog { display: block; font-size: 11px; color: var(--andando); white-space: nowrap; margin-top: 2px; }
+.na-prog { display: block; font-size: 11px; color: var(--fraco); white-space: nowrap; margin-top: 2px; }
 
 /* Preventiva: a OS que não pode ficar para trás. Cor própria (a magenta da
- * paleta, que não é cor de situação), selo e uma faixa na borda da linha. */
-.tag.prev, .chip.prev { background: color-mix(in srgb, var(--s5) 18%, transparent); color: var(--texto);
-  border: 1px solid color-mix(in srgb, var(--s5) 60%, transparent); font-weight: 650; }
+ * paleta, que não é cor de situação) no ponto do selo e numa faixa fina na
+ * borda da linha — o selo em si fica cinza, como os outros. */
+.tag.prev, .chip.prev { background: transparent; color: var(--texto);
+  border: 1px solid var(--borda); font-weight: 650; }
 tr.lin.prev > td:first-child { box-shadow: inset 3px 0 0 var(--s5); }
 .at.prev { box-shadow: inset 3px 0 0 var(--s5); }
 .fl-top.fl-prev { margin: 0 1.5mm 0 0; border-color: #8e2a5e; color: #8e2a5e; }
@@ -1302,31 +1336,30 @@ tr.lin.prev > td:first-child { box-shadow: inset 3px 0 0 var(--s5); }
 /* Programação: os filtros ligados, como etiquetas que se tiram com um clique */
 .etiquetas { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin: -4px 0 10px; font-size: 12.5px; }
 .etiqueta { display: inline-flex; align-items: center; gap: 6px; padding: 2px 6px 2px 10px; border-radius: 999px;
-  border: 1px solid var(--marca); background: var(--marca-clara); color: var(--texto); font: inherit; cursor: pointer; }
+  border: 1px solid var(--borda); background: var(--papel2); color: var(--texto); font: inherit; cursor: pointer; }
 .etiqueta .x { font-size: 15px; line-height: 1; opacity: .7; }
 .etiqueta:hover .x { opacity: 1; }
 .limpar-filtros { font-size: 12.5px; }
 .tag.idade, .chip.idade { background: transparent; border: 1px solid var(--linha); color: var(--fraco); }
-.tag.idade.velha, .chip.idade.velha { border-color: var(--hoje); color: var(--texto); }
+.tag.idade.velha, .chip.idade.velha { border-color: var(--borda); color: var(--texto); }
 
 /* Frota: os selos de cada caminhão na grade, e o resumo do alto da ficha */
-.frota-chip .selos { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 4px; }
-.frota-chip .selo { font-style: normal; font-size: 10.5px; line-height: 1.3; padding: 1px 6px; border-radius: 999px; color: var(--texto);
-  border: 1px solid var(--linha); background: var(--fundo); white-space: nowrap; }
-.frota-chip .selo.vencida { background: var(--vencida-fundo); color: var(--vencida); border-color: transparent; }
-.frota-chip .selo.prev { background: color-mix(in srgb, var(--s5) 18%, transparent);
-  border-color: color-mix(in srgb, var(--s5) 60%, transparent); }
-.frota-chip .selo.mov { border-color: var(--marca); }
-.frota-chip.atencao { border-color: color-mix(in srgb, var(--vencida) 45%, var(--linha)); }
+/* Os selos são linhas de ponto e texto, sem caixinha: cabem no quadro e,
+   se o texto for longo, quebram em vez de vazar ou cortar. */
+.frota-chip .selos { display: flex; flex-direction: column; gap: 2px; margin-top: 5px; max-width: 100%; }
+.frota-chip .selo { font-style: normal; font-size: 11px; line-height: 1.3; color: var(--fraco); }
+.frota-chip .selo.vencida { color: var(--texto); }
+.frota-chip .selo::before { content: ""; display: inline-block; width: 6px; height: 6px; border-radius: 50%;
+  background: var(--dot, var(--muito-fraco)); margin-right: 6px; vertical-align: 1px; }
+
 .resumo-frota { display: grid; gap: 8px; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); margin: -6px 0 18px; }
 .resumo-frota > * { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; text-align: left;
   padding: 9px 12px; border-radius: var(--raio); background: var(--papel); border: 1px solid var(--linha); font: inherit; color: var(--texto); }
-.resumo-frota button:hover { border-color: var(--marca); }
+.resumo-frota button:hover { border-color: var(--borda); background: var(--papel2); }
 .resumo-frota .r-rot { font-size: 11px; text-transform: uppercase; letter-spacing: .06em; color: var(--fraco); }
 .resumo-frota .r-val { font-size: 14px; font-weight: 600; }
 .resumo-frota .r-sub { font-size: 12px; color: var(--fraco); }
 .resumo-frota .prev { box-shadow: inset 3px 0 0 var(--s5); }
-.resumo-frota .alerta .r-val { color: var(--vencida); }
 .mes-prev { margin: 12px 0 6px; font-size: 12px; text-transform: uppercase; letter-spacing: .06em; color: var(--fraco); }
 .mes-prev:first-child { margin-top: 0; }
 
@@ -1340,15 +1373,14 @@ tr.lin.prev > td:first-child { box-shadow: inset 3px 0 0 var(--s5); }
 .resumo-dia .numeros { margin-bottom: 10px; }
 .resumo-dia .rd-nada { margin: 0; }
 .cartao-num.clicavel { cursor: pointer; }
-.cartao-num.clicavel:hover, .cartao-num.clicavel:focus-visible { border-color: var(--marca); }
-.cartao-num.painel .v { color: var(--marca); }
+.cartao-num.clicavel:hover, .cartao-num.clicavel:focus-visible { border-color: var(--borda); background: var(--papel2); }
 .rd-linhas { display: flex; flex-direction: column; gap: 6px; }
 .rd-linha { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
 .rd-rot { font-size: 11.5px; color: var(--fraco); min-width: 82px; }
 .rd-chip { display: inline-flex; align-items: center; gap: 6px; padding: 2px 10px; border-radius: 999px; font-size: 12.5px;
   border: 1px solid var(--linha); background: transparent; color: var(--texto); }
 .rd-chip b { font-weight: 650; color: var(--fraco); }
-.rd-chip:hover { border-color: var(--marca); }
+.rd-chip:hover { border-color: var(--fraco); }
 .dia-reg { margin-top: 14px; }
 .dia-reg .dr-cab { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; padding: 6px 0;
   border-bottom: 1px solid var(--linha); position: sticky; top: var(--topo); background: var(--fundo); z-index: 1; }
@@ -1356,8 +1388,7 @@ tr.lin.prev > td:first-child { box-shadow: inset 3px 0 0 var(--s5); }
 .dia-reg .dr-n { font-size: 12px; color: var(--fraco); }
 .dia-reg .dr-quem { font-size: 12px; color: var(--muito-fraco); }
 .dia-reg .dr-cab .espaco { flex: 1; }
-.tag.painel { background: var(--marca-clara); color: var(--texto); border: 1px solid var(--marca); }
-.tag.vinc { background: transparent; color: var(--fraco); border: 1px solid color-mix(in srgb, var(--s5) 60%, transparent); }
+.tag.painel, .tag.vinc { background: transparent; color: var(--fraco); border: 1px solid var(--borda); }
 .evento .oq .via { color: var(--fraco); font-size: 12.5px; }
 .filtros.reg select { max-width: 190px; min-width: 0; }
 .filtros.reg .busca { flex: 1 1 180px; }
@@ -1421,11 +1452,10 @@ tr.lin.prev > td:first-child { box-shadow: inset 3px 0 0 var(--s5); }
 .cat-escolha { display: flex; flex-wrap: wrap; gap: 6px; }
 .cat-op { display: inline-flex; align-items: center; gap: 6px; padding: 6px 10px; font-size: 12.5px;
   border-radius: 999px; border: 1px solid var(--linha); background: transparent; color: var(--fraco); }
-.cat-op.on { border-color: var(--marca); background: var(--marca-clara); color: var(--texto); font-weight: 600; }
-.cat-op:hover { border-color: var(--marca); }
+.cat-op:hover { border-color: var(--borda); color: var(--texto); }
+.cat-op.on { border-color: var(--fraco); background: var(--papel3); color: var(--texto); font-weight: 600; }
 .cat-ic { display: inline-block; min-width: 1em; text-align: center; opacity: .85; }
 .chip.cat { background: transparent; border: 1px solid var(--linha); color: var(--texto); }
-.chip.cat-top { border-color: var(--marca); }
 .cat-faixa { margin: -4px 0 10px; }
 .cat-faixa .rot-faixa { font-size: 12px; color: var(--fraco); margin-right: 4px; }
 tr.cat-bloco td { background: var(--papel2, var(--papel)); font-weight: 650; font-size: 12.5px; padding: 7px 10px;
@@ -1437,13 +1467,14 @@ tr.cat-bloco .n, .mov-grupo-tit .n { color: var(--fraco); font-weight: 500; }
 /* Designar o executante: o nome é botão; sem ninguém, "+ executante" */
 .quem-btn { background: transparent; border: 1px dashed transparent; border-radius: 6px; padding: 2px 6px; margin: -2px -6px;
   font: inherit; color: inherit; text-align: left; cursor: pointer; }
-.quem-btn:hover, .quem-btn:focus-visible { border-color: var(--marca); color: var(--texto); }
+.quem-btn:hover, .quem-btn:focus-visible { border-color: var(--borda); color: var(--texto); }
 .quem-btn.vazio { border-color: var(--linha); color: var(--fraco); font-size: 11.5px; margin: 0; }
 .quem-cartao { margin-top: 4px; font-size: 12.5px; }
 .quem-cartao .quem-btn { margin: 0; }
 .quem-escolha { display: flex; flex-wrap: wrap; gap: 6px; margin: 4px 0 12px; }
 .quem-op { padding: 6px 12px; border-radius: 999px; border: 1px solid var(--linha); background: transparent;
   color: var(--texto); font-size: 13px; }
-.quem-op.on { border-color: var(--marca); background: var(--marca-clara); font-weight: 600; }
+.quem-op:hover { border-color: var(--borda); }
+.quem-op.on { border-color: var(--fraco); background: var(--papel3); font-weight: 600; }
 .form-quem .nota { margin: 0 0 4px; font-size: 12.5px; color: var(--fraco); }
 .form-quem .segmentos { margin-top: 4px; }

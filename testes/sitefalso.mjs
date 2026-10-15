@@ -11,7 +11,7 @@ import { extname, join, dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const RAIZ = resolve(dirname(fileURLToPath(import.meta.url)), "..");
-const TIPOS = { ".html": "text/html", ".js": "text/javascript", ".mjs": "text/javascript", ".pdf": "application/pdf",
+const TIPOS = { ".html": "text/html", ".js": "text/javascript", ".mjs": "text/javascript", ".pdf": "application/pdf", ".woff2": "font/woff2",
   ".css": "text/css", ".json": "application/json", ".sql": "text/plain" };
 
 export function servirCopia({ nuvem, porta = 8125, pasta = "/tmp/mkt-copia-teste" }) {

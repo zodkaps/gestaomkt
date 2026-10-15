@@ -84,8 +84,9 @@ function contagem(r) {
   return el("span", { class: "conta" },
     `${r.total} atividade${r.total === 1 ? "" : "s"}`,
     el("span", { class: r.feitas ? "c-ok" : "" }, ` · ${r.feitas} concluída${r.feitas === 1 ? "" : "s"}`),
-    r.vencidas ? el("span", { class: "c-venc" }, ` · ${r.vencidas} vencida${r.vencidas === 1 ? "" : "s"}`) : null,
-    r.hoje ? el("span", { class: "c-hoje" }, ` · ${r.hoje} vence${r.hoje === 1 ? "" : "m"} hoje`) : null);
+    // o " · " fica fora, para o ponto vermelho encostar no número
+    r.vencidas ? [" · ", el("span", { class: "c-venc" }, `${r.vencidas} vencida${r.vencidas === 1 ? "" : "s"}`)] : null,
+    r.hoje ? [" · ", el("span", { class: "c-hoje" }, `${r.hoje} vence${r.hoje === 1 ? "" : "m"} hoje`)] : null);
 }
 
 // ── as células ──────────────────────────────────────────────────────────────

@@ -26,7 +26,7 @@ const estado = { area: "" };
 
 export async function montar(raiz, ctx) {
   const quando = el("span", { class: "sub" });
-  const corpo = el("div", { class: "bi painel" });
+  const corpo = el("div", { class: "bi painel-geral" });
   raiz.append(el("div", { class: "cabec" }, el("h1", {}, "Painel"), quando, el("div", { class: "espaco" }),
     pessoas.pode("programar") ? el("button", { title: "A mensagem do WhatsApp ou o PDF da inspeção/TOP vira pendências na carteira",
       onclick: async () => { const { colarPendencias } = await import("./colar.js"); colarPendencias(ctx); } },

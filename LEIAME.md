@@ -131,15 +131,33 @@ quem olha: o lançamento das 22h em Mossoró não cai no dia seguinte.
 
 ## O que as cores querem dizer
 
-A tela é quase toda neutra. A cor aparece só quando avisa algo:
+Cinza é a base e cor é exceção. Número, data e texto ficam na cor do texto; a
+situação vai num **ponto colorido ao lado do rótulo** — ● Vencida, ● Urgente,
+● Atenção —, e o rótulo diz em palavras o que o ponto diz em cor.
 
-- **vermelho**: vencida, atrasada, prazo que passou
-- **âmbar**: para hoje, sem OS, dado que pede atenção
-- **verde**: feito, com a data (o ✓)
-- o **ponto colorido** da situação é a única cor de estado: o texto fica branco
+- **vermelho**: vencida, atrasada, urgente
+- **âmbar**: para hoje, atenção
+- **verde**: feito, na meta
+- **magenta**: preventiva (a faixa fina na borda da linha e o ponto do selo)
+- **azul** (no escuro) ou **verde-petróleo** (no claro): só o botão principal
+  da tela, o item do menu em que se está e o que está marcado
+
+O que antes era colorido e deixou de ser, de propósito: os números grandes do
+Painel e dos indicadores (o ponto no título já diz se está mal), a data do
+prazo de quem venceu (fica em negrito; o ponto está na Situação, na mesma
+linha), o "sem OS" (tracejado cinza — na carteira quase tudo é sem OS, e em
+âmbar a tela inteira virava alerta), o "Extra", o "+ justificar", o motivo, os
+botões das decisões e os botões "Concluir" dos cartões. Se tudo é vermelho,
+nada é: o vermelho só funciona como aviso se for raro.
 
 Os gráficos de Resultados usam cores de série, porque é preciso distinguir as
-barras. Passar o mouse mostra o valor.
+linhas e barras. Passar o mouse mostra o valor.
+
+**O tema claro** (botão ◐ no alto) segue o jeito dos sistemas de manutenção
+como o Melvin: fundo cinza-azulado bem claro, cartão branco com sombra macia,
+texto grafite, a fonte Nunito (guardada no próprio site, em
+`vendor/fontes/`, com a licença livre OFL — funciona sem internet) e o
+verde-petróleo de destaque. É só o jeito: nada do código nem da marca deles.
 
 ### Trabalhar neste aparelho, quando o banco não responde
 
@@ -1025,6 +1043,7 @@ porque toda escrita já passa por `aplicar()`.
 |---|---|
 | `index.html` | a casca: topo, navegação, `<main>`. Nenhuma lógica. |
 | `css/mkt.css` | estilo único, celular primeiro, claro e escuro |
+| `vendor/fontes/` | a Nunito do tema claro (OFL, `Nunito-OFL.txt`) |
 | `js/app.js` | carrega a fita, escolhe a tela, cuida do aviso de backup |
 | `js/eventos.js` | **a única porta de escrita**: `aplicar`, `reconstruir`, `conferir` |
 | `js/modelo.js` | contas puras: semana ISO, prazo, situação, aderência, mix, backlog |
