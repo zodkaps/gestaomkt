@@ -59,17 +59,29 @@ export async function montar(raiz, ctx) {
         }))), devolvidas.length));
     }
 
+    // As em aberto separadas por categoria, sempre na mesma ordem — quem
+    // executa sabe onde olhar: o que é TOP, o que vai ao fornecedor, o que
+    // volta, o que é box. Dentro de cada uma, a atrasada primeiro.
     const normais = abertas.filter(m => !m.devolvida);
     if (normais.length) {
-      corpo.append(secao("Movimentações em aberto — conclua quando terminar",
-        el("div", { class: "lista" }, normais.map(m => cartaoMov(m, ctx, {
-          acoes: [el("button", { class: "primario",
-            onclick: e => { e.stopPropagation(); concluirMov(m); } }, "Concluir"),
-          // Atrasou e ninguém disse por quê: quem está no pátio é quem sabe.
-          M.movimentacaoSemJustificativa(m, hoje)
-            ? el("button", { onclick: e => { e.stopPropagation(); justificar(m, "movimentacao"); } },
-              "Justificar") : null].filter(Boolean),
-        }))), normais.length));
+      corpo.append(el("p", { class: "nota" }, "Movimentações em aberto, por categoria — conclua quando terminar."));
+      for (const c of M.CATEGORIAS_MOV) {
+        const daCat = normais.filter(m => M.categoriaMov(m) === c.id);
+        if (!daCat.length) continue;
+        const s = secao(`${c.icone}  ${c.nome}`,
+          el("div", { class: "lista" }, daCat.map(m => cartaoMov(m, ctx, {
+            categoria: false,
+            acoes: [el("button", { class: "primario",
+              onclick: e => { e.stopPropagation(); concluirMov(m); } }, "Concluir"),
+            // Atrasou e ninguém disse por quê: quem está no pátio é quem sabe.
+            M.movimentacaoSemJustificativa(m, hoje)
+              ? el("button", { onclick: e => { e.stopPropagation(); justificar(m, "movimentacao"); } },
+                "Justificar") : null].filter(Boolean),
+          }))), daCat.length);
+        s.classList.add("sec-cat");
+        s.dataset.cat = c.id;
+        corpo.append(s);
+      }
     }
 
     if (semDisp.length) {

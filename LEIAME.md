@@ -519,6 +519,18 @@ fórmulas (ver *Os números são os da planilha*, abaixo). Antes delas vem o
   - **Por executante** (Programação): escolhe os executantes, a frota e se a
     carteira entra; com *uma folha para cada executante*, cada um recebe a sua
     (agrupada por frota). Imprimir não grava nada.
+- **Movimentação por categoria.** Cada movimentação tem uma categoria: *Realizar
+  TOP*, *Teste e aferição*, *Lavagem*, *Desocupar box e pátio*, *Liberar para
+  manutenção*, *Buscar no fornecedor*, *Levar ao box ou à matriz*, *Levar ao
+  fornecedor* e *Outras* (em `M.CATEGORIAS_MOV`, tiradas do que a equipe já
+  escrevia). No formulário ela é o primeiro campo, em botões, e já preenche o
+  "O que fazer"; as sugestões de "Onde" passam a ser as daquela categoria. As
+  antigas, sem categoria, são reconhecidas pelo "o que fazer" e pelo "onde" (os
+  detalhes só contam quando os dois não dizem nada), sem regravar nada — a
+  ficha diz *(pelo texto)*. A tela Movimentação tem o filtro por categoria, com
+  a contagem, e a lista vem em blocos por categoria; no **Para você** da
+  operação, as em aberto vêm numa seção para cada categoria, sempre na mesma
+  ordem.
 - **Os filtros da Programação ficam à vista.** Cada filtro ligado (frota,
   busca, situação, só sem OS) vira uma etiqueta com ×, debaixo da barra, e
   **Limpar filtros** tira todos. O recorte continua quando se troca de tela —

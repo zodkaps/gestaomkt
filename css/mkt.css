@@ -1416,3 +1416,20 @@ tr.lin.prev > td:first-child { box-shadow: inset 3px 0 0 var(--s5); }
 .sec-acoes { display: flex; gap: 8px; justify-content: flex-end; margin: -4px 0 8px; }
 .barra-sel .dica-sel { color: var(--fraco); font-size: 12.5px; }
 .colar-quando { border: 1px solid var(--linha); border-radius: var(--raio); padding: 10px 12px 2px; margin: 0 0 12px; }
+
+/* Movimentação por categoria */
+.cat-escolha { display: flex; flex-wrap: wrap; gap: 6px; }
+.cat-op { display: inline-flex; align-items: center; gap: 6px; padding: 6px 10px; font-size: 12.5px;
+  border-radius: 999px; border: 1px solid var(--linha); background: transparent; color: var(--fraco); }
+.cat-op.on { border-color: var(--marca); background: var(--marca-clara); color: var(--texto); font-weight: 600; }
+.cat-op:hover { border-color: var(--marca); }
+.cat-ic { display: inline-block; min-width: 1em; text-align: center; opacity: .85; }
+.chip.cat { background: transparent; border: 1px solid var(--linha); color: var(--texto); }
+.chip.cat-top { border-color: var(--marca); }
+.cat-faixa { margin: -4px 0 10px; }
+.cat-faixa .rot-faixa { font-size: 12px; color: var(--fraco); margin-right: 4px; }
+tr.cat-bloco td { background: var(--papel2, var(--papel)); font-weight: 650; font-size: 12.5px; padding: 7px 10px;
+  border-top: 1px solid var(--linha); }
+tr.cat-bloco .n, .mov-grupo-tit .n { color: var(--fraco); font-weight: 500; }
+.mov-grupo-tit { margin: 12px 0 4px; font-size: 12px; font-weight: 650; text-transform: uppercase; letter-spacing: .05em; color: var(--fraco); }
+.mov-grupo-tit:first-child { margin-top: 0; }

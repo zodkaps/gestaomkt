@@ -1393,6 +1393,68 @@ ok("um clique aprova: Concluída com atraso, concluída pelo Pedro, aprovada pel
     coladas.length === 2 && coladas.every(c => c[0] === esperado.semana && c[1] === esperado.dia && !c[2]), JSON.stringify(coladas));
 }
 
+// ── movimentação por categoria ─────────────────────────────────────────────
+{
+  const F = "F-MC" + Date.now().toString(36).slice(-4).toUpperCase();
+  await p.evaluate(() => { location.hash = "#/movimentacoes"; });
+  await p.waitForTimeout(800);
+  await p.click('.cabec button:has-text("+ Nova")');
+  await p.waitForSelector(".caixa .cat-escolha");
+  await p.click('.caixa .cat-op[data-cat="top"]');
+  const acaoTop = await p.inputValue('.caixa input[placeholder^="ex.: Coletar"]');
+  ok("na nova movimentação, escolher a categoria Realizar TOP já preenche o 'O que fazer'", acaoTop === "Realizar TOP", acaoTop);
+  await p.click('.caixa .cat-op[data-cat="buscar"]');
+  const acaoBuscar = await p.inputValue('.caixa input[placeholder^="ex.: Coletar"]');
+  ok("trocar a categoria troca o texto que ela tinha posto", acaoBuscar === "Buscar", acaoBuscar);
+  await p.click('.caixa .cat-op[data-cat="top"]');
+  await p.fill('.caixa input[placeholder="ex.: F-745"]', F);
+  await p.fill('.caixa input[placeholder^="ex.: Cardan"]', "Matriz");
+  await p.click('.caixa footer button:has-text("Registrar")');
+  await p.waitForTimeout(900);
+  const criada = await p.evaluate(f => { const m = mkt.ev.lista("movimentacao").find(x => x.frota === f);
+    return m && { cat: m.categoria, acao: m.acao }; }, F);
+  ok("e grava a categoria junto", !!criada && criada.cat === "top" && criada.acao === "Realizar TOP", JSON.stringify(criada));
+
+  // mais duas da mesma frota, de outras categorias
+  await p.evaluate(async f => {
+    await mkt.ev.aplicar(mkt.ev.pedirMovimentacao({ frota: f, acao: "Coletar", destino: "Cardan Service", categoria: "buscar" }), { silencioso: true });
+    await mkt.ev.aplicar(mkt.ev.pedirMovimentacao({ frota: f, acao: "", destino: "Box de lavagem" }), { silencioso: true });
+  }, F);
+  await p.click('.segmentos .seg-op:has-text("Em aberto")');
+  await p.fill(".filtros .busca", F);
+  await p.waitForTimeout(500);
+  const tela = await p.evaluate(() => ({
+    chips: [...document.querySelectorAll(".cat-faixa .cat-fsit")].map(b => b.dataset.cat),
+    blocos: [...document.querySelectorAll(".so-tabela tr.cat-bloco")].map(t => t.dataset.cat),
+    grupos: [...document.querySelectorAll(".so-cartao .mov-grupo-tit")].map(t => t.dataset.cat) }));
+  ok("a lista separa por categoria, na ordem fixa, com o filtro de cada uma (a sem categoria vai pelo texto)",
+    tela.chips.join() === "top,lavagem,buscar" && tela.blocos.join() === "top,lavagem,buscar" &&
+    tela.grupos.join() === "top,lavagem,buscar", JSON.stringify(tela));
+  await p.click('.cat-faixa .cat-fsit[data-cat="buscar"]');
+  await p.waitForTimeout(300);
+  const soBuscar = await p.evaluate(() => ({ linhas: document.querySelectorAll(".so-tabela tr.lin").length,
+    blocos: document.querySelectorAll(".so-tabela tr.cat-bloco").length,
+    selo: (document.querySelector(".so-cartao .chip.cat") || {}).textContent || "" }));
+  ok("tocar na categoria deixa só ela, e o cartão mostra o selo", soBuscar.linhas === 1 && soBuscar.blocos === 0 &&
+    /Buscar no fornecedor/.test(soBuscar.selo), JSON.stringify(soBuscar));
+  await p.click('.cat-faixa .fsit.todas');
+  await p.fill(".filtros .busca", "");
+
+  // o Para você da operação, separado por categoria
+  const paraVoce = await p.evaluate(async f => {
+    const mod = await import("/js/tela/operacao.js");
+    const div = document.createElement("div");
+    const r = await mod.montar(div, mkt.ctx);
+    const secs = [...div.querySelectorAll("section.sec-cat")].map(x => ({ cat: x.dataset.cat,
+      tem: [...x.querySelectorAll(".at .tit")].some(t => t.textContent.startsWith(f)) }));
+    if (r && r.desmontar) r.desmontar();
+    return secs;
+  }, F);
+  const minhas = paraVoce.filter(x => x.tem).map(x => x.cat);
+  ok("no Para você, as em aberto vêm em seções por categoria", ["top", "lavagem", "buscar"].every(c => minhas.includes(c)) &&
+    paraVoce.map(x => x.cat).indexOf("top") < paraVoce.map(x => x.cat).indexOf("buscar"), JSON.stringify(paraVoce));
+}
+
 // ── cópias antigas do aparelho: somem da tela, e o lançado nelas vai para a certa ──
 {
   const F = "F-CP" + Date.now().toString(36).slice(-4).toUpperCase();

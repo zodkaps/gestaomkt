@@ -35,6 +35,13 @@ export function tituloMov(m) {
   return [m.acao, m.destino].filter(Boolean).join(" · ") || "—";
 }
 
+/** O selo da categoria: o símbolo e o nome. */
+export function chipCat(m) {
+  const c = M.categoriaMovPorId(M.categoriaMov(m));
+  return el("span", { class: "chip cat cat-" + c.id, title: m.categoria ? "Categoria" : "Categoria (pelo texto)" },
+    el("span", { class: "cat-ic", "aria-hidden": "true" }, c.icone), " ", c.nome);
+}
+
 function chipPrio(p, longo = false) {
   if (!p) return null;
   const cls = p === "Alta" ? "prio-alta" : p === "Baixa" ? "prio-baixa" : "prio-media";
@@ -43,10 +50,11 @@ function chipPrio(p, longo = false) {
 
 // ── cartão (celular, e a tela Para você) ────────────────────────────────────
 
-export function cartaoMov(m, ctx, { acoes = [] } = {}) {
+/** `categoria: false` quando o cartão já está dentro da seção da categoria. */
+export function cartaoMov(m, ctx, { acoes = [], categoria = true } = {}) {
   const s = M.situacaoMovimentacao(m);
   const atraso = M.atrasoMovimentacao(m);
-  const tags = [chip(s, M.corDe(s)), chipPrio(m.prioridade, true)].filter(Boolean);
+  const tags = [categoria ? chipCat(m) : null, chip(s, M.corDe(s)), chipPrio(m.prioridade, true)].filter(Boolean);
   if (atraso > 0) tags.push(chip(`${atraso} dia${atraso === 1 ? "" : "s"} de atraso`, "vencida"));
   if (m.devolvida && !m.chegou_em) tags.push(chip("devolvida pelo PCM", "hoje"));
   if (m.quem_prometeu && m.quem_prometeu !== "Operação") tags.push(chip(m.quem_prometeu));
@@ -79,7 +87,7 @@ export function cartaoMov(m, ctx, { acoes = [] } = {}) {
  *  escreveu antes, para digitar menos. */
 function formularioMov(m = null, sugestao = {}) {
   const todas = ev.lista("movimentacao");
-  const usados = k => [...new Set(todas.map(x => String(x[k] || "").trim()).filter(Boolean))]
+  const usados = (k, lista = todas) => [...new Set(lista.map(x => String(x[k] || "").trim()).filter(Boolean))]
     .sort((a, b) => a.localeCompare(b, "pt-BR"));
   const eFrota = el("input", { value: m ? m.frota : (sugestao.frota || ""), placeholder: "ex.: F-745" });
   const eAcao = el("input", { value: m ? m.acao || "" : "",
@@ -105,6 +113,33 @@ function formularioMov(m = null, sugestao = {}) {
   });
   marcar();
 
+  // A categoria em botões, no alto: um toque organiza a lista de quem
+  // executa. Escolher preenche o "O que fazer" (se ainda estiver vazio, ou com
+  // o texto da categoria de antes) e as sugestões de "Onde" passam a ser as já
+  // usadas nessa categoria.
+  let categoria = m ? M.categoriaMov(m) : (sugestao.categoria || "");
+  const dlOnde = el("datalist", { id: "dl-mov-onde" });
+  const sugerirOnde = () => {
+    const daCat = categoria ? todas.filter(x => M.categoriaMov(x) === categoria) : todas;
+    dlOnde.replaceChildren(...usados("destino", daCat.length ? daCat : todas).map(v => el("option", { value: v })));
+  };
+  const botoesCat = M.CATEGORIAS_MOV.map(c => el("button", { type: "button", class: "cat-op",
+    dataset: { cat: c.id }, title: c.nome,
+    onclick: () => {
+      const antes = M.categoriaMovPorId(categoria).acao;
+      categoria = c.id;
+      if (!eAcao.value.trim() || eAcao.value.trim() === antes) eAcao.value = c.acao;
+      marcarCat(); sugerirOnde(); atualizar();
+    } }, el("span", { class: "cat-ic", "aria-hidden": "true" }, c.icone), c.nome));
+  const marcarCat = () => botoesCat.forEach(b => {
+    const on = b.dataset.cat === categoria;
+    b.classList.toggle("on", on);
+    b.setAttribute("aria-pressed", on ? "true" : "false");
+  });
+  marcarCat();
+  sugerirOnde();
+  eOnde.setAttribute("list", "dl-mov-onde");
+
   const previa = el("div", { class: "previa-mov" });
   const atualizar = () => {
     const oque = [eAcao.value.trim(), eOnde.value.trim()].filter(Boolean).join(" · ");
@@ -115,13 +150,15 @@ function formularioMov(m = null, sugestao = {}) {
   atualizar();
 
   const no = el("div", { class: "form-mov" },
+    el("div", { class: "campo" }, el("span", {}, "Categoria"),
+      el("div", { class: "cat-escolha", role: "group", "aria-label": "Categoria" }, botoesCat)),
     el("div", { class: "dupla" },
       campo("Frota", comSugestoes(eFrota, frotas(), "dl-mov-frota")),
       el("div", { class: "campo" }, el("span", {}, "Prioridade"),
         el("div", { class: "segmentos prio-escolha", role: "group", "aria-label": "Prioridade" }, botoes))),
     campo("O que fazer", comSugestoes(eAcao, usados("acao"), "dl-mov-acao"),
       "a ação que a operação vai executar"),
-    campo("Onde", comSugestoes(eOnde, usados("destino"), "dl-mov-onde"),
+    campo("Onde", el("span", { class: "com-lista" }, eOnde, dlOnde),
       "para onde a frota vai, ou onde ela está"),
     el("div", { class: "tripla" },
       campo("Prazo", ePrazo, "até quando"),
@@ -135,6 +172,8 @@ function formularioMov(m = null, sugestao = {}) {
     no,
     valores: () => ({
       frota: eFrota.value.trim(),
+      // sem escolher, vale a que o texto indica — toda movimentação nova tem categoria
+      categoria: categoria || M.categoriaDoTexto([eAcao.value, eOnde.value, eDetalhes.value].join(" ")),
       acao: eAcao.value.trim(),
       destino: eOnde.value.trim(),
       para_que: eDetalhes.value.trim(),
@@ -182,6 +221,8 @@ export async function editarMov(m) {
     const novoPrazo = prazo && prazo !== m.prometida_para;
     if (!prazo && m.prometida_para) campos.prometida_para = "";
     if (novoPrazo) delete campos.quem_prometeu;        // vai junto com o prazo
+    // A categoria que só foi deduzida do texto não vira lançamento à toa.
+    if (!m.categoria && campos.categoria === M.categoriaMov(m)) delete campos.categoria;
     const e = ev.editar(m, campos, "movimentacao");
     if (e) eventos.push(e);
     if (novoPrazo) eventos.push(ev.prometer(m, prazo, v.quem_prometeu));
@@ -314,6 +355,7 @@ export async function abrirFichaMov(id, ctx) {
     el("table", { class: "tabela" },
       linha("Situação", el("span", {}, chip(s, M.corDe(s)))),
       linha("Frota", m.frota),
+      linha("Categoria", M.nomeCategoriaMov(M.categoriaMov(m)) + (m.categoria ? "" : " (pelo texto)")),
       linha("O que fazer", m.acao),
       linha("Onde", m.destino),
       linha("Prioridade", m.prioridade ? chipPrio(m.prioridade) : null),
@@ -397,7 +439,9 @@ function linhaJustificativa(m, ref) {
   return null;
 }
 
-function tabelaMov(itens, ctx, ref) {
+/** `agrupar`: uma faixa por categoria, na ordem de CATEGORIAS_MOV (os itens
+ *  já vêm ordenados assim). */
+function tabelaMov(itens, ctx, ref, { agrupar = false } = {}) {
   const d = v => v ? brCurto(v) : el("span", { class: "seg" }, "—");
   const cab = el("tr", {},
     el("th", { class: "c-sit" }, "Situação"),
@@ -410,7 +454,23 @@ function tabelaMov(itens, ctx, ref) {
     el("th", { class: "c-atr num" }, "Atraso"),
     el("th", { class: "c-quem" }, "Responsável"),
     el("th", { class: "c-feito" }, ""));
-  const corpo = el("tbody", {}, itens.map(m => {
+  const contaCat = new Map();
+  for (const m of itens) { const c = M.categoriaMov(m); contaCat.set(c, (contaCat.get(c) || 0) + 1); }
+  const faixa = (c, tag) => {
+    const cat = M.categoriaMovPorId(c);
+    const conteudo = [el("span", { class: "cat-ic", "aria-hidden": "true" }, cat.icone), " ", cat.nome,
+      el("span", { class: "n" }, ` · ${contaCat.get(c)}`)];
+    return tag === "tr" ? el("tr", { class: "bloco cat-bloco", dataset: { cat: c } }, el("td", { colspan: 10 }, conteudo))
+      : el("div", { class: "mov-grupo-tit", dataset: { cat: c } }, conteudo);
+  };
+  let catAnterior = null;
+  const corpo = el("tbody", {}, itens.flatMap(m => {
+    const linhas = [];
+    if (agrupar && M.categoriaMov(m) !== catAnterior) { catAnterior = M.categoriaMov(m); linhas.push(faixa(catAnterior, "tr")); }
+    linhas.push(linhaTabela(m));
+    return linhas;
+  }));
+  function linhaTabela(m) {
     const s = M.situacaoMovimentacao(m, ref);
     const cor = M.corDe(s);
     const atraso = M.atrasoMovimentacao(m, ref);
@@ -437,11 +497,15 @@ function tabelaMov(itens, ctx, ref) {
       el("td", { class: "c-feito" }, acaoDaLinha(m), botaoMais("movimentacao", m.id, ctx)));
     tr.addEventListener("click", cliqueLimpo(() => abrirFichaMov(m.id, ctx)));
     return tr;
-  }));
+  }
   const tabela = el("table", { class: "grade mov" }, el("thead", {}, cab), corpo);
-  const cartoes = el("div", { class: "lista" }, itens.map(m => {
+  let catCartao = null;
+  const cartoes = el("div", { class: "lista" }, itens.flatMap(m => {
     const a = acaoDaLinha(m);
-    return cartaoMov(m, ctx, { acoes: a ? [a] : [] });
+    const r = [];
+    if (agrupar && M.categoriaMov(m) !== catCartao) { catCartao = M.categoriaMov(m); r.push(faixa(catCartao, "div")); }
+    r.push(cartaoMov(m, ctx, { acoes: a ? [a] : [], categoria: !agrupar }));
+    return r;
   }));
   return el("div", { class: "grade-caixa" },
     el("div", { class: "so-tabela" }, tabela),
@@ -581,12 +645,14 @@ export async function imagemMovimentacoes(itens, rotulo) {
 
 // ── a tela ──────────────────────────────────────────────────────────────────
 
-const estado = { recorte: "", busca: "", quem: "" };
+const estado = { recorte: "", busca: "", quem: "", cat: "" };
 
 export async function montar(raiz, ctx, params) {
   // O PCM abre na fila de aprovação quando há o que aprovar; a operação, no
   // que está em aberto.
   if (params.get("v")) estado.recorte = params.get("v");
+  if (params.get("cat") != null) estado.cat = params.get("cat");
+  const categorias = el("div", { class: "faixa-sit cat-faixa" });
   const fBusca = el("input", { class: "busca", type: "search", value: estado.busca,
     placeholder: "frota, o que fazer, onde…",
     oninput: () => { estado.busca = fBusca.value; pintar(); } });
@@ -609,6 +675,7 @@ export async function montar(raiz, ctx, params) {
         : null),
     topo,
     el("div", { class: "filtros" }, recortes, fBusca),
+    categorias,
     corpo);
 
   const kpi = (rot, val, det, cls = "") =>
@@ -685,12 +752,29 @@ export async function montar(raiz, ctx, params) {
       ? atrasadas.filter(m => (m.quem_atrasou || (m.motivo_atraso || m.justificativa ? "não informado" : "__sem")) === estado.quem)
       : (OPCOES.find(([id]) => id === estado.recorte) || OPCOES[0])[2];
     const q = semAcento(estado.busca.trim());
-    const itens = base.filter(m => !q ||
+    const buscadas = base.filter(m => !q ||
       semAcento([m.frota, m.acao, m.destino, m.para_que, m.prioridade, m.quem_prometeu, m.concluida_por,
-        m.obs, m.motivo_atraso, m.quem_atrasou, m.justificativa].join(" ")).includes(q));
+        m.obs, m.motivo_atraso, m.quem_atrasou, m.justificativa, M.nomeCategoriaMov(M.categoriaMov(m))].join(" ")).includes(q));
+
+    // ── as categorias: quantas de cada uma neste recorte; tocar filtra
+    const porCat = new Map();
+    for (const m of buscadas) { const c = M.categoriaMov(m); porCat.set(c, (porCat.get(c) || 0) + 1); }
+    if (estado.cat && !porCat.has(estado.cat)) estado.cat = "";
+    limpar(categorias).append(
+      el("span", { class: "rot-faixa" }, "Categoria:"),
+      el("button", { type: "button", class: "fsit todas" + (estado.cat ? "" : " on"),
+        onclick: () => { estado.cat = ""; pintar(); } }, el("b", {}, String(buscadas.length)), " Todas"),
+      ...M.CATEGORIAS_MOV.filter(c => porCat.has(c.id)).map(c => el("button", {
+        type: "button", class: "fsit cat-fsit" + (estado.cat === c.id ? " on" : ""), dataset: { cat: c.id },
+        onclick: () => { estado.cat = estado.cat === c.id ? "" : c.id; pintar(); },
+      }, el("b", {}, String(porCat.get(c.id))), " ", el("span", { class: "cat-ic", "aria-hidden": "true" }, c.icone), " ", c.nome)));
+    categorias.hidden = !buscadas.length;
+
+    const itens = buscadas.filter(m => !estado.cat || M.categoriaMov(m) === estado.cat);
     const peso = m => { const i = ORDEM.indexOf(M.situacaoMovimentacao(m, ref)); return i < 0 ? 99 : i; };
     const prio = m => PESO_PRIO[m.prioridade] ?? 3;
-    itens.sort((a, b) => peso(a) - peso(b) || prio(a) - prio(b) ||
+    const ordemCat = m => M.CATEGORIAS_MOV.findIndex(c => c.id === M.categoriaMov(m));
+    itens.sort((a, b) => (estado.cat ? 0 : ordemCat(a) - ordemCat(b)) || peso(a) - peso(b) || prio(a) - prio(b) ||
       (a.chegou_em || b.chegou_em
         ? String(b.chegou_em || "").localeCompare(String(a.chegou_em || ""))
         : String(a.prometida_para || "9999").localeCompare(String(b.prometida_para || "9999"))));
@@ -698,6 +782,7 @@ export async function montar(raiz, ctx, params) {
     naTela.rotulo = [
       estado.quem ? `Atrasos — ${estado.quem === "__sem" ? "sem justificativa" : estado.quem}`
         : (OPCOES.find(([id]) => id === estado.recorte) || OPCOES[0])[1],
+      estado.cat ? M.nomeCategoriaMov(estado.cat) : "",
       estado.busca.trim() ? `busca "${estado.busca.trim()}"` : "",
     ].filter(Boolean).join(" · ");
 
@@ -723,7 +808,7 @@ export async function montar(raiz, ctx, params) {
       corpo.append(vazio(estado.recorte === "aprovar" ? "Nenhuma movimentação aguardando aprovação." : "Nada aqui."));
       return;
     }
-    corpo.append(tabelaMov(itens, ctx, ref));
+    corpo.append(tabelaMov(itens, ctx, ref, { agrupar: !estado.cat && porCat.size > 1 }));
   }
 
   pintar();

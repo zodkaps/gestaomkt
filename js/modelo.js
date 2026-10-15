@@ -225,6 +225,9 @@ export function moldeMovimentacao() {
     // `destino` é o "onde": para onde a frota vai, ou onde ela está; `para_que`
     // virou os detalhes. As que vieram da planilha não têm ação nem prioridade.
     acao: "", prioridade: "",
+    // A categoria (ver CATEGORIAS_MOV). Vazia nas antigas: aí vale a que o
+    // texto indica (categoriaMov), sem regravar nada.
+    categoria: "",
     pedida_em: "", prometida_para: "", chegou_em: "",
     quem_prometeu: "Operação", obs: "",
     // Conclusão e aprovação. `chegou_em` é a data em que a movimentação foi
@@ -237,6 +240,54 @@ export function moldeMovimentacao() {
     criada_em: "", fonte: "",
   };
 }
+// ── as categorias da movimentação ───────────────────────────────────────────
+//
+// Tiradas do que a equipe já escrevia no destino e no "o que fazer" ("REALIZAR
+// TOP", "Cardan Service — coletar", "Box de lavagem", "Operação — disponibilizar
+// para a preventiva"…). Cada uma traz o texto que vai no "O que fazer" quando é
+// escolhida, e as palavras pelas quais as antigas são reconhecidas — a ordem
+// importa: a primeira que casar vale ("Cardan — coletar" é buscar, não levar).
+
+export const CATEGORIAS_MOV = [
+  { id: "top", nome: "Realizar TOP", acao: "Realizar TOP", icone: "✔",
+    reconhece: /\btop\b/ },
+  { id: "teste", nome: "Teste e aferição", acao: "Realizar teste", icone: "◎",
+    reconhece: /teste de carga|\bteste\b|aferi|tacograf/ },
+  { id: "lavagem", nome: "Lavagem", acao: "Lavar", icone: "≈",
+    reconhece: /lavag|\blavar\b|lava.?jato/ },
+  { id: "desocupar", nome: "Desocupar box e pátio", acao: "Desocupar box", icone: "⇠",
+    reconhece: /liberar (os |o )?box|desocupar|ocupando|retirar frotas? que/ },
+  { id: "liberar", nome: "Liberar para manutenção", acao: "Disponibilizar para a manutenção", icone: "⚑",
+    reconhece: /disponibiliz|descarreg|liberar .*(manuten|prevent)|para (a )?preventiva/ },
+  { id: "buscar", nome: "Buscar no fornecedor", acao: "Buscar", icone: "⇦",
+    reconhece: /buscar|coletar|trazer|retirar (no|na|do|da)\b|\bpegar\b/ },
+  { id: "box", nome: "Levar ao box ou à matriz", acao: "Levar para o box", icone: "▣",
+    reconhece: /\bbox\b|borracharia|soldagem|oficina|\bmatriz\b|\binterno\b/ },
+  { id: "fornecedor", nome: "Levar ao fornecedor", acao: "Levar", icone: "⇨",
+    reconhece: /enviar|\blevar\b|mandar|cardan|\bdaf\b|molas?\b|fortmola|rodo ceara|tacoeletrica|tecnoq|via autos|diesel|amadeu|deassis|service/ },
+  { id: "outro", nome: "Outras", acao: "", icone: "•", reconhece: null },
+];
+const POR_ID_CAT = new Map(CATEGORIAS_MOV.map(c => [c.id, c]));
+
+const semAcentoMin = t => String(t || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+
+/** A categoria de uma movimentação: a escolhida, ou — nas antigas, sem
+ *  categoria — a que o "o que fazer" e o "onde" indicam. Os detalhes só
+ *  contam quando os dois não dizem nada: "Cardan Service — buscar", com
+ *  "depois fazer o TOP" nos detalhes, é buscar. */
+export function categoriaMov(m) {
+  if (m && m.categoria && POR_ID_CAT.has(m.categoria)) return m.categoria;
+  const principal = categoriaDoTexto([m && m.acao, m && m.destino].join(" "));
+  return principal !== "outro" ? principal : categoriaDoTexto(m && m.para_que);
+}
+export function categoriaDoTexto(texto) {
+  const t = semAcentoMin(texto);
+  for (const c of CATEGORIAS_MOV) if (c.reconhece && c.reconhece.test(t)) return c.id;
+  return "outro";
+}
+export const nomeCategoriaMov = id => (POR_ID_CAT.get(id) || POR_ID_CAT.get("outro")).nome;
+export const categoriaMovPorId = id => POR_ID_CAT.get(id) || POR_ID_CAT.get("outro");
+
 /** Na planilha a situação é DIGITADA, então pode discordar das datas na mesma
  *  linha. Aqui ela é calculada — a data é o fato, a palavra era opinião. */
 export function situacaoMovimentacao(m, ref) {

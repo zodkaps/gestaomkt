@@ -953,6 +953,24 @@ titulo("pendencias.js — a mensagem da inspeção ou do TOP vira pendências");
     modelo.desdeQuando({ obs: "[14/10] Inspeção" }, "2026-10-20"), { data: "2026-10-14", fonte: "dia da inspeção" });
 }
 
+titulo("modelo.js — as categorias da movimentação");
+{
+  const cat = (destino, acao = "", extra = {}) => modelo.categoriaMov({ ...modelo.moldeMovimentacao(), destino, acao, ...extra });
+  igual("os textos que a planilha já tinha caem na categoria certa",
+    ["REALIZAR TOP", "Cardan Service — coletar", "Cardan Service", "Box de lavagem", "Operação — disponibilizar para a preventiva",
+      "Operação — liberar os box", "REALIZAR TESTE DE CARGA", "Box de soldagem", "Deassis - Trazer para a matriz", "Zé da Esquina"].map(d => cat(d)),
+    ["top", "buscar", "fornecedor", "lavagem", "liberar", "desocupar", "teste", "box", "buscar", "outro"]);
+  igual("o 'O que fazer' conta junto com o onde", [cat("Matriz", "REALIZAR TOP"), cat("Aferir tacografo", "Levar"), cat("Dunas Diesel", "Enviar Frota")],
+    ["top", "teste", "fornecedor"]);
+  igual("os detalhes só contam quando o que fazer e o onde não dizem nada",
+    [cat("Cardan Service — buscar", "", { para_que: "Buscar na Cardan e depois fazer o TOP" }), cat("Zé", "", { para_que: "fazer o TOP" })],
+    ["buscar", "top"]);
+  igual("a categoria escolhida vale mais que o texto", cat("Cardan Service", "", { categoria: "buscar" }), "buscar");
+  igual("categoria desconhecida volta para o texto", cat("REALIZAR TOP", "", { categoria: "xyz" }), "top");
+  ok("toda categoria tem nome e a de TOP preenche o 'O que fazer'", modelo.CATEGORIAS_MOV.every(c => c.nome) &&
+    modelo.categoriaMovPorId("top").acao === "Realizar TOP");
+}
+
 titulo("registro.js — o Registro por dia, por pessoa e pelo Painel");
 {
   const reg = await import("../js/registro.js");
