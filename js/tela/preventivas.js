@@ -246,14 +246,14 @@ export async function ligarAProgramacao(prevs) {
 
 const PLANOS_COMUNS = ["1 ano", "15 mil km", "30 mil km", "500 h"];
 
-function formularioPreventiva(p, mesPadrao) {
+function formularioPreventiva(p, mesPadrao, frotaPadrao = "") {
   const todas = ev.lista("preventiva");
   const unicos = f => [...new Set(todas.map(f).filter(Boolean))].sort(natural);
   const frotasConhecidas = [...new Set([...frotasDasAtividades(), ...unicos(x => x.frota)])].sort(natural);
-  const meses = [...new Set([mesPadrao, mesDaData(M.hoje()), ...todas.map(x => x.mes).filter(Boolean)])];
+  // Qualquer mês: o plano de novembro se monta em outubro.
   const c = {
-    frota: el("input", { value: p ? p.frota : "", placeholder: "ex.: F-745", autocomplete: "off" }),
-    mes: selecao(meses, p ? p.mes : mesPadrao),
+    frota: el("input", { value: p ? p.frota : frotaPadrao, placeholder: "ex.: F-745", autocomplete: "off" }),
+    mes: el("input", { type: "month", value: mesDoPlano(p ? p.mes : mesPadrao) || M.hoje().slice(0, 7), required: true }),
     plano: el("input", { value: p ? p.plano : "", placeholder: "ex.: 15 mil km, 1 ano" }),
     qtd: el("input", { type: "number", min: 1, value: p ? p.qtd || 1 : 1 }),
     vence: el("input", { type: "date", value: p ? p.vence : "" }),
@@ -282,7 +282,7 @@ function formularioPreventiva(p, mesPadrao) {
   const valores = () => {
     const os = c.os.value.replace(/\D+/g, "");
     return {
-      frota: c.frota.value.trim(), mes: c.mes.value, plano: c.plano.value.trim(),
+      frota: c.frota.value.trim(), mes: c.mes.value ? mesDeISO(c.mes.value) : "", plano: c.plano.value.trim(),
       qtd: Math.max(1, Number(c.qtd.value) || 1), vence: c.vence.value, prazo_service: c.prazo_service.value,
       equipamento: c.equipamento.value.trim(), local: c.local.value.trim(), onde_fazer: c.onde_fazer.value,
       hh: Number(String(c.hh.value).replace(",", ".")) || 0, os: os ? os.padStart(6, "0") : "", obs: c.obs.value.trim(),
@@ -291,12 +291,78 @@ function formularioPreventiva(p, mesPadrao) {
   return { no, valores };
 }
 
+// ── o mês do plano ──────────────────────────────────────────────────────────
+// O plano tem nome de aba da planilha ("Out-26"); o campo de mês do navegador
+// fala ISO ("2026-10"). Qualquer mês se abre — o vazio também, para montar.
+
+const mesDeISO = iso => mesDaData(String(iso).slice(0, 7) + "-01");
+export function somaMes(mes, n) {
+  const [a, m] = mesDoPlano(mes).split("-").map(Number);
+  if (!a) return mes;
+  return mesDaData(new Date(Date.UTC(a, m - 1 + n, 1)).toISOString().slice(0, 10));
+}
+const mesesComPlano = () => [...new Set(ev.lista("preventiva").filter(p => !p.excluida).map(p => p.mes).filter(Boolean))]
+  .sort((a, b) => ordemMes(b) - ordemMes(a));
+
+/** Trazer frotas de um mês que já tem plano para outro: a lista do mês de
+ *  origem, cada frota com o plano para conferir e o vencimento em branco. Só
+ *  entra o que a pessoa marca; parada, liberação e OS começam do zero. */
+export async function trazerDeOutroMes(destino) {
+  const meses = mesesComPlano().filter(m => m !== destino);
+  if (!meses.length) { avisar("Nenhum outro mês tem plano ainda."); return 0; }
+  const anterior = somaMes(destino, -1);
+  const fOrigem = selecao(meses.map(m => ({ v: m, t: rotuloMes(m) })), meses.includes(anterior) ? anterior : meses[0]);
+  const lista = el("div", { class: "trazer-lista" });
+  const chaveF = f => String(f || "").replace(/\W/g, "").toLowerCase();
+  let linhas = [];
+  const pintarLista = () => {
+    const jaNoDestino = new Set(ev.lista("preventiva").filter(x => x.mes === destino && !x.excluida && !x.fora).map(x => chaveF(x.frota)));
+    const daOrigem = ev.lista("preventiva").filter(x => x.mes === fOrigem.value && !x.excluida && !x.fora)
+      .sort((a, b) => natural(a.frota, b.frota));
+    linhas = daOrigem.map(x => {
+      const ja = jaNoDestino.has(chaveF(x.frota));
+      const marca = el("input", { type: "checkbox", disabled: ja });
+      const plano = el("input", { value: x.plano || "", placeholder: "plano", "aria-label": `Plano da ${x.frota}` });
+      const vence = el("input", { type: "date", "aria-label": `Vencimento da ${x.frota}` });
+      return { x, ja, marca, plano, vence, no: el("label", { class: "trazer-lin" + (ja ? " ja" : "") }, marca,
+        el("b", {}, x.frota), el("span", { class: "seg" }, x.equipamento || ""),
+        ja ? el("span", { class: "seg" }, `já está em ${rotuloMes(destino).split("/")[0]}`) : plano, ja ? null : vence) };
+    });
+    lista.replaceChildren(...(linhas.length ? linhas.map(l => l.no) : [el("p", { class: "nada" }, "Esse mês não tem frota no plano.")]));
+  };
+  fOrigem.addEventListener("change", pintarLista);
+  pintarLista();
+  const marcarTodas = v => linhas.forEach(l => { if (!l.ja) l.marca.checked = v; });
+  const r = await caixa({ titulo: `Montar o plano de ${rotuloMes(destino)}`, largura: "680px",
+    corpo: el("div", {},
+      el("p", { class: "nada", style: "margin-top:0" },
+        "Marque as frotas que entram. Vem a frota, o equipamento e o local; o plano vem do mês de origem para você conferir. " +
+        "Vencimento, liberação, parada e OS começam em branco."),
+      el("div", { class: "filtros" }, campo("Trazer de", fOrigem),
+        el("button", { type: "button", class: "discreto", onclick: () => marcarTodas(true) }, "Marcar todas"),
+        el("button", { type: "button", class: "discreto", onclick: () => marcarTodas(false) }, "Desmarcar")),
+      lista),
+    acoes: [{ rotulo: "Cancelar", valor: false }, { rotulo: "Incluir as marcadas", classe: "primario", acao: () => {
+      const escolhidas = linhas.filter(l => l.marca.checked);
+      if (!escolhidas.length) throw new Error("Marque ao menos uma frota.");
+      return escolhidas.map(({ x, plano, vence }) => ev.novaPreventiva({ ...M.moldePreventiva(), id: undefined, mes: destino,
+        frota: x.frota, equipamento: x.equipamento || "", local: x.local || "", plano: plano.value.trim(),
+        qtd: plano.value.trim() === (x.plano || "") ? x.qtd || 1 : 1, vence: vence.value }));
+    } }] });
+  if (!r) return 0;
+  try {
+    await ev.aplicar(r);
+    avisar(`${r.length} frota${r.length === 1 ? "" : "s"} no plano de ${rotuloMes(destino)}.`);
+    return r.length;
+  } catch (x) { erro(x.message); return 0; }
+}
+
 /** "+ Incluir frota": uma preventiva nova no plano do mês, lançada no site. */
-export async function incluirPreventiva(mesPadrao) {
-  const f = formularioPreventiva(null, mesPadrao || mesDaData(M.hoje()));
+export async function incluirPreventiva(mesPadrao, { frota = "" } = {}) {
+  const f = formularioPreventiva(null, mesPadrao || mesDaData(M.hoje()), frota);
   const r = await caixa({ titulo: "Incluir frota no plano de preventivas", largura: "620px",
     corpo: el("div", {}, el("p", { class: "nada", style: "margin-top:0" },
-      "A frota entra no plano do mês escolhido, aguardando a liberação da operação. " +
+      "A frota entra no plano do mês escolhido — qualquer mês —, aguardando a liberação da operação. " +
       "Fica no registro como incluída no site — e uma reimportação da planilha não a tira."), f.no),
     acoes: [{ rotulo: "Cancelar", valor: false }, { rotulo: "Incluir", classe: "primario", acao: () => {
       const v = f.valores();
@@ -918,7 +984,16 @@ export async function montar(raiz, ctx, params = new URLSearchParams()) {
   const fBusca = el("input", { class: "busca", type: "search", value: estado.busca,
     placeholder: "frota, equipamento, local, OS…",
     oninput: () => { estado.busca = fBusca.value; pintar(); } });
-  const fMes = el("select", { onchange: () => { estado.mes = fMes.value; estado.situacoes.clear(); pintar(); } });
+  // O mês: ‹ e › andam um mês; o campo pula para qualquer um.
+  const irMes = m => { if (!m) return; estado.mes = m; estado.situacoes.clear(); pintar(); };
+  const fMes = el("input", { type: "month", class: "nav-mes-in", "aria-label": "Mês do plano",
+    onchange: () => { if (fMes.value) irMes(mesDeISO(fMes.value)); } });
+  const navMes = el("div", { class: "nav-mes" },
+    el("button", { type: "button", class: "nav-mes-b", title: "Mês anterior", "aria-label": "Mês anterior",
+      onclick: () => irMes(somaMes(estado.mes, -1)) }, "‹"),
+    fMes,
+    el("button", { type: "button", class: "nav-mes-b", title: "Próximo mês", "aria-label": "Próximo mês",
+      onclick: () => irMes(somaMes(estado.mes, 1)) }, "›"));
   const titulo = el("span", { class: "sub" });
   const corpo = el("div", {});
 
@@ -928,14 +1003,14 @@ export async function montar(raiz, ctx, params = new URLSearchParams()) {
     .map(([v, t]) => el("button", { class: "seg-op", dataset: { v },
       onclick: () => { estado.vista = v; pintar(); } }, t)));
   raiz.append(
-    el("div", { class: "cabec" }, el("h1", {}, "Preventivas"), titulo, vistas,
+    el("div", { class: "cabec" }, el("h1", {}, "Preventivas"), navMes, vistas,
       el("div", { class: "espaco" }),
       pessoas.pode("parada") ? el("button", { class: "primario",
         onclick: async () => {
           const id = await incluirPreventiva(estado.mes);
           if (id) { const p = ev.porId(id, "preventiva"); if (p && p.mes) estado.mes = p.mes; estado.vista = "plano"; pintar(); }
         } }, "+ Incluir frota") : null),
-    el("div", { class: "filtros" }, fBusca, fMes),
+    el("div", { class: "filtros" }, fBusca, titulo),
     corpo);
 
   const kpi = (rot, val, det, cls = "") =>
@@ -948,22 +1023,17 @@ export async function montar(raiz, ctx, params = new URLSearchParams()) {
     limpar(corpo);
     const ref = M.hoje();
     const todas = ev.lista("preventiva");
-    if (!todas.length) {
-      corpo.append(vazio("Nenhuma preventiva. Importe a planilha na aba Importar — a aba Preventivas vem junto."));
-      fMes.hidden = true;
-      return;
-    }
 
-    // O mês: o mais recente, a não ser que ele tenha escolhido outro.
-    const meses = [...new Set(todas.map(p => p.mes || ""))].sort((a, b) => ordemMes(b) - ordemMes(a));
-    if (!meses.includes(estado.mes)) estado.mes = meses[0];
-    limpar(fMes);
-    for (const m of meses) fMes.append(el("option", { value: m, selected: m === estado.mes }, rotuloMes(m)));
-    fMes.hidden = meses.length < 2;
-    titulo.textContent = rotuloMes(estado.mes);
-
+    // O mês: o corrente, se tem plano; senão o mais recente com plano. O que
+    // a pessoa escolheu fica, mesmo vazio — é assim que se monta um mês novo.
+    const meses = mesesComPlano();
+    if (!ordemMes(estado.mes)) estado.mes = meses.includes(mesDaData(ref)) ? mesDaData(ref) : meses[0] || mesDaData(ref);
+    fMes.value = mesDoPlano(estado.mes);
     const doMes = todas.filter(p => (p.mes || "") === estado.mes);
+    const nPlano = doMes.filter(p => !p.fora && !p.excluida).length;
+    titulo.textContent = nPlano ? `${nPlano} frota${nPlano === 1 ? "" : "s"} no plano de ${rotuloMes(estado.mes)}` : "";
     for (const b of vistas.querySelectorAll("[data-v]")) b.classList.toggle("on", b.dataset.v === estado.vista);
+    if (!doMes.length) return pintarMesVazio(meses);
     if (estado.vista === "painel") return pintarPainel(doMes, ref);
     if (estado.vista === "mudancas") return pintarMudancas(doMes);
     const plano = doMes.filter(p => !p.fora);
@@ -1033,6 +1103,25 @@ export async function montar(raiz, ctx, params = new URLSearchParams()) {
       det.addEventListener("toggle", () => { estado.foraAberto = det.open; });
       corpo.append(det);
     }
+  }
+
+  // ── o mês sem plano ──────────────────────────────────────────────────────
+  function pintarMesVazio(meses) {
+    const pode = pessoas.pode("parada");
+    const nome = rotuloMes(estado.mes);
+    const outros = meses.filter(m => m !== estado.mes);
+    corpo.append(el("div", { class: "mes-vazio" },
+      el("h2", {}, `Ainda não há plano de preventivas em ${nome}`),
+      el("p", {}, pode
+        ? "Monte o plano aqui: inclua as frotas uma a uma, ou traga as frotas de um mês que já tem plano e confira o plano de cada uma. " +
+          "A planilha também serve: a aba Preventivas do mês, em Importar."
+        : "Quando o PCM montar o plano deste mês, as frotas aparecem aqui."),
+      pode ? el("div", { class: "acoes-mes" },
+        el("button", { class: "primario", onclick: async () => { if (await incluirPreventiva(estado.mes)) pintar(); } }, "+ Incluir frota"),
+        outros.length ? el("button", { onclick: async () => { if (await trazerDeOutroMes(estado.mes)) pintar(); } },
+          "Trazer frotas de outro mês") : null) : null,
+      outros.length ? el("p", { class: "meses-com-plano" }, "Meses com plano: ",
+        ...outros.map(m => el("button", { type: "button", class: "chip-mes", onclick: () => irMes(m) }, rotuloMes(m)))) : null));
   }
 
   // ── o painel ─────────────────────────────────────────────────────────────

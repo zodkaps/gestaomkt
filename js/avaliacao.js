@@ -216,8 +216,8 @@ export function periodos(ref = M.hoje()) {
   return [
     { id: "mes", rotulo: "Este mês", de: inicioMes, ate: ref },
     { id: "mes-passado", rotulo: "Mês passado", de: inicioMesPassado, ate: fimMesPassado },
-    { id: "4s", rotulo: "Últimas 4 semanas", de: M.somaDias(segunda, -21), ate: ref },
-    { id: "12s", rotulo: "Últimas 12 semanas", de: M.somaDias(segunda, -77), ate: ref },
+    { id: "4s", rotulo: "4 semanas", de: M.somaDias(segunda, -21), ate: ref },
+    { id: "12s", rotulo: "12 semanas", de: M.somaDias(segunda, -77), ate: ref },
     { id: "ano", rotulo: String(a), de: `${a}-01-01`, ate: ref },
   ];
 }

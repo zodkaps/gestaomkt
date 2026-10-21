@@ -43,15 +43,42 @@ A oficina devolver a frota atrasada **não** conta: o que se avalia é a operaç
 - Na **Avaliação**: o período (este mês, mês passado, 4 ou 12 semanas, o ano) e
   a frota no alto — **qualquer frota se digita**, lançada ou não: "617" acha a
   F-617, um pedaço do número mostra as que têm ele, e a frota que ninguém lançou
-  aparece vazia, dizendo que não há nada dela (o mesmo no filtro do Registro); seis números (movimentações no prazo, frotas no dia da
-  preventiva, liberações remarcadas, atrasando agora, dias de atraso, sem
-  justificativa); o que está **atrasando agora** e o que falta **justificar**,
-  cada linha com o botão que resolve; os gráficos (semana a semana, por quê,
-  quem, frota, categoria, tamanho do atraso) e a tabela de todos os atrasos do
-  período. A pontualidade conta só o que tinha data combinada; o sem prazo
-  aparece à parte. O número no menu é o que falta justificar.
+  aparece vazia, dizendo que não há nada dela (o mesmo no filtro do Registro).
+  Embaixo, **quatro abas**, um assunto por vez:
+  - **Resumo** — quatro números (movimentações no prazo, frotas no dia da
+    preventiva, liberações remarcadas, atrasando agora), a faixa do que pede
+    ação, e três gráficos: semana a semana, por que atrasou e quem atrasou;
+  - **Para resolver** — o que está atrasando agora e o que falta justificar,
+    cada linha com o botão que resolve (o número da aba é quantos são);
+  - **Análise** — pontualidade por semana, frotas, categoria e tamanho do atraso;
+  - **Todos os atrasos** — a tabela do período, com busca.
+  A pontualidade conta só o que tinha data combinada; o sem prazo aparece à
+  parte. No prazo é cinza nos gráficos: só o atraso tem cor. O número no menu é
+  o que falta justificar.
 - As contas ficam em `js/avaliacao.js` (puras, testadas em `testes/rodar.js`);
   a tela em `js/tela/avaliacao.js`.
+
+- **+ Registrar**, no alto de todas as telas (no celular, o botão redondo acima
+  da barra de baixo): digita a frota — qualquer uma — e toca no que aconteceu:
+  pedir uma movimentação, movimentação feita, a frota chegou na oficina,
+  liberação para a preventiva, justificar um atraso ou pôr a frota no plano. Ao
+  lado de cada um, quantos estão em aberto daquela frota; com um só, abre
+  direto. As caixas são as mesmas das telas (`js/tela/registrar.js`), então o
+  motivo e a permissão valem igual: a operação não vê o que é do PCM.
+- **Preventivas de qualquer mês**: ‹ e › andam um mês, e o campo do mês pula
+  para qualquer um. O mês sem plano diz isso e oferece **+ Incluir frota** e
+  **Trazer frotas de outro mês** — a lista do mês de origem, cada frota com o
+  plano para conferir e o vencimento em branco; só entra o que for marcado, e
+  liberação, parada e OS começam do zero. O "+ Incluir frota" também aceita
+  qualquer mês. A planilha continua servindo: a aba Preventivas do mês, em
+  Importar.
+- **O Registro** tem à vista só a busca, a frota e o período (Hoje, 7 dias, 30
+  dias, Tudo); pessoa, tipo, origem e datas ficam em **Mais filtros**. Uma
+  importação vira uma linha só ("importou a planilha: 86 itens"), que abre.
+- **O claro, estilo Melvin, é o padrão** (o ◐ troca para o escuro, e cada
+  aparelho lembra). As barras de filtro de todas as telas são um cartão só, com
+  os controles da mesma altura; os segmentos são uma pílula com a opção
+  escolhida em relevo; as abas separam assuntos.
 
 **As telas da oficina saíram do menu, mas nada foi apagado.** Painel, Hoje,
 Programação, Semana, Resultados e Frota continuam no código, e os lançamentos
@@ -1138,7 +1165,8 @@ porque toda escrita já passa por `aplicar()`.
 | `js/tela/*.js` | entrar, operacao, painel, hoje, programacao, semana, resultados, movimentacoes, preventivas, frota, historico, importar, diagnostico |
 | `js/foco.js` | o que o site mostra: sem `?oficina=1`, as telas da oficina ficam fora do menu; a primeira tela de quem entra |
 | `js/avaliacao.js` | as contas da Avaliação da operação: os três atrasos, o que atrasa agora, o que falta justificar, os agrupamentos dos gráficos |
-| `js/tela/avaliacao.js` | a tela Avaliação: números, listas com o botão que resolve, gráficos e a tabela do período |
+| `js/tela/avaliacao.js` | a tela Avaliação, em abas: Resumo, Para resolver, Análise e Todos os atrasos |
+| `js/tela/registrar.js` | o "+ Registrar": a frota digitada e o que aconteceu, abrindo as caixas de sempre |
 | `js/decisoes.js` | **o que decidir agora**: as regras do Painel, puras, e a data sugerida para a parada |
 | `js/vinculo.js` | o *Ver e ligar*: o que fazer, preventiva por preventiva, para ligar o que já existia à Programação |
 | `js/registro.js` | as contas do Registro: o dia de cada lançamento, o filtro, o resumo do dia e o tamanho da fita |

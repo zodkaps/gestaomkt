@@ -1,16 +1,17 @@
 // O registro inteiro, do mais novo para o mais velho.
 //
 // É a tela que responde "por que isto mudou?" — e o pedido que deu origem ao
-// site. Filtra por pessoa, frota, tipo de lançamento, origem e período, porque
-// a pergunta quase nunca é sobre tudo: é sobre uma frota, numa semana, ou
-// sobre o que alguém lançou ontem. Por isso a lista vem separada por dia, e o
-// alto da tela resume um dia inteiro.
+// site. A pergunta quase nunca é sobre tudo: é sobre uma frota, numa semana,
+// ou sobre o que alguém lançou ontem. Por isso, desde 21/10/2026, o alto tem
+// só o que se usa sempre — a busca, a frota e o período —, e o resto (pessoa,
+// tipo, origem, datas) fica em "Mais filtros". A lista vem separada por dia.
+// O resumo do dia, que conta as decisões do Painel, só aparece com a oficina.
 
 import * as ev from "../eventos.js";
 import { TIPOS } from "../eventos.js";
 import * as M from "../modelo.js";
 import * as pessoas from "../pessoas.js";
-import { el, limpar, selecao, avisar, erro, vazio, confirmar, br, cartaoNumero } from "../ui.js";
+import { el, limpar, selecao, avisar, erro, vazio, confirmar, br, cartaoNumero, quando } from "../ui.js";
 import { descreverEvento, valoresDe } from "./comum.js";
 import { diaDe, filtrarRegistro, resumoDoDia } from "../registro.js";
 import { OFICINA } from "../foco.js";
@@ -22,6 +23,12 @@ const ALVOS = OFICINA ? { atividade: "atividades", movimentacao: "movimentaçõe
 // Sem a oficina no site, o registro mostra só o que o site cuida: as
 // movimentações e as preventivas. Os lançamentos da oficina continuam na fita.
 const fita = () => OFICINA ? ev.log : ev.log.filter(e => e.alvo_tipo in ALVOS);
+// Os tipos de lançamento de movimentação e preventiva — os que o site mostra
+// sem a oficina.
+const TIPOS_DO_SITE = new Set(["criada", "importada", "editada", "excluida", "justificada",
+  "mov_prometida", "mov_chegou", "mov_aprovada", "mov_devolvida", "mov_cancelada",
+  "prev_disponivel", "prev_parada", "prev_entregue", "prev_andamento", "prev_realizada", "prev_adiada",
+  "prev_cancelada", "prev_reaberta"]);
 const ORIGENS = { manual: "lançado no site", planilha: "da planilha", claude: "pedido ao Claude",
   painel: "decisão do Painel", vinculo: "preventiva ↔ OS (automático)" };
 
@@ -40,16 +47,17 @@ export async function montar(raiz, ctx, params) {
   let diaResumo = params.get("dia") || M.hoje();
 
   const fBusca = el("input", { class: "busca", type: "search",
-    placeholder: "frota, OS, atividade, motivo…", oninput: () => { f.busca = fBusca.value; reiniciar(); } });
+    placeholder: OFICINA ? "frota, OS, atividade, motivo…" : "buscar: motivo, destino, plano, pessoa…",
+    oninput: () => { f.busca = fBusca.value; reiniciar(); } });
   const fAutor = el("select", { onchange: () => { f.autor = fAutor.value; reiniciar(); }, "aria-label": "Pessoa" });
-  const fTipo = selecao([{ v: "", t: "Tipo: todos" }, { v: "_baixas", t: "baixas (as três)" },
-    ...Object.entries(TIPOS).map(([v, t]) => ({ v, t }))], "", { onchange: () => { f.tipo = fTipo.value; reiniciar(); },
-    "aria-label": "Tipo de lançamento" });
+  const fTipo = selecao([{ v: "", t: "O quê: tudo" }, ...(OFICINA ? [{ v: "_baixas", t: "baixas (as três)" }] : []),
+    ...Object.entries(TIPOS).filter(([v]) => OFICINA || TIPOS_DO_SITE.has(v)).map(([v, t]) => ({ v, t }))], "",
+    { onchange: () => { f.tipo = fTipo.value; reiniciar(); }, "aria-label": "Tipo de lançamento" });
   const fAlvo = selecao([{ v: "", t: "Em: tudo" }, ...Object.entries(ALVOS).map(([v, t]) => ({ v, t: "Em " + t }))], "",
     { onchange: () => { f.alvo = fAlvo.value; reiniciar(); }, "aria-label": "Onde" });
   // A frota se digita, qualquer uma, como na Avaliação: a lista só sugere.
   const dlFrota = el("datalist", { id: "dl-frotas-registro" });
-  const fFrota = el("input", { type: "search", class: "busca-frota", placeholder: "Frota (qualquer uma)",
+  const fFrota = el("input", { type: "search", class: "busca-frota", placeholder: "Digite a frota", title: "Qualquer frota: 617 acha a F-617",
     list: "dl-frotas-registro", autocomplete: "off", spellcheck: false, value: f.frota, "aria-label": "Frota",
     oninput: () => { f.frota = fFrota.value.trim(); reiniciar(); } });
   // As frotas do que o Registro mostra: sem a oficina, só movimentação e preventiva.
@@ -64,7 +72,6 @@ export async function montar(raiz, ctx, params) {
 
   // Os períodos de sempre num toque; as datas continuam para o resto.
   const PERIODOS = [["hoje", "Hoje", () => [M.hoje(), M.hoje()]],
-    ["ontem", "Ontem", () => [M.somaDias(M.hoje(), -1), M.somaDias(M.hoje(), -1)]],
     ["7", "7 dias", () => [M.somaDias(M.hoje(), -6), M.hoje()]],
     ["30", "30 dias", () => [M.somaDias(M.hoje(), -29), M.hoje()]],
     ["tudo", "Tudo", () => ["", ""]]];
@@ -75,21 +82,26 @@ export async function montar(raiz, ctx, params) {
   const etiquetas = el("div", { class: "etiquetas" });
   const corpo = el("div", {});
 
-  raiz.append(
-    el("div", { class: "cabec" },
-      el("h1", {}, "Registro"), contagem,
-      el("div", { class: "espaco" }),
-      el("button", { onclick: conferir }, "Conferir o registro")),
-    el("p", { style: "color:var(--fraco);font-size:13px;margin-bottom:10px" },
-      "Todas as alterações, com data, hora e motivo. Nenhuma alteração entra no " +
-      "sistema sem passar por este registro — é o mesmo histórico que alimenta as outras telas."),
-    resumo,
-    el("div", { class: "filtros reg" }, fBusca, fAutor, fTipo, fAlvo, fFrota, dlFrota, fOrigem),
-    el("div", { class: "filtros reg" }, periodos,
-      el("span", { style: "font-size:12.5px;color:var(--fraco)" }, "de"), fDe,
-      el("span", { style: "font-size:12.5px;color:var(--fraco)" }, "até"), fAte),
+  // Os filtros de sempre ficam à vista; os outros, recolhidos. Com algum deles
+  // ligado, "Mais filtros" mostra quantos.
+  const contaMais = el("span", { class: "n" });
+  const mais = el("details", { class: "mais-filtros" },
+    el("summary", {}, "Mais filtros", contaMais),
+    el("div", { class: "filtros reg" }, fAutor, fTipo, OFICINA ? fAlvo : null, fOrigem,
+      el("span", { class: "rot-data" }, "de"), fDe, el("span", { class: "rot-data" }, "até"), fAte));
+
+  // replaceChildren/append(null) escreve "null" na tela: só o que existe entra
+  raiz.append(...[
+    el("div", { class: "cabec" }, el("h1", {}, "Registro"), contagem),
+    el("p", { class: "nota", style: "margin:0 0 10px" },
+      "Tudo o que foi lançado, do mais novo para o mais antigo, com quem lançou e o motivo."),
+    OFICINA ? resumo : null,
+    el("div", { class: "filtros reg" }, fBusca, fFrota, dlFrota, periodos, mais),
     etiquetas,
-    corpo);
+    corpo,
+    el("div", { class: "reg-pe" },
+      el("button", { type: "button", class: "discreto", onclick: conferir,
+        title: "Toca a fita do zero e compara com o que está nas telas" }, "Conferir o registro"))].filter(Boolean));
 
   function reiniciar() { mostrando = PAGINA; pintar(); }
 
@@ -189,8 +201,11 @@ export async function montar(raiz, ctx, params) {
 
   function pintar() {
     pintarOpcoes();
-    pintarResumo();
+    if (OFICINA) pintarResumo();
     pintarEtiquetas();
+    const nMais = [f.autor, f.tipo, f.alvo, f.origem].filter(Boolean).length +
+      ((f.de || f.ate) && !PERIODOS.some(([, , faixa]) => { const [de, ate] = faixa(); return de === f.de && ate === f.ate; }) ? 1 : 0);
+    contaMais.textContent = nMais ? ` · ${nMais}` : "";
     const itens = filtrarRegistro(fita(), { ...f, frotas: frotasDoRegistro() }, ev.achar);
     contagem.textContent = `${itens.length} lançamento${itens.length === 1 ? "" : "s"}`;
 
@@ -217,16 +232,44 @@ export async function montar(raiz, ctx, params) {
           el("span", { class: "dr-n" }, `${n} lançamento${n === 1 ? "" : "s"}`),
           el("span", { class: "dr-quem" }, [...quem].sort((a, b) => b[1] - a[1]).map(([q, k]) => `${q} ${k}`).join(" · ")),
           el("div", { class: "espaco" }),
-          el("button", { type: "button", class: "discreto mini", title: "Ver o resumo deste dia no alto",
+          OFICINA ? el("button", { type: "button", class: "discreto mini", title: "Ver o resumo deste dia no alto",
             onclick: () => { diaResumo = d; pintarResumo(); resumo.scrollIntoView({ behavior: "smooth", block: "start" }); } },
-          "resumo do dia")),
-        el("div", {}, evs.map(linhaDoRegistro))));
+          "resumo do dia") : null),
+        el("div", {}, juntarImportadas(evs).map(x => Array.isArray(x) ? linhaDaImportacao(x) : linhaDoRegistro(x)))));
     }
     if (itens.length > mostrando) {
       corpo.append(el("button", { style: "margin-top:12px",
         onclick: () => { mostrando += PAGINA; pintar(); } },
         `Mostrar mais (${itens.length - mostrando} restantes)`));
     }
+  }
+
+  // Uma importação lança dezenas de itens de uma vez, e cada um virava uma
+  // linha igual à outra. Os seguidos da mesma planilha e da mesma pessoa viram
+  // uma linha só, que abre para mostrar os itens.
+  function juntarImportadas(evs) {
+    const r = [];
+    for (const e of evs) {
+      const ult = r[r.length - 1];
+      if (e.tipo === "importada" && Array.isArray(ult) && ult[0].autor === e.autor &&
+        (ult[0].dados || {}).fonte === (e.dados || {}).fonte) ult.push(e);
+      else r.push(e.tipo === "importada" ? [e] : e);
+    }
+    return r.map(x => Array.isArray(x) && x.length === 1 ? x[0] : x);
+  }
+  function linhaDaImportacao(evs) {
+    const conta = new Map();
+    for (const e of evs) conta.set(e.alvo_tipo, (conta.get(e.alvo_tipo) || 0) + 1);
+    const nomes = { movimentacao: ["movimentação", "movimentações"], preventiva: ["preventiva", "preventivas"],
+      atividade: ["atividade", "atividades"], semana: ["semana", "semanas"] };
+    const partes = [...conta].map(([t, n]) => `${n} ${(nomes[t] || [t, t])[n === 1 ? 0 : 1]}`).join(", ");
+    const fonte = (evs[0].dados || {}).fonte || "a planilha";
+    return el("details", { class: "evento importacao" },
+      el("summary", {},
+        el("div", { class: "qdo" }, quando(evs[0].ts)),
+        el("div", { class: "oq" }, evs[0].autor ? el("span", { class: "autor" }, evs[0].autor + " — ") : null,
+          `importou ${fonte}: `, el("b", {}, `${evs.length} itens`), ` (${partes})`, el("span", { class: "abrir" }, " · ver os itens"))),
+      el("div", { class: "itens" }, evs.map(linhaDoRegistro)));
   }
 
   // Exclusão e cancelamento se desfazem daqui: o item volta do jeito que estava,

@@ -693,19 +693,17 @@ export async function montar(raiz, ctx, params) {
     const pt = M.pontualidade(todas, ref);
     const pc = pt.pct == null ? "—" : `${Math.round(pt.pct * 1000) / 10}`.replace(".", ",") + "%";
 
-    topo.append(el("div", { class: "kpis" },
-      kpi("Movimentações", pt.total, `${pt.em_aberto} em aberto`),
-      kpi("Concluídas", pt.concluidas, pt.para_aprovar ? `${pt.para_aprovar} aguardando aprovação` : "",
-        pt.para_aprovar ? "andando" : ""),
-      kpi("No prazo", pt.no_prazo, `${pt.com_atraso} com atraso`),
-      kpi("Pontualidade da operação", pc, "no prazo ÷ concluídas",
+    // Quatro números, os que respondem "como está a operação": o resto (o
+    // total, as concluídas, os dias somados) vai no detalhe de cada um.
+    topo.append(el("div", { class: "kpis kpis-4" },
+      kpi("Em aberto", pt.em_aberto, pt.para_aprovar ? `${pt.para_aprovar} aguardando aprovação · ${pt.total} no total`
+        : `de ${pt.total} movimentações`, pt.para_aprovar ? "andando" : ""),
+      kpi("Pontualidade da operação", pc, `${pt.no_prazo} de ${pt.concluidas} concluídas no prazo`,
         pt.pct == null ? "" : pt.pct >= 0.85 ? "ok" : pt.pct >= 0.6 ? "hoje" : "vencida"),
-      kpi("Atraso médio", n1(pt.atraso_medio), "dias, entre as atrasadas"),
-      kpi("Dias de atraso", pt.dias_perdidos, "acumulados nas concluídas",
-        pt.dias_perdidos ? "vencida" : ""),
       kpi("Atrasadas agora", pt.atrasadas,
         pt.dias_correndo ? `${pt.dias_correndo} dias de atraso acumulados` : "em aberto com prazo vencido",
-        pt.atrasadas ? "vencida" : "")));
+        pt.atrasadas ? "vencida" : ""),
+      kpi("Atraso médio", `${n1(pt.atraso_medio)} d`, `entre as atrasadas · ${pt.dias_perdidos} dias somados nas concluídas`)));
 
     // ── os recortes, com a contagem de cada um
     const paraAprovar = todas.filter(M.movimentacaoParaAprovar);

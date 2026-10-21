@@ -1222,6 +1222,8 @@ ok("um clique aprova: Concluída com atraso, concluída pelo Pedro, aprovada pel
     doPainelReg.linhas.length >= 1 && doPainelReg.linhas.every(l => l.tag && l.via.startsWith("pela decisão:")) &&
     doPainelReg.et.some(t => t.includes("decisão do Painel")) && doPainelReg.et.some(t => t.includes("Dia:")), JSON.stringify(doPainelReg).slice(0, 400));
   await p.click(".etiquetas .limpar-filtros");
+  // pessoa, tipo e datas ficam em "Mais filtros"
+  if (!await p.isVisible('select[aria-label="Pessoa"]')) await p.click(".mais-filtros summary");
   await p.selectOption('select[aria-label="Pessoa"]', "Mateus");
   await p.click('.segmentos [data-periodo="hoje"]');
   await p.waitForTimeout(400);
@@ -1783,6 +1785,13 @@ ok("um clique aprova: Concluída com atraso, concluída pelo Pedro, aprovada pel
     return { prev: cp.alvo, mov: cm.alvo, ontem: dia(-1) };
   }, FAV);
   await av.waitForTimeout(500);
+  // As abas: um assunto por vez; "Para resolver" mostra quantos.
+  const abasAv = await av.evaluate(() => [...document.querySelectorAll(".abas .aba")].map(b => b.textContent));
+  ok("a Avaliação vem em abas: Resumo, Para resolver (com quantos), Análise e Todos os atrasos",
+    abasAv.length === 4 && abasAv[0] === "Resumo" && /^Para resolver\d+$/.test(abasAv[1]) && abasAv[2] === "Análise",
+    JSON.stringify(abasAv));
+  const aba = async id => { await av.click(`.abas [data-aba="${id}"]`); await av.waitForTimeout(400); };
+  await aba("resolver");
   const agora = await av.evaluate(frota => [...document.querySelectorAll("#av-agora + .tabela-rolagem tbody tr")]
     .filter(tr => tr.textContent.includes(frota)).map(tr => ({ tipo: tr.cells[0].textContent, dias: tr.cells[4].textContent,
       botoes: [...tr.querySelectorAll("button")].map(b => b.textContent) })), FAV);
@@ -1804,18 +1813,27 @@ ok("um clique aprova: Concluída com atraso, concluída pelo Pedro, aprovada pel
   const depois = await av.evaluate(([id, frota]) => {
     const p = mkt.ev.porId(id, "preventiva");
     return { p: [p.entregue_em, p.entrega_combinada, p.motivo_entrega, p.quem_atrasou_entrega, p.em_andamento],
-      aindaAtrasando: [...document.querySelectorAll("#av-agora + .tabela-rolagem tbody tr")].some(tr => tr.textContent.includes(frota) && tr.textContent.includes("Entrega")),
-      noPeriodo: [...document.querySelectorAll(".tabela.avaliacao tbody tr")].some(tr => tr.textContent.includes(frota) && tr.textContent.includes("frota voltou de viagem")),
-      kpi: [...document.querySelectorAll(".kpi")].find(k => k.textContent.includes("Frotas no dia da preventiva"))?.textContent || "" };
+      aindaAtrasando: [...document.querySelectorAll("#av-agora + .tabela-rolagem tbody tr")].some(tr => tr.textContent.includes(frota) && tr.textContent.includes("Entrega")) };
   }, [ids.prev, FAV]);
+  await aba("lista");
+  depois.noPeriodo = await av.evaluate(frota => [...document.querySelectorAll(".tabela.avaliacao tbody tr")]
+    .some(tr => tr.textContent.includes(frota) && tr.textContent.includes("frota voltou de viagem")), FAV);
+  await aba("resumo");
+  depois.kpi = await av.evaluate(() => [...document.querySelectorAll(".kpi")].find(k => k.textContent.includes("Frotas no dia da preventiva"))?.textContent || "");
   ok("gravou a chegada com o combinado e o porquê, e a preventiva ficou em andamento",
     JSON.stringify(depois.p) === JSON.stringify([ids.ontem, depois.p[1], "frota voltou de viagem só na terça", "Operação", true]) && !!depois.p[1],
     JSON.stringify(depois.p));
   ok("saiu do atrasando agora e entrou nos atrasos do período, com o motivo", !depois.aindaAtrasando && depois.noPeriodo, JSON.stringify(depois));
   ok("e o número das frotas no dia da preventiva já conta", /chegaram no dia/.test(depois.kpi), depois.kpi);
   const graficos = await av.evaluate(() => [...document.querySelectorAll(".bi-grade .g-card .g-tit")].map(t => t.textContent));
-  ok("os gráficos do período aparecem", graficos.includes("Por que atrasou") && graficos.includes("Quem atrasou") &&
-    graficos.includes("Frotas com mais atrasos"), graficos.join(" | "));
+  ok("o Resumo tem quatro números e três gráficos: por semana, por quê e quem",
+    graficos.join() === "No prazo e com atraso, por semana,Por que atrasou,Quem atrasou" &&
+    await av.evaluate(() => document.querySelectorAll(".kpis-4 .kpi").length === 4), graficos.join(" | "));
+  await aba("analise");
+  const analise = await av.evaluate(() => [...document.querySelectorAll(".bi-grade .g-card .g-tit")].map(t => t.textContent));
+  ok("e a Análise, o resto: pontualidade, frotas, categoria e tamanho", analise.includes("Frotas com mais atrasos") &&
+    analise.includes("Tamanho dos atrasos") && !analise.includes("Por que atrasou"), analise.join(" | "));
+  await aba("lista");
 
   await av.fill(".filtros input.busca-frota", FAV);
   await av.waitForTimeout(400);
@@ -1855,6 +1873,71 @@ ok("um clique aprova: Concluída com atraso, concluída pelo Pedro, aprovada pel
   ok("no Registro a frota também se digita, e só o número acha os lançamentos dela",
     reg.et.includes("Frota: " + NUM) && /\d+ lançamentos?/.test(reg.texto) && !/Nada com esses filtros/.test(reg.texto), reg.et);
 
+  // ── + Registrar: a frota digitada e o que aconteceu, em dois toques ─────
+  const FREG = "F-REG-" + Date.now().toString(36).slice(-5).toUpperCase();
+  await av.click("#bregistrar");
+  await av.waitForSelector(".caixa .reg-op", { timeout: 5000 });
+  await av.fill('.caixa input[aria-label="Frota"]', FREG);
+  await av.waitForTimeout(300);
+  const opsReg = await av.evaluate(() => [...document.querySelectorAll(".caixa .reg-op")].map(b => ({ op: b.dataset.op, off: b.disabled })));
+  ok("+ Registrar com uma frota nova: só dá para pedir movimentação ou pôr no plano; o resto não tem nada dela",
+    opsReg.find(o => o.op === "mov-nova") && !opsReg.find(o => o.op === "mov-nova").off &&
+    opsReg.find(o => o.op === "mov-feita").off && opsReg.find(o => o.op === "chegou").off, JSON.stringify(opsReg));
+  await av.click('.caixa .reg-op[data-op="mov-nova"]');
+  await av.waitForSelector('.caixa input[placeholder="ex.: F-745"]', { timeout: 5000 });
+  const veio = await av.inputValue('.caixa input[placeholder="ex.: F-745"]');
+  ok("pedir a movimentação abre o formulário de sempre, com a frota já digitada", veio === FREG, veio);
+  await av.fill('.caixa input[placeholder^="ex.: Coletar"]', "Levar");
+  await av.fill('.caixa input[placeholder^="ex.: Cardan"]', "Borracharia");
+  await av.click('.caixa footer button:has-text("Registrar")');
+  await av.waitForTimeout(600);
+  await av.click("#bregistrar");
+  await av.waitForSelector(".caixa .reg-op", { timeout: 5000 });
+  await av.fill('.caixa input[aria-label="Frota"]', FREG.toLowerCase());
+  await av.waitForTimeout(300);
+  const feita = await av.evaluate(() => (document.querySelector('.caixa .reg-op[data-op="mov-feita"] .reg-n') || {}).textContent);
+  ok("na volta, a mesma frota (digitada em minúsculas) tem 1 movimentação em aberto", feita === "1 em aberto", feita);
+  await av.click('.caixa .reg-op[data-op="mov-feita"]');
+  await av.waitForSelector('.caixa footer button:has-text("Concluir")', { timeout: 5000 });
+  await av.click('.caixa footer button:has-text("Concluir")');
+  await av.waitForTimeout(600);
+  const concluida = await av.evaluate(frota => mkt.ev.lista("movimentacao").filter(m => m.frota === frota)
+    .map(m => [m.acao, m.destino, !!m.chegou_em, m.aprovada]), FREG);
+  ok("com uma só em aberto, abre direto o concluir — e grava", JSON.stringify(concluida) === JSON.stringify([["Levar", "Borracharia", true, true]]),
+    JSON.stringify(concluida));
+
+  // ── Preventivas: qualquer mês, e o plano de um mês novo ───────────────────
+  await av.evaluate(() => { location.hash = "#/preventivas"; });
+  await av.waitForSelector(".nav-mes", { timeout: 5000 });
+  const mesAgora = await av.inputValue(".nav-mes-in");
+  await av.click('.nav-mes-b[aria-label="Próximo mês"]');
+  await av.waitForTimeout(500);
+  await av.click('.nav-mes-b[aria-label="Próximo mês"]');
+  await av.waitForTimeout(500);
+  const mesNovo = await av.inputValue(".nav-mes-in");
+  const vazioMes = await av.evaluate(() => (document.querySelector(".mes-vazio h2") || {}).textContent || "");
+  ok("as setas andam para qualquer mês, e o mês sem plano diz e oferece montar", mesNovo > mesAgora &&
+    /Ainda não há plano/.test(vazioMes), JSON.stringify({ mesAgora, mesNovo, vazioMes }));
+  await av.click('.mes-vazio button:has-text("Trazer frotas de outro mês")');
+  await av.waitForSelector(".caixa .trazer-lin", { timeout: 5000 });
+  await av.selectOption('.caixa select', { index: 0 });
+  await av.waitForTimeout(200);
+  const primeira = await av.evaluate(() => { const l = document.querySelector('.caixa .trazer-lin:not(.ja)');
+    return l ? l.querySelector("b").textContent : ""; });
+  await av.click('.caixa .trazer-lin:not(.ja) input[type="checkbox"]');
+  await av.click('.caixa footer button:has-text("Incluir as marcadas")');
+  await av.waitForTimeout(700);
+  const noMesNovo = await av.evaluate(([iso, frota]) => {
+    const [a, m] = iso.split("-");
+    const nome = ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"][Number(m) - 1] + "-" + a.slice(2);
+    return mkt.ev.lista("preventiva").filter(p => p.mes === nome).map(p => [p.frota, p.vence, p.dia_parada, p.disponivel_agora]);
+  }, [mesNovo, primeira]);
+  ok("trazer de outro mês: só a marcada entra, sem vencimento, parada nem liberação",
+    noMesNovo.length === 1 && noMesNovo[0][0] === primeira && !noMesNovo[0][1] && !noMesNovo[0][2] && !noMesNovo[0][3],
+    JSON.stringify({ primeira, noMesNovo }));
+  const comPlano = await av.evaluate(() => !document.querySelector(".mes-vazio") && /no plano de/.test(document.querySelector(".filtros .sub")?.textContent || ""));
+  ok("e o mês novo passa a mostrar o plano", comPlano);
+
   // A operação também abre a Avaliação, mas a chegada é o PCM que anota.
   const op = await (await nav.newContext({ viewport: { width: 1280, height: 860 } })).newPage();
   await op.goto(site.endereco, { waitUntil: "networkidle" });
@@ -1863,10 +1946,18 @@ ok("um clique aprova: Concluída com atraso, concluída pelo Pedro, aprovada pel
   const menuOp = await op.evaluate(() => [...document.querySelectorAll("#menu nav a span:not(.cont)")].map(s => s.textContent.trim()));
   ok("a operação tem a Avaliação no menu, e nenhuma tela da oficina",
     menuOp.includes("Avaliação") && !menuOp.some(n => OFICINA.includes(n)), menuOp.join(" | "));
-  await op.evaluate(() => { location.hash = "#/avaliacao"; });
+  await op.evaluate(() => { location.hash = "#/avaliacao?a=resolver"; });
   await op.waitForTimeout(900);
   const botoesOp = await op.evaluate(() => [...document.querySelectorAll("#av-agora + .tabela-rolagem button")].map(b => b.textContent));
-  ok("e não vê o botão 'A frota chegou'", !botoesOp.includes("A frota chegou"), botoesOp.join(" | "));
+  ok("e não vê o botão 'A frota chegou' (mas conclui a movimentação)", !botoesOp.includes("A frota chegou") &&
+    botoesOp.includes("Concluir"), botoesOp.join(" | "));
+  await op.click("#bregistrar");
+  await op.waitForSelector(".caixa .reg-op", { timeout: 5000 });
+  const opsOp = await op.evaluate(() => [...document.querySelectorAll(".caixa .reg-op b")].map(b => b.textContent));
+  ok("o + Registrar da operação só oferece o que ela pode", opsOp.includes("Pedir uma movimentação") &&
+    opsOp.includes("Liberação para a preventiva") && !opsOp.includes("A frota chegou na oficina") &&
+    !opsOp.includes("Pôr a frota no plano de preventivas"), opsOp.join(" | "));
+  await op.keyboard.press("Escape");
   await op.context().close();
   await av.context().close();
 }

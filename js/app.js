@@ -323,6 +323,9 @@ async function pintar() {
   pintarMenu(id);
   pintarPessoa();
   pintarVoltar();
+  const bReg = $("#bregistrar");
+  if (bReg) bReg.hidden = !pessoas.quem() || !pessoas.papel() || tela.oculta ||
+    !(pessoas.pode("movimentar") || pessoas.pode("disponibilidade"));
   $("#topo .titulo").textContent = tela.oculta ? "" : tela.nome;
   limpar($("#acoes-topo"));
 
@@ -512,7 +515,9 @@ async function comecar() {
   await nuvem.carregarConfig();
   await pessoas.carregar();
   await ev.carregar();
-  document.documentElement.dataset.tema = await dados.lerMeta("tema", "");
+  // Desde 21/10/2026 o claro é o padrão. A chave é nova ("tema2") para todo
+  // mundo começar no claro uma vez; depois, vale o que cada um escolher no ◐.
+  document.documentElement.dataset.tema = await dados.lerMeta("tema2", "claro");
 
   const bAtualizar = $("#batualizar");
   if (bAtualizar) bAtualizar.addEventListener("click", atualizarAgora);
@@ -522,8 +527,15 @@ async function comecar() {
   $("#btema").addEventListener("click", async () => {
     const novo = document.documentElement.dataset.tema === "claro" ? "" : "claro";
     document.documentElement.dataset.tema = novo;
-    await dados.gravarMeta("tema", novo);
+    await dados.gravarMeta("tema2", novo);
   });
+
+  // "+ Registrar": lançar de qualquer tela (ver `tela/registrar.js`). No alto
+  // no computador; no celular, flutua acima da barra de baixo, onde o dedo está.
+  $("#acoes-topo").before(el("button", { id: "bregistrar", class: "primario", hidden: true,
+    title: "Registrar uma movimentação, a chegada da frota, a liberação ou o porquê de um atraso",
+    onclick: () => import("./tela/registrar.js").then(m => m.abrirRegistrar(ctx)).catch(e => erro(e.message)) },
+    el("span", { class: "reg-mais", "aria-hidden": "true" }, "+"), el("span", { class: "rot" }, " Registrar")));
 
   // O botão de voltar mora no alto, antes do título; o caminho é anotado ANTES
   // de a tela nova se pintar, para o botão já nascer com o nome certo.

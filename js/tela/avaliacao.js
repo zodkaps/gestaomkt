@@ -4,10 +4,10 @@
 // coisas respondem, e são as contas de `js/avaliacao.js`: a movimentação
 // concluída depois do prometido, a frota que chegou na oficina depois do dia
 // combinado para a preventiva, e a liberação que foi remarcada para mais
-// tarde. No alto, os números do período; logo abaixo, o que está atrasando
-// agora e o que falta justificar (cada linha com o botão que resolve); depois
-// os gráficos — semana a semana, por quê, quem, frota, categoria, tamanho —, e
-// por último todos os atrasos do período numa tabela.
+// tarde. Em quatro abas, para cada olhada ter um assunto só: o Resumo (quatro
+// números, o que pede ação e três gráficos), Para resolver (o que está
+// atrasando agora e o que falta justificar, cada linha com o botão que
+// resolve), a Análise (os outros gráficos) e Todos os atrasos, numa tabela.
 
 import * as ev from "../eventos.js";
 import * as M from "../modelo.js";
@@ -18,12 +18,14 @@ import { busca as semAcento, filtroDeFrota } from "../texto.js";
 import { cartaoGrafico, graficoBarras, graficoColunas, graficoLinhas, graficoRosca } from "../graficos.js";
 import { justificar } from "./comum.js";
 
-// A cor de cada tipo de atraso, a mesma em todos os gráficos.
+// A cor de cada tipo de atraso, a mesma em todos os gráficos. No prazo é o
+// cinza de contexto: o assunto da tela é o atraso, e só ele ganha cor.
 const COR_TIPO = { mov: "var(--s1)", entrega: "var(--s5)", liberacao: "var(--s4)" };
 const TIPOS = Object.keys(A.TIPOS_OCORRENCIA);
-const NO_PRAZO = "var(--s3)", ATRASO = "var(--s2)";
+const NO_PRAZO = "var(--ctx)", ATRASO = "var(--s2)";
+const ABAS = [["resumo", "Resumo"], ["resolver", "Para resolver"], ["analise", "Análise"], ["lista", "Todos os atrasos"]];
 
-const estado = { periodo: "mes", frota: "", busca: "", tipo: "" };
+const estado = { periodo: "mes", frota: "", busca: "", tipo: "", aba: "resumo" };
 
 const pc = v => v == null ? "—" : Math.round(v * 100) + "%";
 const n1 = v => (Math.round(v * 10) / 10).toLocaleString("pt-BR");
@@ -35,23 +37,24 @@ const corPct = v => v == null ? "" : v >= 0.9 ? "ok" : v >= 0.7 ? "hoje" : "venc
 export async function montar(raiz, ctx, params = new URLSearchParams()) {
   if (params.get("p")) estado.periodo = params.get("p");
   if (params.get("f") != null) estado.frota = params.get("f");
+  if (ABAS.some(([id]) => id === params.get("a"))) estado.aba = params.get("a");
 
   const titulo = el("span", { class: "sub" });
   const periodos = el("div", { class: "segmentos", role: "group", "aria-label": "Período" });
   // A frota se digita, qualquer uma: a lista só sugere. "617" acha a F-617, e
   // um pedaço do número mostra as frotas que têm ele (ver `filtroDeFrota`).
   const lista = el("datalist", { id: "dl-frotas-avaliacao" });
-  const fFrota = el("input", { type: "search", class: "busca-frota", placeholder: "Frota (qualquer uma)", list: "dl-frotas-avaliacao",
+  const fFrota = el("input", { type: "search", class: "busca-frota", placeholder: "Digite a frota", title: "Qualquer frota: 617 acha a F-617", list: "dl-frotas-avaliacao",
     autocomplete: "off", spellcheck: false, value: estado.frota, "aria-label": "Frota",
     oninput: () => { estado.frota = fFrota.value.trim(); pintar(); } });
-  const corpo = el("div", {});
+  const corpo = el("div", { class: "av-corpo" });
+  const abas = el("div", { class: "abas", role: "tablist", "aria-label": "Assunto" });
   raiz.append(
     el("div", { class: "cabec" }, el("h1", {}, "Avaliação da operação"), titulo, el("div", { class: "espaco" })),
-    el("p", { class: "nota", style: "margin:0 0 10px" },
-      "Os atrasos da operação: movimentação concluída depois do prometido, frota que chegou na oficina depois do dia " +
-      "combinado para a preventiva, e liberação remarcada para mais tarde."),
     el("div", { class: "filtros" }, periodos, fFrota, lista),
+    abas,
     corpo);
+  const irAba = (aba, extra = {}) => () => { Object.assign(estado, extra, { aba }); pintar(); window.scrollTo({ top: 0 }); };
 
   function frotas() {
     return [...new Set([...ev.lista("movimentacao"), ...ev.lista("preventiva")].map(x => x.frota).filter(Boolean))]
@@ -65,7 +68,6 @@ export async function montar(raiz, ctx, params = new URLSearchParams()) {
       k.onkeydown = e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); fazer(); } }; }
     return k;
   };
-  const irPara = id => () => { const n = corpo.querySelector("#" + id); if (n) n.scrollIntoView({ behavior: "smooth", block: "start" }); };
 
   // ── as ações de cada linha ───────────────────────────────────────────────
   async function abrir(o) {
@@ -133,69 +135,111 @@ export async function montar(raiz, ctx, params = new URLSearchParams()) {
     const semJ = A.semJustificativa(movs, prevs, ev.log, ref);
     const r = A.resumo(ocs, agora);
 
-    // ── os números
-    corpo.append(el("div", { class: "kpis" },
+    const nResolver = agora.length + semJ.length;
+    limpar(abas).append(...ABAS.map(([id, rot]) => el("button", { type: "button", role: "tab", class: "aba" + (estado.aba === id ? " on" : ""),
+      "aria-selected": estado.aba === id ? "true" : "false", dataset: { aba: id }, onclick: irAba(id) },
+      rot, id === "resolver" && nResolver ? el("span", { class: "cont" }, String(nResolver)) : null)));
+
+    if (estado.aba === "resolver") return pintarResolver(agora, semJ);
+    const semNada = !ocs.length && el("div", {}, vazio(nomeFrota && !movs.length && !prevs.length
+      ? `Nenhuma movimentação ou preventiva da ${nomeFrota} lançada ainda.`
+      : "Nada concluído, entregue ou remarcado neste período" + (nomeFrota ? ` · ${nomeFrota}` : "") + "."));
+    if (estado.aba === "lista") return semNada ? corpo.append(semNada) : pintarLista(ocs);
+    if (estado.aba === "analise") {
+      if (semNada) return corpo.append(semNada);
+      return pintarAnalise(ocs, per, filtro);
+    }
+
+    // ── Resumo: quatro números, o que pede ação, três gráficos
+    corpo.append(el("div", { class: "kpis kpis-4" },
       kpi("Movimentações no prazo", pc(r.mov.pct),
         r.mov.com_prazo ? `${r.mov.no_prazo} de ${r.mov.com_prazo} concluídas` + (r.mov.atrasadas ? ` · atraso médio ${n1(r.mov.atraso_medio)} d` : "")
           : r.mov.total ? `${r.mov.total} concluída(s), nenhuma com prazo` : "nenhuma concluída no período", corPct(r.mov.pct),
-        r.mov.atrasadas ? irPara("av-todos") : null),
+        r.mov.atrasadas ? irAba("lista", { tipo: "mov" }) : null),
       kpi("Frotas no dia da preventiva", pc(r.entrega.pct),
         r.entrega.com_prazo ? `${r.entrega.no_prazo} de ${r.entrega.com_prazo} chegaram no dia` + (r.entrega.atrasadas ? ` · atraso médio ${n1(r.entrega.atraso_medio)} d` : "")
-          : "nenhuma chegada anotada no período", corPct(r.entrega.pct), r.entrega.atrasadas ? irPara("av-todos") : null),
+          : "nenhuma chegada anotada no período", corPct(r.entrega.pct), r.entrega.atrasadas ? irAba("lista", { tipo: "entrega" }) : null),
       kpi("Liberações remarcadas", r.liberacao.remarcadas,
         r.liberacao.remarcadas ? `${plural(r.liberacao.frotas, "frota", "frotas")} · ${r.liberacao.dias} dia(s) adiados` : "nenhuma no período",
-        r.liberacao.remarcadas ? "hoje" : "", r.liberacao.remarcadas ? irPara("av-todos") : null),
+        r.liberacao.remarcadas ? "hoje" : "", r.liberacao.remarcadas ? irAba("lista", { tipo: "liberacao" }) : null),
       kpi("Atrasando agora", r.agora.total,
         r.agora.total ? `${plural(r.agora.movs, "movimentação", "movimentações")} · ${plural(r.agora.entregas, "frota sem chegar", "frotas sem chegar")}` : "nada atrasado",
-        r.agora.total ? "vencida" : "ok", r.agora.total ? irPara("av-agora") : null),
-      kpi("Dias de atraso", r.dias_perdidos, `somados, nos ${plural(r.atrasos, "atraso", "atrasos")} do período`, r.dias_perdidos ? "hoje" : ""),
-      kpi("Sem justificativa", semJ.length, semJ.length ? "atrasos sem o porquê, de qualquer período" : "todos justificados", semJ.length ? "hoje" : "ok",
-        semJ.length ? irPara("av-justificar") : null)));
+        r.agora.total ? "vencida" : "ok", r.agora.total ? irAba("resolver") : null)));
 
-    // ── o que está atrasando agora
+    if (nResolver) {
+      corpo.append(el("div", { class: "pede-acao" },
+        el("span", { class: "pa-txt" },
+          agora.length ? el("b", {}, plural(agora.length, "atraso acontecendo agora", "atrasos acontecendo agora")) : null,
+          agora.length && semJ.length ? " · " : null,
+          semJ.length ? el("b", {}, plural(semJ.length, "atraso sem justificativa", "atrasos sem justificativa")) : null,
+          el("span", { class: "seg" }, " — cada um com o botão que resolve")),
+        el("button", { type: "button", class: "primario-leve", onclick: irAba("resolver") }, "Resolver")));
+    }
+    if (semNada) return corpo.append(semNada);
+
+    const grade = el("div", { class: "bi-grade" });
+    corpo.append(grade);
+    const pendurar = penduradorEm(grade);
+    const sem = A.porSemana(ocs, per.de, per.ate);
+    pendurar(cartaoGrafico("No prazo e com atraso, por semana",
+      `movimentações e chegadas para a preventiva · ${plural(r.atrasos, "atraso", "atrasos")}, ${r.dias_perdidos} dia(s) somados no período`,
+      el("div", { class: "g-corpo" }), { forma: "caixa", legendaDe: [{ nome: "No prazo", cor: NO_PRAZO }, { nome: "Com atraso", cor: ATRASO }] }),
+    w => sem.some(s => s.no_prazo || s.atrasadas)
+      ? graficoColunas({ largura: w, xs: sem.map(s => s.rotulo),
+        series: [{ nome: "No prazo", cor: NO_PRAZO, valores: sem.map(s => s.no_prazo) }, { nome: "Com atraso", cor: ATRASO, valores: sem.map(s => s.atrasadas) }] })
+      : el("p", { class: "nada" }, "Nada com prazo neste período."), true);
+
+    const motivos = A.agruparAtrasos(ocs, "motivo", "Sem motivo informado").slice(0, 8);
+    pendurar(cartaoGrafico("Por que atrasou", "os motivos mais citados",
+      el("div", { class: "g-corpo" }), { forma: "caixa", legendaDe: legTipos }),
+    w => motivos.length ? graficoBarras({ largura: w, larguraRotulo: rotuloLargo(w), itens: motivos.map(x => ({ rotulo: x.rotulo, partes: partesTipo(x) })) })
+      : el("p", { class: "nada" }, "Nenhum atraso no período."));
+
+    const quem = A.agruparAtrasos(ocs, "quem", "Não informado");
+    const paleta = ["var(--s1)", "var(--s2)", "var(--s3)", "var(--s4)", "var(--s5)"];
+    pendurar(cartaoGrafico("Quem atrasou", "o responsável apontado · a liberação remarcada conta para a operação",
+      el("div", { class: "g-corpo" })),
+    w => quem.length ? graficoRosca({ largura: w,
+      itens: quem.map((x, i) => ({ rotulo: x.rotulo, valor: x.total, cor: x.rotulo === "Não informado" ? "var(--ctx)" : paleta[i % paleta.length],
+        extra: [{ valor: `${x.dias} d`, rotulo: "de atraso somados" }] })),
+      centro: { valor: quem.reduce((t, x) => t + x.total, 0), rotulo: "atrasos" } })
+      : el("p", { class: "nada" }, "Nenhum atraso no período."));
+
+    corpo.append(el("p", { class: "nota av-nota" },
+      "Conta como atraso: movimentação concluída depois do prometido, frota que chegou na oficina depois do dia " +
+      "da parada, e liberação remarcada para mais tarde."));
+  }
+
+  const legTipos = TIPOS.map(t => ({ nome: A.TIPOS_OCORRENCIA[t], cor: COR_TIPO[t] }));
+  const partesTipo = x => TIPOS.map(t => ({ nome: A.TIPOS_OCORRENCIA[t], cor: COR_TIPO[t], valor: x[t] || 0 }));
+  const penduradorEm = grade => (card, desenhar, larga = false) => {
+    if (larga) card.classList.add("larga");
+    grade.append(card);
+    card.querySelector(".g-corpo").append(desenhar(Math.max(280, (card.clientWidth || 600) - 28)));
+  };
+
+  // ── Para resolver ────────────────────────────────────────────────────────
+  function pintarResolver(agora, semJ) {
     corpo.append(el("div", { class: "titulo-secao", id: "av-agora" }, "Atrasando agora",
       el("span", { class: "n" }, "· a data prometida ou a parada passou e ainda não foi feito · os dias contam até hoje")));
     corpo.append(agora.length ? tabela(agora, [colTipo, colFrota, colOque,
       ["Combinado", o => dataOuNada(o.combinado), "num"], colDias,
       ["Porquê", o => o.motivo || el("span", { class: "seg" }, "—")]], { acoes: true })
       : el("p", { class: "nada" }, "Nada atrasado agora."));
-
-    // ── o que falta justificar
     corpo.append(el("div", { class: "titulo-secao", id: "av-justificar" }, "Para justificar",
-      el("span", { class: "n" }, "· atrasou e ninguém disse por quê, de qualquer período · sem o porquê, o atraso não ensina nada")));
+      el("span", { class: "n" }, "· atrasou e ninguém disse por quê, de qualquer período")));
     corpo.append(semJ.length ? tabela(semJ, [colTipo, colFrota, colOque,
       ["Combinado", o => dataOuNada(o.combinado), "num"], ["Feito", o => dataOuNada(o.quando), "num"], colDias],
       { acoes: true, justificarSo: true })
       : el("p", { class: "nada" }, "Todos os atrasos têm o porquê."));
+  }
 
-    // ── os gráficos
-    if (!ocs.length) {
-      corpo.append(el("div", { class: "titulo-secao" }, "Os números do período"),
-        vazio(nomeFrota && !movs.length && !prevs.length
-          ? `Nenhuma movimentação ou preventiva da ${nomeFrota} lançada ainda.`
-          : "Nada concluído, entregue ou remarcado neste período" + (nomeFrota ? ` · ${nomeFrota}` : "") + "."));
-      return;
-    }
+  // ── Análise ──────────────────────────────────────────────────────────────
+  function pintarAnalise(ocs, per, filtro) {
     const grade = el("div", { class: "bi-grade" });
-    corpo.append(el("div", { class: "titulo-secao" }, "Os números do período"), grade);
-    const pendurar = (card, desenhar, larga = false) => {
-      if (larga) card.classList.add("larga");
-      grade.append(card);
-      card.querySelector(".g-corpo").append(desenhar(Math.max(280, (card.clientWidth || 600) - 28)));
-    };
-    const legTipos = TIPOS.map(t => ({ nome: A.TIPOS_OCORRENCIA[t], cor: COR_TIPO[t] }));
-    const partesTipo = x => TIPOS.map(t => ({ nome: A.TIPOS_OCORRENCIA[t], cor: COR_TIPO[t], valor: x[t] || 0 }));
-
-    // 1. semana a semana
+    corpo.append(grade);
+    const pendurar = penduradorEm(grade);
     const sem = A.porSemana(ocs, per.de, per.ate);
-    pendurar(cartaoGrafico("No prazo e com atraso, por semana", "movimentações concluídas e frotas que chegaram para a preventiva · segunda a domingo",
-      el("div", { class: "g-corpo" }), { forma: "caixa", legendaDe: [{ nome: "No prazo", cor: NO_PRAZO }, { nome: "Com atraso", cor: ATRASO }] }),
-    w => sem.some(s => s.no_prazo || s.atrasadas)
-      ? graficoColunas({ largura: w, xs: sem.map(s => s.rotulo),
-        series: [{ nome: "No prazo", cor: NO_PRAZO, valores: sem.map(s => s.no_prazo) }, { nome: "Com atraso", cor: ATRASO, valores: sem.map(s => s.atrasadas) }] })
-      : el("p", { class: "nada" }, "Nada com prazo neste período."));
-
-    // 2. a pontualidade de cada semana, em %
     const pctSem = t => sem.map(s => {
       const l = ocs.filter(o => o.tipo === t && !o.semPrazo && o.quando >= s.ini && o.quando <= s.fim);
       return l.length ? l.filter(o => !o.atrasou).length / l.length : null;
@@ -207,33 +251,13 @@ export async function montar(raiz, ctx, params = new URLSearchParams()) {
     w => seriesPct.length ? graficoLinhas({ largura: w, xs: sem.map(s => s.rotulo), series: seriesPct })
       : el("p", { class: "nada" }, "Nada com prazo neste período."));
 
-    // 3. por que atrasou
-    const motivos = A.agruparAtrasos(ocs, "motivo", "Sem motivo informado").slice(0, 10);
-    pendurar(cartaoGrafico("Por que atrasou", "os motivos mais citados, somando os três tipos de atraso",
-      el("div", { class: "g-corpo" }), { forma: "caixa", legendaDe: legTipos }),
-    w => motivos.length ? graficoBarras({ largura: w, larguraRotulo: rotuloLargo(w), itens: motivos.map(x => ({ rotulo: x.rotulo, partes: partesTipo(x) })) })
-      : el("p", { class: "nada" }, "Nenhum atraso no período."));
-
-    // 4. quem atrasou
-    const quem = A.agruparAtrasos(ocs, "quem", "Não informado");
-    const paleta = ["var(--s1)", "var(--s2)", "var(--s3)", "var(--s4)", "var(--s5)"];
-    pendurar(cartaoGrafico("Quem atrasou", "o responsável apontado em cada atraso · a liberação remarcada conta para a operação",
-      el("div", { class: "g-corpo" })),
-    w => quem.length ? graficoRosca({ largura: w,
-      itens: quem.map((x, i) => ({ rotulo: x.rotulo, valor: x.total, cor: x.rotulo === "Não informado" ? "var(--ctx)" : paleta[i % paleta.length],
-        extra: [{ valor: `${x.dias} d`, rotulo: "de atraso somados" }] })),
-      centro: { valor: quem.reduce((t, x) => t + x.total, 0), rotulo: "atrasos" } })
-      : el("p", { class: "nada" }, "Nenhum atraso no período."));
-
-    // 5. as frotas
     const pf = A.porFrota(ocs).filter(x => x.atrasos).slice(0, 10);
-    pendurar(cartaoGrafico("Frotas com mais atrasos", "clique numa frota para ver só ela · a dica mostra os dias somados",
+    pendurar(cartaoGrafico("Frotas com mais atrasos", "clique numa frota para ver só ela",
       el("div", { class: "g-corpo" }), { forma: "caixa", legendaDe: legTipos }),
     w => pf.length ? graficoBarras({ largura: w, itens: pf.map(x => ({ rotulo: x.frota, chave: x.frota, ativo: !filtro.vazio && filtro.bate(x.frota),
       partes: partesTipo(x) })), aoClicar: it => { estado.frota = !filtro.vazio && filtro.bate(it.chave) ? "" : it.chave; pintar(); } })
       : el("p", { class: "nada" }, "Nenhum atraso no período."));
 
-    // 6. as categorias da movimentação
     const cats = A.porCategoria(ocs).filter(x => x.no_prazo + x.atrasadas);
     pendurar(cartaoGrafico("Movimentações por categoria", "no prazo e com atraso, por tipo de movimentação",
       el("div", { class: "g-corpo" }), { forma: "caixa", legendaDe: [{ nome: "No prazo", cor: NO_PRAZO }, { nome: "Com atraso", cor: ATRASO }] }),
@@ -241,22 +265,21 @@ export async function montar(raiz, ctx, params = new URLSearchParams()) {
       partes: [{ nome: "No prazo", cor: NO_PRAZO, valor: x.no_prazo }, { nome: "Com atraso", cor: ATRASO, valor: x.atrasadas }] })) })
       : el("p", { class: "nada" }, "Nenhuma movimentação com prazo no período."));
 
-    // 7. o tamanho dos atrasos
     const faixas = A.porFaixa(ocs);
     pendurar(cartaoGrafico("Tamanho dos atrasos", "quantos dias passou do combinado",
       el("div", { class: "g-corpo" }), { forma: "caixa", legendaDe: legTipos }),
     w => faixas.some(f => f.total) ? graficoColunas({ largura: w, xs: faixas.map(f => f.rotulo),
       series: TIPOS.map(t => ({ nome: A.TIPOS_OCORRENCIA[t], cor: COR_TIPO[t], valores: faixas.map(f => f[t]) })) })
-      : el("p", { class: "nada" }, "Nenhum atraso no período."), true);
+      : el("p", { class: "nada" }, "Nenhum atraso no período."));
+  }
 
-    // ── todos os atrasos do período
+  // ── Todos os atrasos ─────────────────────────────────────────────────────
+  function pintarLista(ocs) {
     const fBusca = el("input", { class: "busca", type: "search", placeholder: "frota, motivo, quem…", value: estado.busca });
     const tiposBt = el("div", { class: "segmentos" }, [["", "Todos"], ...TIPOS.map(t => [t, A.TIPOS_OCORRENCIA[t]])].map(([t, rot]) =>
       el("button", { type: "button", class: "seg-op" + (estado.tipo === t ? " on" : ""), onclick: () => { estado.tipo = t; pintarTodos(); } }, rot)));
     const caixaTodos = el("div", {});
-    corpo.append(el("div", { class: "titulo-secao", id: "av-todos" }, "Todos os atrasos do período",
-      el("span", { class: "n" }, "· do mais recente para o mais antigo · clique para abrir")),
-    el("div", { class: "filtros" }, tiposBt, fBusca), caixaTodos);
+    corpo.append(el("div", { class: "filtros", id: "av-todos" }, tiposBt, fBusca), caixaTodos);
     fBusca.addEventListener("input", () => { estado.busca = fBusca.value; pintarTodos(); });
     function pintarTodos() {
       for (const b of tiposBt.querySelectorAll(".seg-op")) b.classList.remove("on");

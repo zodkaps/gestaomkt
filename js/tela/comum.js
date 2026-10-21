@@ -872,7 +872,10 @@ export function descreverEvento(e, comAtividade = false) {
 
   let txt;
   switch (e.tipo) {
-    case "criada": txt = d.fonte ? `criada — ${d.fonte}` : "criada manualmente"; break;
+    case "criada": txt = d.fonte ? `criada — ${d.fonte}`
+      : achado && achado.tipo === "movimentacao" ? "pediu a movimentação"
+      : achado && achado.tipo === "preventiva" ? `pôs no plano de preventivas${d.mes ? " de " + d.mes : ""}`
+      : "criada manualmente"; break;
     case "importada": txt = `importada${d.fonte ? " de " + d.fonte : ""}`; break;
     case "programada":
       txt = `programada para a semana ${d.para.semana}${d.para.dia ? " · " + d.para.dia : ""}`;
@@ -892,9 +895,20 @@ export function descreverEvento(e, comAtividade = false) {
         k === "os" ? `OS ${para.os || "(vazia)"}` : k).join(", ");
       break;
     }
-    case "mov_prometida": txt = `prazo ${br(d.para)}`; break;
+    case "mov_prometida": txt = `deu o prazo: ${br(d.para)}`; break;
     case "mov_chegou": txt = `movimentação concluída em ${br(d.em)}`; break;
-    case "prev_disponivel": txt = `liberada ${d.quando === "agora" ? "agora" : "em " + br(d.quando)}`; break;
+    case "prev_disponivel": {
+      const v = q2 => q2 === "agora" ? "agora" : br(q2);
+      txt = d.de && d.quando && d.de !== d.quando ? `remarcou a liberação: de ${v(d.de)} para ${v(d.quando)}`
+        : `liberou a frota ${d.quando === "agora" ? "agora" : "a partir de " + br(d.quando)}`;
+      break;
+    }
+    case "prev_entregue": {
+      const n = d.combinado && d.em ? M.difDias(d.combinado, d.em) : 0;
+      txt = `a frota chegou na oficina em ${br(d.em)}` + (n > 0 ? ` · ${n} dia${n === 1 ? "" : "s"} depois da parada` : "") +
+        (d.motivo ? ` · porquê: ${d.motivo}` : "") + (d.quem ? ` · responsável: ${d.quem}` : "");
+      break;
+    }
     case "prev_parada": txt = `parada programada para ${br(d.dia)}`; break;
     case "prev_realizada": txt = `preventiva realizada em ${br(d.em)}`; break;
     case "semana_fechada": {

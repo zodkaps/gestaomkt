@@ -1,4 +1,5 @@
-/* Programação Makro — padrão de sistema de manutenção, escuro por padrão.
+/* Programação Makro — padrão de sistema de manutenção. Desde 21/10/2026 o
+   claro (estilo Melvin) é o padrão; o escuro continua no botão ◐.
    =====================================================================
    Duas formas da mesma tela: no computador, menu lateral e tabela densa,
    como um CMMS. No celular, barra embaixo e cartão — porque tabela densa em
@@ -56,6 +57,8 @@
 
   --botao: var(--papel2);
   --campo: var(--fundo);
+  --seg-fundo: var(--fundo);
+  --seg-on: var(--papel3);
   --raio: 8px;
   --sombra: 0 1px 2px rgba(0, 0, 0, .5), 0 4px 14px rgba(0, 0, 0, .35);
   --menu: 232px;
@@ -97,6 +100,8 @@
   --s1: #2a78d6; --s2: #eb6834; --s3: #1baf7a; --s4: #eda100; --s5: #e87ba4;
   --botao: #ffffff;
   --campo: #ffffff;
+  --seg-fundo: #eef1f5;
+  --seg-on: #ffffff;
   --raio: 10px;
   --sombra: 0 1px 2px rgba(49, 58, 70, .05), 0 4px 18px rgba(49, 58, 70, .07);
   --sombra-cartao: 0 1px 2px rgba(49, 58, 70, .04), 0 2px 12px rgba(49, 58, 70, .06);
@@ -1598,3 +1603,126 @@ tr.cat-bloco .n, .mov-grupo-tit .n { color: var(--fraco); font-weight: 500; }
 /* a chegada da frota na coluna Parada das Preventivas */
 .grade.prev .chegou { margin-top: 2px; }
 .grade.prev .chegou.tarde { color: var(--hoje); }
+
+/* ── o mês do plano: ‹ mês › ─────────────────────────────────────────────── */
+.nav-mes { display: inline-flex; align-items: center; border: 1px solid var(--borda); border-radius: 8px;
+  background: var(--campo); overflow: hidden; }
+.nav-mes-b { border: 0; background: transparent; color: var(--fraco); padding: 6px 11px; font-size: 16px; line-height: 1;
+  cursor: pointer; border-radius: 0; }
+.nav-mes-b:hover { background: var(--papel2); color: var(--texto); }
+.nav-mes-in { border: 0; border-left: 1px solid var(--linha); border-right: 1px solid var(--linha); border-radius: 0;
+  background: transparent; padding: 6px 8px; min-width: 0; width: 168px; font-weight: 600; color: var(--texto); }
+.mes-vazio { background: var(--papel); border: 1px solid var(--linha); border-radius: var(--raio); padding: 22px 22px 18px;
+  max-width: 720px; box-shadow: var(--sombra-cartao, none); }
+.mes-vazio h2 { margin: 0 0 6px; font-size: 18px; }
+.mes-vazio p { color: var(--fraco); margin: 0 0 14px; line-height: 1.5; }
+.mes-vazio .acoes-mes { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 14px; }
+.meses-com-plano { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; font-size: 13px; }
+.chip-mes { border: 1px solid var(--borda); background: var(--papel2); border-radius: 999px; padding: 3px 10px;
+  font-size: 12px; cursor: pointer; color: var(--texto); }
+.chip-mes:hover { border-color: var(--marca); color: var(--marca); }
+.trazer-lista { max-height: 46vh; overflow: auto; border: 1px solid var(--linha); border-radius: 8px; margin-top: 10px; }
+.trazer-lin { display: grid; grid-template-columns: 22px 92px minmax(70px, 1fr) minmax(110px, 1.3fr) 138px; gap: 8px;
+  align-items: center; padding: 6px 10px; border-bottom: 1px solid var(--linha); cursor: pointer; }
+.trazer-lin:last-child { border-bottom: 0; }
+.trazer-lin.ja { opacity: .6; cursor: default; grid-template-columns: 22px 92px minmax(70px, 1fr) auto; }
+.trazer-lin input[type="checkbox"] { width: 16px; height: 16px; }
+.trazer-lin input:not([type="checkbox"]) { padding: 4px 6px; min-width: 0; }
+@media (max-width: 620px) {
+  .trazer-lin { grid-template-columns: 22px 1fr 1fr; }
+  .trazer-lin > .seg { display: none; }
+  .trazer-lin > input[type="date"] { grid-column: 2 / -1; }
+}
+
+
+/* ══ 21/10/2026: o claro como padrão, e um jeito só de filtrar ═══════════════
+   A barra de filtros de cada tela é um cartão só, com os controles da mesma
+   altura; os segmentos são uma pílula com a opção escolhida em relevo; as
+   abas separam assuntos (sublinhado), os segmentos recortam o mesmo assunto. */
+
+#tela > .filtros { background: var(--papel); border: 1px solid var(--linha); border-radius: var(--raio);
+  padding: 8px; box-shadow: var(--sombra-cartao, none); }
+.filtros input, .filtros select, .filtros > button, .mais-filtros > summary { min-height: 34px; }
+.filtros input, .filtros select { border-radius: 8px; }
+.segmentos { border: 0; background: var(--seg-fundo); padding: 3px; border-radius: 9px; gap: 2px; overflow: visible; }
+.seg-op { border-right: 0 !important; border-radius: 7px; padding: 5px 12px; color: var(--fraco); font-weight: 600; }
+.seg-op:hover { background: transparent; color: var(--texto); }
+.seg-op.on, .seg-sem.on .seg-op[data-p] { background: var(--seg-on); color: var(--texto); font-weight: 700;
+  box-shadow: 0 1px 2px rgba(20, 30, 40, .14); }
+.filtros .segmentos .seg-op { min-height: 28px; }
+
+/* Mais filtros: recolhido; aberto, toma a linha inteira */
+.mais-filtros { display: inline-block; }
+.mais-filtros[open] { flex-basis: 100%; }
+.mais-filtros > summary { list-style: none; cursor: pointer; display: inline-flex; align-items: center; gap: 4px;
+  padding: 6px 12px; border: 1px solid var(--borda); border-radius: 8px; background: var(--botao);
+  font-size: 13px; color: var(--texto); user-select: none; }
+.mais-filtros > summary::-webkit-details-marker { display: none; }
+.mais-filtros > summary::after { content: "▾"; color: var(--muito-fraco); margin-left: 4px; }
+.mais-filtros[open] > summary { border-color: var(--marca); color: var(--marca); }
+.mais-filtros[open] > summary::after { content: "▴"; }
+.mais-filtros > summary .n { color: var(--marca); font-weight: 700; }
+.mais-filtros > .filtros { margin: 8px 0 0; }
+.rot-data { font-size: 12.5px; color: var(--fraco); }
+.reg-pe { margin-top: 18px; display: flex; justify-content: flex-end; }
+
+/* as abas: um assunto por vez */
+.abas { display: flex; gap: 4px; border-bottom: 1px solid var(--borda); margin: 0 0 16px; overflow-x: auto;
+  scrollbar-width: none; }
+.aba { border: 0; background: transparent; border-radius: 0; padding: 10px 14px 9px; color: var(--fraco);
+  font-weight: 650; font-size: 13.5px; border-bottom: 2px solid transparent; margin-bottom: -1px; }
+.aba:hover { background: transparent; color: var(--texto); }
+.aba.on { color: var(--marca); border-bottom-color: var(--marca); }
+.aba .cont { margin-left: 6px; font-size: 11px; font-weight: 700; background: var(--vencida-fundo); color: var(--vencida);
+  padding: 1px 7px; border-radius: 999px; }
+
+/* a Avaliação: quatro números e o que pede ação */
+.kpis.kpis-4 { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
+.kpis-4 .kpi { padding: 14px 16px; }
+.kpis-4 .kpi .k-val { font-size: 30px; }
+@media (max-width: 760px) { .kpis.kpis-4 { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+.pede-acao { display: flex; align-items: center; gap: 12px; justify-content: space-between; flex-wrap: wrap;
+  background: var(--hoje-fundo); border: 1px solid var(--linha); border-left: 3px solid var(--hoje);
+  border-radius: var(--raio); padding: 10px 14px; margin: 0 0 16px; font-size: 13.5px; }
+.pede-acao .seg { color: var(--fraco); }
+.av-nota { margin: 14px 0 0; }
+
+/* "+ Registrar": no alto no computador; no celular, flutua acima da barra */
+#bregistrar { font-weight: 700; padding: 7px 14px; border-radius: 8px; }
+#bregistrar .reg-mais { font-size: 17px; font-weight: 800; line-height: 1; }
+#topo #bregistrar { align-self: center; }
+@media (max-width: 860px) {
+  #bregistrar { position: fixed; right: 14px; bottom: calc(var(--nav) + env(safe-area-inset-bottom) + 14px); z-index: 40;
+    border-radius: 999px; padding: 12px 18px; font-size: 14.5px; box-shadow: 0 6px 18px rgba(20, 30, 40, .28); }
+  main { padding-bottom: 84px; }
+}
+.registrar .reg-pergunta { font-size: 11.5px; font-weight: 700; color: var(--fraco); text-transform: uppercase;
+  letter-spacing: .06em; margin: 6px 0 8px; }
+.reg-opcoes { display: grid; gap: 8px; }
+.reg-op { display: grid; grid-template-columns: 38px 1fr auto; align-items: center; gap: 12px; text-align: left;
+  padding: 10px 12px; border-radius: 10px; border: 1px solid var(--linha); background: var(--papel); white-space: normal; width: 100%; }
+.reg-op:hover:not(:disabled) { border-color: var(--marca); background: var(--marca-clara); }
+.reg-op:disabled { opacity: .5; }
+.reg-ic { width: 38px; height: 38px; border-radius: 10px; display: grid; place-items: center;
+  background: var(--marca-clara); color: var(--marca); font-size: 17px; font-weight: 800; }
+.reg-txt { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+.reg-txt b { font-size: 14px; }
+.reg-txt small { font-size: 12px; color: var(--fraco); }
+.reg-n { font-size: 12px; color: var(--fraco); white-space: nowrap; }
+.reg-itens { display: flex; flex-direction: column; gap: 6px; }
+.reg-item { display: grid; grid-template-columns: minmax(64px, auto) 1fr auto; gap: 10px; text-align: left;
+  padding: 10px 12px; border-radius: 8px; white-space: normal; width: 100%; }
+.reg-item:hover { border-color: var(--marca); background: var(--marca-clara); }
+.reg-item .reg-info { font-size: 12px; color: var(--fraco); }
+@media (max-width: 520px) { .reg-item { grid-template-columns: auto 1fr; } .reg-item .reg-info { grid-column: 2; } }
+
+/* o Registro: a importação numa linha só, que abre */
+details.evento.importacao { display: block; }
+details.evento.importacao > summary { display: flex; gap: 10px; cursor: pointer; list-style: none; }
+details.evento.importacao > summary::-webkit-details-marker { display: none; }
+details.evento.importacao .abrir { color: var(--marca); font-weight: 600; }
+details.evento.importacao[open] .abrir { display: none; }
+details.evento.importacao > .itens { margin: 6px 0 0 102px; border-left: 2px solid var(--linha); padding-left: 10px; }
+details.evento.importacao > .itens .evento:last-child { border-bottom: 0; }
+@media (max-width: 620px) { details.evento.importacao > .itens { margin-left: 8px; } }
+.dia-reg .dr-cab { position: sticky; top: var(--topo); z-index: 2; background: var(--fundo); padding: 8px 0 6px; }
