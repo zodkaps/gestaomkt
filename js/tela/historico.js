@@ -13,11 +13,15 @@ import * as pessoas from "../pessoas.js";
 import { el, limpar, selecao, avisar, erro, vazio, confirmar, br, cartaoNumero } from "../ui.js";
 import { descreverEvento, frotas } from "./comum.js";
 import { diaDe, filtrarRegistro, resumoDoDia } from "../registro.js";
+import { OFICINA } from "../foco.js";
 
 const PAGINA = 150;
 const SEMANA = ["domingo", "segunda-feira", "terça-feira", "quarta-feira", "quinta-feira", "sexta-feira", "sábado"];
-const ALVOS = { atividade: "atividades", movimentacao: "movimentações", preventiva: "preventivas",
-  semana: "semanas fechadas" };
+const ALVOS = OFICINA ? { atividade: "atividades", movimentacao: "movimentações", preventiva: "preventivas",
+  semana: "semanas fechadas" } : { movimentacao: "movimentações", preventiva: "preventivas" };
+// Sem a oficina no site, o registro mostra só o que o site cuida: as
+// movimentações e as preventivas. Os lançamentos da oficina continuam na fita.
+const fita = () => OFICINA ? ev.log : ev.log.filter(e => e.alvo_tipo in ALVOS);
 const ORIGENS = { manual: "lançado no site", planilha: "da planilha", claude: "pedido ao Claude",
   painel: "decisão do Painel", vinculo: "preventiva ↔ OS (automático)" };
 
@@ -93,7 +97,7 @@ export async function montar(raiz, ctx, params) {
   function pintarOpcoes() {
     limpar(fFrota).append(el("option", { value: "" }, "Frota: todas"),
       ...frotas().map(x => el("option", { value: x, selected: x === f.frota }, x)));
-    const autores = [...new Set(ev.log.map(e => e.autor).filter(Boolean))].sort((a, b) => a.localeCompare(b, "pt-BR"));
+    const autores = [...new Set(fita().map(e => e.autor).filter(Boolean))].sort((a, b) => a.localeCompare(b, "pt-BR"));
     if (f.autor && !autores.includes(f.autor)) autores.push(f.autor);
     limpar(fAutor).append(el("option", { value: "" }, "Pessoa: todas"),
       ...autores.map(x => el("option", { value: x, selected: x === f.autor }, x)));
@@ -106,7 +110,7 @@ export async function montar(raiz, ctx, params) {
 
   // ── o resumo de um dia ──
   function pintarResumo() {
-    const r = resumoDoDia(ev.log, diaResumo);
+    const r = resumoDoDia(fita(), diaResumo);
     const h = M.hoje();
     const irDia = d => () => { diaResumo = d; pintarResumo(); };
     const verDoDia = extra => () => {
@@ -124,7 +128,7 @@ export async function montar(raiz, ctx, params) {
     limpar(resumo).append(el("div", { class: "rd-cab" }, el("h2", {}, "Resumo do dia"), nav));
     if (!r.total) {
       // Sem nada no dia, aponta o último dia que teve lançamento.
-      const ultimo = ev.log.length ? diaDe(ev.log[ev.log.length - 1].ts) : "";
+      const ultimo = fita().length ? diaDe(fita()[fita().length - 1].ts) : "";
       resumo.append(el("p", { class: "nada rd-nada" }, "Nada lançado neste dia.",
         ultimo && ultimo !== diaResumo ? el("button", { type: "button", class: "discreto",
           onclick: irDia(ultimo) }, ` Ver ${rotuloDia(ultimo)}`) : null));
@@ -181,7 +185,7 @@ export async function montar(raiz, ctx, params) {
     pintarOpcoes();
     pintarResumo();
     pintarEtiquetas();
-    const itens = filtrarRegistro(ev.log, f, ev.achar);
+    const itens = filtrarRegistro(fita(), f, ev.achar);
     contagem.textContent = `${itens.length} lançamento${itens.length === 1 ? "" : "s"}`;
 
     limpar(corpo);

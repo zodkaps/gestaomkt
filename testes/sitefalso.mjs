@@ -76,8 +76,16 @@ export async function entrarComo(p, nome, senha = "makro2026") {
     try { await mkt.nuvem.criarAcesso(e, s, n); } catch (x) { /* já existe */ }
     await mkt.nuvem.sair();
   }, [email, senha, nome]);
-  await p.fill('input[placeholder="Seu e-mail"]', email);
-  await p.fill('input[placeholder="Senha"]', senha);
+  // Sair repinta a porta logo depois, e ela vem com o e-mail de quem tem
+  // lançamento parado: digitar antes disso perdia o e-mail digitado, e o teste
+  // entrava com a pessoa errada. Espera a porta assentar e confere o que ficou.
+  await p.waitForTimeout(400);
+  for (let i = 0; i < 3; i++) {
+    await p.fill('input[placeholder="Seu e-mail"]', email);
+    await p.fill('input[placeholder="Senha"]', senha);
+    await p.waitForTimeout(200);
+    if ((await p.inputValue('input[placeholder="Seu e-mail"]')) === email) break;
+  }
   await p.click('button[type=submit]');
   await p.waitForTimeout(2200);
 }

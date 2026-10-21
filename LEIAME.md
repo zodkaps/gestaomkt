@@ -9,10 +9,54 @@ São quatro pessoas, com dois papéis:
 | quem | papel | o que faz |
 |---|---|---|
 | Mateus, Lucas | **PCM** | programa a oficina, registra conclusões, programa paradas, **aprova as movimentações**, importa a planilha e o Protheus |
-| Pedro, João Victor | **Operação** | **conclui as movimentações** de frota e informa a liberação dos veículos para a manutenção |
+| Pedro, João Victor | **Operação** | **conclui as movimentações** de frota e informa a liberação dos veículos para a manutenção (remarcar exige o motivo) |
 
 A equipe da oficina continua fechando OS direto no Protheus. Este site é o
 controle do PCM e o canal de resposta da operação.
+
+---
+
+## Desde 21/10/2026: a avaliação da operação
+
+O site virou a ferramenta para **avaliar a operação**: só movimentações de
+frota e preventivas, e os atrasos de entrega. O PCM entra na tela
+**Avaliação**; o menu tem Avaliação, Preventivas, Movimentação e o de gestão
+(Registro, Importar, Diagnóstico).
+
+Três coisas contam como atraso — as que o PCM definiu:
+
+| atraso | o combinado | o feito |
+|---|---|---|
+| **Movimentação** | a data que a operação prometeu | o dia em que foi concluída |
+| **Entrega para a preventiva** | o dia da parada que o PCM marcou | o dia em que a frota chegou na oficina |
+| **Liberação remarcada** | a liberação que a operação tinha informado | a nova data, mais tarde (antecipar não conta) |
+
+A oficina devolver a frota atrasada **não** conta: o que se avalia é a operação.
+
+- **A frota chegou** é um lançamento novo (`prev_entregue`), do PCM: no dia da
+  parada ou depois, o botão está na fila *Dar baixa* das Preventivas, na ficha,
+  nas decisões e na própria Avaliação. Chegou depois da parada, a caixa pede o
+  porquê e o responsável — pode ficar para depois. Sem parada marcada não há
+  dia combinado: a frota liberada está esperando o PCM, não atrasando.
+- **Remarcar a liberação exige o motivo.** A primeira liberação, e confirmar a
+  mesma data, não pedem.
+- Na **Avaliação**: o período (este mês, mês passado, 4 ou 12 semanas, o ano) e
+  a frota no alto; seis números (movimentações no prazo, frotas no dia da
+  preventiva, liberações remarcadas, atrasando agora, dias de atraso, sem
+  justificativa); o que está **atrasando agora** e o que falta **justificar**,
+  cada linha com o botão que resolve; os gráficos (semana a semana, por quê,
+  quem, frota, categoria, tamanho do atraso) e a tabela de todos os atrasos do
+  período. A pontualidade conta só o que tinha data combinada; o sem prazo
+  aparece à parte. O número no menu é o que falta justificar.
+- As contas ficam em `js/avaliacao.js` (puras, testadas em `testes/rodar.js`);
+  a tela em `js/tela/avaliacao.js`.
+
+**As telas da oficina saíram do menu, mas nada foi apagado.** Painel, Hoje,
+Programação, Semana, Resultados e Frota continuam no código, e os lançamentos
+continuam na fita. Para consultar, abra o site com **`?oficina=1`** no
+endereço (`https://zodkaps.github.io/gestaomkt/?oficina=1`) — o menu volta
+como era. O interruptor fica em `js/foco.js`. O que segue abaixo sobre essas
+telas vale para esse modo.
 
 ---
 
@@ -326,6 +370,9 @@ mais — ou, se o acervo antigo não interessa, um projeto novo só para este si
 é o mais limpo.
 
 ## As telas seguem a planilha
+
+> Desde 21/10/2026 estas telas da oficina só aparecem com `?oficina=1` no
+> endereço — ver *A avaliação da operação*, no começo.
 
 O menu tem as abas da planilha, na mesma ordem: **Hoje · Programação · Semana ·
 Resultados · Preventivas · Movimentações**. É o mapa que o PCM já tem na cabeça,
@@ -698,7 +745,8 @@ memória. Divergência ali é bug, não opinião.
 | `mov_aprovada` | o PCM conferiu e aprovou (só o PCM) | — |
 | `mov_devolvida` | o PCM devolveu para a operação (só o PCM) | **motivo** |
 | `justificada` | motivo do atraso ou da não execução, e o responsável (OS: PCM; movimentação: os dois) | **o motivo** |
-| `prev_disponivel` | a operação informou a liberação da frota; mudar a já informada é *liberação alterada* | "agora" ou data; motivo opcional ao mudar |
+| `prev_disponivel` | a operação informou a liberação da frota; mudar a já informada é *liberação alterada*, e para mais tarde entra na Avaliação como **liberação remarcada** | "agora" ou data; **motivo** se mudar |
+| `prev_entregue` | a frota chegou na oficina para a preventiva (só o PCM); guarda o dia combinado (a parada) daquele momento, e o porquê se chegou depois | a data (hoje ou antes) |
 | `prev_parada` | o PCM programou a data da parada; mudar a data já marcada é **reprogramar** e conta | a data; **motivo** se mudar |
 | `prev_andamento` | a preventiva está em execução (Status Em andamento) | — |
 | `prev_realizada` | a preventiva foi realizada | a data |
@@ -1086,6 +1134,9 @@ porque toda escrita já passa por `aplicar()`.
 | `js/nuvem.js` | o Supabase por `fetch`: ler desde um ponto, enviar, consultar de tempos em tempos |
 | `js/pessoas.js` | quem está usando, o papel, o que esse papel pode |
 | `js/tela/*.js` | entrar, operacao, painel, hoje, programacao, semana, resultados, movimentacoes, preventivas, frota, historico, importar, diagnostico |
+| `js/foco.js` | o que o site mostra: sem `?oficina=1`, as telas da oficina ficam fora do menu; a primeira tela de quem entra |
+| `js/avaliacao.js` | as contas da Avaliação da operação: os três atrasos, o que atrasa agora, o que falta justificar, os agrupamentos dos gráficos |
+| `js/tela/avaliacao.js` | a tela Avaliação: números, listas com o botão que resolve, gráficos e a tabela do período |
 | `js/decisoes.js` | **o que decidir agora**: as regras do Painel, puras, e a data sugerida para a parada |
 | `js/vinculo.js` | o *Ver e ligar*: o que fazer, preventiva por preventiva, para ligar o que já existia à Programação |
 | `js/registro.js` | as contas do Registro: o dia de cada lançamento, o filtro, o resumo do dia e o tamanho da fita |

@@ -22,6 +22,7 @@
 import * as nuvem from "../nuvem.js";
 import * as pessoas from "../pessoas.js";
 import * as ev from "../eventos.js";
+import { telaInicial } from "../foco.js";
 import { el, limpar, campo, avisar, erro, caixa, senhaComOlho } from "../ui.js";
 
 export async function montar(raiz, ctx, params = new URLSearchParams()) {
@@ -77,7 +78,7 @@ export async function montar(raiz, ctx, params = new URLSearchParams()) {
         await pessoas.carregar();
         await ev.carregar();
         avisar(`Olá, ${pessoas.nome().split(" ")[0]}.`);
-        ctx.ir(pessoas.ehOperacao() ? "operacao" : "hoje");
+        ctx.ir(telaInicial(pessoas.ehOperacao()));
       } catch (x) {
         aviso.append(el("div", { class: "erro" }, x.message));
         // Falhou por qualquer motivo: a saída local passa a aparecer. Pode ser
@@ -211,7 +212,7 @@ async function entrarLocal(ctx) {
     await pessoas.entrarLocal(escolhido);
     await ev.carregar();
     avisar(`Trabalhando neste aparelho como ${escolhido.split(" ")[0]}.`);
-    ctx.ir(pessoas.ehOperacao() ? "operacao" : "hoje");
+    ctx.ir(telaInicial(pessoas.ehOperacao()));
   } catch (e) { erro(e.message); }
 }
 
@@ -269,7 +270,7 @@ function semPapel(raiz, ctx, p) {
       el("div", { style: "display:flex;gap:8px;margin-top:16px;flex-wrap:wrap" },
         el("button", { class: "primario", onclick: async () => {
           await pessoas.carregar();
-          if (pessoas.papel()) { ctx.ir(pessoas.ehOperacao() ? "operacao" : "hoje"); }
+          if (pessoas.papel()) { ctx.ir(telaInicial(pessoas.ehOperacao())); }
           else avisar("Ainda não — o papel continua faltando.");
         } }, "Tentar de novo"),
         el("button", { onclick: () => ctx.ir("diagnostico") }, "Ver o diagnóstico"),

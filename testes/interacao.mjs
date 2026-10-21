@@ -15,6 +15,9 @@ const { chromium } = pw;
 
 const NUVEM = process.env.NUVEM_FALSA || "http://127.0.0.1:8124";
 const site = servirCopia({ nuvem: NUVEM, porta: 8126, pasta: "/tmp/mkt-copia-interacao" });
+// Desde 21/10/2026 as telas da oficina saíram do menu (`js/foco.js`). Os testes
+// delas continuam valendo — o código está lá — e abrem o site com elas de volta.
+const COM_OFICINA = site.endereco + "?oficina=1";
 
 let falhou = 0;
 const ok = (nome, cond, detalhe = "") => {
@@ -29,7 +32,7 @@ const p = await (await nav.newContext({ viewport: { width: 1280, height: 860 } }
 p.on("pageerror", e => console.log("  [erro na página]", e.message));
 p.on("console", m => { if (m.type() === "error" && !/Failed to load resource/.test(m.text())) console.log("  [console]", m.text()); });
 
-await p.goto(site.endereco, { waitUntil: "networkidle" });
+await p.goto(COM_OFICINA, { waitUntil: "networkidle" });
 await p.waitForTimeout(400);
 await entrarComo(p, "Mateus");
 
@@ -445,7 +448,7 @@ ok("um clique aprova: Concluída com atraso, concluída pelo Pedro, aprovada pel
 // sempre. Aqui o servidor segura um lançamento enquanto o seguinte já aparece.
 {
   const lucas = await (await nav.newContext({ viewport: { width: 1280, height: 860 } })).newPage();
-  await lucas.goto(site.endereco, { waitUntil: "networkidle" });
+  await lucas.goto(COM_OFICINA, { waitUntil: "networkidle" });
   await entrarComo(lucas, "Lucas");
   const segura = (rota, corpo = {}) => fetch(`${NUVEM}/${rota}`, { method: "POST",
     headers: { "content-type": "application/json" }, body: JSON.stringify(corpo) });
@@ -1527,11 +1530,18 @@ ok("um clique aprova: Concluída com atraso, concluída pelo Pedro, aprovada pel
   await p.evaluate(() => { location.hash = "#/semana?v=quadro"; });
   await p.waitForSelector(".quadro");
   await p.evaluate(() => window.scrollTo(0, 0));
-  await p.fill(".q-busca", F);
-  await p.waitForTimeout(300);
+  // O quadro pode repintar logo depois de abrir; digitada num quadro que saiu
+  // da tela, a busca se perdia. Digita de novo até ela ficar.
+  for (let i = 0; i < 3; i++) {
+    await p.fill(".q-busca", F);
+    await p.waitForTimeout(300);
+    if ((await p.inputValue(".q-busca")) === F && await p.locator(`.q-origem .q-cartao[data-id="${id1}"]`).count()) break;
+  }
+  const naOrigem = await p.evaluate(() => ({ busca: (document.querySelector(".q-busca") || {}).value,
+    cartoes: [...document.querySelectorAll(".q-origem .q-cartao")].map(c => c.dataset.id),
+    nada: (document.querySelector(".q-origem .nada") || {}).textContent || "", caixa: !!document.querySelector(".caixa") }));
   ok("o quadro abre com a carteira à esquerda, e a busca acha a frota",
-    await p.locator(`.q-origem .q-cartao[data-id="${id1}"]`).count() === 1 &&
-    await p.locator(".q-origem .q-cartao").count() === 2);
+    naOrigem.cartoes.length === 2 && naOrigem.cartoes.includes(id1), JSON.stringify({ ...naOrigem, F, id1 }));
   await p.locator(`.q-origem .q-cartao[data-id="${id1}"]`).dragTo(p.locator('.q-dia[data-dia="Qua"]'));
   await p.waitForTimeout(600);
   const a1 = await p.evaluate(id => { const a = mkt.ev.porId(id); const e = [...mkt.ev.log].reverse().find(x => x.alvo === id);
@@ -1740,12 +1750,101 @@ ok("um clique aprova: Concluída com atraso, concluída pelo Pedro, aprovada pel
     extra.origem === "Extra" && extra.inicio === extra.hoje, JSON.stringify(extra));
 }
 
+// ── a avaliação da operação: o site sem a oficina ─────────────────────────
+// O endereço de sempre, sem `?oficina=1`: o menu só tem movimentação e
+// preventiva, o PCM entra na Avaliação, e a frota que não chegou para a
+// parada aparece como atraso até alguém anotar a chegada.
+{
+  const av = await (await nav.newContext({ viewport: { width: 1280, height: 860 } })).newPage();
+  av.on("pageerror", e => console.log("  [erro na página]", e.message));
+  await av.goto(site.endereco, { waitUntil: "networkidle" });
+  await entrarComo(av, "Mateus");
+  await av.waitForTimeout(600);
+  const nomesMenu = () => av.evaluate(() => [...document.querySelectorAll("#menu nav a span:not(.cont)")].map(s => s.textContent.trim()));
+  const menuAv = { hash: await av.evaluate(() => location.hash), nomes: await nomesMenu() };
+  const OFICINA = ["Painel", "Hoje", "Programação", "Semana", "Resultados", "Frota"];
+  ok("sem a oficina, o PCM entra na Avaliação e o menu não tem as telas da oficina",
+    menuAv.hash.startsWith("#/avaliacao") && menuAv.nomes.includes("Avaliação") && menuAv.nomes.includes("Preventivas") &&
+    menuAv.nomes.includes("Movimentação") && !menuAv.nomes.some(n => OFICINA.includes(n)), JSON.stringify(menuAv));
+  await av.evaluate(() => { location.hash = "#/programacao"; });
+  await av.waitForTimeout(600);
+  const naTela = await av.evaluate(() => ({ h1: (document.querySelector("#tela h1") || {}).textContent || "", hash: location.hash }));
+  ok("e o endereço antigo da Programação abre a Avaliação, e o endereço diz qual",
+    naTela.h1 === "Avaliação da operação" && naTela.hash === "#/avaliacao", JSON.stringify(naTela));
+
+  const FAV = "F-AVAL-" + Date.now().toString(36);
+  const ids = await av.evaluate(async frota => {
+    const { ev, M } = mkt, dia = n => M.somaDias(M.hoje(), n);
+    const [cp] = await ev.aplicar(ev.novaPreventiva({ ...M.moldePreventiva(), frota, mes: "Out-26", plano: "15 mil km" }));
+    await ev.aplicar(ev.informarDisponibilidade(ev.porId(cp.alvo, "preventiva"), "agora"));
+    await ev.aplicar(ev.marcarParada(ev.porId(cp.alvo, "preventiva"), dia(-3), "Interna"));
+    const [cm] = await ev.aplicar(ev.pedirMovimentacao({ frota, acao: "Levar", destino: "Cardan Service" }));
+    await ev.aplicar(ev.prometer(ev.porId(cm.alvo, "movimentacao"), dia(-2)));
+    return { prev: cp.alvo, mov: cm.alvo, ontem: dia(-1) };
+  }, FAV);
+  await av.waitForTimeout(500);
+  const agora = await av.evaluate(frota => [...document.querySelectorAll("#av-agora + .tabela-rolagem tbody tr")]
+    .filter(tr => tr.textContent.includes(frota)).map(tr => ({ tipo: tr.cells[0].textContent, dias: tr.cells[4].textContent,
+      botoes: [...tr.querySelectorAll("button")].map(b => b.textContent) })), FAV);
+  ok("atrasando agora: a movimentação vencida e a frota que não chegou para a parada, cada uma com o seu botão",
+    agora.length === 2 && agora.some(o => o.tipo === "Movimentação" && o.dias === "2" && o.botoes.includes("Concluir")) &&
+    agora.some(o => o.tipo === "Entrega para a preventiva" && o.dias === "3" && o.botoes.includes("A frota chegou")), JSON.stringify(agora));
+
+  await av.click(`#av-agora + .tabela-rolagem tbody tr:has-text("${FAV}") button:has-text("A frota chegou")`);
+  await av.waitForSelector('.caixa input[type="date"]', { timeout: 5000 });
+  await av.fill('.caixa input[type="date"]', ids.ontem);
+  await av.dispatchEvent('.caixa input[type="date"]', "input");
+  const pede = await av.evaluate(() => ({ aviso: document.querySelector(".caixa p.nada").textContent,
+    porque: !document.querySelector(".caixa .justificar").closest("[hidden]") }));
+  ok("chegou dois dias depois da parada: a caixa diz e pede o porquê", /2 dias depois/.test(pede.aviso) && pede.porque, JSON.stringify(pede));
+  await av.fill(".caixa .justificar textarea", "frota voltou de viagem só na terça");
+  await av.fill(".caixa .justificar input", "Operação");
+  await av.click('.caixa button:has-text("Gravar")');
+  await av.waitForTimeout(700);
+  const depois = await av.evaluate(([id, frota]) => {
+    const p = mkt.ev.porId(id, "preventiva");
+    return { p: [p.entregue_em, p.entrega_combinada, p.motivo_entrega, p.quem_atrasou_entrega, p.em_andamento],
+      aindaAtrasando: [...document.querySelectorAll("#av-agora + .tabela-rolagem tbody tr")].some(tr => tr.textContent.includes(frota) && tr.textContent.includes("Entrega")),
+      noPeriodo: [...document.querySelectorAll(".tabela.avaliacao tbody tr")].some(tr => tr.textContent.includes(frota) && tr.textContent.includes("frota voltou de viagem")),
+      kpi: [...document.querySelectorAll(".kpi")].find(k => k.textContent.includes("Frotas no dia da preventiva"))?.textContent || "" };
+  }, [ids.prev, FAV]);
+  ok("gravou a chegada com o combinado e o porquê, e a preventiva ficou em andamento",
+    JSON.stringify(depois.p) === JSON.stringify([ids.ontem, depois.p[1], "frota voltou de viagem só na terça", "Operação", true]) && !!depois.p[1],
+    JSON.stringify(depois.p));
+  ok("saiu do atrasando agora e entrou nos atrasos do período, com o motivo", !depois.aindaAtrasando && depois.noPeriodo, JSON.stringify(depois));
+  ok("e o número das frotas no dia da preventiva já conta", /chegaram no dia/.test(depois.kpi), depois.kpi);
+  const graficos = await av.evaluate(() => [...document.querySelectorAll(".bi-grade .g-card .g-tit")].map(t => t.textContent));
+  ok("os gráficos do período aparecem", graficos.includes("Por que atrasou") && graficos.includes("Quem atrasou") &&
+    graficos.includes("Frotas com mais atrasos"), graficos.join(" | "));
+
+  await av.fill(".filtros input.busca-frota", FAV);
+  await av.waitForTimeout(400);
+  const soEla = await av.evaluate(frota => ({ sub: document.querySelector(".cabec .sub").textContent,
+    outras: [...document.querySelectorAll(".tabela.avaliacao tbody tr")].filter(tr => !tr.textContent.includes(frota)).length }), FAV);
+  ok("o filtro de frota deixa só ela", soEla.sub.includes(FAV) && soEla.outras === 0, JSON.stringify(soEla));
+
+  // A operação também abre a Avaliação, mas a chegada é o PCM que anota.
+  const op = await (await nav.newContext({ viewport: { width: 1280, height: 860 } })).newPage();
+  await op.goto(site.endereco, { waitUntil: "networkidle" });
+  await entrarComo(op, "Pedro");
+  await op.waitForTimeout(600);
+  const menuOp = await op.evaluate(() => [...document.querySelectorAll("#menu nav a span:not(.cont)")].map(s => s.textContent.trim()));
+  ok("a operação tem a Avaliação no menu, e nenhuma tela da oficina",
+    menuOp.includes("Avaliação") && !menuOp.some(n => OFICINA.includes(n)), menuOp.join(" | "));
+  await op.evaluate(() => { location.hash = "#/avaliacao"; });
+  await op.waitForTimeout(900);
+  const botoesOp = await op.evaluate(() => [...document.querySelectorAll("#av-agora + .tabela-rolagem button")].map(b => b.textContent));
+  ok("e não vê o botão 'A frota chegou'", !botoesOp.includes("A frota chegou"), botoesOp.join(" | "));
+  await op.context().close();
+  await av.context().close();
+}
+
 // ── a barra de baixo do celular ────────────────────────────────────────────
 // Cabe cinco botões. O PCM tem dez telas: a barra mostra as do dia e o resto
 // abre em "Mais". Antes a barra rolava na horizontal e a Movimentação ficava
 // escondida à direita, sem ninguém perceber.
 const barra = await (await nav.newContext({ viewport: { width: 390, height: 800 } })).newPage();
-await barra.goto(site.endereco, { waitUntil: "networkidle" });
+await barra.goto(COM_OFICINA, { waitUntil: "networkidle" });
 await entrarComo(barra, "Mateus");
 await barra.waitForTimeout(600);
 const estadoBarra = await barra.evaluate(() => {
@@ -1773,7 +1872,7 @@ ok("o Mais abre a lista das telas que não cabem e leva à escolhida",
 // No celular o menu lateral some, e com ele o nome e o "Sair": não havia como
 // trocar de usuário. Agora o nome fica no alto, e tocar nele troca.
 const fone = await (await nav.newContext({ viewport: { width: 390, height: 800 } })).newPage();
-await fone.goto(site.endereco, { waitUntil: "networkidle" });
+await fone.goto(COM_OFICINA, { waitUntil: "networkidle" });
 await entrarComo(fone, "Mateus");
 const noAlto = await fone.evaluate(() => {
   const b = document.querySelector("#quem-topo .chip-topo");

@@ -394,6 +394,10 @@ export function moldePreventiva() {
     parada_orig: "", reprog_parada: 0, motivo_parada: "", reprog_liberacao: 0,
     pendencias: 0, realizada_em: "", realizada_sem_data: false,
     em_andamento: false, adiada: false, cancelada: false,
+    // A entrega da frota na oficina para a parada (ver `prev_entregue`): o dia
+    // em que chegou, o dia combinado naquele momento e, quando chegou depois
+    // do combinado, o porquê e quem atrasou. É o que avalia a operação.
+    entregue_em: "", entrega_combinada: "", motivo_entrega: "", quem_atrasou_entrega: "",
     // O quadro do pé da aba: frota que está no mapa mas não entra na conta do
     // mês (já realizada, sem preventiva, vence no mês seguinte…).
     fora: false, por_que_fora: "",
@@ -457,6 +461,34 @@ export function esperandoQuem(p, ref) {
 
 export function preventivaAberta(p) {
   return !p.excluida && !p.fora && !preventivaFeita(p) && !p.adiada && !p.cancelada;
+}
+
+// ── a entrega da frota para a preventiva ───────────────────────────────────
+// A operação libera a frota, o PCM marca a parada — e no dia combinado a
+// frota tem de estar na oficina. Chegar depois é o atraso de entrega que a
+// Avaliação da operação conta.
+
+/** O dia combinado para a frota chegar: a parada que o PCM marcou. Sem
+ *  parada não há dia combinado — a frota liberada está esperando o PCM, não
+ *  atrasando a entrega. */
+export function combinadoEntrega(p) {
+  return p.dia_parada || "";
+}
+
+/** A frota ainda não chegou e o dia combinado já passou. A que está em
+ *  andamento chegou — só não teve o dia anotado. */
+export function entregaAtrasando(p, ref) {
+  const c = combinadoEntrega(p);
+  return preventivaAberta(p) && !p.entregue_em && !p.em_andamento && !!c && c < (ref || hoje());
+}
+
+/** Dias de atraso da entrega. Chegou: contra o combinado daquele dia. Ainda
+ *  não chegou e passou do combinado: conta contra hoje, como na movimentação. */
+export function atrasoEntrega(p, ref) {
+  if (p.entregue_em) {
+    return p.entrega_combinada ? Math.max(0, difDias(p.entrega_combinada, p.entregue_em) || 0) : 0;
+  }
+  return entregaAtrasando(p, ref) ? Math.max(0, difDias(combinadoEntrega(p), ref || hoje()) || 0) : 0;
 }
 
 /** Os números do alto da aba Preventivas, com as mesmas contas. */

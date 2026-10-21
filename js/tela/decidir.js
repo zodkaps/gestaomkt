@@ -21,6 +21,7 @@ async function executar(a, ctx, d = {}) {
     try {
       if (a.prev === "parada") return await pv.marcarParada(p, { sugestao: a.sugestao || "" });
       if (a.prev === "realizada") return await pv.darPorFeita(p);
+      if (a.prev === "entrega") return await pv.registrarEntregaPrev(p);
       if (a.prev === "adiar") return await pv.passarParaOMesSeguinte(p);
     } finally { ev.porDecisao(null); }
   }

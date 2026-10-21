@@ -4,6 +4,11 @@ Site do PCM da Makro (Mossoró/RN): programação da oficina, carteira, preventi
 e movimentações, em cima de uma fita de eventos no Supabase. Publicado pelo
 GitHub Pages a partir da `main`. O `LEIAME.md` explica o porquê de cada tela.
 
+Desde 21/10/2026 o site é a **Avaliação da operação** (movimentações,
+preventivas e os atrasos de entrega). As telas da oficina saíram do menu, mas
+o código e os dados ficam: `?oficina=1` no endereço as traz de volta
+(`js/foco.js`). A rotina abaixo continua valendo — a carteira está na fita.
+
 ## Regras que valem sempre
 
 - **Não inventar dado.** OS, frota, executante, prioridade, data de conclusão:

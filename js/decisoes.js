@@ -112,9 +112,11 @@ export function decisoesPreventivas(prevs, ats, ref) {
     const base = { area: "Preventivas", frota: p.frota, id: p.id, vence: lim || "" };
 
     if (s === "Parada passou, sem baixa") {
-      r.push({ ...base, nivel: 1, grupo: "parada_passou", titulo: `Dar a baixa ou reprogramar a parada da ${p.frota}`,
-        detalhe: `A parada era ${br(p.dia_parada)} e não há registro de realização.`,
-        acoes: [{ rotulo: "Realizada", prev: "realizada", id: p.id }, { rotulo: "Reprogramar", prev: "parada", id: p.id }] });
+      r.push({ ...base, nivel: 1, grupo: "parada_passou", titulo: `A parada da ${p.frota} passou: a frota chegou?`,
+        detalhe: `A parada era ${br(p.dia_parada)} e não há registro da chegada da frota nem da realização. ` +
+          "Anote o dia em que ela chegou, dê a baixa ou reprograme a parada.",
+        acoes: [{ rotulo: "A frota chegou", prev: "entrega", id: p.id }, { rotulo: "Realizada", prev: "realizada", id: p.id },
+          { rotulo: "Reprogramar", prev: "parada", id: p.id }] });
     } else if (s.startsWith("Conflito")) {
       r.push({ ...base, nivel: 1, grupo: "conflito", titulo: `Liberação depois do prazo: ${p.frota}`,
         detalhe: `A operação libera em ${br(p.disponivel_em)}, e a preventiva ${prazoTexto(lim, ref)}. ` +

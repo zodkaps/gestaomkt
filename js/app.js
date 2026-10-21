@@ -6,29 +6,35 @@ import * as nuvem from "./nuvem.js";
 import * as pessoas from "./pessoas.js";
 import * as M from "./modelo.js";
 import * as bk from "./backup.js";
+import { OFICINA, telaInicial } from "./foco.js";
 import { el, $, limpar, avisar, erro, caixa, senhaComOlho } from "./ui.js";
 
-// Na ordem das abas da planilha — Hoje, Programação, Semana, Resultados,
-// Preventivas, Movimentações —, que é o mapa que o PCM já tem na cabeça. A
-// carteira deixou de ser tela: na planilha ela é uma situação, e aqui é um
-// recorte da Programação.
+// O site avalia a operação: movimentações de frota e preventivas, com os
+// atrasos de entrega (ver `js/foco.js`). As telas marcadas `oficina` — na
+// ordem das abas da planilha, Hoje, Programação, Semana, Resultados — só
+// aparecem com `?oficina=1` no endereço. A carteira deixou de ser tela: na
+// planilha ela é uma situação, e aqui é um recorte da Programação.
 const TELAS = [
   { id: "operacao", icone: "✋", nome: "Para você", grupo: "Operação", papeis: ["operacao"],
     carregar: () => import("./tela/operacao.js"),
     contar: () => contagemOperacao() },
-  { id: "painel", icone: "◎", nome: "Painel", grupo: "Oficina", papeis: ["pcm"],
+  { id: "avaliacao", icone: "◎", nome: "Avaliação", grupo: "Operação", papeis: ["pcm", "operacao"], celular: !OFICINA,
+    carregar: () => import("./tela/avaliacao.js"),
+    // O número no menu: atraso que ninguém justificou ainda.
+    contar: () => contarSemJustificativa() },
+  { id: "painel", icone: "◉", nome: "Painel", grupo: "Oficina", papeis: ["pcm"], oficina: true,
     carregar: () => import("./tela/painel.js"),
     // O número no menu: quantas decisões urgentes há.
     contar: () => contarUrgentes() },
-  { id: "hoje", icone: "☀", nome: "Hoje", grupo: "Oficina", papeis: ["pcm"], celular: true,
+  { id: "hoje", icone: "☀", nome: "Hoje", grupo: "Oficina", papeis: ["pcm"], celular: true, oficina: true,
     carregar: () => import("./tela/hoje.js") },
-  { id: "programacao", icone: "☰", nome: "Programação", grupo: "Oficina", papeis: ["pcm"], celular: true,
+  { id: "programacao", icone: "☰", nome: "Programação", grupo: "Oficina", papeis: ["pcm"], celular: true, oficina: true,
     carregar: () => import("./tela/programacao.js"),
     // O número no menu é o que pede ação: quantas venceram.
     contar: () => ev.lista().filter(a => M.situacaoDe(a) === "VENCIDA").length },
-  { id: "semana", icone: "▦", nome: "Semana", grupo: "Oficina", papeis: ["pcm"],
+  { id: "semana", icone: "▦", nome: "Semana", grupo: "Oficina", papeis: ["pcm"], oficina: true,
     carregar: () => import("./tela/semana.js") },
-  { id: "resultados", icone: "%", nome: "Resultados", grupo: "Oficina", papeis: ["pcm"],
+  { id: "resultados", icone: "%", nome: "Resultados", grupo: "Oficina", papeis: ["pcm"], oficina: true,
     carregar: () => import("./tela/resultados.js") },
   { id: "preventivas", icone: "⏱", nome: "Preventivas", grupo: "Frota", papeis: ["pcm", "operacao"], celular: true,
     carregar: () => import("./tela/preventivas.js"),
@@ -40,7 +46,7 @@ const TELAS = [
     contar: () => pessoas.pode("aprovar")
       ? ev.lista("movimentacao").filter(M.movimentacaoParaAprovar).length
       : ev.lista("movimentacao").filter(M.movimentacaoAberta).length },
-  { id: "frota", icone: "▤", nome: "Frota", grupo: "Frota", papeis: ["pcm", "operacao"],
+  { id: "frota", icone: "▤", nome: "Frota", grupo: "Frota", papeis: ["pcm", "operacao"], oficina: true,
     carregar: () => import("./tela/frota.js") },
   { id: "historico", icone: "⟲", nome: "Registro", grupo: "Gestão", papeis: ["pcm", "operacao"],
     carregar: () => import("./tela/historico.js") },
@@ -67,6 +73,14 @@ function contarUrgentes() {
   return decisoesMod.todas({ ats: ev.lista(), movs: ev.lista("movimentacao"),
     prevs: decisoesMod.planoVigente(ev.lista("preventiva"), ref).prevs, ref,
     podeAprovar: pessoas.pode("aprovar") }).filter(d => d.nivel === 1).length;
+}
+
+// Os atrasos sem justificativa, para o número no menu da Avaliação.
+let avaliacaoMod = null;
+import("./avaliacao.js").then(m => { avaliacaoMod = m; }).catch(() => {});
+function contarSemJustificativa() {
+  if (!avaliacaoMod) return 0;
+  return avaliacaoMod.semJustificativa(ev.lista("movimentacao"), ev.lista("preventiva"), ev.log, M.hoje()).length;
 }
 
 function contagemOperacao() {
@@ -125,10 +139,11 @@ function pintarVoltar() {
 let atual = null;
 let pararDeOuvirNuvem = null;
 
+const disponivel = t => OFICINA || !t.oficina;
 const telasDoPapel = () =>
-  TELAS.filter(t => !t.oculta && t.papeis.includes(pessoas.papel()));
+  TELAS.filter(t => !t.oculta && disponivel(t) && t.papeis.includes(pessoas.papel()));
 
-const inicial = () => pessoas.ehOperacao() ? "operacao" : "hoje";
+const inicial = () => telaInicial(pessoas.ehOperacao());
 
 // Endereços antigos continuam chegando — favorito, link no WhatsApp. A carteira
 // virou um recorte da Programação, e os Números viraram Resultados.
@@ -145,8 +160,8 @@ function alvo() {
   if (!pessoas.quem() || !pessoas.papel()) {
     return { id: PORTAS.has(id) ? id : "entrar", params };
   }
-  const ok = TELAS.find(t => t.id === id && (t.oculta || t.papeis.includes(pessoas.papel())));
-  return { id: ok ? id : inicial(), params };
+  const ok = TELAS.find(t => t.id === id && (t.oculta || (disponivel(t) && t.papeis.includes(pessoas.papel()))));
+  return ok ? { id, params } : { id: inicial(), params, trocou: true };
 }
 
 // No celular a barra de baixo cabe cinco botões. Com mais telas que isso, ficam
@@ -297,8 +312,11 @@ let geracaoTela = 0;
 
 async function pintar() {
   const minha = ++geracaoTela;
-  const { id, params } = alvo();
+  const { id, params, trocou } = alvo();
   const tela = TELAS.find(t => t.id === id);
+  // Endereço de uma tela que não está no menu (o Hoje de um favorito antigo,
+  // a oficina escondida): abre a primeira tela, e o endereço passa a dizer qual.
+  if (trocou) { history.replaceState(null, "", "#/" + id); enderecoAtual = location.hash; }
   // Saiu da tela que a decisão do Painel abriu: o que se lançar daqui em
   // diante já não é por causa dela.
   ev.decisaoEmCurso(id);

@@ -18,7 +18,7 @@ import * as dados from "./dados.js";
 import * as nuvem from "./nuvem.js";
 import * as pessoas from "./pessoas.js";
 import { molde, moldeMovimentacao, moldePreventiva, semanaISO, DIAS, aberta, feita,
-  preventivaFeita as prevFeita } from "./modelo.js";
+  preventivaFeita as prevFeita, hoje, combinadoEntrega } from "./modelo.js";
 
 export const TIPOS = {
   criada: "criada manualmente",
@@ -41,6 +41,7 @@ export const TIPOS = {
   prev_disponivel: "disponibilidade informada",
   prev_parada: "parada programada",
   prev_andamento: "preventiva em andamento",
+  prev_entregue: "frota entregue na oficina",
   prev_realizada: "preventiva realizada",
   prev_adiada: "preventiva adiada para o próximo mês",
   prev_cancelada: "preventiva cancelada",
@@ -299,6 +300,16 @@ function aplicarNoAlvo(a, ev, d) {
       break;
     case "prev_andamento":
       a.em_andamento = d.sim !== false;
+      break;
+    case "prev_entregue":
+      // A frota chegou na oficina: a preventiva passa a estar em andamento. O
+      // combinado é o daquele dia — mudar a parada depois não reescreve o
+      // atraso. Lançar de novo corrige a data ou completa o porquê.
+      a.entregue_em = d.em || "";
+      a.entrega_combinada = d.combinado || "";
+      a.motivo_entrega = d.motivo || "";
+      a.quem_atrasou_entrega = d.quem || "";
+      if (a.entregue_em && !a.realizada_em && !a.realizada_sem_data) a.em_andamento = true;
       break;
     case "prev_adiada":
       a.adiada = true;
@@ -696,14 +707,31 @@ export function cancelarMovimentacao(m, motivo) {
 // ── as operações: preventiva ────────────────────────────────────────────────
 
 
-/** A operação diz quando o caminhão fica livre. "agora" é resposta válida. */
+/** A operação diz quando o caminhão fica livre. "agora" é resposta válida.
+ *  Mudar uma liberação já informada é remarcar: entra na Avaliação da
+ *  operação, e por isso exige o motivo. */
 export function informarDisponibilidade(p, quando, motivo = "") {
   pessoas.exigir("disponibilidade");
   if (!quando) throw new Error("Informe 'agora' ou uma data.");
   const antes = p.disponivel_agora ? "agora" : (p.disponivel_em || "");
+  const remarca = !!antes && antes !== quando;
+  if (remarca && !String(motivo || "").trim()) throw new Error("Mudar a liberação exige o motivo.");
   return { tipo: "prev_disponivel", alvo: p.id, alvo_tipo: "preventiva",
-    motivo: antes && antes !== quando ? String(motivo || "").trim() : "",
+    motivo: remarca ? String(motivo).trim() : "",
     dados: { quando, de: antes } };
+}
+
+/** O PCM anota o dia em que a frota chegou na oficina para a preventiva. O
+ *  combinado vai junto, como estava naquele dia: a parada marcada.
+ *  Chegou depois do combinado, o porquê é pedido — mas pode ficar para
+ *  depois, como na movimentação: a Avaliação lista o que falta justificar. */
+export function registrarEntrega(p, em, { motivo = "", quem = "" } = {}) {
+  pessoas.exigir("parada");
+  if (!em) throw new Error("Informe o dia em que a frota chegou.");
+  if (em > hoje()) throw new Error("A frota não pode ter chegado depois de hoje.");
+  const combinado = p.entregue_em ? (p.entrega_combinada || "") : combinadoEntrega(p);
+  return { tipo: "prev_entregue", alvo: p.id, alvo_tipo: "preventiva",
+    dados: { em, combinado, motivo: String(motivo || "").trim(), quem: String(quem || "").trim() } };
 }
 
 /** O PCM marca o dia em que o caminhão para. Trocar o dia de uma parada já

@@ -21,13 +21,14 @@ import { el, limpar, br, brCurto, chip, caixa, campo, selecao, comSugestoes,
   avisar, erro, vazio, cliqueLimpo, confirmar, medidor, fecharCaixa } from "../ui.js";
 import { busca as semAcento } from "../texto.js";
 import { natural } from "./grade.js";
-import { botaoMais, frotas as frotasDasAtividades } from "./comum.js";
+import { botaoMais, frotas as frotasDasAtividades, camposJustificativa } from "./comum.js";
 import { mesDaData, mesDoPlano, decisoesPreventivas, sugestoesDeParada, textoCobranca } from "../decisoes.js";
 import { copiar } from "./contexto.js";
 import { normalizarOSLista } from "../importar.js";
 import { cartaoGrafico, graficoBarras, graficoColunas, graficoLinhas, graficoRosca } from "../graficos.js";
 import { listaDecisoes } from "./decidir.js";
 import { conciliacao, descrever as descreverLigacao, eventosDaConciliacao } from "../vinculo.js";
+import { OFICINA } from "../foco.js";
 
 // ── o cartão (celular, e a tela Para você) ──────────────────────────────────
 
@@ -38,7 +39,11 @@ export function cartaoPrev(p, ctx, { acoes = [] } = {}) {
   if (esperando) tags.push(chip(esperando === "Operação" ? "aguardando a operação" : "aguardando o PCM", esperando === "Operação" ? "hoje" : "andando"));
   if (M.preventivaVencida(p)) tags.push(chip("vencida", "vencida"));
   if (p.os) tags.push(chip("OS " + p.os, "os"));
-  if (p.pendencias > 0) tags.push(chip(`${p.pendencias} pendência${p.pendencias === 1 ? "" : "s"} na carteira`));
+  if (OFICINA && p.pendencias > 0) tags.push(chip(`${p.pendencias} pendência${p.pendencias === 1 ? "" : "s"} na carteira`));
+  if (p.entregue_em) {
+    const n = M.atrasoEntrega(p);
+    tags.push(chip(n ? `chegou ${brCurto(p.entregue_em)} · +${n} d` : `chegou ${brCurto(p.entregue_em)}`, n ? "hoje" : "ok"));
+  } else if (M.entregaAtrasando(p)) tags.push(chip(`não chegou · +${M.atrasoEntrega(p)} d`, "vencida"));
   if (p.onde_fazer === "Terceiro") tags.push(chip("terceiro"));
 
   const sub = [];
@@ -86,11 +91,11 @@ export async function informarDisponibilidade(p) {
       el("p", {}, el("b", {}, p.frota), p.plano ? ` · ${p.plano}` : "",
         lim ? ` · vence ${br(lim)}` : ""),
       el("p", { class: "nada" }, antes
-        ? `Hoje a liberação informada é: ${antes}. Mudar fica no registro, com o motivo.`
+        ? `Hoje a liberação informada é: ${antes}. Mudar fica no registro, com o motivo, e conta na Avaliação da operação.`
         : "A manutenção só programa a parada depois desta informação."),
       el("div", { style: "display:flex;gap:8px;margin-bottom:12px" }, bAgora, bData),
       linhaData,
-      antes ? campo("Motivo da mudança (opcional)", eMotivo) : null),
+      antes ? campo("Motivo da mudança", eMotivo, "Obrigatório se a data mudar.") : null),
     // O lançamento se monta no botão: se faltar algo, a caixa fica aberta com
     // o aviso, sem perder o que já foi escolhido.
     acoes: [{ rotulo: "Cancelar", valor: false },
@@ -141,7 +146,7 @@ export async function marcarParada(p, { sugestao = "" } = {}) {
         : el("p", { style: "color:var(--hoje)" },
           "⚠ A operação ainda não informou a liberação desta frota. " +
           "Programar sem essa informação é arriscado."),
-      p.pendencias > 0
+      OFICINA && p.pendencias > 0
         ? el("p", { class: "nada" },
           `Há ${p.pendencias} pendência(s) na carteira desta frota — é possível ` +
           "aproveitar a parada para executá-las.")
@@ -164,6 +169,46 @@ export async function marcarParada(p, { sugestao = "" } = {}) {
   try {
     await ev.aplicar(r);
     avisar(`${p.frota}: parada ${reprograma && eDia.value !== p.dia_parada ? "reprogramada" : "programada"} para ${br(eDia.value)}.`);
+    return true;
+  } catch (e) { erro(e.message); return false; }
+}
+
+// ── a frota chegou na oficina ───────────────────────────────────────────────
+// É a outra metade do aperto de mão: a operação prometeu a frota, o PCM marcou
+// o dia — e o dia em que ela de fato chegou é o que diz se a operação cumpriu.
+// Chegou depois do combinado: o porquê é pedido aqui mesmo, mas pode ficar
+// para depois (a Avaliação lista o que falta justificar).
+
+export async function registrarEntregaPrev(p, { soJustificar = false } = {}) {
+  const combinado = p.entregue_em ? p.entrega_combinada : M.combinadoEntrega(p);
+  const eDia = el("input", { type: "date", value: p.entregue_em || M.hoje(), max: M.hoje() });
+  const j = camposJustificativa("movimentacao", { motivo: p.motivo_entrega, quem: p.quem_atrasou_entrega });
+  const caixaJ = el("div", {}, j.no);
+  const aviso = el("p", { class: "nada" });
+  const atualizar = () => {
+    const n = combinado && eDia.value ? M.difDias(combinado, eDia.value) : 0;
+    aviso.textContent = !combinado ? "Sem dia combinado: a parada não foi marcada."
+      : n > 0 ? `Chegou ${n} dia${n === 1 ? "" : "s"} depois do combinado (${br(combinado)}). Diga o porquê, se souber.`
+      : `No dia combinado (${br(combinado)}) ou antes.`;
+    aviso.style.color = n > 0 ? "var(--hoje)" : "";
+    caixaJ.hidden = !(n > 0);
+  };
+  eDia.addEventListener("input", atualizar);
+  atualizar();
+  const r = await caixa({
+    titulo: soJustificar ? "Por que a frota chegou atrasada" : p.entregue_em ? "Corrigir a chegada da frota" : "A frota chegou na oficina",
+    corpo: el("div", {},
+      el("p", {}, el("b", {}, p.frota), p.plano ? ` · ${p.plano}` : "",
+        p.dia_parada ? ` · parada ${br(p.dia_parada)}` : ""),
+      soJustificar ? null : campo("Chegou em", eDia), aviso, caixaJ),
+    acoes: [{ rotulo: "Cancelar", valor: false },
+      { rotulo: "Gravar", classe: "primario", acao: () => ev.registrarEntrega(p, eDia.value, caixaJ.hidden ? {} : j.valores()) }],
+  });
+  if (!r) return false;
+  try {
+    await ev.aplicar(r);
+    const n = r.dados.combinado ? Math.max(0, M.difDias(r.dados.combinado, r.dados.em) || 0) : 0;
+    avisar(`${p.frota}: chegou em ${br(r.dados.em)}` + (n ? ` · ${n} dia${n === 1 ? "" : "s"} de atraso.` : "."));
     return true;
   } catch (e) { erro(e.message); return false; }
 }
@@ -333,6 +378,12 @@ export function descreverMudancaPrev(m) {
     case "prev_adiada": return r("reprogramacao", "adiou para o próximo mês");
     case "prev_realizada": return r("realizacao", `registrou a realização em ${brCurto(d.em)}`, detalhes(["realizada_em", "em_andamento"]));
     case "prev_andamento": return r("andamento", d.sim === false ? "retirou de em andamento" : "marcou em andamento");
+    case "prev_entregue": {
+      const n = d.combinado ? Math.max(0, M.difDias(d.combinado, d.em) || 0) : 0;
+      return r("entrega", `registrou a chegada da frota em ${brCurto(d.em)}` +
+        (d.combinado ? (n ? ` · ${n} dia${n === 1 ? "" : "s"} depois do combinado (${brCurto(d.combinado)})` : " · no dia combinado") : ""),
+        [d.motivo && `motivo: ${d.motivo}`, d.quem && `quem atrasou: ${d.quem}`].filter(Boolean));
+    }
     case "prev_cancelada": return r("cancelamento", "cancelou");
     case "prev_reaberta": return r("reabertura", "reabriu");
     case "excluida": return r("cancelamento", "excluiu do plano");
@@ -415,6 +466,7 @@ const TIPO_MUDANCA = {
   inclusao: ["Inclusão", ""], liberacao: ["Liberação", "andando"], parada: ["Parada", "andando"],
   reprogramacao: ["Reprogramação", "hoje"], realizacao: ["Realização", "ok"], andamento: ["Andamento", ""],
   cancelamento: ["Cancelamento", "vencida"], reabertura: ["Reabertura", ""], edicao: ["Edição", ""],
+  entrega: ["Chegada", "ok"],
 };
 
 function linhaMudanca(m, comFrota = false) {
@@ -456,9 +508,17 @@ export async function abrirFichaPrev(id, ctx) {
         ? `${p.reprog_parada}× · a primeira data era ${br(p.parada_orig)}` +
           (p.motivo_parada ? ` · último motivo: ${p.motivo_parada}` : "") : null),
       linha("Liberação alterada", p.reprog_liberacao ? `${p.reprog_liberacao}×` : null),
+      linha("Chegou na oficina", p.entregue_em ? (() => {
+        const n = M.atrasoEntrega(p);
+        return el("span", {}, br(p.entregue_em), " ", p.entrega_combinada
+          ? chip(n ? `${n} dia${n === 1 ? "" : "s"} depois do combinado (${brCurto(p.entrega_combinada)})` : "no dia combinado", n ? "hoje" : "ok")
+          : el("span", { class: "nada" }, "sem dia combinado"));
+      })() : M.entregaAtrasando(p) ? el("span", {}, chip(`ainda não chegou · ${M.atrasoEntrega(p)} dia(s) de atraso`, "vencida")) : null),
+      linha("Por que chegou atrasada", p.motivo_entrega),
+      linha("Quem atrasou a entrega", p.quem_atrasou_entrega),
       linha("Onde fazer", p.onde_fazer),
       linha("OS", p.os),
-      linha("Na Programação", (() => {
+      OFICINA && linha("Na Programação", (() => {
         const a = ev.atividadeDaPreventiva(p);
         if (!a) return M.preventivaAberta(p) ? el("span", { class: "nada" }, "ainda não — entra no dia da parada, quando ela for marcada") : null;
         const s2 = M.situacaoDe(a);
@@ -469,7 +529,7 @@ export async function abrirFichaPrev(id, ctx) {
             "Abrir na Programação"));
       })()),
       linha("HH previsto", p.hh ? String(p.hh).replace(".", ",") : null),
-      linha("Pendências na carteira", p.pendencias ? String(p.pendencias) : null),
+      OFICINA ? linha("Pendências na carteira", p.pendencias ? String(p.pendencias) : null) : null,
       linha("Realizada em", p.realizada_em ? br(p.realizada_em)
         : p.realizada_sem_data ? "marcada Realizada na planilha, sem a data" : null),
       linha("Por que está fora", p.por_que_fora),
@@ -488,14 +548,17 @@ export async function abrirFichaPrev(id, ctx) {
     if (pcm) {
       acoes.push({ rotulo: p.dia_parada ? "Reprogramar a parada" : "Programar parada", classe: "primario",
         acao: async () => { await marcarParada(p); } });
-      acoes.push(p.em_andamento
-        ? { rotulo: "Não está em andamento", acao: async () => { await andamento(p, false); } }
-        : { rotulo: "Em andamento", acao: async () => { await andamento(p, true); } });
+      if (!p.entregue_em) acoes.push({ rotulo: "A frota chegou", acao: async () => { await registrarEntregaPrev(p); } });
+      else acoes.push({ rotulo: "Corrigir a chegada", acao: async () => { await registrarEntregaPrev(p); } });
+      if (p.em_andamento && !p.entregue_em) acoes.push({ rotulo: "Não está em andamento", acao: async () => { await andamento(p, false); } });
       acoes.push({ rotulo: "Realizada", acao: async () => { await darPorFeita(p); } });
       acoes.push({ rotulo: "Adiar para o próximo mês", acao: async () => { await passarParaOMesSeguinte(p); } });
       acoes.push({ rotulo: "Cancelar", classe: "perigo", acao: async () => { await cancelarPrev(p); } });
     }
   } else if (pcm && !p.fora) {
+    if (p.entregue_em && M.atrasoEntrega(p) > 0 && !p.motivo_entrega) {
+      acoes.push({ rotulo: "Justificar a chegada", acao: async () => { await registrarEntregaPrev(p, { soJustificar: true }); } });
+    }
     if (p.realizada_sem_data) {
       acoes.push({ rotulo: "Informar a data", classe: "primario", acao: async () => { await darPorFeita(p); } });
     }
@@ -519,7 +582,7 @@ export async function gravarOSPrev(p, texto) {
   if (!validos.length) { avisar("Nada mudou."); return false; }
   try {
     await ev.aplicar(validos);
-    avisar(`OS ${os} gravada na preventiva da ${p.frota}` + (validos.length > 1 ? " e na OS da Programação." : "."));
+    avisar(`OS ${os} gravada na preventiva da ${p.frota}` + (OFICINA && validos.length > 1 ? " e na OS da Programação." : "."));
     return true;
   } catch (x) { erro(x.message); return false; }
 }
@@ -625,13 +688,18 @@ function paraFazer(plano, ref, ctx) {
   });
   const baixa = colunaFila({
     chave: "baixa", titulo: "Dar baixa", itens: f.baixa,
-    explica: "A parada passou, é hoje ou está em andamento.",
+    explica: "A parada passou, é hoje ou está em andamento. Anote quando a frota chegou.",
     vazioTexto: "Nenhuma parada esperando a baixa.",
     linha: p => {
       const s = M.situacaoPreventiva(p, ref);
-      const nota = s === "Em andamento" ? "em andamento na oficina"
-        : p.dia_parada === ref ? "parada hoje" : `a parada era ${brCurto(p.dia_parada)}`;
-      const botoes = !pcm ? [] : [mini("Realizada", () => darPorFeita(p), "mini primario-leve"),
+      const chegou = p.entregue_em ? `chegou ${brCurto(p.entregue_em)}` + (M.atrasoEntrega(p) ? `, ${M.atrasoEntrega(p)} d depois` : "") : "";
+      const nota = s === "Em andamento" ? (chegou ? chegou + " · em andamento na oficina" : "em andamento na oficina")
+        : p.dia_parada === ref ? "parada hoje" : `a parada era ${brCurto(p.dia_parada)} · a frota não chegou`;
+      // A frota ainda não chegou: o próximo passo é anotar a chegada (ou mudar
+      // a parada) — a baixa fica na ficha. Três botões apertavam o nome da frota.
+      const falta = !p.entregue_em && !p.em_andamento;
+      const botoes = !pcm ? [] : [falta ? mini("Chegou", () => registrarEntregaPrev(p), "mini primario-leve")
+        : mini("Realizada", () => darPorFeita(p), "mini primario-leve"),
         s === "Parada passou, sem baixa" ? mini("Reprogramar", () => marcarParada(p)) : null].filter(Boolean);
       return linhaFila(p, ref, ctx, nota, botoes);
     },
@@ -717,6 +785,11 @@ function botaoDaLinha(p, ref) {
     return el("button", { class: "mini acao-pcm", title: "Programar a parada",
       onclick: parar(() => marcarParada(p)) }, "Programar");
   }
+  if ((s === "Parada passou, sem baixa" || ((s === "Programada" || s === "Programada depois do prazo") && p.dia_parada <= ref)) &&
+    !p.entregue_em && !p.em_andamento) {
+    return el("button", { class: "mini acao-pcm", title: "Anotar o dia em que a frota chegou na oficina",
+      onclick: parar(() => registrarEntregaPrev(p)) }, "Chegou");
+  }
   if (s === "Programada" || s === "Programada depois do prazo" ||
     s === "Em andamento" || s === "Parada passou, sem baixa") {
     return el("button", { class: "mini baixa", onclick: parar(() => darPorFeita(p)) }, "Realizada");
@@ -768,13 +841,17 @@ function tabelaPrev(itens, ctx, ref) {
       el("td", { class: "c-dt num" }, data(p.dia_parada,
         s === "Parada passou, sem baixa" || s === "Programada depois do prazo" ? "venceu" : ""),
         p.reprog_parada ? el("div", { class: "tag reprog", title: `primeira data ${br(p.parada_orig)}` +
-          (p.motivo_parada ? ` · ${p.motivo_parada}` : "") }, `↻ ${p.reprog_parada}×`) : null),
+          (p.motivo_parada ? ` · ${p.motivo_parada}` : "") }, `↻ ${p.reprog_parada}×`) : null,
+        p.entregue_em ? el("div", { class: "seg chegou" + (M.atrasoEntrega(p) ? " tarde" : ""),
+          title: p.motivo_entrega ? "chegou atrasada: " + p.motivo_entrega : "dia em que a frota chegou na oficina" },
+          `chegou ${brCurto(p.entregue_em)}` + (M.atrasoEntrega(p) ? ` · +${M.atrasoEntrega(p)} d` : ""))
+          : M.entregaAtrasando(p, ref) ? el("div", { class: "seg chegou tarde" }, `não chegou · +${M.atrasoEntrega(p, ref)} d`) : null),
       el("td", { class: "c-onde" }, p.onde_fazer || el("span", { class: "seg" }, "—")),
       el("td", { class: "c-os" }, p.os ? el("span", { class: "os" }, p.os)
         : !p.cancelada && pessoas.pode("parada") ? campoOSPrev(p) : el("span", { class: "seg" }, "—"),
         // onde a OS preventiva está na Programação (ligação com o plano)
         (() => {
-          const a = ev.atividadeDaPreventiva(p);
+          const a = OFICINA ? ev.atividadeDaPreventiva(p) : null;
           if (!a) return null;
           const t = M.feita(a) ? "com baixa" : a.semana ? `S${a.semana}${a.dia ? " · " + a.dia : ""}` : "carteira";
           return el("small", { class: "na-prog", title: "A OS preventiva na Programação" }, "▸ " + t);
@@ -900,7 +977,7 @@ export async function montar(raiz, ctx, params = new URLSearchParams()) {
     corpo.append(linhaDoMes(r, estado.mes, ref));
 
     // ── o que dá para ligar à Programação (o que existia antes da ligação)
-    if (pessoas.pode("parada")) {
+    if (OFICINA && pessoas.pode("parada")) {
       const lig = conciliacao(doMes).filter(it => it.passos.length);
       if (lig.length) corpo.append(el("div", { class: "faixa-ligar" },
         el("span", {}, el("b", {}, `${lig.length} preventiva${lig.length === 1 ? "" : "s"}`),
@@ -1010,7 +1087,7 @@ export async function montar(raiz, ctx, params = new URLSearchParams()) {
     }
 
     // ── o que decidir
-    const ds = decisoesPreventivas(doMes, ev.lista(), ref);
+    const ds = decisoesPreventivas(doMes, OFICINA ? ev.lista() : [], ref);
     corpo.append(el("div", { class: "titulo-secao" }, "O que decidir agora",
       el("span", { class: "n" }, `· ${ds.length} ${ds.length === 1 ? "item" : "itens"}, do mais urgente para a oportunidade`)),
       listaDecisoes(ds, ctx));
@@ -1144,7 +1221,7 @@ export async function montar(raiz, ctx, params = new URLSearchParams()) {
       `${todas.filter(x => x.tipo === "reprogramacao" && x.e.tipo === "prev_disponivel").length} liberação(ões) alterada(s) · ` +
       `${todas.filter(x => x.e.tipo === "criada").length} frota(s) incluída(s) no site.`));
     const tipos = [["", "Todas"], ["reprogramacao", "Reprogramações"], ["parada", "Paradas"], ["liberacao", "Liberações"],
-      ["realizacao", "Realizações"], ["inclusao", "Inclusões"], ["edicao", "Edições"], ["cancelamento", "Cancelamentos"]];
+      ["entrega", "Chegadas"], ["realizacao", "Realizações"], ["inclusao", "Inclusões"], ["edicao", "Edições"], ["cancelamento", "Cancelamentos"]];
     corpo.append(el("div", { class: "faixa-sit" }, tipos.filter(([t]) => !t || conta(t)).map(([t, rot]) =>
       el("button", { class: "fsit" + (estado.tipoMud === t ? " on" : ""),
         onclick: () => { estado.tipoMud = t; pintar(); } },

@@ -341,7 +341,8 @@ if (abas) {
   igual("sem resposta da operação, a bola é dela", modelo.esperandoQuem(p0), "Operação");
   const p1 = { ...p0, disponivel_agora: true };
   igual("respondida, a bola passa para o PCM", modelo.esperandoQuem(p1), "PCM");
-  const p2 = { ...p1, dia_parada: "2026-10-15" };
+  // a parada no futuro, sempre: com data fixa o teste vencia junto com o calendário
+  const p2 = { ...p1, dia_parada: modelo.somaDias(modelo.hoje(), 5) };
   igual("com parada marcada, ninguém está travando", modelo.esperandoQuem(p2), "");
   igual("e a situação é Programada, como na planilha", modelo.situacaoPreventiva(p2, "2026-10-08"), "Programada");
 
@@ -554,7 +555,7 @@ if (abas) {
     "cliente pediu para segurar");
   ok("a fita fecha com as justificativas", ev.conferir().ok);
 
-  await ev.aplicar(ev.marcarParada(ev.porId(prevSemData.id, "preventiva"), "2026-10-20"));
+  await ev.aplicar(ev.marcarParada(ev.porId(prevSemData.id, "preventiva"), modelo.somaDias(modelo.hoje(), 3)));
   igual("o PCM marca, e aí ninguém está travando",
     modelo.esperandoQuem(ev.porId(prevSemData.id, "preventiva")), "");
   ok("a fita fecha com os três tipos de objeto dentro", ev.conferir().ok);
@@ -1053,7 +1054,8 @@ titulo("decisoes.js — o que decidir agora");
     [1, "Programar a parada da F-A"]);
   ok("com a sugestão de data no botão", /\d{2}\/\d{2}/.test(de("F-A")[0].acoes[0].rotulo) && de("F-A")[0].acoes[0].prev === "parada",
     JSON.stringify(de("F-A")[0].acoes));
-  igual("parada que passou sem baixa: urgente", [de("F-B")[0].nivel, de("F-B")[0].acoes.map(a => a.prev)], [1, ["realizada", "parada"]]);
+  igual("parada que passou sem baixa: urgente, e a primeira pergunta é se a frota chegou",
+    [de("F-B")[0].nivel, de("F-B")[0].acoes.map(a => a.prev)], [1, ["entrega", "realizada", "parada"]]);
   const cobra = ds.find(d => d.titulo.startsWith("Cobrar a operação"));
   ok("as sem liberação viram uma cobrança só, urgente porque a F-C vence em 2 dias, com o texto para copiar",
     cobra && cobra.nivel === 1 && /F-C/.test(cobra.acoes[0].copiar) && /F-D/.test(cobra.acoes[0].copiar), JSON.stringify(cobra));
@@ -1220,6 +1222,139 @@ igual("data brasileira vira ISO", pl.paraISO("26/08/2026"), "2026-08-26");
 igual("data ISO fica ISO", pl.paraISO("2026-08-26"), "2026-08-26");
 igual("OS curta ganha os zeros", imp.normalizarOS("7157"), "007157");
 igual("OS de seis dígitos não muda", imp.normalizarOS("021188"), "021188");
+
+// ── a avaliação da operação ─────────────────────────────────────────────────
+titulo("eventos.js — a frota chegou para a preventiva");
+{
+  await entrarComo("Mateus");
+  const H = modelo.hoje(), dia = n => modelo.somaDias(H, n);
+  const [cr] = await ev.aplicar(ev.novaPreventiva({ ...modelo.moldePreventiva(), frota: "F-ENT1", mes: "Out-26", plano: "15 mil km" }));
+  const p = () => ev.porId(cr.alvo, "preventiva");
+  await ev.aplicar(ev.informarDisponibilidade(p(), dia(-6)));
+  await ev.aplicar(ev.marcarParada(p(), dia(-5), "Interna"));
+  ok("a parada passou e a frota não chegou: está atrasando", modelo.entregaAtrasando(p(), H));
+  igual("e os dias contam contra hoje", modelo.atrasoEntrega(p(), H), 5);
+  let futuro = "";
+  try { ev.registrarEntrega(p(), dia(1)); } catch (e) { futuro = e.message; }
+  ok("chegar amanhã não passa", /depois de hoje/.test(futuro), futuro);
+  let semDia = "";
+  try { ev.registrarEntrega(p(), ""); } catch (e) { semDia = e.message; }
+  ok("sem o dia não passa", /dia/.test(semDia), semDia);
+
+  await ev.aplicar(ev.registrarEntrega(p(), dia(-3)));
+  igual("chegou dois dias depois da parada: guarda o combinado e a preventiva fica em andamento",
+    [p().entregue_em, p().entrega_combinada, p().em_andamento, modelo.atrasoEntrega(p())], [dia(-3), dia(-5), true, 2]);
+  ok("e não está mais atrasando", !modelo.entregaAtrasando(p(), H));
+  await ev.aplicar(ev.marcarParada(p(), dia(-2), "", "box ocupado"));
+  await ev.aplicar(ev.registrarEntrega(p(), dia(-4), { motivo: " pneu furado na estrada ", quem: "Operação" }));
+  igual("corrigir a chegada mantém o combinado da primeira anotação e guarda o porquê",
+    [p().entregue_em, p().entrega_combinada, p().motivo_entrega, p().quem_atrasou_entrega],
+    [dia(-4), dia(-5), "pneu furado na estrada", "Operação"]);
+
+  const [cr2] = await ev.aplicar(ev.novaPreventiva({ ...modelo.moldePreventiva(), frota: "F-ENT2", mes: "Out-26", plano: "1 ano" }));
+  const q = () => ev.porId(cr2.alvo, "preventiva");
+  await entrarComo("Pedro");
+  await ev.aplicar(ev.informarDisponibilidade(q(), dia(-4)));
+  let semMotivo = "";
+  try { ev.informarDisponibilidade(q(), dia(-2)); } catch (e) { semMotivo = e.message; }
+  ok("remarcar a liberação sem o motivo não passa", /motivo/.test(semMotivo), semMotivo);
+  ok("confirmar a mesma data não pede motivo", !!ev.informarDisponibilidade(q(), dia(-4)));
+  await ev.aplicar(ev.informarDisponibilidade(q(), dia(-2), "frota em viagem"));
+  let opEntrega = "";
+  try { ev.registrarEntrega(q(), dia(-1)); } catch (e) { opEntrega = e.message; }
+  ok("a operação não anota a chegada — é do PCM", /permiss/i.test(opEntrega), opEntrega);
+  await entrarComo("Mateus");
+
+  const av = await import("../js/avaliacao.js");
+  const daqui = av.ocorrencias({ movs: [], prevs: ev.lista("preventiva"), log: ev.log, de: dia(-10), ate: H })
+    .filter(o => o.frota === "F-ENT1" || o.frota === "F-ENT2");
+  igual("na avaliação: a chegada atrasada e a liberação remarcada, com o porquê",
+    daqui.map(o => [o.tipo, o.frota, o.dias, o.motivo]).sort(),
+    [["entrega", "F-ENT1", 1, "pneu furado na estrada"], ["liberacao", "F-ENT2", 2, "frota em viagem"]]);
+  ok("a fita fecha com as chegadas", ev.conferir().ok);
+}
+
+titulo("avaliacao.js — as contas da avaliação da operação");
+{
+  const av = await import("../js/avaliacao.js");
+  const ref = "2026-10-13";                               // terça
+  const mov = (id, frota, extra) => ({ ...modelo.moldeMovimentacao(), id, frota, acao: "Levar", destino: "Cardan Service", aprovada: true, ...extra });
+  const movs = [
+    mov("M1", "F-1", { prometida_para: "2026-10-05", chegou_em: "2026-10-07", motivo_atraso: "pneu", quem_atrasou: "operação" }),
+    mov("M2", "F-2", { prometida_para: "2026-10-06", chegou_em: "2026-10-06" }),
+    mov("M3", "F-1", { chegou_em: "2026-10-08", acao: "Lavar", destino: "" }),                          // sem prazo
+    mov("M4", "F-3", { prometida_para: "2026-10-01", chegou_em: "2026-10-12" }),                       // 11 dias, sem porquê
+    mov("M5", "F-4", { prometida_para: "2026-10-10" }),                                                // atrasando agora
+    mov("M6", "F-9", { prometida_para: "2026-10-01", chegou_em: "2026-10-09", cancelada: true }),
+    mov("M7", "F-9", { prometida_para: "2026-09-10", chegou_em: "2026-09-20" }),                       // fora do período
+  ];
+  const prev = (id, frota, extra) => ({ ...modelo.moldePreventiva(), id, frota, mes: "Out-26", plano: "15 mil km", ...extra });
+  const prevs = [
+    prev("PA", "F-1", { entregue_em: "2026-10-09", entrega_combinada: "2026-10-08" }),
+    prev("PB", "F-2", { entregue_em: "2026-10-06", entrega_combinada: "2026-10-06" }),
+    prev("PC", "F-5", { dia_parada: "2026-10-10", disponivel_agora: true }),                            // não chegou
+    prev("PD", "F-6", { disponivel_em: "2026-10-11" }),
+  ];
+  const lib = (id, de, quando, ts, motivo = "") => ({ id, tipo: "prev_disponivel", alvo: "PD", alvo_tipo: "preventiva",
+    ts, motivo, autor: "Pedro", dados: { de, quando } });
+  const log = [
+    lib("E1", "2026-10-05", "2026-10-09", "2026-10-04T10:00:00Z", "viagem"),
+    lib("E2", "2026-10-09", "agora", "2026-10-08T10:00:00Z"),                                         // antecipou
+    lib("E3", "agora", "2026-10-11", "2026-10-09T10:00:00Z", "quebrou na estrada"),
+    lib("E4", "", "2026-10-12", "2026-10-03T10:00:00Z"),                                              // a primeira
+  ];
+  const ocs = av.ocorrencias({ movs, prevs, log, de: "2026-10-01", ate: ref });
+  igual("só entra o feito no período: cancelada, fora do período, antecipar e a primeira liberação ficam de fora",
+    ocs.map(o => (o.evento || o.id) + ":" + o.dias).sort(), ["E1:4", "E3:2", "M1:2", "M2:0", "M3:0", "M4:11", "PA:1", "PB:0"]);
+  ok("sem data prometida não é atraso nem pontual", ocs.find(o => o.id === "M3").semPrazo && !ocs.find(o => o.id === "M3").atrasou);
+  igual("a liberação remarcada de 'agora' conta do dia em que remarcou",
+    [ocs.find(o => o.evento === "E3").combinado, ocs.find(o => o.evento === "E3").feito, ocs.find(o => o.evento === "E3").motivo],
+    ["agora", "2026-10-11", "quebrou na estrada"]);
+  igual("a categoria vem da movimentação", [ocs.find(o => o.id === "M1").categoria, ocs.find(o => o.id === "M3").categoria],
+    ["Levar ao fornecedor", "Lavagem"]);
+
+  const agora = av.atrasandoAgora({ movs, prevs, ref });
+  igual("atrasando agora: a movimentação vencida e a frota que não chegou para a parada",
+    agora.map(o => [o.tipo, o.frota, o.dias]), [["mov", "F-4", 3], ["entrega", "F-5", 3]]);
+  ok("liberada sem parada marcada não é entrega atrasada: está esperando o PCM",
+    !modelo.entregaAtrasando(prevs.find(p => p.id === "PD"), ref) && !modelo.combinadoEntrega(prevs.find(p => p.id === "PD")));
+
+  const r = av.resumo(ocs, agora);
+  igual("movimentações: a pontualidade conta só as que têm prazo",
+    [r.mov.total, r.mov.com_prazo, r.mov.no_prazo, r.mov.atrasadas, r.mov.sem_prazo, r.mov.pct.toFixed(3), r.mov.atraso_medio, r.mov.dias],
+    [4, 3, 1, 2, 1, "0.333", 6.5, 13]);
+  igual("entregas para a preventiva", [r.entrega.total, r.entrega.no_prazo, r.entrega.atrasadas, r.entrega.pct], [2, 1, 1, 0.5]);
+  igual("liberações remarcadas, frotas e dias", [r.liberacao.remarcadas, r.liberacao.frotas, r.liberacao.dias], [2, 1, 6]);
+  igual("o que está atrasando agora", [r.agora.total, r.agora.movs, r.agora.entregas, r.agora.dias], [2, 1, 1, 6]);
+  igual("e o total do período", [r.atrasos, r.dias_perdidos], [5, 20]);
+  igual("sem nada no período, a pontualidade fica em branco, não em zero", av.resumo([]).mov.pct, null);
+
+  igual("para justificar, de qualquer período: as concluídas sem porquê, a vencida e a chegada atrasada",
+    av.semJustificativa(movs, prevs, log, ref).map(o => [o.tipo, o.id, o.dias]),
+    [["mov", "M4", 11], ["mov", "M7", 10], ["mov", "M5", 3], ["entrega", "PA", 1]]);
+
+  igual("semana a semana, de segunda a domingo",
+    av.porSemana(ocs, "2026-10-01", ref).map(s => [s.rotulo, s.ini, s.no_prazo, s.atrasadas, s.liberacoes]),
+    [["S40", "2026-09-28", 0, 0, 1], ["S41", "2026-10-05", 2, 2, 1], ["S42", "2026-10-12", 0, 1, 0]]);
+
+  igual("quem atrasou: a mesma pessoa escrita de dois jeitos é uma só, e o vazio vira 'Não informado'",
+    av.agruparAtrasos(ocs, "quem").map(g => [g.rotulo, g.total, g.mov, g.entrega, g.liberacao, g.dias]),
+    [["Operação", 3, 1, 0, 2, 8], ["Não informado", 2, 1, 1, 0, 12]]);
+  igual("por frota: mais atrasos primeiro, e no empate os mais dias",
+    av.porFrota(ocs).map(f => [f.frota, f.total, f.atrasos, f.dias]),
+    [["F-6", 2, 2, 6], ["F-1", 3, 2, 3], ["F-3", 1, 1, 11], ["F-2", 2, 0, 0]]);
+  igual("por categoria: no prazo, com atraso e sem prazo",
+    av.porCategoria(ocs).map(c => [c.categoria, c.no_prazo, c.atrasadas, c.sem_prazo]),
+    [["Levar ao fornecedor", 1, 2, 0], ["Lavagem", 0, 0, 1]]);
+  igual("tamanho dos atrasos, em faixas", av.porFaixa(ocs).map(f => f.total), [1, 2, 1, 1, 0]);
+
+  const per = Object.fromEntries(av.periodos(ref).map(x => [x.id, [x.de, x.ate]]));
+  igual("os períodos contados de hoje", per, {
+    "mes": ["2026-10-01", ref], "mes-passado": ["2026-09-01", "2026-09-30"],
+    "4s": ["2026-09-21", ref], "12s": ["2026-07-27", ref], "ano": ["2026-01-01", ref] });
+  igual("em janeiro, o mês passado é dezembro do ano anterior",
+    av.periodos("2027-01-05").find(x => x.id === "mes-passado"), { id: "mes-passado", rotulo: "Mês passado", de: "2026-12-01", ate: "2026-12-31" });
+}
 
 console.log(`\n${passou} passaram, ${falhou} falharam`);
 if (falhou) { for (const f of falhas) console.log(`  × ${f}`); process.exit(1); }

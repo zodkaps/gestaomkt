@@ -13,6 +13,7 @@ import * as ev from "../eventos.js";
 import * as M from "../modelo.js";
 import * as pessoas from "../pessoas.js";
 import { el, avisar, erro } from "../ui.js";
+import { OFICINA } from "../foco.js";
 
 let aberto = null;
 
@@ -107,7 +108,7 @@ async function itensAtividade(a, ctx) {
       ? { rotulo: a.motivo ? "Alterar a justificativa" : "Justificar", acao: () => justificar(a, "atividade") } : null,
     "-",
     a.frota ? { rotulo: `Imprimir a folha da ${a.frota}`, acao: () => imprimirFrota(a.frota) } : null,
-    a.frota ? { rotulo: `Abrir a frota ${a.frota}`, acao: () => ctx.ir("frota", "f=" + encodeURIComponent(a.frota)) } : null,
+    OFICINA && a.frota ? { rotulo: `Abrir a frota ${a.frota}`, acao: () => ctx.ir("frota", "f=" + encodeURIComponent(a.frota)) } : null,
     "-",
     a.os ? { rotulo: `Copiar a OS ${a.os}`, acao: () => copiar(a.os, "OS") } : null,
     { rotulo: "Copiar a atividade", acao: () => copiar(`${a.frota ? a.frota + " · " : ""}${a.atividade || ""}`, "Texto") },
@@ -133,7 +134,7 @@ async function itensMovimentacao(m, ctx) {
     !m.cancelada && pode("movimentar") && (M.atrasoMovimentacao(m) > 0 || m.motivo_atraso)
       ? { rotulo: m.motivo_atraso ? "Alterar a justificativa" : "Justificar", acao: () => justificar(m, "movimentacao") } : null,
     "-",
-    m.frota ? { rotulo: `Abrir a frota ${m.frota}`, acao: () => ctx.ir("frota", "f=" + encodeURIComponent(m.frota)) } : null,
+    OFICINA && m.frota ? { rotulo: `Abrir a frota ${m.frota}`, acao: () => ctx.ir("frota", "f=" + encodeURIComponent(m.frota)) } : null,
     { rotulo: "Copiar a solicitação", acao: () => copiar(
       [m.frota, mv.tituloMov(m), m.prometida_para ? "prazo " + m.prometida_para.split("-").reverse().slice(0, 2).join("/") : ""]
         .filter(Boolean).join(" · "), "Texto") },
@@ -154,7 +155,7 @@ async function itensPreventiva(p, ctx) {
     aberta && pode("parada") ? { rotulo: "Registrar realização", acao: () => pv.darPorFeita(p) } : null,
     !p.excluida && pode("parada") ? { rotulo: "Editar", acao: () => pv.editarPreventiva(p) } : null,
     "-",
-    p.frota ? { rotulo: `Abrir a frota ${p.frota}`, acao: () => ctx.ir("frota", "f=" + encodeURIComponent(p.frota)) } : null,
+    OFICINA && p.frota ? { rotulo: `Abrir a frota ${p.frota}`, acao: () => ctx.ir("frota", "f=" + encodeURIComponent(p.frota)) } : null,
     p.os ? { rotulo: `Copiar a OS ${p.os}`, acao: () => copiar(p.os, "OS") } : null,
     "-",
     { rotulo: "Mais ações…", acao: () => menuDe("preventiva", p.id, ctx) },
