@@ -14,7 +14,7 @@ import * as M from "../modelo.js";
 import * as pessoas from "../pessoas.js";
 import * as A from "../avaliacao.js";
 import { el, limpar, br, brCurto, vazio, cliqueLimpo } from "../ui.js";
-import { busca as semAcento } from "../texto.js";
+import { busca as semAcento, filtroDeFrota } from "../texto.js";
 import { cartaoGrafico, graficoBarras, graficoColunas, graficoLinhas, graficoRosca } from "../graficos.js";
 import { justificar } from "./comum.js";
 
@@ -38,17 +38,12 @@ export async function montar(raiz, ctx, params = new URLSearchParams()) {
 
   const titulo = el("span", { class: "sub" });
   const periodos = el("div", { class: "segmentos", role: "group", "aria-label": "Período" });
-  const chave = t => semAcento(String(t || "")).replace(/[^a-z0-9]/g, "");
+  // A frota se digita, qualquer uma: a lista só sugere. "617" acha a F-617, e
+  // um pedaço do número mostra as frotas que têm ele (ver `filtroDeFrota`).
   const lista = el("datalist", { id: "dl-frotas-avaliacao" });
-  const fFrota = el("input", { type: "search", class: "busca-frota", placeholder: "Todas as frotas", list: "dl-frotas-avaliacao",
+  const fFrota = el("input", { type: "search", class: "busca-frota", placeholder: "Frota (qualquer uma)", list: "dl-frotas-avaliacao",
     autocomplete: "off", spellcheck: false, value: estado.frota, "aria-label": "Frota",
-    oninput: () => {
-      const todas = frotas();
-      const exata = todas.find(f => chave(f) === chave(fFrota.value));
-      const antes = estado.frota;
-      estado.frota = fFrota.value.trim() ? (exata || antes) : "";
-      if (estado.frota !== antes) pintar();
-    } });
+    oninput: () => { estado.frota = fFrota.value.trim(); pintar(); } });
   const corpo = el("div", {});
   raiz.append(
     el("div", { class: "cabec" }, el("h1", {}, "Avaliação da operação"), titulo, el("div", { class: "espaco" })),
@@ -126,9 +121,11 @@ export async function montar(raiz, ctx, params = new URLSearchParams()) {
       onclick: () => { estado.periodo = x.id; pintar(); } }, x.rotulo)));
     limpar(lista).append(...frotas().map(f => el("option", { value: f })));
     if (document.activeElement !== fFrota) fFrota.value = estado.frota;
-    titulo.textContent = `${br(per.de)} a ${br(per.ate)}` + (estado.frota ? ` · ${estado.frota}` : "");
+    const filtro = filtroDeFrota(estado.frota, frotas());
+    const nomeFrota = filtro.vazio ? "" : filtro.exata || estado.frota;
+    titulo.textContent = `${br(per.de)} a ${br(per.ate)}` + (nomeFrota ? ` · ${nomeFrota}` : "");
 
-    const daFrota = x => !estado.frota || x.frota === estado.frota;
+    const daFrota = x => filtro.bate(x.frota);
     const movs = ev.lista("movimentacao").filter(daFrota);
     const prevs = ev.lista("preventiva").filter(daFrota);
     const ocs = A.ocorrencias({ movs, prevs, log: ev.log, de: per.de, ate: per.ate });
@@ -174,7 +171,9 @@ export async function montar(raiz, ctx, params = new URLSearchParams()) {
     // ── os gráficos
     if (!ocs.length) {
       corpo.append(el("div", { class: "titulo-secao" }, "Os números do período"),
-        vazio("Nada concluído, entregue ou remarcado neste período" + (estado.frota ? " nesta frota" : "") + "."));
+        vazio(nomeFrota && !movs.length && !prevs.length
+          ? `Nenhuma movimentação ou preventiva da ${nomeFrota} lançada ainda.`
+          : "Nada concluído, entregue ou remarcado neste período" + (nomeFrota ? ` · ${nomeFrota}` : "") + "."));
       return;
     }
     const grade = el("div", { class: "bi-grade" });
@@ -230,8 +229,8 @@ export async function montar(raiz, ctx, params = new URLSearchParams()) {
     const pf = A.porFrota(ocs).filter(x => x.atrasos).slice(0, 10);
     pendurar(cartaoGrafico("Frotas com mais atrasos", "clique numa frota para ver só ela · a dica mostra os dias somados",
       el("div", { class: "g-corpo" }), { forma: "caixa", legendaDe: legTipos }),
-    w => pf.length ? graficoBarras({ largura: w, itens: pf.map(x => ({ rotulo: x.frota, chave: x.frota, ativo: x.frota === estado.frota,
-      partes: partesTipo(x) })), aoClicar: it => { estado.frota = estado.frota === it.chave ? "" : it.chave; pintar(); } })
+    w => pf.length ? graficoBarras({ largura: w, itens: pf.map(x => ({ rotulo: x.frota, chave: x.frota, ativo: !filtro.vazio && filtro.bate(x.frota),
+      partes: partesTipo(x) })), aoClicar: it => { estado.frota = !filtro.vazio && filtro.bate(it.chave) ? "" : it.chave; pintar(); } })
       : el("p", { class: "nada" }, "Nenhum atraso no período."));
 
     // 6. as categorias da movimentação

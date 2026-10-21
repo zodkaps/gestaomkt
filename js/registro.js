@@ -2,7 +2,7 @@
 // lançamento, o filtro e o resumo de um dia.
 
 import { TIPOS } from "./eventos.js";
-import { busca as semAcento } from "./texto.js";
+import { busca as semAcento, filtroDeFrota } from "./texto.js";
 
 /** O que conta como baixa no resumo: atividade, preventiva e movimentação. */
 export const BAIXAS = new Set(["concluida", "prev_realizada", "mov_chegou"]);
@@ -20,12 +20,15 @@ export function diaDe(ts) {
 export const pelaDecisao = e => !!(e.dados && e.dados.via && e.dados.via.decisao);
 
 /** Os lançamentos que passam nos filtros, do mais novo para o mais velho.
- *  `f`: { busca, tipo, alvo, autor, origem, frota, de, ate }. O tipo
+ *  `f`: { busca, tipo, alvo, autor, origem, frota, frotas, de, ate }. A frota é
+ *  a digitada, qualquer uma (ver `filtroDeFrota`); `frotas`, as conhecidas,
+ *  dizem quando o digitado é uma frota inteira. O tipo
  *  "_baixas" junta as três baixas (ver BAIXAS). A origem
  *  "painel" é a marca da decisão, não a coluna origem. `achar(id)` devolve
  *  { item, tipo } — é de onde vêm frota, OS e atividade para a busca. */
 export function filtrarRegistro(log, f, achar) {
   const q = semAcento(String(f.busca || "").trim());
+  const fr = filtroDeFrota(f.frota, f.frotas || []);
   return log.filter(e => {
     if (f.tipo === "_baixas") { if (!BAIXAS.has(e.tipo)) return false; }
     else if (f.tipo && e.tipo !== f.tipo) return false;
@@ -38,10 +41,10 @@ export function filtrarRegistro(log, f, achar) {
       if (f.de && d < f.de) return false;
       if (f.ate && d > f.ate) return false;
     }
-    if (f.frota || q) {
+    if (!fr.vazio || q) {
       const achado = achar(e.alvo);
       const a = achado && achado.item;
-      if (f.frota && (!a || a.frota !== f.frota)) return false;
+      if (!fr.vazio && (!a || !fr.bate(a.frota))) return false;
       if (q) {
         const alvo = semAcento([a && a.frota, a && a.os, a && a.atividade, a && a.acao, a && a.destino,
           a && a.plano, e.motivo, e.tipo, TIPOS[e.tipo], e.origem, e.autor,

@@ -1007,6 +1007,9 @@ titulo("registro.js — o Registro por dia, por pessoa e pelo Painel");
     .some(e => e.id === parada.id));
   ok("filtro de pessoa e de frota", reg.filtrarRegistro(ev.log, { autor: parada.autor, frota: "F-REG1" }, achar)
     .every(e => e.autor === parada.autor && ev.achar(e.alvo).item.frota === "F-REG1"));
+  ok("a frota do Registro se digita do jeito que vier", reg.filtrarRegistro(ev.log, { frota: "f reg1", frotas: ["F-REG1"] }, achar)
+    .some(e => e.alvo === criada.alvo));
+  igual("e a frota que ninguém lançou não acha nada", reg.filtrarRegistro(ev.log, { frota: "F-99999", frotas: ["F-REG1"] }, achar).length, 0);
   const r = reg.resumoDoDia(ev.log, reg.diaDe(parada.ts));
   ok("o resumo do dia conta o que saiu do Painel e quem lançou",
     r.painel === 1 && r.porPessoa.some(([q]) => q === parada.autor) && r.porTipo.some(([t]) => t === "prev_parada"), JSON.stringify(r));
@@ -1222,6 +1225,23 @@ igual("data brasileira vira ISO", pl.paraISO("26/08/2026"), "2026-08-26");
 igual("data ISO fica ISO", pl.paraISO("2026-08-26"), "2026-08-26");
 igual("OS curta ganha os zeros", imp.normalizarOS("7157"), "007157");
 igual("OS de seis dígitos não muda", imp.normalizarOS("021188"), "021188");
+
+// ── a frota digitada ────────────────────────────────────────────────────────
+titulo("texto.js — qualquer frota se digita");
+{
+  igual("'F-617', 'f617', 'f 617', 'F-0617' e '617' são a mesma frota",
+    ["F-617", "f617", "f 617", "F-0617", "617"].map(texto.chaveFrota), ["617", "617", "617", "617", "617"]);
+  ok("mas a F-970 G não é a F-970", texto.chaveFrota("F-970 G") !== texto.chaveFrota("F-970"));
+  const conhecidas = ["F-617", "F-618", "F-6170", "F-700", "Sub chassi"];
+  const so = (d, l = conhecidas) => { const f = texto.filtroDeFrota(d, l); return [f.exata, l.filter(f.bate)]; };
+  igual("só o número escolhe a frota inteira, não a que começa igual", so("617"), ["F-617", ["F-617"]]);
+  igual("as duas grafias da mesma frota vêm juntas", so("617", ["F-617", "F 617", "F-6170"]), ["F-617", ["F-617", "F 617"]]);
+  igual("um pedaço do número mostra as frotas que têm ele", so("61"), ["", ["F-617", "F-618", "F-6170"]]);
+  igual("frota que ninguém lançou também se digita, e não acha nada", so("F-99999"), ["", []]);
+  igual("o que não é número também", so("sub"), ["", ["Sub chassi"]]);
+  ok("vazio, ou só o 'F' do começo, é todas", texto.filtroDeFrota("", conhecidas).vazio &&
+    texto.filtroDeFrota("F-", conhecidas).vazio && texto.filtroDeFrota(" f ", conhecidas).bate("F-700"));
+}
 
 // ── a avaliação da operação ─────────────────────────────────────────────────
 titulo("eventos.js — a frota chegou para a preventiva");

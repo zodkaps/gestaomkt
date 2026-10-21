@@ -11,7 +11,7 @@ import { TIPOS } from "../eventos.js";
 import * as M from "../modelo.js";
 import * as pessoas from "../pessoas.js";
 import { el, limpar, selecao, avisar, erro, vazio, confirmar, br, cartaoNumero } from "../ui.js";
-import { descreverEvento, frotas } from "./comum.js";
+import { descreverEvento, valoresDe } from "./comum.js";
 import { diaDe, filtrarRegistro, resumoDoDia } from "../registro.js";
 import { OFICINA } from "../foco.js";
 
@@ -47,7 +47,14 @@ export async function montar(raiz, ctx, params) {
     "aria-label": "Tipo de lançamento" });
   const fAlvo = selecao([{ v: "", t: "Em: tudo" }, ...Object.entries(ALVOS).map(([v, t]) => ({ v, t: "Em " + t }))], "",
     { onchange: () => { f.alvo = fAlvo.value; reiniciar(); }, "aria-label": "Onde" });
-  const fFrota = el("select", { onchange: () => { f.frota = fFrota.value; reiniciar(); }, "aria-label": "Frota" });
+  // A frota se digita, qualquer uma, como na Avaliação: a lista só sugere.
+  const dlFrota = el("datalist", { id: "dl-frotas-registro" });
+  const fFrota = el("input", { type: "search", class: "busca-frota", placeholder: "Frota (qualquer uma)",
+    list: "dl-frotas-registro", autocomplete: "off", spellcheck: false, value: f.frota, "aria-label": "Frota",
+    oninput: () => { f.frota = fFrota.value.trim(); reiniciar(); } });
+  // As frotas do que o Registro mostra: sem a oficina, só movimentação e preventiva.
+  const frotasDoRegistro = () => [...new Set(Object.keys(ALVOS).flatMap(t => valoresDe("frota", t)))]
+    .sort((a, b) => a.localeCompare(b, "pt-BR", { numeric: true }));
   const fOrigem = selecao([{ v: "", t: "Origem: todas" }, ...Object.entries(ORIGENS).map(([v, t]) => ({ v, t }))],
     f.origem, { onchange: () => { f.origem = fOrigem.value; reiniciar(); }, "aria-label": "Origem" });
   const fDe = el("input", { type: "date", value: f.de, onchange: () => { f.de = fDe.value; reiniciar(); },
@@ -77,7 +84,7 @@ export async function montar(raiz, ctx, params) {
       "Todas as alterações, com data, hora e motivo. Nenhuma alteração entra no " +
       "sistema sem passar por este registro — é o mesmo histórico que alimenta as outras telas."),
     resumo,
-    el("div", { class: "filtros reg" }, fBusca, fAutor, fTipo, fAlvo, fFrota, fOrigem),
+    el("div", { class: "filtros reg" }, fBusca, fAutor, fTipo, fAlvo, fFrota, dlFrota, fOrigem),
     el("div", { class: "filtros reg" }, periodos,
       el("span", { style: "font-size:12.5px;color:var(--fraco)" }, "de"), fDe,
       el("span", { style: "font-size:12.5px;color:var(--fraco)" }, "até"), fAte),
@@ -89,14 +96,13 @@ export async function montar(raiz, ctx, params) {
   /** Põe os filtros de uma vez (o resumo do dia e as etiquetas usam). */
   function filtrarPor(novo) {
     Object.assign(f, novo);
-    fBusca.value = f.busca; fTipo.value = f.tipo; fAlvo.value = f.alvo; fOrigem.value = f.origem;
+    fBusca.value = f.busca; fFrota.value = f.frota; fTipo.value = f.tipo; fAlvo.value = f.alvo; fOrigem.value = f.origem;
     fDe.value = f.de; fAte.value = f.ate;
     reiniciar();
   }
 
   function pintarOpcoes() {
-    limpar(fFrota).append(el("option", { value: "" }, "Frota: todas"),
-      ...frotas().map(x => el("option", { value: x, selected: x === f.frota }, x)));
+    limpar(dlFrota).append(...frotasDoRegistro().map(x => el("option", { value: x })));
     const autores = [...new Set(fita().map(e => e.autor).filter(Boolean))].sort((a, b) => a.localeCompare(b, "pt-BR"));
     if (f.autor && !autores.includes(f.autor)) autores.push(f.autor);
     limpar(fAutor).append(el("option", { value: "" }, "Pessoa: todas"),
@@ -185,7 +191,7 @@ export async function montar(raiz, ctx, params) {
     pintarOpcoes();
     pintarResumo();
     pintarEtiquetas();
-    const itens = filtrarRegistro(fita(), f, ev.achar);
+    const itens = filtrarRegistro(fita(), { ...f, frotas: frotasDoRegistro() }, ev.achar);
     contagem.textContent = `${itens.length} lançamento${itens.length === 1 ? "" : "s"}`;
 
     limpar(corpo);

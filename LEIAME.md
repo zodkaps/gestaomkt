@@ -41,7 +41,9 @@ A oficina devolver a frota atrasada **não** conta: o que se avalia é a operaç
 - **Remarcar a liberação exige o motivo.** A primeira liberação, e confirmar a
   mesma data, não pedem.
 - Na **Avaliação**: o período (este mês, mês passado, 4 ou 12 semanas, o ano) e
-  a frota no alto; seis números (movimentações no prazo, frotas no dia da
+  a frota no alto — **qualquer frota se digita**, lançada ou não: "617" acha a
+  F-617, um pedaço do número mostra as que têm ele, e a frota que ninguém lançou
+  aparece vazia, dizendo que não há nada dela (o mesmo no filtro do Registro); seis números (movimentações no prazo, frotas no dia da
   preventiva, liberações remarcadas, atrasando agora, dias de atraso, sem
   justificativa); o que está **atrasando agora** e o que falta **justificar**,
   cada linha com o botão que resolve; os gráficos (semana a semana, por quê,

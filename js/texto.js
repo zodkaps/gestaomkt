@@ -163,3 +163,22 @@ export function busca(t) {
   return String(t == null ? "" : t).normalize("NFD")
     .replace(/[̀-ͯ]/g, "").toLowerCase();
 }
+
+// ── a frota digitada ────────────────────────────────────────────────────────
+// A frota se digita do jeito que vier: "F-617", "f617", "f 617" e "617" são a
+// mesma. A chave tira o que não é letra ou número, o "F" da frente e os zeros
+// à esquerda do número.
+export const chaveFrota = t => busca(t).replace(/[^a-z0-9]/g, "")
+  .replace(/^f(?=\d)/, "").replace(/^0+(?=\d)/, "");
+
+/** O filtro de frota de uma tela, aberto: qualquer frota se digita, lançada
+ *  ou não. O digitado inteiro — ou só o número — de uma frota de `conhecidas`
+ *  escolhe só ela (e as grafias dela: "F-617" e "F 617"); senão vale o pedaço,
+ *  e "61" acha a F-617 e a F-618. Frota que ninguém lançou não acha nada, e a
+ *  tela diz. Devolve { exata, vazio, bate(frota) }. */
+export function filtroDeFrota(digitado, conhecidas = []) {
+  const q = chaveFrota(digitado);
+  if (!q || q === "f") return { exata: "", vazio: true, bate: () => true };
+  const exata = conhecidas.find(f => chaveFrota(f) === q) || "";
+  return { exata, vazio: false, bate: f => exata ? chaveFrota(f) === q : chaveFrota(f).includes(q) };
+}

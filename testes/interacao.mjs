@@ -1823,6 +1823,38 @@ ok("um clique aprova: Concluída com atraso, concluída pelo Pedro, aprovada pel
     outras: [...document.querySelectorAll(".tabela.avaliacao tbody tr")].filter(tr => !tr.textContent.includes(frota)).length }), FAV);
   ok("o filtro de frota deixa só ela", soEla.sub.includes(FAV) && soEla.outras === 0, JSON.stringify(soEla));
 
+  // Qualquer frota se digita: só o número acha a frota inteira, e uma frota
+  // que ninguém lançou fica no campo, com a tela dizendo que não há nada.
+  const NUM = String(70000 + Date.now() % 9973);
+  await av.evaluate(async frota => {
+    const { ev, M } = mkt, dia = n => M.somaDias(M.hoje(), n);
+    const [cm] = await ev.aplicar(ev.pedirMovimentacao({ frota, acao: "Levar", destino: "Cardan Service" }));
+    await ev.aplicar(ev.prometer(ev.porId(cm.alvo, "movimentacao"), dia(-4)));
+    await ev.aplicar(ev.chegou(ev.porId(cm.alvo, "movimentacao"), dia(-1)));
+  }, "F-" + NUM);
+  await av.fill(".filtros input.busca-frota", NUM);
+  await av.waitForTimeout(400);
+  const soNumero = await av.evaluate(frota => ({ sub: document.querySelector(".cabec .sub").textContent,
+    linhas: [...document.querySelectorAll(".tabela.avaliacao tbody tr")].map(tr => tr.textContent.includes(frota)) }), "F-" + NUM);
+  ok("só o número acha a frota: '" + NUM + "' é a F-" + NUM, soNumero.sub.includes("F-" + NUM) &&
+    soNumero.linhas.length > 0 && soNumero.linhas.every(Boolean), JSON.stringify(soNumero));
+  await av.fill(".filtros input.busca-frota", "F-99999");
+  await av.waitForTimeout(400);
+  const nova = await av.evaluate(() => ({ valor: document.querySelector(".filtros input.busca-frota").value,
+    sub: document.querySelector(".cabec .sub").textContent, texto: document.querySelector("#tela").innerText }));
+  ok("uma frota que ninguém lançou também se digita, e a tela diz que não há nada dela",
+    nova.valor === "F-99999" && nova.sub.includes("F-99999") && /Nenhuma movimentação ou preventiva da F-99999/.test(nova.texto),
+    JSON.stringify({ valor: nova.valor, sub: nova.sub }));
+  await av.fill(".filtros input.busca-frota", "");
+  await av.evaluate(() => { location.hash = "#/historico"; });
+  await av.waitForSelector(".filtros.reg input.busca-frota", { timeout: 5000 });
+  await av.fill(".filtros.reg input.busca-frota", NUM);
+  await av.waitForTimeout(500);
+  const reg = await av.evaluate(() => ({ et: [...document.querySelectorAll(".etiqueta")].map(e => e.textContent).join(" | "),
+    texto: document.querySelector("#tela").innerText }));
+  ok("no Registro a frota também se digita, e só o número acha os lançamentos dela",
+    reg.et.includes("Frota: " + NUM) && /\d+ lançamentos?/.test(reg.texto) && !/Nada com esses filtros/.test(reg.texto), reg.et);
+
   // A operação também abre a Avaliação, mas a chegada é o PCM que anota.
   const op = await (await nav.newContext({ viewport: { width: 1280, height: 860 } })).newPage();
   await op.goto(site.endereco, { waitUntil: "networkidle" });
