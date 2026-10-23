@@ -346,10 +346,45 @@ async function pintar() {
   } catch (e) {
     console.error(e);
     if (minha !== geracaoTela) return;
-    limpar(raiz).append(el("p", { class: "nada" }, "Não consegui abrir esta tela: " + e.message));
+    // Uma parte do site não baixou (a rede piscou, ou a aba ficou aberta
+    // durante uma publicação nova). O navegador guarda essa falha até a página
+    // recarregar — e como as telas trocam sem recarregar, a pessoa ficava presa
+    // nela (o Pedro, em 23/10/2026). Recarrega uma vez sozinho; se voltar a
+    // falhar, oferece tentar de novo ou consertar o site neste aparelho.
+    if (falhaDeCarga(e) && !recarregouHaPouco()) { marcarRecarga(); location.reload(); return; }
+    limpar(raiz).append(falhaDeCarga(e) ? telaDeFalha() : el("p", { class: "nada" }, "Não consegui abrir esta tela: " + e.message));
   }
   await faixa();
   window.scrollTo(0, 0);
+}
+
+// ── quando uma parte do site não baixa ──────────────────────────────────────
+const falhaDeCarga = e => /dynamically imported module|Importing a module script failed|error loading dynamically|Failed to fetch/i
+  .test(String(e && e.message || e));
+function recarregouHaPouco() {
+  try { return Date.now() - Number(sessionStorage.getItem("mkt-recarga") || 0) < 60e3; } catch (x) { return true; }
+}
+function marcarRecarga() { try { sessionStorage.setItem("mkt-recarga", String(Date.now())); } catch (x) { /* segue */ } }
+
+/** Tira a cópia do site guardada neste aparelho (o service worker e o cache dos
+ *  arquivos) e recarrega. Os lançamentos ficam: moram no IndexedDB, que isto
+ *  não toca — inclusive os que ainda não subiram. */
+async function consertarSite() {
+  try {
+    if ("serviceWorker" in navigator) for (const r of await navigator.serviceWorker.getRegistrations()) await r.unregister();
+    if (window.caches) for (const k of await caches.keys()) await caches.delete(k);
+  } catch (x) { console.warn("consertar", x); }
+  location.reload();
+}
+
+function telaDeFalha() {
+  return el("div", { class: "mes-vazio falha-carga" },
+    el("h2", {}, "Esta tela não carregou"),
+    el("p", {}, "Uma parte do site não chegou a este aparelho — a internet pode ter falhado, ou o aparelho guardou uma versão " +
+      "antiga. Os lançamentos guardados aqui não se perdem com nenhum dos dois botões."),
+    el("div", { class: "acoes-mes" },
+      el("button", { class: "primario", onclick: () => location.reload() }, "Tentar de novo"),
+      el("button", { onclick: consertarSite }, "Consertar o site neste aparelho")));
 }
 
 // ── a faixa de avisos ───────────────────────────────────────────────────────

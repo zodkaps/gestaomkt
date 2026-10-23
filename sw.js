@@ -7,7 +7,7 @@
 // A estratégia é rede primeiro, cache como rede reserva: assim uma versão nova
 // do site chega sem precisar de truque, e a falta de rede não trava nada.
 
-const VERSAO = "mkt-v34";
+const VERSAO = "mkt-v35";
 const ARQUIVOS = [
   "./",
   "./index.html",
@@ -101,6 +101,11 @@ self.addEventListener("fetch", e => {
       if (resp && resp.ok) {
         const c = await caches.open(VERSAO);
         c.put(req, resp.clone());
+      } else if (resp) {
+        // O servidor respondeu erro (um 404 no meio de uma publicação): a cópia
+        // guardada serve melhor que a página de erro.
+        const guardado = await caches.match(req);
+        if (guardado) return guardado;
       }
       return resp;
     } catch (erro) {
