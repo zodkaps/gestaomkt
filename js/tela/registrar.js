@@ -12,6 +12,7 @@ import * as M from "../modelo.js";
 import * as pessoas from "../pessoas.js";
 import { el, caixa, campo, comSugestoes, brCurto } from "../ui.js";
 import { filtroDeFrota } from "../texto.js";
+import { icone } from "../icones.js";
 
 const movs = () => ev.lista("movimentacao").filter(m => !m.excluida);
 const prevs = () => ev.lista("preventiva").filter(p => !p.excluida && !p.fora);
@@ -26,19 +27,19 @@ function frotasConhecidas() {
 function opcoes(ref) {
   const semPorque = m => M.movimentacaoSemJustificativa(m, ref);
   return [
-    { id: "mov-nova", icone: "⇄", rotulo: "Pedir uma movimentação", sub: "levar, buscar, TOP, lavagem…",
+    { id: "mov-nova", icone: "trocar", rotulo: "Pedir uma movimentação", sub: "levar, buscar, TOP, lavagem…",
       pode: pessoas.pode("movimentar"), itens: null },
-    { id: "mov-feita", icone: "✔", rotulo: "Uma movimentação foi feita", sub: "concluir a que estava em aberto",
+    { id: "mov-feita", icone: "visto", rotulo: "Uma movimentação foi feita", sub: "concluir a que estava em aberto",
       pode: pessoas.pode("movimentar"), itens: () => movs().filter(M.movimentacaoAberta),
       linha: m => [m.frota, titulo(m), m.prometida_para ? `prazo ${brCurto(m.prometida_para)}` : "sem prazo"] },
-    { id: "chegou", icone: "⏱", rotulo: "A frota chegou na oficina", sub: "para a preventiva",
+    { id: "chegou", icone: "caminhao", rotulo: "A frota chegou na oficina", sub: "para a preventiva",
       pode: pessoas.pode("parada"), itens: () => prevs().filter(p => M.preventivaAberta(p) && !p.entregue_em),
       linha: p => [p.frota, `Preventiva ${p.plano || ""}`.trim(), p.dia_parada ? `parada ${brCurto(p.dia_parada)}` : "sem parada"] },
-    { id: "liberacao", icone: "⚑", rotulo: "Liberação para a preventiva", sub: "disponível agora, ou a partir de um dia",
+    { id: "liberacao", icone: "bandeira", rotulo: "Liberação para a preventiva", sub: "disponível agora, ou a partir de um dia",
       pode: pessoas.pode("disponibilidade"), itens: () => prevs().filter(M.preventivaAberta),
       linha: p => [p.frota, `Preventiva ${p.plano || ""}`.trim(),
         p.disponivel_agora ? "liberada agora" : p.disponivel_em ? `liberada ${brCurto(p.disponivel_em)}` : "sem liberação"] },
-    { id: "justificar", icone: "?", rotulo: "Justificar um atraso", sub: "dizer por que atrasou e quem atrasou",
+    { id: "justificar", icone: "pergunta", rotulo: "Justificar um atraso", sub: "dizer por que atrasou e quem atrasou",
       pode: pessoas.pode("movimentar"),
       itens: () => [...movs().filter(semPorque).map(m => ({ ...m, _tipo: "movimentacao" })),
         ...(pessoas.pode("parada") ? prevs().filter(p => p.entregue_em && !p.motivo_entrega && M.atrasoEntrega(p) > 0)
@@ -46,7 +47,7 @@ function opcoes(ref) {
       linha: x => x._tipo === "movimentacao"
         ? [x.frota, titulo(x), `${M.atrasoMovimentacao(x, ref)} d de atraso`]
         : [x.frota, `Chegada para a preventiva ${x.plano || ""}`.trim(), `${M.atrasoEntrega(x)} d de atraso`] },
-    { id: "incluir", icone: "+", rotulo: "Pôr a frota no plano de preventivas", sub: "de qualquer mês",
+    { id: "incluir", icone: "adicionar", rotulo: "Pôr a frota no plano de preventivas", sub: "de qualquer mês",
       pode: pessoas.pode("parada"), itens: null },
   ].filter(o => o.pode);
 }
@@ -71,7 +72,7 @@ export async function abrirRegistrar(ctx, { frota = "" } = {}) {
           return el("button", { type: "button", class: "reg-op" + (desligada ? " vazia" : ""), role: "listitem",
             disabled: desligada, dataset: { op: o.id },
             onclick: () => fechar({ op: o, itens, frota: f.exata || eFrota.value.trim() }) },
-            el("span", { class: "reg-ic", "aria-hidden": "true" }, o.icone),
+            el("span", { class: "reg-ic", "aria-hidden": "true" }, icone(o.icone, 20)),
             el("span", { class: "reg-txt" }, el("b", {}, o.rotulo), el("small", {}, o.sub)),
             n == null ? null : el("span", { class: "reg-n" }, desligada
               ? (f.vazio ? "nada em aberto" : "nada desta frota")

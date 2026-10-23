@@ -86,11 +86,13 @@ export function calendarioMes({ mes, itens = [], ref = M.hoje(), selecionado = "
     el("div", { class: "cal-grade", style: `grid-template-rows: repeat(${semanas}, minmax(0, 1fr))` }, celulas));
 }
 
-/** A tela da agenda: o calendário (num cartão) e a coluna da direita. */
+/** A tela da agenda: o calendário (num cartão) e a coluna da direita, que
+ *  no computador tem a altura do calendário e rola por dentro. */
 export function agenda(calendario, ...trilho) {
+  // a caixa em volta deixa a coluna da altura do calendário (ver o CSS)
   return el("div", { class: "agenda" },
     el("div", { class: "agenda-cal" }, calendario),
-    el("aside", { class: "trilho" }, trilho.filter(Boolean)));
+    el("div", { class: "trilho-caixa" }, el("aside", { class: "trilho" }, trilho.filter(Boolean))));
 }
 
 /** Um cartão da coluna da direita. */

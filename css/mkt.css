@@ -2087,3 +2087,29 @@ input.busca:focus { background-color: var(--papel); }
 .chip-filtro:hover { background: var(--marca-clara); border-color: var(--marca); }
 input.busca-frota { border-radius: 999px !important; padding-left: 14px; background-color: var(--papel2); border-color: var(--linha); }
 input.busca-frota:focus { background-color: var(--papel); }
+
+/* ── 23/10/2026: a logo de calendário e os ícones em linha ──────────────── */
+#menu .marca .logo { width: 30px; height: 30px; flex: 0 0 auto; display: block; filter: drop-shadow(0 2px 6px rgba(37, 99, 235, .35)); }
+.cartao-entrar .logo-img { width: 40px; height: 40px; display: block; flex: none; }
+#menu a b { display: inline-grid; place-items: center; }
+#menu a b .ic { display: block; }
+#menu a:not(.ativo) b .ic { opacity: .85; }
+@media (max-width: 860px) { #menu a b .ic { width: 21px; height: 21px; } }
+.com-ic { display: inline-flex; align-items: center; gap: 10px; }
+.reg-ic .ic { display: block; }
+
+/* A coluna da direita da agenda termina com o calendário: no computador, ela
+   ocupa a altura dele e rola por dentro. Antes ela descia sozinha pela
+   página, com o lado esquerdo vazio. E cada lista longa rola dentro do seu
+   cartão, para os cartões de baixo continuarem à vista. */
+@media (min-width: 1101px) {
+  .agenda { align-items: stretch; }
+  .trilho-caixa { position: relative; min-height: 0; min-width: 0; }
+  .trilho-caixa > .trilho { position: absolute; inset: 0; overflow-y: auto; overscroll-behavior: contain;
+    padding: 0 6px 2px 0; margin-right: -6px; scrollbar-width: thin; scrollbar-color: var(--borda) transparent; }
+  .trilho-caixa > .trilho::-webkit-scrollbar { width: 6px; }
+  .trilho-caixa > .trilho::-webkit-scrollbar-thumb { background: var(--borda); border-radius: 3px; }
+  .tr-card .ag-lista { max-height: 252px; overflow-y: auto; overscroll-behavior: contain; scrollbar-width: thin;
+    scrollbar-color: var(--borda) transparent; margin-right: -8px; padding-right: 8px; }
+  .tr-card { flex: none; }
+}

@@ -7,14 +7,14 @@
   "scope": "./",
   "display": "standalone",
   "orientation": "any",
-  "background_color": "#f4f5f7",
-  "theme_color": "#1f5fa8",
+  "background_color": "#f3f5f9",
+  "theme_color": "#2563eb",
   "icons": [
     {
-      "src": "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'%3E%3Crect width='512' height='512' rx='96' fill='%231f5fa8'/%3E%3Ctext x='256' y='352' font-size='280' text-anchor='middle' fill='%23ffffff' font-family='system-ui'%3EM%3C/text%3E%3C/svg%3E",
+      "src": "logo.svg",
       "sizes": "any",
       "type": "image/svg+xml",
-      "purpose": "any maskable"
+      "purpose": "any"
     }
   ]
 }

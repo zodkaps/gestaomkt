@@ -123,6 +123,14 @@ tom bem claro), todos acima de 4,5:1, e sempre levam o texto.
   passo e as datas de cada um, e o botão do próximo passo em destaque; a OS se
   digita nela. A vista **Calendário** põe as paradas no mês. A Situação da
   planilha continua por baixo — é ela que os números conferem.
+- **A coluna da direita da agenda termina com o calendário**: no computador ela
+  tem a altura dele e rola por dentro, e cada lista longa (o dia, as atrasadas)
+  rola dentro do próprio cartão — a página não desce mais só por causa dela.
+- **A logo é um calendário** (`logo.svg`: a folha do mês com o dia marcado e
+  dado por feito), no menu, na tela de entrar, na aba do navegador e no ícone
+  do aplicativo. Os ícones do menu e do "+ Registrar" são desenhos em linha
+  (`js/icones.js`), não caracteres — a mão do "Para você" virava emoji
+  colorido em alguns aparelhos.
 
 **As telas da oficina saíram do menu, mas nada foi apagado.** Painel, Hoje,
 Programação, Semana, Resultados e Frota continuam no código, e os lançamentos

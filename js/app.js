@@ -8,6 +8,7 @@ import * as M from "./modelo.js";
 import * as bk from "./backup.js";
 import { OFICINA, telaInicial } from "./foco.js";
 import { el, $, limpar, avisar, erro, caixa, senhaComOlho } from "./ui.js";
+import { icone } from "./icones.js";
 
 // O site avalia a operação: movimentações de frota e preventivas, com os
 // atrasos de entrega (ver `js/foco.js`). As telas marcadas `oficina` — na
@@ -15,44 +16,44 @@ import { el, $, limpar, avisar, erro, caixa, senhaComOlho } from "./ui.js";
 // aparecem com `?oficina=1` no endereço. A carteira deixou de ser tela: na
 // planilha ela é uma situação, e aqui é um recorte da Programação.
 const TELAS = [
-  { id: "operacao", icone: "✋", nome: "Para você", grupo: "Operação", papeis: ["operacao"],
+  { id: "operacao", icone: "pessoa", nome: "Para você", grupo: "Operação", papeis: ["operacao"],
     carregar: () => import("./tela/operacao.js"),
     contar: () => contagemOperacao() },
-  { id: "avaliacao", icone: "◎", nome: "Avaliação", grupo: "Operação", papeis: ["pcm", "operacao"], celular: !OFICINA,
+  { id: "avaliacao", icone: "medidor", nome: "Avaliação", grupo: "Operação", papeis: ["pcm", "operacao"], celular: !OFICINA,
     carregar: () => import("./tela/avaliacao.js"),
     // O número no menu: atraso que ninguém justificou ainda.
     contar: () => contarSemJustificativa() },
-  { id: "painel", icone: "◉", nome: "Painel", grupo: "Oficina", papeis: ["pcm"], oficina: true,
+  { id: "painel", icone: "painel", nome: "Painel", grupo: "Oficina", papeis: ["pcm"], oficina: true,
     carregar: () => import("./tela/painel.js"),
     // O número no menu: quantas decisões urgentes há.
     contar: () => contarUrgentes() },
-  { id: "hoje", icone: "☀", nome: "Hoje", grupo: "Oficina", papeis: ["pcm"], celular: true, oficina: true,
+  { id: "hoje", icone: "sol", nome: "Hoje", grupo: "Oficina", papeis: ["pcm"], celular: true, oficina: true,
     carregar: () => import("./tela/hoje.js") },
-  { id: "programacao", icone: "☰", nome: "Programação", grupo: "Oficina", papeis: ["pcm"], celular: true, oficina: true,
+  { id: "programacao", icone: "lista", nome: "Programação", grupo: "Oficina", papeis: ["pcm"], celular: true, oficina: true,
     carregar: () => import("./tela/programacao.js"),
     // O número no menu é o que pede ação: quantas venceram.
     contar: () => ev.lista().filter(a => M.situacaoDe(a) === "VENCIDA").length },
-  { id: "semana", icone: "▦", nome: "Semana", grupo: "Oficina", papeis: ["pcm"], oficina: true,
+  { id: "semana", icone: "calendario", nome: "Semana", grupo: "Oficina", papeis: ["pcm"], oficina: true,
     carregar: () => import("./tela/semana.js") },
-  { id: "resultados", icone: "%", nome: "Resultados", grupo: "Oficina", papeis: ["pcm"], oficina: true,
+  { id: "resultados", icone: "barras", nome: "Resultados", grupo: "Oficina", papeis: ["pcm"], oficina: true,
     carregar: () => import("./tela/resultados.js") },
-  { id: "preventivas", icone: "⏱", nome: "Preventivas", grupo: "Frota", papeis: ["pcm", "operacao"], celular: true,
+  { id: "preventivas", icone: "escudo", nome: "Preventivas", grupo: "Frota", papeis: ["pcm", "operacao"], celular: true,
     carregar: () => import("./tela/preventivas.js"),
     contar: () => ev.lista("preventiva").filter(M.preventivaAberta).length },
-  { id: "movimentacoes", icone: "⇄", nome: "Movimentação", grupo: "Frota", papeis: ["pcm", "operacao"], celular: true,
+  { id: "movimentacoes", icone: "trocar", nome: "Movimentação", grupo: "Frota", papeis: ["pcm", "operacao"], celular: true,
     carregar: () => import("./tela/movimentacoes.js"),
     // Para o PCM, o que pede ação é a fila de aprovação; para a operação, o que
     // está em aberto.
     contar: () => pessoas.pode("aprovar")
       ? ev.lista("movimentacao").filter(M.movimentacaoParaAprovar).length
       : ev.lista("movimentacao").filter(M.movimentacaoAberta).length },
-  { id: "frota", icone: "▤", nome: "Frota", grupo: "Frota", papeis: ["pcm", "operacao"], oficina: true,
+  { id: "frota", icone: "caminhao", nome: "Frota", grupo: "Frota", papeis: ["pcm", "operacao"], oficina: true,
     carregar: () => import("./tela/frota.js") },
-  { id: "historico", icone: "⟲", nome: "Registro", grupo: "Gestão", papeis: ["pcm", "operacao"],
+  { id: "historico", icone: "historico", nome: "Registro", grupo: "Gestão", papeis: ["pcm", "operacao"],
     carregar: () => import("./tela/historico.js") },
-  { id: "importar", icone: "⇪", nome: "Importar", grupo: "Gestão", papeis: ["pcm"],
+  { id: "importar", icone: "enviar", nome: "Importar", grupo: "Gestão", papeis: ["pcm"],
     carregar: () => import("./tela/importar.js") },
-  { id: "diagnostico", icone: "✚", nome: "Diagnóstico", grupo: "Gestão", papeis: ["pcm"],
+  { id: "diagnostico", icone: "pulso", nome: "Diagnóstico", grupo: "Gestão", papeis: ["pcm"],
     carregar: () => import("./tela/diagnostico.js") },
   { id: "entrar", icone: "", nome: "Entrar", grupo: "", papeis: [], oculta: true,
     carregar: () => import("./tela/entrar.js") },
@@ -185,13 +186,13 @@ function pintarMenu(id) {
     let n = null;
     try { n = t.contar ? t.contar() : null; } catch (e) { n = null; }
     nav.append(el("a", { href: "#/" + t.id, class: t.id === id ? "ativo" : "" },
-      el("b", {}, t.icone), el("span", {}, t.nome),
+      el("b", {}, icone(t.icone)), el("span", {}, t.nome),
       n ? el("span", { class: "cont" }, String(n)) : null));
   }
   if (resto.length) {
     nav.append(el("a", { href: "#", class: resto.some(t => t.id === id) ? "ativo" : "",
       onclick: e => { e.preventDefault(); maisTelas(resto); } },
-      el("b", {}, "⋯"), el("span", {}, "Mais")));
+      el("b", {}, icone("mais")), el("span", {}, "Mais")));
   }
 }
 
@@ -202,7 +203,7 @@ async function maisTelas(telas) {
     corpo: ({ fechar }) => el("div", { class: "menu-acoes" },
       telas.map(t => el("button", { type: "button", class: "opcao-acao",
         onclick: () => fechar(t.id) },
-        el("b", {}, `${t.icone}  ${t.nome}`)))),
+        el("b", { class: "com-ic" }, icone(t.icone), t.nome)))),
     acoes: [{ rotulo: "Fechar", valor: "" }],
   });
   if (escolhida) location.hash = "#/" + escolhida;

@@ -122,7 +122,7 @@ export async function montar(raiz, ctx, params = new URLSearchParams()) {
       onclick: () => { eNome.value = c.email; eSenha.value = ""; eSenha.focus(); } }, c.nome))) : null;
 
   const cartao = el("div", { class: "cartao-entrar" },
-    el("div", { class: "logo" }, el("i", {}, "M"), "Programação Makro"),
+    el("div", { class: "logo" }, el("img", { class: "logo-img", src: "logo.svg", alt: "", width: 40, height: 40 }), "Programação Makro"),
     el("p", { class: "dica" }, "manutenção · Mossoró/RN"),
     aviso, atalhos, form,
     el("p", { class: "obs esqueci" },
@@ -256,7 +256,7 @@ async function criarAcesso() {
 function semPapel(raiz, ctx, p) {
   raiz.append(el("div", { id: "entrar-tela" },
     el("div", { class: "cartao-entrar" },
-      el("div", { class: "logo" }, el("i", {}, "M"), "Quase lá"),
+      el("div", { class: "logo" }, el("img", { class: "logo-img", src: "logo.svg", alt: "", width: 40, height: 40 }), "Quase lá"),
       el("div", { class: "erro" },
         "Sua senha funcionou, mas este acesso ainda não tem papel."),
       el("p", { style: "font-size:13px;color:var(--fraco)" },

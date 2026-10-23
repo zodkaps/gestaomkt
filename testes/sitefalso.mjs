@@ -12,12 +12,12 @@ import { fileURLToPath } from "node:url";
 
 const RAIZ = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const TIPOS = { ".html": "text/html", ".js": "text/javascript", ".mjs": "text/javascript", ".pdf": "application/pdf", ".woff2": "font/woff2",
-  ".css": "text/css", ".json": "application/json", ".sql": "text/plain" };
+  ".css": "text/css", ".svg": "image/svg+xml", ".json": "application/json", ".sql": "text/plain" };
 
 export function servirCopia({ nuvem, porta = 8125, pasta = "/tmp/mkt-copia-teste" }) {
   rmSync(pasta, { recursive: true, force: true });
   mkdirSync(pasta, { recursive: true });
-  for (const d of ["index.html", "manifest.json", "css", "js", "vendor", "sql"]) {
+  for (const d of ["index.html", "manifest.json", "logo.svg", "css", "js", "vendor", "sql"]) {
     cpSync(join(RAIZ, d), join(pasta, d), { recursive: true });
   }
   // Troca SÓ o endereço, no config de verdade. Escrever um config inteiro aqui
