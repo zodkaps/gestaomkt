@@ -234,8 +234,13 @@ export function moldeMovimentacao() {
     // feita; `aprovada` diz se o PCM já conferiu.
     concluida_por: "", aprovada: false, aprovada_por: "", aprovada_em: "",
     devolvida: false, motivo_devolucao: "",
-    // Por que atrasou ou não saiu, e quem atrasou.
-    motivo_atraso: "", quem_atrasou: "", justificativa: "",
+    // Por que atrasou ou não saiu, e quem atrasou. `motivo_cat` é o motivo
+    // pronto (MOTIVOS_ATRASO); `motivo_atraso`, o que foi escrito.
+    motivo_atraso: "", quem_atrasou: "", justificativa: "", motivo_cat: "",
+    // Sequência de etapas para a mesma frota (lavar → levar ao fornecedor):
+    // as etapas têm o mesmo `roteiro` e `etapa` 1, 2, 3… Cada uma é uma
+    // movimentação inteira — prazo, baixa e atraso próprios.
+    roteiro: "", etapa: 0,
     cancelada: false, excluida: false, motivo: "",
     criada_em: "", fonte: "",
   };
@@ -331,6 +336,55 @@ export function movimentacaoAberta(m) {
   return !m.excluida && !m.cancelada && !m.chegou_em;
 }
 
+// ── a sequência de etapas ───────────────────────────────────────────────────
+
+/** As etapas da sequência desta movimentação, em ordem (ela sozinha, se não
+ *  é de sequência). As canceladas e excluídas saem. */
+export function etapasDe(m, movs) {
+  if (!m || !m.roteiro) return m ? [m] : [];
+  return movs.filter(x => x.roteiro === m.roteiro && !x.excluida && !x.cancelada)
+    .sort((a, b) => (a.etapa || 0) - (b.etapa || 0));
+}
+
+/** A etapa anterior que ainda não foi feita: enquanto ela existir, esta
+ *  espera a vez. */
+export function etapaAnteriorAberta(m, movs) {
+  if (!m || !m.roteiro) return null;
+  return etapasDe(m, movs).find(x => (x.etapa || 0) < (m.etapa || 0) && movimentacaoAberta(x)) || null;
+}
+
+// ── o porquê do atraso ──────────────────────────────────────────────────────
+// Os motivos prontos saíram do que a equipe já escrevia (21–23/10/2026):
+// "Prioridade entrou na frente", "frota foi para operação", "bate e volta no
+// Pecém", "vai junto com o 621", "por conta de operação e lavagem". As
+// justificativas antigas, em texto livre, se reconhecem pelas palavras — sem
+// regravar nada.
+
+export const MOTIVOS_ATRASO = [
+  { id: "prioridade", nome: "Outra prioridade entrou na frente", reconhece: /prioridade|na frente/ },
+  { id: "operacao", nome: "Frota em viagem ou em uso", reconhece: /viagem|operac|utilizad|carreg|bate e volta|vai (pra|para)|desceu|buscar|retorna|em uso|rodando/ },
+  { id: "conjunto", nome: "Esperando outra frota", reconhece: /junto com|conjunto|outra frota/ },
+  { id: "etapa", nome: "Esperando outra etapa (lavagem, TOP…)", reconhece: /lavag|lavar|\btop\b|etapa/ },
+  { id: "motorista", nome: "Sem motorista", reconhece: /motorista/ },
+  { id: "fornecedor", nome: "Fornecedor ou oficina sem vaga", reconhece: /fornecedor|oficina|\bbox\b|vaga/ },
+  { id: "peca", nome: "Falta de peça ou material", reconhece: /\bpeca|material/ },
+  { id: "outro", nome: "Outro motivo", reconhece: null },
+];
+const POR_ID_MOTIVO = new Map(MOTIVOS_ATRASO.map(m => [m.id, m]));
+/** Quem atrasou, para tocar (o campo continua livre). */
+export const RESPONSAVEIS_ATRASO = ["Operação", "Motorista", "Fornecedor", "Oficina", "PCM"];
+
+/** O motivo pronto de uma justificativa: o escolhido; sem ele, o que o texto
+ *  indica; sem texto, vazio. */
+export function categoriaDoMotivo(texto, cat = "") {
+  if (cat && POR_ID_MOTIVO.has(cat)) return cat;
+  const t = semAcentoMin(texto);
+  if (!t.trim()) return "";
+  for (const m of MOTIVOS_ATRASO) if (m.reconhece && m.reconhece.test(t)) return m.id;
+  return "outro";
+}
+export const nomeMotivo = id => (POR_ID_MOTIVO.get(id) || {}).nome || "Sem motivo informado";
+
 /** Atrasou (ou está atrasando) e ninguém disse por quê. */
 export function movimentacaoSemJustificativa(m, ref) {
   const s = situacaoMovimentacao(m, ref);
@@ -397,7 +451,7 @@ export function moldePreventiva() {
     // A entrega da frota na oficina para a parada (ver `prev_entregue`): o dia
     // em que chegou, o dia combinado naquele momento e, quando chegou depois
     // do combinado, o porquê e quem atrasou. É o que avalia a operação.
-    entregue_em: "", entrega_combinada: "", motivo_entrega: "", quem_atrasou_entrega: "",
+    entregue_em: "", entrega_combinada: "", motivo_entrega: "", quem_atrasou_entrega: "", motivo_entrega_cat: "",
     // O quadro do pé da aba: frota que está no mapa mas não entra na conta do
     // mês (já realizada, sem preventiva, vence no mês seguinte…).
     fora: false, por_que_fora: "",
@@ -461,6 +515,38 @@ export function esperandoQuem(p, ref) {
 
 export function preventivaAberta(p) {
   return !p.excluida && !p.fora && !preventivaFeita(p) && !p.adiada && !p.cancelada;
+}
+
+// ── o passo a passo da preventiva ──────────────────────────────────────────
+// Quatro passos, sempre na mesma ordem, e cada um é de alguém: a operação
+// libera a frota, o PCM marca a parada, a frota chega na oficina, o PCM dá a
+// baixa. A Situação da planilha continua por baixo (é ela que os números
+// conferem); o passo é o jeito de dizer, numa palavra, o que falta.
+
+export const PASSOS_PREV = [
+  { id: "liberar", n: 1, nome: "Liberação", quem: "Operação", faz: "A operação informa quando a frota fica livre." },
+  { id: "parada", n: 2, nome: "Parada", quem: "PCM", faz: "O PCM marca o dia da parada." },
+  { id: "chegada", n: 3, nome: "Chegada", quem: "Operação", faz: "A frota chega na oficina no dia da parada." },
+  { id: "baixa", n: 4, nome: "Baixa", quem: "PCM", faz: "Terminado o serviço, o PCM dá a baixa." },
+];
+
+/** Em que passo a preventiva está: o primeiro que falta. "feita" e "fora"
+ *  (adiada ou cancelada) ficam depois dos quatro. */
+export function passoPreventiva(p) {
+  if (preventivaFeita(p)) return "feita";
+  if (p.cancelada || p.adiada) return "fora";
+  if (p.em_andamento || p.entregue_em) return "baixa";
+  if (p.dia_parada) return "chegada";
+  if (p.disponivel_agora || p.disponivel_em) return "parada";
+  return "liberar";
+}
+
+/** O passo está com problema: a liberação ou a parada ficou depois do
+ *  vencimento, ou a parada passou e a frota não chegou. */
+export function passoAtrasado(p, ref) {
+  const s = situacaoPreventiva(p, ref);
+  return s === "Conflito: Operação depois do prazo" || s === "Programada depois do prazo" ||
+    (s === "Parada passou, sem baixa" && !p.entregue_em);
 }
 
 // ── a entrega da frota para a preventiva ───────────────────────────────────

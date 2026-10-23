@@ -7,7 +7,9 @@
 // tarde. Em quatro abas, para cada olhada ter um assunto só: o Resumo (quatro
 // números, o que pede ação e três gráficos), Para resolver (o que está
 // atrasando agora e o que falta justificar, cada linha com o botão que
-// resolve), a Análise (os outros gráficos) e Todos os atrasos, numa tabela.
+// resolve), os Motivos (cada motivo pronto com quantos atrasos, os dias e
+// quem atrasou), a Análise (os outros gráficos) e Todos os atrasos, numa
+// tabela.
 
 import * as ev from "../eventos.js";
 import * as M from "../modelo.js";
@@ -23,9 +25,12 @@ import { justificar } from "./comum.js";
 const COR_TIPO = { mov: "var(--s1)", entrega: "var(--s5)", liberacao: "var(--s4)" };
 const TIPOS = Object.keys(A.TIPOS_OCORRENCIA);
 const NO_PRAZO = "var(--ctx)", ATRASO = "var(--s2)";
-const ABAS = [["resumo", "Resumo"], ["resolver", "Para resolver"], ["analise", "Análise"], ["lista", "Todos os atrasos"]];
+// Para contar: "3 movimentações · 1 chegada".
+const CONTA_TIPO = { mov: ["movimentação", "movimentações"], entrega: ["chegada atrasada", "chegadas atrasadas"],
+  liberacao: ["liberação remarcada", "liberações remarcadas"] };
+const ABAS = [["resumo", "Resumo"], ["resolver", "Para resolver"], ["motivos", "Motivos"], ["analise", "Análise"], ["lista", "Todos os atrasos"]];
 
-const estado = { periodo: "mes", frota: "", busca: "", tipo: "", aba: "resumo" };
+const estado = { periodo: "mes", frota: "", busca: "", tipo: "", aba: "resumo", motivo: null };
 
 const pc = v => v == null ? "—" : Math.round(v * 100) + "%";
 const n1 = v => (Math.round(v * 10) / 10).toLocaleString("pt-BR");
@@ -38,6 +43,7 @@ export async function montar(raiz, ctx, params = new URLSearchParams()) {
   if (params.get("p")) estado.periodo = params.get("p");
   if (params.get("f") != null) estado.frota = params.get("f");
   if (ABAS.some(([id]) => id === params.get("a"))) estado.aba = params.get("a");
+  if (params.get("m") != null) estado.motivo = params.get("m");
 
   const titulo = el("span", { class: "sub" });
   const periodos = el("div", { class: "segmentos", role: "group", "aria-label": "Período" });
@@ -54,7 +60,11 @@ export async function montar(raiz, ctx, params = new URLSearchParams()) {
     el("div", { class: "filtros" }, periodos, fFrota, lista),
     abas,
     corpo);
-  const irAba = (aba, extra = {}) => () => { Object.assign(estado, extra, { aba }); pintar(); window.scrollTo({ top: 0 }); };
+  // Ir para Todos os atrasos sem dizer o motivo tira o motivo de antes.
+  const irAba = (aba, extra = {}) => () => {
+    Object.assign(estado, aba === "lista" && !("motivo" in extra) ? { motivo: null } : {}, extra, { aba });
+    pintar(); window.scrollTo({ top: 0 });
+  };
 
   function frotas() {
     return [...new Set([...ev.lista("movimentacao"), ...ev.lista("preventiva")].map(x => x.frota).filter(Boolean))]
@@ -145,6 +155,7 @@ export async function montar(raiz, ctx, params = new URLSearchParams()) {
       ? `Nenhuma movimentação ou preventiva da ${nomeFrota} lançada ainda.`
       : "Nada concluído, entregue ou remarcado neste período" + (nomeFrota ? ` · ${nomeFrota}` : "") + "."));
     if (estado.aba === "lista") return semNada ? corpo.append(semNada) : pintarLista(ocs);
+    if (estado.aba === "motivos") return semNada ? corpo.append(semNada) : pintarMotivos(ocs, semJ.length);
     if (estado.aba === "analise") {
       if (semNada) return corpo.append(semNada);
       return pintarAnalise(ocs, per, filtro);
@@ -189,10 +200,12 @@ export async function montar(raiz, ctx, params = new URLSearchParams()) {
         series: [{ nome: "No prazo", cor: NO_PRAZO, valores: sem.map(s => s.no_prazo) }, { nome: "Com atraso", cor: ATRASO, valores: sem.map(s => s.atrasadas) }] })
       : el("p", { class: "nada" }, "Nada com prazo neste período."), true);
 
-    const motivos = A.agruparAtrasos(ocs, "motivo", "Sem motivo informado").slice(0, 8);
-    pendurar(cartaoGrafico("Por que atrasou", "os motivos mais citados",
+    const motivos = A.porMotivo(ocs).slice(0, 8);
+    pendurar(cartaoGrafico("Por que atrasou", "os motivos mais citados · clique para ver os atrasos de um",
       el("div", { class: "g-corpo" }), { forma: "caixa", legendaDe: legTipos }),
-    w => motivos.length ? graficoBarras({ largura: w, larguraRotulo: rotuloLargo(w), itens: motivos.map(x => ({ rotulo: x.rotulo, partes: partesTipo(x) })) })
+    w => motivos.length ? graficoBarras({ largura: w, larguraRotulo: rotuloLargo(w),
+      itens: motivos.map(x => ({ rotulo: x.nome, chave: x.id, partes: partesTipo(x) })),
+      aoClicar: it => irAba("lista", { motivo: it.chave })() })
       : el("p", { class: "nada" }, "Nenhum atraso no período."));
 
     const quem = A.agruparAtrasos(ocs, "quem", "Não informado");
@@ -232,6 +245,38 @@ export async function montar(raiz, ctx, params = new URLSearchParams()) {
       ["Combinado", o => dataOuNada(o.combinado), "num"], ["Feito", o => dataOuNada(o.quando), "num"], colDias],
       { acoes: true, justificarSo: true })
       : el("p", { class: "nada" }, "Todos os atrasos têm o porquê."));
+  }
+
+  // ── Motivos ──────────────────────────────────────────────────────────────
+  // Cada motivo pronto numa linha: quantos atrasos, de que tipo (a barra, nas
+  // cores dos tipos), os dias somados e quem atrasou. Tocar abre os atrasos
+  // daquele motivo. As justificativas antigas, em texto livre, entram pelo
+  // motivo que o texto indica (ver M.categoriaDoMotivo).
+  function pintarMotivos(ocs, nSemJ) {
+    const ms = A.porMotivo(ocs);
+    if (!ms.length) return corpo.append(el("p", { class: "nada" }, "Nenhum atraso no período."));
+    const max = Math.max(...ms.map(x => x.total));
+    const total = ms.reduce((t, x) => t + x.total, 0);
+    const linha = x => el("button", { type: "button", class: "mt-lin" + (x.id ? "" : " sem"), dataset: { motivo: x.id },
+      onclick: irAba("lista", { motivo: x.id }) },
+      el("span", { class: "mt-nome" }, el("b", {}, x.nome),
+        el("small", {}, TIPOS.filter(t => x[t]).map(t => plural(x[t], ...CONTA_TIPO[t])).join(" · "))),
+      el("span", { class: "mt-barra", title: `${x.total} de ${total} atrasos` },
+        el("span", { class: "mt-trilho" }, TIPOS.filter(t => x[t]).map(t =>
+          el("i", { style: `width:${x[t] * 100 / max}%;background:${COR_TIPO[t]}` }))),
+        el("b", {}, String(x.total))),
+      el("span", { class: "mt-dias" }, `${x.dias} d`),
+      el("span", { class: "mt-quem" }, x.quem.map(([q, n]) => el("span", { class: "chip" + (q === "Não informado" ? "" : " quem") }, `${q} ${n}`))));
+    corpo.append(el("div", { class: "titulo-secao" }, "Por que atrasou",
+      el("span", { class: "n" }, `· ${plural(total, "atraso", "atrasos")} no período · toque num motivo para ver os atrasos dele`)));
+    corpo.append(el("div", { class: "motivos" },
+      el("div", { class: "mt-cab" }, el("span", {}, "Motivo"), el("span", {}, "Atrasos"), el("span", {}, "Dias"), el("span", {}, "Quem atrasou")),
+      ms.map(linha),
+      el("div", { class: "mt-leg" }, legTipos.map(t => el("span", { class: "leg-item" }, el("i", { class: "mt-cor", style: `background:${t.cor}` }), t.nome)))));
+    if (nSemJ) corpo.append(el("div", { class: "pede-acao" },
+      el("span", {}, el("b", {}, plural(nSemJ, "atraso sem justificativa", "atrasos sem justificativa")),
+        el("span", { class: "seg" }, " — sem o porquê, o atraso entra em \"Sem motivo informado\".")),
+      el("button", { type: "button", class: "primario-leve", onclick: irAba("resolver") }, "Justificar")));
   }
 
   // ── Análise ──────────────────────────────────────────────────────────────
@@ -279,13 +324,17 @@ export async function montar(raiz, ctx, params = new URLSearchParams()) {
     const tiposBt = el("div", { class: "segmentos" }, [["", "Todos"], ...TIPOS.map(t => [t, A.TIPOS_OCORRENCIA[t]])].map(([t, rot]) =>
       el("button", { type: "button", class: "seg-op" + (estado.tipo === t ? " on" : ""), onclick: () => { estado.tipo = t; pintarTodos(); } }, rot)));
     const caixaTodos = el("div", {});
-    corpo.append(el("div", { class: "filtros", id: "av-todos" }, tiposBt, fBusca), caixaTodos);
+    // O motivo escolhido nos Motivos (ou no gráfico): uma etiqueta que tira.
+    const fMotivo = estado.motivo != null ? el("button", { type: "button", class: "chip-filtro", title: "Tirar este filtro",
+      onclick: () => { estado.motivo = null; pintar(); } }, `Motivo: ${M.nomeMotivo(estado.motivo)}`, el("b", { "aria-hidden": "true" }, " ✕")) : null;
+    corpo.append(el("div", { class: "filtros", id: "av-todos" }, tiposBt, fBusca, fMotivo), caixaTodos);
     fBusca.addEventListener("input", () => { estado.busca = fBusca.value; pintarTodos(); });
     function pintarTodos() {
       for (const b of tiposBt.querySelectorAll(".seg-op")) b.classList.remove("on");
       [...tiposBt.querySelectorAll(".seg-op")][["", ...TIPOS].indexOf(estado.tipo)].classList.add("on");
       const q = semAcento(estado.busca.trim());
       const itens = ocs.filter(o => o.atrasou && (!estado.tipo || o.tipo === estado.tipo) &&
+        (estado.motivo == null || (o.motivoCat || "") === estado.motivo) &&
         (!q || semAcento([o.frota, o.oque, o.motivo, o.quem, o.categoria].join(" ")).includes(q)));
       limpar(caixaTodos).append(itens.length ? tabela(itens, [
         ["Feito em", o => brCurto(o.quando), "num"], colTipo, colFrota, colOque,

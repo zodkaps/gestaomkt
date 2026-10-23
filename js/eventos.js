@@ -18,7 +18,7 @@ import * as dados from "./dados.js";
 import * as nuvem from "./nuvem.js";
 import * as pessoas from "./pessoas.js";
 import { molde, moldeMovimentacao, moldePreventiva, semanaISO, DIAS, aberta, feita,
-  preventivaFeita as prevFeita, hoje, combinadoEntrega } from "./modelo.js";
+  preventivaFeita as prevFeita, hoje, combinadoEntrega, etapasDe, nomeMotivo } from "./modelo.js";
 
 export const TIPOS = {
   criada: "criada manualmente",
@@ -236,6 +236,7 @@ function aplicarNoAlvo(a, ev, d) {
       else a.motivo = d.motivo || d.texto || "";
       a.quem_atrasou = d.quem || "";
       a.justificativa = d.texto || "";
+      a.motivo_cat = d.categoria || "";
       break;
 
     // ── movimentação ──
@@ -308,6 +309,7 @@ function aplicarNoAlvo(a, ev, d) {
       a.entregue_em = d.em || "";
       a.entrega_combinada = d.combinado || "";
       a.motivo_entrega = d.motivo || "";
+      a.motivo_entrega_cat = d.categoria || "";
       a.quem_atrasou_entrega = d.quem || "";
       if (a.entregue_em && !a.realizada_em && !a.realizada_sem_data) a.em_andamento = true;
       break;
@@ -621,12 +623,14 @@ export function reincluir(a, alvoTipo = "atividade") {
 /** Por que atrasou (ou não foi feita) e quem atrasou. Na atividade é do PCM —
  *  a operação não escreve em atividade —; na movimentação, dos dois lados: é
  *  a operação quem melhor sabe por que a frota não chegou. */
-export function justificar(alvo, { motivo = "", quem = "", texto = "" }, alvoTipo = "atividade") {
+export function justificar(alvo, { motivo = "", quem = "", texto = "", categoria = "" }, alvoTipo = "atividade") {
   pessoas.exigir(alvoTipo === "atividade" ? "editar_atividade" : "movimentar");
   motivo = String(motivo || "").trim(); texto = String(texto || "").trim();
+  // Só o motivo pronto, sem detalhe: o nome dele é o porquê escrito.
+  if (!motivo && !texto && categoria) motivo = nomeMotivo(categoria);
   if (!motivo && !texto) throw new Error("Informe o motivo.");
   return { tipo: "justificada", alvo: alvo.id, alvo_tipo: alvoTipo,
-    dados: { motivo, quem: String(quem || "").trim(), texto } };
+    dados: { motivo, quem: String(quem || "").trim(), texto, ...(categoria ? { categoria } : {}) } };
 }
 
 /** Edição comum de campos. Só entra no log o que realmente mudou. */
@@ -666,6 +670,37 @@ export function editar(a, campos, alvoTipo = "atividade") {
 export function pedirMovimentacao(campos) {
   pessoas.exigir("movimentar");
   return criar(campos, "manual", "", "movimentacao");
+}
+
+/** Uma sequência de etapas para a mesma frota (lavar → levar ao fornecedor).
+ *  `comuns`: frota, prioridade, detalhes… de todas; `etapas`: o que fazer,
+ *  onde e o prazo de cada uma, em ordem. Cada etapa vira uma movimentação
+ *  inteira, com prazo, baixa e atraso próprios; uma etapa só é uma
+ *  movimentação comum. */
+export function pedirSequencia(comuns, etapas) {
+  pessoas.exigir("movimentar");
+  const lista = etapas.filter(e => String(e.acao || "").trim() || String(e.destino || "").trim());
+  if (!lista.length) throw new Error("Informe o que fazer ou onde.");
+  if (lista.length === 1) return [pedirMovimentacao({ ...comuns, ...lista[0] })];
+  const roteiro = novoId();
+  return lista.map((e, i) => criar({ ...comuns, ...e, roteiro, etapa: i + 1 }, "manual", "", "movimentacao"));
+}
+
+/** Mais uma etapa depois da última da sequência. A movimentação que ainda
+ *  não era de sequência vira a etapa 1. */
+export function proximaEtapa(m, campos, movs) {
+  pessoas.exigir("movimentar");
+  if (!String(campos.acao || "").trim() && !String(campos.destino || "").trim()) throw new Error("Informe o que fazer ou onde.");
+  const r = [];
+  let roteiro = m.roteiro;
+  if (!roteiro) {
+    roteiro = novoId();
+    r.push({ tipo: "editada", alvo: m.id, alvo_tipo: "movimentacao",
+      dados: { de: { roteiro: "", etapa: 0 }, para: { roteiro, etapa: 1 } } });
+  }
+  const ultima = Math.max(1, ...etapasDe(m, movs).map(x => x.etapa || 1));
+  r.push(criar({ ...campos, frota: m.frota, roteiro, etapa: ultima + 1 }, "manual", "", "movimentacao"));
+  return r;
 }
 
 export function prometer(m, para, quem = "Operação") {
@@ -710,28 +745,30 @@ export function cancelarMovimentacao(m, motivo) {
 /** A operação diz quando o caminhão fica livre. "agora" é resposta válida.
  *  Mudar uma liberação já informada é remarcar: entra na Avaliação da
  *  operação, e por isso exige o motivo. */
-export function informarDisponibilidade(p, quando, motivo = "") {
+export function informarDisponibilidade(p, quando, motivo = "", categoria = "") {
   pessoas.exigir("disponibilidade");
   if (!quando) throw new Error("Informe 'agora' ou uma data.");
   const antes = p.disponivel_agora ? "agora" : (p.disponivel_em || "");
   const remarca = !!antes && antes !== quando;
+  if (remarca && !String(motivo || "").trim() && categoria) motivo = nomeMotivo(categoria);
   if (remarca && !String(motivo || "").trim()) throw new Error("Mudar a liberação exige o motivo.");
   return { tipo: "prev_disponivel", alvo: p.id, alvo_tipo: "preventiva",
     motivo: remarca ? String(motivo).trim() : "",
-    dados: { quando, de: antes } };
+    dados: { quando, de: antes, ...(remarca && categoria ? { categoria } : {}) } };
 }
 
 /** O PCM anota o dia em que a frota chegou na oficina para a preventiva. O
  *  combinado vai junto, como estava naquele dia: a parada marcada.
  *  Chegou depois do combinado, o porquê é pedido — mas pode ficar para
  *  depois, como na movimentação: a Avaliação lista o que falta justificar. */
-export function registrarEntrega(p, em, { motivo = "", quem = "" } = {}) {
+export function registrarEntrega(p, em, { motivo = "", quem = "", categoria = "" } = {}) {
   pessoas.exigir("parada");
   if (!em) throw new Error("Informe o dia em que a frota chegou.");
   if (em > hoje()) throw new Error("A frota não pode ter chegado depois de hoje.");
   const combinado = p.entregue_em ? (p.entrega_combinada || "") : combinadoEntrega(p);
   return { tipo: "prev_entregue", alvo: p.id, alvo_tipo: "preventiva",
-    dados: { em, combinado, motivo: String(motivo || "").trim(), quem: String(quem || "").trim() } };
+    dados: { em, combinado, motivo: String(motivo || "").trim() || (categoria ? nomeMotivo(categoria) : ""),
+      quem: String(quem || "").trim(), ...(categoria ? { categoria } : {}) } };
 }
 
 /** O PCM marca o dia em que o caminhão para. Trocar o dia de uma parada já

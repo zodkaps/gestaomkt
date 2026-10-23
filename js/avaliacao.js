@@ -34,7 +34,9 @@ export function ocorrencias({ movs = [], prevs = [], log = [], de = "", ate = ""
     r.push({ tipo: "mov", id: m.id, frota: m.frota || "", quando: m.chegou_em, combinado: m.prometida_para || "",
       feito: m.chegou_em, dias, atrasou: dias > 0, semPrazo: !m.prometida_para,
       motivo: m.motivo_atraso || m.justificativa || "", quem: m.quem_atrasou || "",
-      oque: tituloMov(m), categoria: M.nomeCategoriaMov(M.categoriaMov(m)), aprovada: !!m.aprovada });
+      motivoCat: M.categoriaDoMotivo(m.motivo_atraso || m.justificativa, m.motivo_cat),
+      oque: tituloMov(m), categoria: M.nomeCategoriaMov(M.categoriaMov(m)), aprovada: !!m.aprovada,
+      ...(m.roteiro ? { etapa: m.etapa, roteiro: m.roteiro } : {}) });
   }
   for (const p of prevs) {
     if (p.excluida || !p.entregue_em || !noPeriodo(p.entregue_em, de, ate)) continue;
@@ -42,6 +44,7 @@ export function ocorrencias({ movs = [], prevs = [], log = [], de = "", ate = ""
     r.push({ tipo: "entrega", id: p.id, frota: p.frota || "", quando: p.entregue_em, combinado: p.entrega_combinada || "",
       feito: p.entregue_em, dias, atrasou: dias > 0, semPrazo: !p.entrega_combinada,
       motivo: p.motivo_entrega || "", quem: p.quem_atrasou_entrega || "",
+      motivoCat: M.categoriaDoMotivo(p.motivo_entrega, p.motivo_entrega_cat),
       oque: `Preventiva ${p.plano || ""}`.trim() });
   }
   const prevPorId = new Map(prevs.map(p => [p.id, p]));
@@ -60,6 +63,7 @@ export function ocorrencias({ movs = [], prevs = [], log = [], de = "", ate = ""
     r.push({ tipo: "liberacao", id: p.id, evento: e.id, frota: p.frota || "", quando, combinado: antes, feito: depois,
       dias: Math.max(0, M.difDias(de_, depois) || 0), atrasou: true, semPrazo: false,
       motivo: String(e.motivo || "").trim(), quem: "Operação", autor: e.autor || "",
+      motivoCat: M.categoriaDoMotivo(e.motivo, d.categoria),
       oque: `Preventiva ${p.plano || ""}`.trim() });
   }
   return r.sort((a, b) => b.quando.localeCompare(a.quando) || a.frota.localeCompare(b.frota, "pt-BR", { numeric: true }));
@@ -165,6 +169,24 @@ export function agruparAtrasos(ocs, campo, vazio = "Não informado") {
   }
   return [...g.values()].map(x => ({ ...x, rotulo: [...x.grafias].sort((a, b) => b[1] - a[1])[0][0] }))
     .sort((a, b) => b.total - a.total || b.dias - a.dias || a.rotulo.localeCompare(b.rotulo, "pt-BR"));
+}
+
+/** Os atrasos por motivo pronto (as justificativas antigas, pelo texto), e
+ *  dentro de cada motivo, quem atrasou. Sem porquê fica em "Sem motivo
+ *  informado". */
+export function porMotivo(ocs) {
+  const g = new Map();
+  for (const o of ocs) {
+    if (!o.atrasou) continue;
+    const id = o.motivoCat || "";
+    if (!g.has(id)) g.set(id, { id, nome: M.nomeMotivo(id), total: 0, dias: 0, mov: 0, entrega: 0, liberacao: 0, quem: new Map() });
+    const x = g.get(id);
+    x.total++; x.dias += o.dias; x[o.tipo]++;
+    const q = String(o.quem || "").trim() || "Não informado";
+    x.quem.set(q, (x.quem.get(q) || 0) + 1);
+  }
+  return [...g.values()].map(x => ({ ...x, quem: [...x.quem].sort((a, b) => b[1] - a[1]) }))
+    .sort((a, b) => (a.id === "") - (b.id === "") || b.total - a.total || b.dias - a.dias);
 }
 
 /** Por frota: quantos atrasos de cada tipo e os dias somados. */

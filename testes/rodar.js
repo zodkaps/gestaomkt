@@ -1376,5 +1376,87 @@ titulo("avaliacao.js — as contas da avaliação da operação");
     av.periodos("2027-01-05").find(x => x.id === "mes-passado"), { id: "mes-passado", rotulo: "Mês passado", de: "2026-12-01", ate: "2026-12-31" });
 }
 
+// ── a sequência de etapas e os motivos prontos ─────────────────────────────
+titulo("modelo.js — o porquê do atraso, com motivos prontos");
+{
+  const c = t => modelo.categoriaDoMotivo(t);
+  igual("as frases que a equipe já escreve caem no motivo certo",
+    ["Prioridade entrou na frente", "frota foi para operação", "Bate e volta no pecem", "Frota vai junto com o 621",
+      "Frota vai pra Bahia buscar equipamentos", "A frota estava em viagem", "Frota esta sendo utilizada",
+      "Atraso no envio da frota ao fornecedor por conta de operação e lavagem da frota", "pneu furado na estrada"].map(c),
+    ["prioridade", "operacao", "operacao", "conjunto", "operacao", "operacao", "operacao", "operacao", "outro"]);
+  igual("o motivo escolhido vale mais que o texto", modelo.categoriaDoMotivo("frota em viagem", "motorista"), "motorista");
+  igual("sem texto e sem escolha, fica sem motivo", [modelo.categoriaDoMotivo(""), modelo.nomeMotivo("")], ["", "Sem motivo informado"]);
+}
+
+titulo("eventos.js — sequência de etapas para a mesma frota");
+{
+  await entrarComo("Pedro");
+  const H = modelo.hoje(), dia = n => modelo.somaDias(H, n);
+  const FR = "F-SEQ1";
+  const evs = ev.pedirSequencia({ frota: FR, prioridade: "Alta", para_que: "antes da preventiva" },
+    [{ acao: "Lavar", destino: "Lava-jato", prometida_para: dia(-2) }, { acao: "", destino: "" },
+      { acao: "Levar", destino: "Cardan Service", prometida_para: dia(1) }]);
+  igual("a operação pede duas etapas (a vazia sai), cada uma uma movimentação da mesma sequência",
+    evs.map(e => [e.tipo, e.dados.frota, e.dados.etapa, e.dados.acao, !!e.dados.roteiro]),
+    [["criada", FR, 1, "Lavar", true], ["criada", FR, 2, "Levar", true]]);
+  ok("com o mesmo roteiro", evs[0].dados.roteiro === evs[1].dados.roteiro);
+  await ev.aplicar(evs);
+  const movs = () => ev.lista("movimentacao");
+  const e1 = () => ev.porId(evs[0].alvo, "movimentacao"), e2 = () => ev.porId(evs[1].alvo, "movimentacao");
+  igual("as etapas em ordem", modelo.etapasDe(e2(), movs()).map(m => m.etapa), [1, 2]);
+  ok("a 2ª espera a 1ª", modelo.etapaAnteriorAberta(e2(), movs())?.id === e1().id);
+  igual("cada etapa tem o seu prazo e o seu atraso", [modelo.situacaoMovimentacao(e1(), H), modelo.situacaoMovimentacao(e2(), H)],
+    ["Atrasada", "Em aberto"]);
+  await ev.aplicar(ev.chegou(e1(), H));
+  ok("feita a 1ª, a 2ª é a da vez", !modelo.etapaAnteriorAberta(e2(), movs()));
+  const so = ev.pedirSequencia({ frota: "F-SEQ2" }, [{ acao: "Realizar TOP", destino: "Box" }]);
+  ok("uma etapa só é uma movimentação comum", so.length === 1 && !so[0].dados.roteiro);
+  let vazia = "";
+  try { ev.pedirSequencia({ frota: "F-SEQ3" }, [{ acao: "", destino: "" }]); } catch (e) { vazia = e.message; }
+  ok("sem o que fazer nem onde, não passa", /fazer ou onde/.test(vazia), vazia);
+  await ev.aplicar(so);
+  const avulsa = ev.porId(so[0].alvo, "movimentacao");
+  const mais = ev.proximaEtapa(avulsa, { acao: "Lavar", destino: "Lava-jato", prometida_para: dia(2) }, movs());
+  await ev.aplicar(mais);
+  igual("a movimentação avulsa vira a etapa 1 quando ganha a próxima",
+    modelo.etapasDe(ev.porId(avulsa.id, "movimentacao"), movs()).map(m => [m.etapa, m.acao]), [[1, "Realizar TOP"], [2, "Lavar"]]);
+  ok("e a fita fecha", ev.conferir().ok);
+
+  // o porquê, com o motivo pronto
+  const j = ev.justificar(e1(), { categoria: "prioridade", quem: "Operação" }, "movimentacao");
+  igual("só o motivo pronto: o nome dele vira o porquê escrito", [j.dados.motivo, j.dados.categoria], ["Outra prioridade entrou na frente", "prioridade"]);
+  await ev.aplicar(j);
+  igual("e a movimentação guarda os dois", [e1().motivo_atraso, e1().motivo_cat, e1().quem_atrasou],
+    ["Outra prioridade entrou na frente", "prioridade", "Operação"]);
+  const av = await import("../js/avaliacao.js");
+  const ocs = av.ocorrencias({ movs: movs().filter(m => m.frota === FR), prevs: [], log: [] });
+  igual("na avaliação, por motivo e por quem", av.porMotivo(ocs).map(x => [x.id, x.total, x.quem[0]]),
+    [["prioridade", 1, ["Operação", 1]]]);
+  await entrarComo("Mateus");
+}
+
+titulo("modelo.js — o passo a passo da preventiva");
+{
+  const H = "2026-10-23";
+  const P = extra => ({ ...modelo.moldePreventiva(), frota: "F-1", vence: "2026-10-30", ...extra });
+  const casos = [
+    [P({}), "liberar", false],
+    [P({ disponivel_agora: true }), "parada", false],
+    [P({ disponivel_em: "2026-11-05", prazo_service: "2026-10-30" }), "parada", true],
+    [P({ disponivel_agora: true, dia_parada: "2026-10-27" }), "chegada", false],
+    [P({ disponivel_agora: true, dia_parada: "2026-10-20" }), "chegada", true],
+    [P({ disponivel_agora: true, dia_parada: "2026-10-20", entregue_em: "2026-10-21" }), "baixa", false],
+    [P({ em_andamento: true }), "baixa", false],
+    [P({ disponivel_agora: true, dia_parada: "2026-10-20", realizada_em: "2026-10-22" }), "feita", false],
+    [P({ adiada: true }), "fora", false],
+    [P({ cancelada: true }), "fora", false],
+  ];
+  igual("o passo é o primeiro que falta, e o problema é o que passou do combinado",
+    casos.map(([p]) => [modelo.passoPreventiva(p), modelo.passoAtrasado(p, H)]), casos.map(([, x, y]) => [x, y]));
+  igual("os quatro passos, cada um de alguém", modelo.PASSOS_PREV.map(x => `${x.n} ${x.nome} · ${x.quem}`),
+    ["1 Liberação · Operação", "2 Parada · PCM", "3 Chegada · Operação", "4 Baixa · PCM"]);
+}
+
 console.log(`\n${passou} passaram, ${falhou} falharam`);
 if (falhou) { for (const f of falhas) console.log(`  × ${f}`); process.exit(1); }

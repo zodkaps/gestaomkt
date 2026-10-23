@@ -19,6 +19,7 @@ import { el, limpar, br, brCurto, chip, caixa, campo, selecao, comSugestoes,
   avisar, erro, confirmar, vazio, cliqueLimpo } from "../ui.js";
 import { frotas, valoresDe, justificar, camposJustificativa, botaoMais } from "./comum.js";
 import { busca as semAcento } from "../texto.js";
+import { calendarioMes, navMes, agenda, cartaoTrilho, itemAgenda, anel, trocaVista, nomeMesISO, diaPorExtenso } from "./calendario.js";
 
 const QUEM = ["Operação", "Makro Engenharia", "Terceiro", "Manutenção"];
 const ORDEM = ["Atrasada", "Vence hoje", "Aguardando aprovação", "Em aberto", "Sem prazo",
@@ -48,13 +49,21 @@ function chipPrio(p, longo = false) {
   return chip(longo ? `prioridade ${p.toLowerCase()}` : p, "prio " + cls);
 }
 
+/** "etapa 1/2" e, se a anterior não foi feita, "espera a 1". */
+export function tagsEtapa(m, todas = ev.lista("movimentacao")) {
+  if (!m.roteiro) return [];
+  const n = M.etapasDe(m, todas).length;
+  const espera = M.etapaAnteriorAberta(m, todas);
+  return [chip(`etapa ${m.etapa}/${n}`, "etapa"), espera && M.movimentacaoAberta(m) ? chip(`espera a ${espera.etapa}`, "programada") : null];
+}
+
 // ── cartão (celular, e a tela Para você) ────────────────────────────────────
 
 /** `categoria: false` quando o cartão já está dentro da seção da categoria. */
 export function cartaoMov(m, ctx, { acoes = [], categoria = true } = {}) {
   const s = M.situacaoMovimentacao(m);
   const atraso = M.atrasoMovimentacao(m);
-  const tags = [categoria ? chipCat(m) : null, chip(s, M.corDe(s)), chipPrio(m.prioridade, true)].filter(Boolean);
+  const tags = [categoria ? chipCat(m) : null, chip(s, M.corDe(s)), chipPrio(m.prioridade, true), ...tagsEtapa(m)].filter(Boolean);
   if (atraso > 0) tags.push(chip(`${atraso} dia${atraso === 1 ? "" : "s"} de atraso`, "vencida"));
   if (m.devolvida && !m.chegou_em) tags.push(chip("devolvida pelo PCM", "hoje"));
   if (m.quem_prometeu && m.quem_prometeu !== "Operação") tags.push(chip(m.quem_prometeu));
@@ -84,20 +93,20 @@ export function cartaoMov(m, ctx, { acoes = [], categoria = true } = {}) {
 /** O formulário da solicitação — o mesmo para criar e para editar. Dois campos
  *  dizem tudo: o QUE fazer (a ação) e ONDE (para onde a frota vai, ou onde ela
  *  está). Os dois são texto livre; as sugestões são só o que a equipe já
- *  escreveu antes, para digitar menos. */
-function formularioMov(m = null, sugestao = {}) {
+ *  escreveu antes, para digitar menos.
+ *
+ *  Para criar, a solicitação pode ter várias ETAPAS em ordem para a mesma
+ *  frota (lavar → levar ao fornecedor): "+ Adicionar etapa". Cada etapa tem a
+ *  sua categoria, o que fazer, onde e o prazo, e vira uma movimentação inteira
+ *  (ver ev.pedirSequencia). Editar mexe numa etapa só. */
+function formularioMov(m = null, sugestao = {}, { umaEtapa = false } = {}) {
   const todas = ev.lista("movimentacao");
   const usados = (k, lista = todas) => [...new Set(lista.map(x => String(x[k] || "").trim()).filter(Boolean))]
     .sort((a, b) => a.localeCompare(b, "pt-BR"));
   const eFrota = el("input", { value: m ? m.frota : (sugestao.frota || ""), placeholder: "ex.: F-745" });
-  const eAcao = el("input", { value: m ? m.acao || "" : "",
-    placeholder: "ex.: Coletar, Levar, Buscar, Realizar TOP" });
-  const eOnde = el("input", { value: m ? m.destino || "" : "",
-    placeholder: "ex.: Cardan Service, Borracharia, Box de óleo" });
   const eDetalhes = el("textarea", { rows: 2,
     placeholder: "opcional — OS, peça, contato, o que ajudar quem vai executar" });
   eDetalhes.value = m ? m.para_que || "" : "";
-  const ePrazo = el("input", { type: "date", value: m ? m.prometida_para || "" : "" });
   const ePedida = el("input", { type: "date", value: m ? m.pedida_em || "" : M.hoje() });
   const eQuem = selecao(QUEM, m ? m.quem_prometeu || "Operação" : "Operação");
 
@@ -113,75 +122,106 @@ function formularioMov(m = null, sugestao = {}) {
   });
   marcar();
 
-  // A categoria em botões, no alto: um toque organiza a lista de quem
-  // executa. Escolher preenche o "O que fazer" (se ainda estiver vazio, ou com
-  // o texto da categoria de antes) e as sugestões de "Onde" passam a ser as já
-  // usadas nessa categoria.
-  let categoria = m ? M.categoriaMov(m) : (sugestao.categoria || "");
-  const dlOnde = el("datalist", { id: "dl-mov-onde" });
-  const sugerirOnde = () => {
-    const daCat = categoria ? todas.filter(x => M.categoriaMov(x) === categoria) : todas;
-    dlOnde.replaceChildren(...usados("destino", daCat.length ? daCat : todas).map(v => el("option", { value: v })));
-  };
-  const botoesCat = M.CATEGORIAS_MOV.map(c => el("button", { type: "button", class: "cat-op",
-    dataset: { cat: c.id }, title: c.nome,
-    onclick: () => {
-      const antes = M.categoriaMovPorId(categoria).acao;
-      categoria = c.id;
-      if (!eAcao.value.trim() || eAcao.value.trim() === antes) eAcao.value = c.acao;
-      marcarCat(); sugerirOnde(); atualizar();
-    } }, el("span", { class: "cat-ic", "aria-hidden": "true" }, c.icone), c.nome));
-  const marcarCat = () => botoesCat.forEach(b => {
-    const on = b.dataset.cat === categoria;
-    b.classList.toggle("on", on);
-    b.setAttribute("aria-pressed", on ? "true" : "false");
-  });
-  marcarCat();
-  sugerirOnde();
-  eOnde.setAttribute("list", "dl-mov-onde");
-
+  // ── as etapas
+  const etapas = [];
+  const caixaEtapas = el("div", { class: "etapas" });
   const previa = el("div", { class: "previa-mov" });
+  let seq = 0;
+  function blocoEtapa(inicial = {}) {
+    const n = ++seq;
+    const eAcao = el("input", { value: inicial.acao || "", placeholder: "ex.: Coletar, Levar, Lavar, Realizar TOP" });
+    const eOnde = el("input", { value: inicial.destino || "", placeholder: "ex.: Cardan Service, Lava-jato, Box de óleo" });
+    const ePrazo = el("input", { type: "date", value: inicial.prazo || "" });
+    // A categoria em botões: escolher preenche o "O que fazer" (se ainda
+    // estiver vazio, ou com o texto da categoria de antes) e as sugestões de
+    // "Onde" passam a ser as já usadas nessa categoria.
+    let categoria = inicial.categoria || "";
+    const dlOnde = el("datalist", { id: `dl-mov-onde-${n}` });
+    const sugerirOnde = () => {
+      const daCat = categoria ? todas.filter(x => M.categoriaMov(x) === categoria) : todas;
+      dlOnde.replaceChildren(...usados("destino", daCat.length ? daCat : todas).map(v => el("option", { value: v })));
+    };
+    const botoesCat = M.CATEGORIAS_MOV.map(c => el("button", { type: "button", class: "cat-op",
+      dataset: { cat: c.id }, title: c.nome,
+      onclick: () => {
+        const antes = M.categoriaMovPorId(categoria).acao;
+        categoria = c.id;
+        if (!eAcao.value.trim() || eAcao.value.trim() === antes) eAcao.value = c.acao;
+        marcarCat(); sugerirOnde(); atualizar();
+      } }, el("span", { class: "cat-ic", "aria-hidden": "true" }, c.icone), c.nome));
+    const marcarCat = () => botoesCat.forEach(b => {
+      const on = b.dataset.cat === categoria;
+      b.classList.toggle("on", on);
+      b.setAttribute("aria-pressed", on ? "true" : "false");
+    });
+    marcarCat(); sugerirOnde();
+    eOnde.setAttribute("list", dlOnde.id);
+    for (const e of [eAcao, eOnde, ePrazo]) e.addEventListener("input", atualizar);
+    const titulo = el("div", { class: "etapa-tit" });
+    const tirar = el("button", { type: "button", class: "discreto mini", title: "Tirar esta etapa",
+      onclick: () => { etapas.splice(etapas.indexOf(b), 1); b.no.remove(); renumerar(); atualizar(); } }, "Tirar");
+    const b = {
+      no: el("div", { class: "etapa", dataset: { n } },
+        m ? null : el("div", { class: "etapa-cab" }, titulo, tirar),
+        el("div", { class: "campo" }, el("span", {}, "Categoria"),
+          el("div", { class: "cat-escolha", role: "group", "aria-label": "Categoria" }, botoesCat)),
+        campo("O que fazer", comSugestoes(eAcao, usados("acao"), `dl-mov-acao-${n}`), "a ação que a operação vai executar"),
+        el("div", { class: "dupla" },
+          campo("Onde", el("span", { class: "com-lista" }, eOnde, dlOnde), "para onde a frota vai, ou onde ela está"),
+          campo("Prazo", ePrazo, "até quando"))),
+      titulo, tirar,
+      valores: () => ({
+        // sem escolher, vale a que o texto indica — toda movimentação nova tem categoria
+        categoria: categoria || M.categoriaDoTexto([eAcao.value, eOnde.value, eDetalhes.value].join(" ")),
+        acao: eAcao.value.trim(), destino: eOnde.value.trim(), prazo: ePrazo.value,
+      }),
+    };
+    etapas.push(b);
+    caixaEtapas.append(b.no);
+    renumerar();
+    return b;
+  }
+  function renumerar() {
+    etapas.forEach((b, i) => {
+      b.titulo.textContent = etapas.length > 1 ? `Etapa ${i + 1}` : "O que fazer";
+      b.tirar.hidden = etapas.length < 2;
+    });
+  }
   const atualizar = () => {
-    const oque = [eAcao.value.trim(), eOnde.value.trim()].filter(Boolean).join(" · ");
-    previa.textContent = `${eFrota.value.trim() || "Frota"} — ${oque || "o que fazer · onde"}` +
-      (ePrazo.value ? ` · até ${br(ePrazo.value)}` : "");
+    const linhas = etapas.map(b => b.valores()).map((v, i) => {
+      const oque = [v.acao, v.destino].filter(Boolean).join(" · ") || "o que fazer · onde";
+      return `${etapas.length > 1 ? `${i + 1}. ` : ""}${eFrota.value.trim() || "Frota"} — ${oque}${v.prazo ? ` · até ${br(v.prazo)}` : ""}`;
+    });
+    previa.replaceChildren(...linhas.map(t => el("div", {}, t)));
   };
-  for (const e of [eFrota, eAcao, eOnde, ePrazo]) e.addEventListener("input", atualizar);
+  blocoEtapa(m ? { categoria: M.categoriaMov(m), acao: m.acao || "", destino: m.destino || "", prazo: m.prometida_para || "" }
+    : { categoria: sugestao.categoria || "" });
+  eFrota.addEventListener("input", atualizar);
   atualizar();
 
   const no = el("div", { class: "form-mov" },
-    el("div", { class: "campo" }, el("span", {}, "Categoria"),
-      el("div", { class: "cat-escolha", role: "group", "aria-label": "Categoria" }, botoesCat)),
     el("div", { class: "dupla" },
       campo("Frota", comSugestoes(eFrota, frotas(), "dl-mov-frota")),
       el("div", { class: "campo" }, el("span", {}, "Prioridade"),
         el("div", { class: "segmentos prio-escolha", role: "group", "aria-label": "Prioridade" }, botoes))),
-    campo("O que fazer", comSugestoes(eAcao, usados("acao"), "dl-mov-acao"),
-      "a ação que a operação vai executar"),
-    campo("Onde", el("span", { class: "com-lista" }, eOnde, dlOnde),
-      "para onde a frota vai, ou onde ela está"),
-    el("div", { class: "tripla" },
-      campo("Prazo", ePrazo, "até quando"),
+    caixaEtapas,
+    m || umaEtapa ? null : el("button", { type: "button", class: "mais-etapa", onclick: () => { blocoEtapa({}).no.querySelector("input").focus(); atualizar(); } },
+      "+ Adicionar etapa", el("small", {}, " — outra tarefa para a mesma frota, depois desta")),
+    el("div", { class: "dupla" },
       campo("Solicitada em", ePedida),
       campo("Responsável", eQuem)),
     campo("Detalhes", eDetalhes),
     el("div", { class: "previa-rot" }, "Vai aparecer assim na lista:"),
     previa);
 
+  const comuns = () => ({ frota: eFrota.value.trim(), para_que: eDetalhes.value.trim(), prioridade,
+    pedida_em: ePedida.value, quem_prometeu: eQuem.value });
   return {
     no,
-    valores: () => ({
-      frota: eFrota.value.trim(),
-      // sem escolher, vale a que o texto indica — toda movimentação nova tem categoria
-      categoria: categoria || M.categoriaDoTexto([eAcao.value, eOnde.value, eDetalhes.value].join(" ")),
-      acao: eAcao.value.trim(),
-      destino: eOnde.value.trim(),
-      para_que: eDetalhes.value.trim(),
-      prioridade,
-      prazo: ePrazo.value,
-      pedida_em: ePedida.value,
-      quem_prometeu: eQuem.value,
-    }),
+    // a primeira etapa, achatada: é o que editar (e a solicitação de uma etapa só) usa
+    valores: () => ({ ...comuns(), ...etapas[0].valores() }),
+    comuns,
+    etapas: () => etapas.map(b => b.valores()).filter(v => v.acao || v.destino),
   };
 }
 
@@ -189,7 +229,7 @@ function formularioMov(m = null, sugestao = {}) {
  *  essencial, avisa e reabre com o que já foi digitado — nada se perde. */
 async function preencher(f, titulo, rotuloOk) {
   for (;;) {
-    const r = await caixa({ titulo, corpo: f.no, largura: "560px",
+    const r = await caixa({ titulo, corpo: f.no, largura: "620px",
       acoes: [{ rotulo: "Cancelar", valor: false }, { rotulo: rotuloOk, classe: "primario", valor: true }] });
     if (r !== true) return null;
     const v = f.valores();
@@ -200,14 +240,42 @@ async function preencher(f, titulo, rotuloOk) {
 }
 
 export async function novaMovimentacao(ctx, sugestao = {}) {
-  const v = await preencher(formularioMov(null, sugestao), "Nova solicitação de movimentação", "Registrar");
+  const f = formularioMov(null, sugestao);
+  const v = await preencher(f, "Nova solicitação de movimentação", "Registrar");
   if (!v) return null;
-  const { prazo, ...campos } = v;
+  const etapas = f.etapas();
   try {
+    if (etapas.length > 1) {
+      const evs = ev.pedirSequencia(f.comuns(), etapas.map(({ prazo, ...e }) => ({ ...e, prometida_para: prazo })));
+      await ev.aplicar(evs);
+      avisar(`${v.frota}: sequência de ${evs.length} etapas registrada.`);
+      return evs[0].alvo;
+    }
+    const { prazo, ...campos } = v;
     const [criado] = await ev.aplicar(ev.pedirMovimentacao({ ...campos, prometida_para: prazo }));
     avisar(`${v.frota}: solicitação registrada.`);
     return criado.alvo;
   } catch (e) { erro(e.message); return null; }
+}
+
+/** Mais uma etapa depois da última da sequência desta movimentação. */
+export async function proximaEtapaMov(m) {
+  const f = formularioMov(null, { frota: m.frota }, { umaEtapa: true });
+  const r = await caixa({ titulo: `Próxima etapa · ${m.frota}`, largura: "620px",
+    corpo: el("div", {}, el("p", { class: "nada", style: "margin-top:0" },
+      `Entra depois de "${tituloMov(m)}"${m.roteiro ? ` e das outras etapas da sequência` : ""}, com prazo e baixa próprios.`),
+      f.no),
+    acoes: [{ rotulo: "Cancelar", valor: false }, { rotulo: "Adicionar", classe: "primario", acao: () => {
+      const v = f.valores();
+      const { prazo, frota, ...campos } = v;
+      return ev.proximaEtapa(m, { ...campos, prometida_para: prazo }, ev.lista("movimentacao"));
+    } }] });
+  if (!r) return false;
+  try {
+    await ev.aplicar(r);
+    avisar(`${m.frota}: próxima etapa adicionada.`);
+    return true;
+  } catch (e) { erro(e.message); return false; }
 }
 
 /** Mudar a solicitação depois de criada. Só vai para o registro o que mudou;
@@ -240,9 +308,11 @@ export async function concluirMov(m) {
   const vaiAprovada = pessoas.pode("aprovar");
   // Passou do prazo: o porquê é pedido aqui — quem conclui é quem sabe.
   const j = camposJustificativa("movimentacao",
-    { motivo: m.motivo_atraso, quem: m.quem_atrasou, texto: m.justificativa });
+    { motivo: m.motivo_atraso, quem: m.quem_atrasou, texto: m.justificativa, categoria: m.motivo_cat });
+  // Concluída depois do prazo só grava com o porquê e quem atrasou (o PCM
+  // pediu em 23/10/2026): deixar para depois era deixar para nunca.
   const caixaAtraso = el("div", { class: "bloco-atraso" },
-    el("p", { class: "nada" }, "Concluída após o prazo — informe o motivo (opcional, ajuda o PCM na aprovação)"), j.no);
+    el("p", { class: "aviso-atraso" }, "Concluída depois do prazo — toque no motivo e em quem atrasou."), j.no);
   const verAtraso = () => { caixaAtraso.hidden = !(prazo && eData.value && eData.value > prazo); };
   eData.addEventListener("change", verAtraso);
   eData.addEventListener("input", verAtraso);
@@ -259,7 +329,11 @@ export async function concluirMov(m) {
         ? "Como você é do PCM, ela já entra aprovada."
         : "Ela fica aguardando aprovação até o PCM conferir.")),
     acoes: [{ rotulo: "Voltar", valor: false },
-      { rotulo: "Concluir", classe: "primario", valor: true }],
+      { rotulo: "Concluir", classe: "primario", acao: () => {
+        const f = !caixaAtraso.hidden && j.falta();
+        if (f) throw new Error(f);
+        return true;
+      } }],
   });
   if (r !== true) return false;
   try {
@@ -351,7 +425,23 @@ export async function abrirFichaMov(id, ctx) {
   const linha = (r, v) => v ? el("tr", {}, el("th", {}, r), el("td", {}, v)) : null;
 
   const hist = ev.historicoDe(id);
+  const todas = ev.lista("movimentacao");
+  const etapas = M.etapasDe(m, todas);
+  const espera = M.etapaAnteriorAberta(m, todas);
+  const sequencia = m.roteiro && etapas.length > 1 ? el("div", { class: "sequencia" },
+    el("div", { class: "seq-tit" }, `Sequência · ${etapas.length} etapas`),
+    el("ol", {}, etapas.map(x => {
+      const sx = M.situacaoMovimentacao(x);
+      const daVez = M.movimentacaoAberta(x) && !M.etapaAnteriorAberta(x, todas);
+      return el("li", { class: "seq-lin" + (x.id === m.id ? " esta" : "") + (daVez ? " da-vez" : "") + (x.chegou_em ? " feita" : ""),
+        onclick: x.id === m.id ? null : () => abrirFichaMov(x.id, ctx) },
+        el("span", { class: "seq-n" }, String(x.etapa || "")),
+        el("span", { class: "seq-oque" }, tituloMov(x), x.prometida_para ? el("small", {}, ` · prazo ${brCurto(x.prometida_para)}`) : null),
+        daVez ? chip("é a da vez", "andando") : chip(sx, M.corDe(sx)));
+    }))) : null;
   const corpo = el("div", {},
+    espera ? el("p", { class: "aviso-atraso" }, `Esta é a etapa ${m.etapa}: espera a etapa ${espera.etapa} (${tituloMov(espera)}) ser feita.`) : null,
+    sequencia,
     el("table", { class: "tabela" },
       linha("Situação", el("span", {}, chip(s, M.corDe(s)))),
       linha("Frota", m.frota),
@@ -387,6 +477,9 @@ export async function abrirFichaMov(id, ctx) {
   }
   if (!m.cancelada && pessoas.pode("movimentar")) {
     acoes.push({ rotulo: "Editar", acao: async () => { await editarMov(m); } });
+  }
+  if (!m.cancelada && pessoas.pode("movimentar")) {
+    acoes.push({ rotulo: "+ Próxima etapa", acao: async () => { await proximaEtapaMov(m); } });
   }
   if (M.movimentacaoAberta(m) && pessoas.pode("movimentar")) {
     acoes.push({ rotulo: m.prometida_para ? "Alterar o prazo" : "Definir o prazo", acao: async () => { await prometerData(m); } });
@@ -482,7 +575,7 @@ function tabelaMov(itens, ctx, ref, { agrupar = false } = {}) {
       el("td", { class: "c-prio" }, chipPrio(m.prioridade) || el("span", { class: "seg" }, "—")),
       el("td", { class: "c-fr" }, el("b", {}, m.frota)),
       el("td", { class: "c-dest" },
-        el("div", { class: "t" }, tituloMov(m)),
+        el("div", { class: "t" }, tituloMov(m), ...tagsEtapa(m)),
         m.para_que ? el("div", { class: "seg" }, m.para_que) : null,
         m.devolvida && !m.chegou_em && m.motivo_devolucao
           ? el("div", { class: "porque" }, "devolvida: " + m.motivo_devolucao) : null,
@@ -643,20 +736,63 @@ export async function imagemMovimentacoes(itens, rotulo) {
   avisar("Imagem baixada.");
 }
 
+// ── a agenda ────────────────────────────────────────────────────────────────
+// O mês em calendário: cada movimentação no dia do prazo (a concluída, no dia
+// em que foi feita), na cor da situação; cada etapa de uma sequência no seu
+// dia, com "1/2". Do lado, o dia tocado, as atrasadas, a pontualidade do mês
+// e as sem prazo — cada linha com o botão que resolve.
+
+const CLASSE_CAL = { "Atrasada": "atrasada", "Vence hoje": "hoje", "Em aberto": "aberta", "Sem prazo": "fila",
+  "Aguardando aprovação": "aprovar", "Concluída": "feita", "Concluída com atraso": "tarde" };
+export const LEGENDA_CAL = [["atrasada", "Atrasada"], ["hoje", "Vence hoje"], ["aberta", "Em aberto"],
+  ["espera", "Espera a etapa anterior"], ["aprovar", "Aguardando aprovação"], ["feita", "Concluída"], ["tarde", "Concluída com atraso"]];
+
+/** A cor da etiqueta no calendário. A etapa que espera a anterior fica
+ *  apagada até chegar a vez dela — a não ser que já esteja atrasada. */
+export function classeCal(m, ref, todas) {
+  const s = M.situacaoMovimentacao(m, ref);
+  if (M.movimentacaoAberta(m) && s !== "Atrasada" && M.etapaAnteriorAberta(m, todas)) return "espera";
+  return CLASSE_CAL[s] || "aberta";
+}
+/** O dia da movimentação na agenda: o prazo; a concluída, o dia em que foi feita. */
+export const diaNaAgenda = m => M.movimentacaoAberta(m) ? m.prometida_para || "" : m.chegou_em || m.prometida_para || "";
+
+function linhaAgenda(m, ref, ctx, todas) {
+  const s = M.situacaoMovimentacao(m, ref);
+  const atraso = M.atrasoMovimentacao(m, ref);
+  const mini = (rot, fn, cls = "mini") => el("button", { type: "button", class: cls, onclick: e => { e.stopPropagation(); fn(); } }, rot);
+  const acoes = [];
+  if (M.movimentacaoAberta(m) && pessoas.pode("movimentar")) acoes.push(mini("Concluir", () => concluirMov(m), "mini primario-leve"));
+  else if (M.movimentacaoParaAprovar(m) && pessoas.pode("aprovar")) acoes.push(mini("Aprovar", () => aprovar(m), "mini primario-leve"));
+  if (pessoas.pode("movimentar") && M.movimentacaoSemJustificativa(m, ref)) acoes.push(mini("Justificar", () => justificar(m, "movimentacao")));
+  const sub = [M.rotulo(s), m.prometida_para && M.movimentacaoAberta(m) ? `prazo ${brCurto(m.prometida_para)}` : "",
+    m.chegou_em ? `concluída ${brCurto(m.chegou_em)}` : "", atraso ? `${atraso} dia${atraso === 1 ? "" : "s"} de atraso` : ""].filter(Boolean).join(" · ");
+  return itemAgenda({ classe: classeCal(m, ref, todas), id: m.id,
+    titulo: [el("b", {}, m.frota || "—"), " · ", tituloMov(m)], sub,
+    tags: [...tagsEtapa(m, todas), chipPrio(m.prioridade)].filter(Boolean), acoes,
+    aoClicar: cliqueLimpo(() => abrirFichaMov(m.id, ctx)) });
+}
+
 // ── a tela ──────────────────────────────────────────────────────────────────
 
-const estado = { recorte: "", busca: "", quem: "", cat: "" };
+const estado = { recorte: "", busca: "", quem: "", cat: "", vista: "agenda", mes: "", dia: "" };
+
+const bateBusca = (m, q) => !q || semAcento([m.frota, m.acao, m.destino, m.para_que, m.prioridade, m.quem_prometeu, m.concluida_por,
+  m.obs, m.motivo_atraso, m.quem_atrasou, m.justificativa, M.nomeCategoriaMov(M.categoriaMov(m))].join(" ")).includes(q);
 
 export async function montar(raiz, ctx, params) {
   // O PCM abre na fila de aprovação quando há o que aprovar; a operação, no
-  // que está em aberto.
-  if (params.get("v")) estado.recorte = params.get("v");
+  // que está em aberto. Um recorte no endereço (?v=) é coisa da lista.
+  if (params.get("v")) { estado.recorte = params.get("v"); estado.vista = "lista"; }
+  if (["agenda", "lista"].includes(params.get("vista"))) estado.vista = params.get("vista");
   if (params.get("cat") != null) estado.cat = params.get("cat");
   const categorias = el("div", { class: "faixa-sit cat-faixa" });
   const fBusca = el("input", { class: "busca", type: "search", value: estado.busca,
-    placeholder: "frota, o que fazer, onde…",
+    placeholder: "Buscar frota, o que fazer, onde…", "aria-label": "Buscar",
     oninput: () => { estado.busca = fBusca.value; pintar(); } });
   const recortes = el("div", { class: "segmentos" });
+  const navCaixa = el("div", { class: "nav-caixa" });
+  const vistaCaixa = el("div", { class: "vista-caixa" });
   const topo = el("div", {});
   const corpo = el("div", {});
 
@@ -667,6 +803,7 @@ export async function montar(raiz, ctx, params) {
   raiz.append(
     el("div", { class: "cabec" },
       el("h1", {}, "Movimentações"),
+      vistaCaixa,
       el("div", { class: "espaco" }),
       el("button", { title: "A lista que está na tela, como imagem — para mandar no grupo",
         onclick: () => imagemMovimentacoes(naTela.itens, naTela.rotulo) }, "Baixar imagem"),
@@ -674,7 +811,7 @@ export async function montar(raiz, ctx, params) {
         ? el("button", { class: "primario", onclick: () => novaMovimentacao(ctx) }, "+ Nova")
         : null),
     topo,
-    el("div", { class: "filtros" }, recortes, fBusca),
+    el("div", { class: "filtros" }, navCaixa, recortes, fBusca),
     categorias,
     corpo);
 
@@ -685,11 +822,125 @@ export async function montar(raiz, ctx, params) {
       det ? el("div", { class: "k-det" }, det) : null);
   const n1 = v => (Math.round(v * 10) / 10).toLocaleString("pt-BR");
 
+  /** As categorias do que está na tela, com quantas de cada; tocar filtra.
+   *  Devolve o que passa pela categoria escolhida. */
+  function faixaCategorias(lista) {
+    const porCat = new Map();
+    for (const m of lista) { const c = M.categoriaMov(m); porCat.set(c, (porCat.get(c) || 0) + 1); }
+    if (estado.cat && !porCat.has(estado.cat)) estado.cat = "";
+    limpar(categorias).append(
+      el("span", { class: "rot-faixa" }, "Categoria:"),
+      el("button", { type: "button", class: "fsit todas" + (estado.cat ? "" : " on"),
+        onclick: () => { estado.cat = ""; pintar(); } }, el("b", {}, String(lista.length)), " Todas"),
+      ...M.CATEGORIAS_MOV.filter(c => porCat.has(c.id)).map(c => el("button", {
+        type: "button", class: "fsit cat-fsit" + (estado.cat === c.id ? " on" : ""), dataset: { cat: c.id },
+        onclick: () => { estado.cat = estado.cat === c.id ? "" : c.id; pintar(); },
+      }, el("b", {}, String(porCat.get(c.id))), " ", el("span", { class: "cat-ic", "aria-hidden": "true" }, c.icone), " ", c.nome)));
+    categorias.hidden = !lista.length;
+    return { itens: lista.filter(m => !estado.cat || M.categoriaMov(m) === estado.cat), porCat };
+  }
+
   function pintar() {
     limpar(topo);
     limpar(corpo);
     const ref = M.hoje();
     const todas = ev.lista("movimentacao");
+    limpar(vistaCaixa).append(trocaVista(estado.vista, v => { estado.vista = v; pintar(); }));
+    recortes.hidden = estado.vista !== "lista";
+    navCaixa.hidden = estado.vista !== "agenda";
+    if (estado.vista === "agenda") return pintarAgenda(todas, ref);
+    pintarLista(todas, ref);
+  }
+
+  // ── a agenda ─────────────────────────────────────────────────────────────
+  function pintarAgenda(todas, ref) {
+    if (!/^\d{4}-\d\d$/.test(estado.mes)) estado.mes = ref.slice(0, 7);
+    if (estado.dia && !estado.dia.startsWith(estado.mes)) estado.dia = "";
+    limpar(navCaixa).append(navMes(estado.mes, m => { estado.mes = m; estado.dia = ""; pintar(); }, ref));
+    const q = semAcento(estado.busca.trim());
+    const vivas = todas.filter(m => !m.cancelada && !m.excluida && bateBusca(m, q));
+    const doMes = vivas.filter(m => diaNaAgenda(m).startsWith(estado.mes));
+    const { itens } = faixaCategorias(doMes);
+    const naCat = m => !estado.cat || M.categoriaMov(m) === estado.cat;
+    const abertas = vivas.filter(M.movimentacaoAberta).filter(naCat);
+    const peso = m => { const i = ORDEM.indexOf(M.situacaoMovimentacao(m, ref)); return i < 0 ? 99 : i; };
+    const prio = m => PESO_PRIO[m.prioridade] ?? 3;
+    const ordem = (a, b) => peso(a) - peso(b) || prio(a) - prio(b) || natural(a, b);
+    naTela.itens = [...abertas].sort((a, b) => String(a.prometida_para || "9999").localeCompare(String(b.prometida_para || "9999")) || ordem(a, b));
+    naTela.rotulo = ["Em aberto", estado.cat ? M.nomeCategoriaMov(estado.cat) : "",
+      estado.busca.trim() ? `busca "${estado.busca.trim()}"` : ""].filter(Boolean).join(" · ");
+
+    const dia = estado.dia || (ref.startsWith(estado.mes) ? ref : "");
+    const nEtapas = new Map();
+    for (const m of todas) if (m.roteiro && !m.cancelada && !m.excluida) nEtapas.set(m.roteiro, (nEtapas.get(m.roteiro) || 0) + 1);
+    const itensCal = [...itens].sort(ordem).map(m => {
+      const s = M.situacaoMovimentacao(m, ref);
+      const etapa = m.roteiro ? `${m.etapa}/${nEtapas.get(m.roteiro) || m.etapa} ` : "";
+      return { dia: diaNaAgenda(m), id: m.id, classe: classeCal(m, ref, todas),
+        rotulo: [el("b", {}, m.frota || "—"), ` ${etapa}${m.acao || m.destino || ""}`],
+        titulo: `${m.frota} · ${tituloMov(m)} — ${M.rotulo(s)}` };
+    });
+    const presentes = new Set(itensCal.map(i => i.classe));
+    const cal = el("div", { class: "cal-cartao" },
+      calendarioMes({ mes: estado.mes, itens: itensCal, ref, selecionado: dia,
+        aoDia: d => { estado.dia = d; pintar(); if (matchMedia("(max-width: 1100px)").matches) {
+          const c = corpo.querySelector(".tr-card.dia"); if (c) c.scrollIntoView({ block: "nearest", behavior: "smooth" }); } },
+        aoItem: it => abrirFichaMov(it.id, ctx) }),
+      presentes.size ? el("div", { class: "cal-leg" }, LEGENDA_CAL.filter(([c]) => presentes.has(c))
+        .map(([c, rot]) => el("span", { class: "leg-item" }, el("i", { class: "ev-cor " + c }), rot))) : null);
+
+    // ── a coluna da direita
+    const lista = (l, max = 0) => el("div", { class: "ag-lista" }, (max ? l.slice(0, max) : l).map(m => linhaAgenda(m, ref, ctx, todas)));
+    const doDia = dia ? vivas.filter(naCat).filter(m => diaNaAgenda(m) === dia).sort(ordem) : [];
+    const cartaoDia = cartaoTrilho(dia === ref ? "Hoje" : dia ? "Dia selecionado" : "Escolha um dia",
+      dia ? (doDia.length ? lista(doDia) : el("p", { class: "tr-vazio" }, "Nada com prazo neste dia."))
+        : el("p", { class: "tr-vazio" }, "Toque num dia do calendário para ver o que tem nele."),
+      { classe: "dia", sub: dia ? diaPorExtenso(dia) : "",
+        acao: dia && dia !== ref ? el("button", { type: "button", class: "discreto mini", onclick: () => {
+          estado.mes = ref.slice(0, 7); estado.dia = ""; pintar(); } }, "Voltar para hoje") : null });
+
+    const atrasadas = abertas.filter(m => M.situacaoMovimentacao(m, ref) === "Atrasada")
+      .sort((a, b) => String(a.prometida_para).localeCompare(String(b.prometida_para)) || prio(a) - prio(b));
+    const semJ = todas.filter(m => !m.excluida && M.movimentacaoSemJustificativa(m, ref) && naCat(m) && bateBusca(m, q));
+    const alerta = atrasadas.length || semJ.length ? cartaoTrilho(
+      atrasadas.length ? `${atrasadas.length} atrasada${atrasadas.length === 1 ? "" : "s"}` : "Atrasos sem o porquê",
+      el("div", {},
+        atrasadas.length ? lista(atrasadas, 4) : null,
+        semJ.length ? el("p", { class: "tr-nota" }, `${semJ.length} atraso${semJ.length === 1 ? "" : "s"} sem justificativa.`) : null),
+      { classe: "alerta", sub: atrasadas.length ? "o prazo passou e não foi concluída" : "",
+        acao: el("div", { class: "tr-acoes" },
+          atrasadas.length > 4 ? el("button", { type: "button", class: "mini", onclick: () => {
+            estado.vista = "lista"; estado.recorte = "abertas"; pintar(); } }, `Ver as ${atrasadas.length}`) : null,
+          semJ.length ? el("button", { type: "button", class: "mini", onclick: () => { location.hash = "#/avaliacao?a=resolver"; } },
+            "Justificar") : null) }) : null;
+
+    const paraAprovar = todas.filter(M.movimentacaoParaAprovar);
+    const aprovarCard = paraAprovar.length && pessoas.pode("aprovar") ? cartaoTrilho(`Aguardando aprovação · ${paraAprovar.length}`,
+      el("p", { class: "tr-nota" }, "A operação marcou como concluídas. Confira e aprove."),
+      { classe: "aprovar", acao: el("button", { type: "button", class: "mini primario-leve", onclick: () => {
+        estado.vista = "lista"; estado.recorte = "aprovar"; pintar(); } }, "Conferir") }) : null;
+
+    // A pontualidade do mês na tela: das concluídas nele, quantas no prazo.
+    const concl = vivas.filter(naCat).filter(m => m.chegou_em && m.chegou_em.startsWith(estado.mes));
+    const tarde = concl.filter(m => M.atrasoMovimentacao(m, ref) > 0).length;
+    const pontual = cartaoTrilho(`Pontualidade · ${nomeMesISO(estado.mes).split(" ")[0]}`,
+      concl.length ? anel([{ rotulo: "No prazo", valor: concl.length - tarde, cor: "var(--s1)" },
+        { rotulo: "Com atraso", valor: tarde, cor: "var(--s2)" }], { rotuloCentro: "no prazo" })
+        : el("p", { class: "tr-vazio" }, "Nenhuma concluída neste mês ainda."),
+      { classe: "pontual", sub: concl.length ? `${concl.length} concluída${concl.length === 1 ? "" : "s"} no mês` : "",
+        acao: el("button", { type: "button", class: "mini", onclick: () => { location.hash = "#/avaliacao"; } }, "Ver a avaliação") });
+
+    const semPrazo = abertas.filter(m => !m.prometida_para).sort(ordem);
+    const semPrazoCard = semPrazo.length ? cartaoTrilho(`Sem prazo · ${semPrazo.length}`, lista(semPrazo, 5),
+      { classe: "sem-prazo", sub: "não aparecem no calendário",
+        acao: semPrazo.length > 5 ? el("button", { type: "button", class: "mini", onclick: () => {
+          estado.vista = "lista"; estado.recorte = "abertas"; pintar(); } }, `Ver as ${semPrazo.length}`) : null }) : null;
+
+    corpo.append(agenda(cal, cartaoDia, alerta, aprovarCard, pontual, semPrazoCard));
+  }
+
+  // ── a lista ──────────────────────────────────────────────────────────────
+  function pintarLista(todas, ref) {
     const pt = M.pontualidade(todas, ref);
     const pc = pt.pct == null ? "—" : `${Math.round(pt.pct * 1000) / 10}`.replace(".", ",") + "%";
 
@@ -750,25 +1001,10 @@ export async function montar(raiz, ctx, params) {
       ? atrasadas.filter(m => (m.quem_atrasou || (m.motivo_atraso || m.justificativa ? "não informado" : "__sem")) === estado.quem)
       : (OPCOES.find(([id]) => id === estado.recorte) || OPCOES[0])[2];
     const q = semAcento(estado.busca.trim());
-    const buscadas = base.filter(m => !q ||
-      semAcento([m.frota, m.acao, m.destino, m.para_que, m.prioridade, m.quem_prometeu, m.concluida_por,
-        m.obs, m.motivo_atraso, m.quem_atrasou, m.justificativa, M.nomeCategoriaMov(M.categoriaMov(m))].join(" ")).includes(q));
+    const buscadas = base.filter(m => bateBusca(m, q));
 
     // ── as categorias: quantas de cada uma neste recorte; tocar filtra
-    const porCat = new Map();
-    for (const m of buscadas) { const c = M.categoriaMov(m); porCat.set(c, (porCat.get(c) || 0) + 1); }
-    if (estado.cat && !porCat.has(estado.cat)) estado.cat = "";
-    limpar(categorias).append(
-      el("span", { class: "rot-faixa" }, "Categoria:"),
-      el("button", { type: "button", class: "fsit todas" + (estado.cat ? "" : " on"),
-        onclick: () => { estado.cat = ""; pintar(); } }, el("b", {}, String(buscadas.length)), " Todas"),
-      ...M.CATEGORIAS_MOV.filter(c => porCat.has(c.id)).map(c => el("button", {
-        type: "button", class: "fsit cat-fsit" + (estado.cat === c.id ? " on" : ""), dataset: { cat: c.id },
-        onclick: () => { estado.cat = estado.cat === c.id ? "" : c.id; pintar(); },
-      }, el("b", {}, String(porCat.get(c.id))), " ", el("span", { class: "cat-ic", "aria-hidden": "true" }, c.icone), " ", c.nome)));
-    categorias.hidden = !buscadas.length;
-
-    const itens = buscadas.filter(m => !estado.cat || M.categoriaMov(m) === estado.cat);
+    const { itens, porCat } = faixaCategorias(buscadas);
     const peso = m => { const i = ORDEM.indexOf(M.situacaoMovimentacao(m, ref)); return i < 0 ? 99 : i; };
     const prio = m => PESO_PRIO[m.prioridade] ?? 3;
     const ordemCat = m => M.CATEGORIAS_MOV.findIndex(c => c.id === M.categoriaMov(m));
@@ -812,3 +1048,6 @@ export async function montar(raiz, ctx, params) {
   pintar();
   return { desmontar: ev.ouvir(pintar) };
 }
+
+/** A ordem estável da agenda, depois da situação e da prioridade: a frota. */
+const natural = (a, b) => String(a.frota || "").localeCompare(String(b.frota || ""), "pt-BR", { numeric: true });

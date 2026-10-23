@@ -108,10 +108,14 @@ export function botaoConcluir(a, ctx) {
 
 // ── a justificativa: por que atrasou e quem atrasou ─────────────────────────
 
-/** Os campos da justificativa, em texto livre: o porquê e quem atrasou são
- *  digitados — cada atraso tem a sua história, e lista pronta empurrava tudo
- *  para "Outro". */
+/** Os campos da justificativa. Na movimentação e na preventiva (o atraso da
+ *  operação), o motivo e quem atrasou são botões para tocar — os motivos de
+ *  sempre, tirados do que a equipe escrevia (ver MOTIVOS_ATRASO) — e o
+ *  detalhe é opcional (obrigatório só em "Outro motivo"). Na OS da oficina
+ *  continua o texto livre: lá cada atraso tem a sua história. `falta()` diz o
+ *  que ainda não foi preenchido, para a caixa não gravar pela metade. */
 export function camposJustificativa(tipo = "atividade", atual = {}) {
+  if (tipo !== "atividade") return camposMotivoPronto(atual);
   const ePorque = el("textarea", { rows: 2,
     placeholder: tipo === "movimentacao"
       ? "ex.: a frota estava em viagem para Natal e só voltou quinta"
@@ -127,6 +131,44 @@ export function camposJustificativa(tipo = "atividade", atual = {}) {
     no,
     valores: () => ({ motivo: ePorque.value.trim(), quem: eQuem.value.trim(), texto: "" }),
     preenchido: () => !!ePorque.value.trim(),
+    falta: () => ePorque.value.trim() ? "" : "Informe o motivo.",
+  };
+}
+
+function camposMotivoPronto(atual = {}) {
+  const escrito = [atual.motivo, atual.texto && atual.texto !== atual.motivo ? atual.texto : ""].filter(Boolean).join(" — ");
+  let cat = M.categoriaDoMotivo(escrito, atual.categoria);
+  // o detalhe é o que foi escrito além do nome do motivo
+  const nome = cat ? M.nomeMotivo(cat) : "";
+  const detalhe = escrito.startsWith(nome) ? escrito.slice(nome.length).replace(/^\s*—\s*/, "") : escrito;
+  const eDetalhe = el("input", { value: cat === "outro" ? escrito : detalhe, autocomplete: "off",
+    placeholder: "detalhe, se quiser — ex.: foi para o Pecém, volta sexta" });
+  const eQuem = el("input", { value: atual.quem || "", autocomplete: "off", placeholder: "ou escreva quem" });
+  const bMotivo = M.MOTIVOS_ATRASO.map(m => el("button", { type: "button", class: "chip-op", dataset: { cat: m.id },
+    onclick: () => { cat = m.id; marcar(); if (cat === "outro") eDetalhe.focus(); } }, m.nome));
+  const bQuem = M.RESPONSAVEIS_ATRASO.map(q => el("button", { type: "button", class: "chip-op", dataset: { quem: q },
+    onclick: () => { eQuem.value = q; marcar(); } }, q));
+  function marcar() {
+    for (const b of bMotivo) { const on = b.dataset.cat === cat; b.classList.toggle("on", on); b.setAttribute("aria-pressed", String(on)); }
+    for (const b of bQuem) { const on = b.dataset.quem === eQuem.value.trim(); b.classList.toggle("on", on); b.setAttribute("aria-pressed", String(on)); }
+    eDetalhe.placeholder = cat === "outro" ? "qual foi o motivo? (obrigatório)" : "detalhe, se quiser — ex.: foi para o Pecém, volta sexta";
+  }
+  eQuem.addEventListener("input", marcar);
+  marcar();
+  const no = el("div", { class: "justificar pronto" },
+    el("div", { class: "campo" }, el("span", {}, "Por que atrasou"),
+      el("div", { class: "chips-escolha", role: "group", "aria-label": "Motivo do atraso" }, bMotivo), eDetalhe),
+    el("div", { class: "campo" }, el("span", {}, "Quem atrasou"),
+      el("div", { class: "chips-escolha", role: "group", "aria-label": "Quem atrasou" }, bQuem), eQuem));
+  const falta = () => !cat ? "Toque no motivo do atraso." : cat === "outro" && !eDetalhe.value.trim() ? "Escreva qual foi o motivo."
+    : !eQuem.value.trim() ? "Diga quem atrasou." : "";
+  return {
+    no,
+    // o porquê escrito leva o nome do motivo e o detalhe, para ler em qualquer tela
+    valores: () => ({ motivo: cat && cat !== "outro" ? [M.nomeMotivo(cat), eDetalhe.value.trim()].filter(Boolean).join(" — ") : eDetalhe.value.trim(),
+      quem: eQuem.value.trim(), texto: "", categoria: cat }),
+    preenchido: () => !falta(),
+    falta,
   };
 }
 
@@ -143,7 +185,7 @@ export async function justificar(alvo, tipo = "atividade") {
     titulo: "Justificar",
     corpo: el("div", {}, el("p", {}, el("b", {}, titulo)), j.no),
     acoes: [{ rotulo: "Cancelar", valor: false },
-      { rotulo: "Gravar", classe: "primario", valor: true }],
+      { rotulo: "Gravar", classe: "primario", acao: () => { const f = j.falta(); if (f) throw new Error(f); return true; } }],
   });
   if (r !== true) return false;
   try {

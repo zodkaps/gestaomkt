@@ -29,6 +29,7 @@ import { cartaoGrafico, graficoBarras, graficoColunas, graficoLinhas, graficoRos
 import { listaDecisoes } from "./decidir.js";
 import { conciliacao, descrever as descreverLigacao, eventosDaConciliacao } from "../vinculo.js";
 import { OFICINA } from "../foco.js";
+import { calendarioMes, agenda, cartaoTrilho, itemAgenda, anel, diaPorExtenso } from "./calendario.js";
 
 // ── o cartão (celular, e a tela Para você) ──────────────────────────────────
 
@@ -84,7 +85,11 @@ export async function informarDisponibilidade(p) {
 
   const lim = M.venceEfetivo(p);
   const antes = p.disponivel_agora ? "agora" : (p.disponivel_em ? br(p.disponivel_em) : "");
-  const eMotivo = el("input", { type: "text", placeholder: "ex.: a frota saiu para viagem e volta sexta" });
+  // Remarcar: o motivo num toque (os mesmos da justificativa), o detalhe se quiser.
+  const eMotivo = el("input", { type: "text", placeholder: "detalhe, se quiser — ex.: saiu para viagem, volta sexta" });
+  let cat = "";
+  const bCat = M.MOTIVOS_ATRASO.map(m => el("button", { type: "button", class: "chip-op", dataset: { cat: m.id },
+    onclick: () => { cat = m.id; bCat.forEach(b => b.classList.toggle("on", b.dataset.cat === cat)); if (cat === "outro") eMotivo.focus(); } }, m.nome));
   const r = await caixa({
     titulo: "Quando esta frota fica disponível para a manutenção?",
     corpo: el("div", {},
@@ -95,12 +100,17 @@ export async function informarDisponibilidade(p) {
         : "A manutenção só programa a parada depois desta informação."),
       el("div", { style: "display:flex;gap:8px;margin-bottom:12px" }, bAgora, bData),
       linhaData,
-      antes ? campo("Motivo da mudança", eMotivo, "Obrigatório se a data mudar.") : null),
+      antes ? el("div", { class: "campo" }, el("span", {}, "Por que mudou (obrigatório se a data mudar)"),
+        el("div", { class: "chips-escolha", role: "group", "aria-label": "Motivo da mudança" }, bCat), eMotivo) : null),
     // O lançamento se monta no botão: se faltar algo, a caixa fica aberta com
     // o aviso, sem perder o que já foi escolhido.
     acoes: [{ rotulo: "Cancelar", valor: false },
       { rotulo: "Responder", classe: "primario",
-        acao: () => ev.informarDisponibilidade(p, escolha === "agora" ? "agora" : eQuando.value, eMotivo.value) }],
+        acao: () => {
+          if (cat === "outro" && !eMotivo.value.trim()) throw new Error("Escreva qual foi o motivo.");
+          const texto = cat && cat !== "outro" ? [M.nomeMotivo(cat), eMotivo.value.trim()].filter(Boolean).join(" — ") : eMotivo.value;
+          return ev.informarDisponibilidade(p, escolha === "agora" ? "agora" : eQuando.value, texto, cat);
+        } }],
   });
   if (!r) return false;
   const quando = r.dados.quando;
@@ -176,19 +186,19 @@ export async function marcarParada(p, { sugestao = "" } = {}) {
 // ── a frota chegou na oficina ───────────────────────────────────────────────
 // É a outra metade do aperto de mão: a operação prometeu a frota, o PCM marcou
 // o dia — e o dia em que ela de fato chegou é o que diz se a operação cumpriu.
-// Chegou depois do combinado: o porquê é pedido aqui mesmo, mas pode ficar
-// para depois (a Avaliação lista o que falta justificar).
+// Chegou depois do combinado: o porquê e quem atrasou são pedidos aqui, e
+// sem eles não grava (o PCM pediu em 23/10/2026).
 
 export async function registrarEntregaPrev(p, { soJustificar = false } = {}) {
   const combinado = p.entregue_em ? p.entrega_combinada : M.combinadoEntrega(p);
   const eDia = el("input", { type: "date", value: p.entregue_em || M.hoje(), max: M.hoje() });
-  const j = camposJustificativa("movimentacao", { motivo: p.motivo_entrega, quem: p.quem_atrasou_entrega });
+  const j = camposJustificativa("movimentacao", { motivo: p.motivo_entrega, quem: p.quem_atrasou_entrega, categoria: p.motivo_entrega_cat });
   const caixaJ = el("div", {}, j.no);
   const aviso = el("p", { class: "nada" });
   const atualizar = () => {
     const n = combinado && eDia.value ? M.difDias(combinado, eDia.value) : 0;
     aviso.textContent = !combinado ? "Sem dia combinado: a parada não foi marcada."
-      : n > 0 ? `Chegou ${n} dia${n === 1 ? "" : "s"} depois do combinado (${br(combinado)}). Diga o porquê, se souber.`
+      : n > 0 ? `Chegou ${n} dia${n === 1 ? "" : "s"} depois do combinado (${br(combinado)}). Toque no motivo e em quem atrasou.`
       : `No dia combinado (${br(combinado)}) ou antes.`;
     aviso.style.color = n > 0 ? "var(--hoje)" : "";
     caixaJ.hidden = !(n > 0);
@@ -202,7 +212,11 @@ export async function registrarEntregaPrev(p, { soJustificar = false } = {}) {
         p.dia_parada ? ` · parada ${br(p.dia_parada)}` : ""),
       soJustificar ? null : campo("Chegou em", eDia), aviso, caixaJ),
     acoes: [{ rotulo: "Cancelar", valor: false },
-      { rotulo: "Gravar", classe: "primario", acao: () => ev.registrarEntrega(p, eDia.value, caixaJ.hidden ? {} : j.valores()) }],
+      { rotulo: "Gravar", classe: "primario", acao: () => {
+        const f = !caixaJ.hidden && j.falta();
+        if (f) throw new Error(f);
+        return ev.registrarEntrega(p, eDia.value, caixaJ.hidden ? {} : j.valores());
+      } }],
   });
   if (!r) return false;
   try {
@@ -557,8 +571,16 @@ export async function abrirFichaPrev(id, ctx) {
   const s = M.situacaoPreventiva(p);
   const linha = (r, v) => v ? el("tr", {}, el("th", {}, r), el("td", {}, v)) : null;
   const hist = ev.mudancasDe(id, "preventiva").map(descreverMudancaPrev).filter(Boolean).reverse();
+  const ref = M.hoje();
+  const t = textoPasso(p, ref);
+  const passo = t.passo;
+  const pcm = pessoas.pode("parada");
 
   const corpo = el("div", {},
+    // No alto, o passo a passo com as datas, e o que falta numa frase.
+    p.fora ? null : el("div", { class: "ficha-passo" + (t.alerta ? " alerta" : "") },
+      passoAPasso(p, ref),
+      el("p", { class: "fp-falta" }, el("b", {}, M.preventivaAberta(p) ? "O que falta: " : ""), t.texto)),
     el("table", { class: "tabela" },
       linha("Situação", el("span", {}, chip(M.rotulo(s), M.corDe(s)),
         M.preventivaVencida(p) ? chip("vencida", "vencida") : null)),
@@ -583,7 +605,7 @@ export async function abrirFichaPrev(id, ctx) {
       linha("Por que chegou atrasada", p.motivo_entrega),
       linha("Quem atrasou a entrega", p.quem_atrasou_entrega),
       linha("Onde fazer", p.onde_fazer),
-      linha("OS", p.os),
+      linha("OS", p.os || (pcm && !p.cancelada && !p.excluida ? campoOSPrev(p) : null)),
       OFICINA && linha("Na Programação", (() => {
         const a = ev.atividadeDaPreventiva(p);
         if (!a) return M.preventivaAberta(p) ? el("span", { class: "nada" }, "ainda não — entra no dia da parada, quando ela for marcada") : null;
@@ -604,23 +626,28 @@ export async function abrirFichaPrev(id, ctx) {
     el("h2", { class: "mini" }, `Registro de mudanças · ${hist.length}`),
     el("div", {}, hist.map(linhaMudanca)));
 
+  // O botão do próximo passo vem primeiro e em destaque; os outros, depois.
   const acoes = [];
-  const pcm = pessoas.pode("parada");
   if (pcm && !p.excluida) acoes.push({ rotulo: "Editar", acao: async () => { await editarPreventiva(p); } });
   if (M.preventivaAberta(p)) {
+    const vez = (id, rot) => passo === id ? { rotulo: rot, classe: "primario" } : { rotulo: rot };
     if (pessoas.pode("disponibilidade")) {
-      acoes.push({ rotulo: "Disponibilidade", acao: async () => { await informarDisponibilidade(p); } });
+      acoes.push({ ...vez("liberar", p.disponivel_agora || p.disponivel_em ? "Mudar a liberação" : "Informar liberação"),
+        acao: async () => { await informarDisponibilidade(p); } });
     }
     if (pcm) {
-      acoes.push({ rotulo: p.dia_parada ? "Reprogramar a parada" : "Programar parada", classe: "primario",
+      acoes.push({ ...vez("parada", p.dia_parada ? "Reprogramar a parada" : "Marcar parada"),
+        ...(passo === "chegada" && M.passoAtrasado(p, ref) && p.dia_parada > ref ? { classe: "primario" } : {}),
         acao: async () => { await marcarParada(p); } });
-      if (!p.entregue_em) acoes.push({ rotulo: "A frota chegou", acao: async () => { await registrarEntregaPrev(p); } });
+      if (!p.entregue_em) acoes.push({ ...(passo === "chegada" && p.dia_parada <= ref ? { classe: "primario" } : {}),
+        rotulo: "A frota chegou", acao: async () => { await registrarEntregaPrev(p); } });
       else acoes.push({ rotulo: "Corrigir a chegada", acao: async () => { await registrarEntregaPrev(p); } });
       if (p.em_andamento && !p.entregue_em) acoes.push({ rotulo: "Não está em andamento", acao: async () => { await andamento(p, false); } });
-      acoes.push({ rotulo: "Realizada", acao: async () => { await darPorFeita(p); } });
+      acoes.push({ ...vez("baixa", "Dar baixa"), acao: async () => { await darPorFeita(p); } });
       acoes.push({ rotulo: "Adiar para o próximo mês", acao: async () => { await passarParaOMesSeguinte(p); } });
       acoes.push({ rotulo: "Cancelar", classe: "perigo", acao: async () => { await cancelarPrev(p); } });
     }
+    acoes.sort((a, b) => (b.classe === "primario") - (a.classe === "primario"));
   } else if (pcm && !p.fora) {
     if (p.entregue_em && M.atrasoEntrega(p) > 0 && !p.motivo_entrega) {
       acoes.push({ rotulo: "Justificar a chegada", acao: async () => { await registrarEntregaPrev(p, { soJustificar: true }); } });
@@ -669,149 +696,146 @@ function campoOSPrev(p) {
   return entrada;
 }
 
-// ── para fazer: as três filas do mês ───────────────────────────────────────
+// ── o passo a passo ─────────────────────────────────────────────────────────
+// Cada frota do plano está num de quatro passos (M.PASSOS_PREV): liberação,
+// parada, chegada e baixa. A linha diz numa frase o que falta, e tem UM botão:
+// o do próximo passo. O resto (editar, adiar, cancelar…) fica no ⋯ e na ficha.
 
-const PROGRAMAR = ["Disponível: marcar a parada", "Com data: marcar a parada",
-  "Conflito: Operação depois do prazo", "Programada depois do prazo"];
+export const ORDEM_PASSO = ["liberar", "parada", "chegada", "baixa", "feita", "fora"];
+const PASSO = new Map(M.PASSOS_PREV.map(x => [x.id, x]));
+const NOME_PASSO = { feita: "Realizadas", fora: "Adiadas e canceladas" };
+const quemDoPasso = x => x.quem === "PCM" ? "com o PCM" : "com a operação";
 
-/** O que tem de ser feito agora, em três filas: programar a parada (o PCM),
- *  dar a baixa (a parada passou, está em andamento ou é hoje) e a liberação
- *  da frota (a operação). Da que vence primeiro para a última. */
-export function filasDoMes(plano, ref) {
-  const sit = p => M.situacaoPreventiva(p, ref);
-  const porVenc = (a, b) => String(M.venceEfetivo(a) || "9").localeCompare(String(M.venceEfetivo(b) || "9")) ||
-    natural(a.frota, b.frota);
-  const abertas = plano.filter(M.preventivaAberta);
-  return {
-    programar: abertas.filter(p => PROGRAMAR.includes(sit(p))).sort(porVenc),
-    baixa: abertas.filter(p => sit(p) === "Parada passou, sem baixa" || sit(p) === "Em andamento" ||
-      (sit(p) === "Programada" && p.dia_parada === ref))
-      .sort((a, b) => String(a.dia_parada || "").localeCompare(String(b.dia_parada || "")) || porVenc(a, b)),
-    liberar: abertas.filter(p => sit(p) === "Sem data da Operação").sort(porVenc),
-  };
-}
-
-const quandoVence = (p, ref) => {
+/** O que falta, numa frase, e se está com problema. */
+export function textoPasso(p, ref = M.hoje()) {
+  const passo = M.passoPreventiva(p);
   const lim = M.venceEfetivo(p);
-  if (!lim) return "sem vencimento";
-  const n = M.difDias(ref, lim);
-  return n < 0 ? `venceu ${brCurto(lim)}` : n === 0 ? "vence hoje" : `vence ${brCurto(lim)}`;
-};
-
-function linhaFila(p, ref, ctx, nota, botoes = []) {
-  const s = M.situacaoPreventiva(p, ref);
-  const cor = M.preventivaVencida(p, ref) ? "vencida" : M.corDe(s);
-  return el("div", { class: "pf-lin", dataset: { id: p.id }, title: M.rotulo(s),
-    onclick: cliqueLimpo(() => abrirFichaPrev(p.id, ctx)) },
-    el("span", { class: "pf-ponto " + cor }),
-    el("div", { class: "pf-meio" },
-      el("div", { class: "pf-tit" }, el("b", {}, p.frota || "—"), " ", p.plano || "preventiva",
-        p.qtd > 1 ? el("span", { class: "tag" }, `${p.qtd}×`) : null),
-      el("div", { class: "pf-sub" }, nota)),
-    botoes.length ? el("div", { class: "pf-acoes", onclick: e => e.stopPropagation() }, botoes) : null);
-}
-
-/** Uma fila: título, quantas, o que fazer, e as primeiras oito (o resto num toque). */
-function colunaFila({ chave, titulo, explica, itens, linha, extra = null, vazioTexto }) {
-  const lista = el("div", { class: "pf-lista" });
-  const pintarLista = () => {
-    const todas = estado.filaAberta.has(chave);
-    // replaceChildren(null) escreve "null" na tela: só o que existe entra
-    lista.replaceChildren(...[...(todas ? itens : itens.slice(0, 8)).map(linha),
-      itens.length > 8 ? el("button", { type: "button", class: "discreto pf-mais",
-        onclick: () => { todas ? estado.filaAberta.delete(chave) : estado.filaAberta.add(chave); pintarLista(); } },
-      todas ? "Mostrar menos" : `Ver as ${itens.length}`) : null].filter(Boolean));
-  };
-  if (itens.length) pintarLista();
-  return el("section", { class: "pf-col" + (itens.length ? "" : " vazia"), dataset: { fila: chave } },
-    el("header", { class: "pf-cab" },
-      el("div", { class: "pf-titulo" }, el("b", {}, titulo), el("span", { class: "pf-n" }, String(itens.length))),
-      itens.length ? extra : null),
-    el("p", { class: "pf-explica" }, explica),
-    itens.length ? lista : el("p", { class: "pf-vazio" }, "✓ " + vazioTexto));
-}
-
-function paraFazer(plano, ref, ctx) {
-  const f = filasDoMes(plano, ref);
-  const sug = sugestoesDeParada(plano, ref);
-  const pcm = pessoas.pode("parada");
-  const opera = pessoas.pode("disponibilidade");
-  const mini = (rot, fn, cls = "mini") => el("button", { type: "button", class: cls, onclick: () => fn() }, rot);
-
-  const programar = colunaFila({
-    chave: "programar", titulo: "Programar a parada", itens: f.programar,
-    explica: "A operação já liberou a frota. Falta o dia da parada.",
-    vazioTexto: "Nenhuma liberada esperando a parada.",
-    linha: p => {
-      const s = M.situacaoPreventiva(p, ref);
-      const nota = s === "Programada depois do prazo" ? `parada ${brCurto(p.dia_parada)}, depois do prazo · ${quandoVence(p, ref)}`
-        : s.startsWith("Conflito") ? `libera ${brCurto(p.disponivel_em)}, depois do prazo · ${quandoVence(p, ref)}`
-        : `${quandoVence(p, ref)} · liberada ${p.disponivel_agora ? "agora" : "a partir de " + brCurto(p.disponivel_em)}`;
-      const d = sug.get(p.id);
-      return linhaFila(p, ref, ctx, nota, pcm ? [mini(d ? `Programar ${brCurto(d)}` : s === "Programada depois do prazo" ? "Antecipar" : "Programar",
-        () => marcarParada(p, { sugestao: d || "" }), "mini primario-leve")] : []);
-    },
-  });
-  const baixa = colunaFila({
-    chave: "baixa", titulo: "Dar baixa", itens: f.baixa,
-    explica: "A parada passou, é hoje ou está em andamento. Anote quando a frota chegou.",
-    vazioTexto: "Nenhuma parada esperando a baixa.",
-    linha: p => {
-      const s = M.situacaoPreventiva(p, ref);
-      const chegou = p.entregue_em ? `chegou ${brCurto(p.entregue_em)}` + (M.atrasoEntrega(p) ? `, ${M.atrasoEntrega(p)} d depois` : "") : "";
-      const nota = s === "Em andamento" ? (chegou ? chegou + " · em andamento na oficina" : "em andamento na oficina")
-        : p.dia_parada === ref ? "parada hoje" : `a parada era ${brCurto(p.dia_parada)} · a frota não chegou`;
-      // A frota ainda não chegou: o próximo passo é anotar a chegada (ou mudar
-      // a parada) — a baixa fica na ficha. Três botões apertavam o nome da frota.
-      const falta = !p.entregue_em && !p.em_andamento;
-      const botoes = !pcm ? [] : [falta ? mini("Chegou", () => registrarEntregaPrev(p), "mini primario-leve")
-        : mini("Realizada", () => darPorFeita(p), "mini primario-leve"),
-        s === "Parada passou, sem baixa" ? mini("Reprogramar", () => marcarParada(p)) : null].filter(Boolean);
-      return linhaFila(p, ref, ctx, nota, botoes);
-    },
-  });
-  const liberar = colunaFila({
-    chave: "liberar", titulo: pcm ? "Cobrar a liberação" : "Informar a liberação", itens: f.liberar,
-    explica: pcm ? "Sem a data da operação, não dá para marcar a parada." : "Quando a frota fica livre para a manutenção?",
-    vazioTexto: "Todas as frotas com liberação informada.",
-    extra: pcm ? el("button", { type: "button", class: "mini", title: "A lista, pronta para colar no grupo",
-      onclick: () => copiar(textoCobranca(f.liberar, ref), "Cobrança") }, "Copiar a cobrança") : null,
-    linha: p => linhaFila(p, ref, ctx, quandoVence(p, ref),
-      opera ? [mini("Informar", () => informarDisponibilidade(p), "mini primario-leve")] : []),
-  });
-  // Para quem é da operação, a fila dele vem primeiro.
-  return el("div", { class: "pf-quadro" }, pcm ? [programar, baixa, liberar] : [liberar, programar, baixa]);
-}
-
-/** As paradas marcadas nos próximos 14 dias, dia a dia — o que vai parar
- *  quando. Só os dias que têm parada (e hoje, com o que está em andamento):
- *  uma fileira de dias vazios ocupava a tela sem dizer nada. */
-function proximasParadas(plano, ref, ctx) {
-  const abertas = plano.filter(M.preventivaAberta);
-  const ate = M.somaDias(ref, 13);
-  const marcadas = abertas.filter(p => p.dia_parada && p.dia_parada >= ref && p.dia_parada <= ate);
-  const andando = abertas.filter(p => p.em_andamento);
-  if (!marcadas.length && !andando.length) {
-    return el("p", { class: "nota pp-nada" }, "Nenhuma parada marcada nos próximos 14 dias.");
+  const alerta = M.passoAtrasado(p, ref);
+  const depois = lim ? `, depois do vencimento (${brCurto(lim)})` : "";
+  if (passo === "liberar") return { passo, alerta, texto: "Falta a operação dizer quando a frota fica livre" };
+  if (passo === "parada") return { passo, alerta, texto: alerta ? `Liberada só a partir de ${brCurto(p.disponivel_em)}${depois}`
+    : `Liberada ${p.disponivel_agora ? "agora" : "a partir de " + brCurto(p.disponivel_em)} · falta marcar o dia da parada` };
+  if (passo === "chegada") {
+    if (p.dia_parada < ref) return { passo, alerta: true, texto: `A parada era ${brCurto(p.dia_parada)} e a frota não chegou` };
+    if (p.dia_parada === ref) return { passo, alerta, texto: "Parada hoje · anote quando a frota chegar" };
+    return { passo, alerta, texto: `Parada marcada para ${diaPorExtenso(p.dia_parada)}${alerta ? depois : ""}` };
   }
-  const dias = [...new Set([...(andando.length ? [ref] : []), ...marcadas.map(p => p.dia_parada)])].sort();
-  const SEMANA = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"];
-  const chipFrota = (p, extra = "") => el("button", { type: "button", class: "pp-frota" + extra,
-    title: `${p.frota} · ${p.plano || "preventiva"}${p.em_andamento ? " · em andamento" : ""}`,
-    onclick: () => abrirFichaPrev(p.id, ctx) }, el("b", {}, p.frota), " ", el("span", {}, p.plano || ""));
-  const faixa = el("div", { class: "pp-faixa" }, dias.map(d => {
-    const doDia = marcadas.filter(p => p.dia_parada === d && !p.em_andamento).sort((a, b) => natural(a.frota, b.frota));
-    const agora = d === ref ? andando : [];
-    return el("div", { class: "pp-dia" + (d === ref ? " hoje" : "") + (doDia.length || agora.length ? "" : " livre") },
-      el("div", { class: "pp-cab" }, el("b", {}, SEMANA[M.data(d).getUTCDay()]), " ", brCurto(d),
-        d === ref ? el("span", { class: "tag" }, "hoje") : null),
-      agora.length ? el("span", { class: "pp-rot" }, "em andamento") : null,
-      agora.map(p => chipFrota(p, " andando")),
-      agora.length && doDia.length ? el("span", { class: "pp-rot" }, "parada hoje") : null,
-      doDia.map(p => chipFrota(p)));
+  if (passo === "baixa") {
+    const n = M.atrasoEntrega(p);
+    return { passo, alerta: false, texto: (p.entregue_em ? `Na oficina desde ${brCurto(p.entregue_em)}` : "Na oficina") +
+      (n ? ` (chegou ${n} dia${n === 1 ? "" : "s"} depois)` : "") + " · dar a baixa quando terminar" };
+  }
+  if (passo === "feita") return { passo, alerta: false, texto: p.realizada_em ? `Realizada em ${brCurto(p.realizada_em)}` : "Realizada, sem a data" };
+  return { passo, alerta: false, texto: (p.cancelada ? "Cancelada" : "Adiada para o próximo mês") + (p.motivo ? ` · ${p.motivo}` : "") };
+}
+
+/** O botão do próximo passo — um só — ou nada, se o passo não é de quem
+ *  está olhando (ou se é só esperar o dia). */
+function botaoPasso(p, ref, sug = "") {
+  const passo = M.passoPreventiva(p);
+  const b = (rot, fn, title = "") => el("button", { type: "button", class: "mini primario-leve passo-b", title,
+    onclick: e => { e.stopPropagation(); fn(); } }, rot);
+  if (passo === "liberar") return pessoas.pode("disponibilidade") ? b("Informar liberação", () => informarDisponibilidade(p)) : null;
+  if (!pessoas.pode("parada")) return null;
+  if (passo === "parada") return sug ? b(`Marcar ${brCurto(sug)}`, () => marcarParada(p, { sugestao: sug }), `Marcar a parada em ${br(sug)} (sugestão)`)
+    : b("Marcar parada", () => marcarParada(p));
+  if (passo === "chegada") return p.dia_parada <= ref ? b("Chegou", () => registrarEntregaPrev(p), "Anotar o dia em que a frota chegou na oficina")
+    : M.passoAtrasado(p, ref) ? b("Antecipar", () => marcarParada(p), "A parada está depois do vencimento") : null;
+  if (passo === "baixa") return b("Dar baixa", () => darPorFeita(p));
+  if (passo === "feita" && p.realizada_sem_data) return b("Informar a data", () => darPorFeita(p));
+  return null;
+}
+
+/** Os quatro passos em bolinhas: feito (✓), o da vez (aceso; vermelho se
+ *  com problema) e os que faltam. */
+export function trilhaPassos(p, ref = M.hoje()) {
+  const passo = M.passoPreventiva(p);
+  const i = ORDEM_PASSO.indexOf(passo);
+  const alerta = M.passoAtrasado(p, ref);
+  const nome = passo === "feita" ? "realizada" : passo === "fora" ? NOME_PASSO.fora.toLowerCase() : `passo ${i + 1} de 4: ${PASSO.get(passo).nome}`;
+  return el("span", { class: "trilha" + (passo === "fora" ? " fora" : ""), title: nome, role: "img", "aria-label": nome },
+    M.PASSOS_PREV.map((x, k) => {
+      const feito = passo === "feita" || (passo !== "fora" && k < i);
+      return el("i", { class: feito ? "feito" : k === i ? "agora" + (alerta ? " alerta" : "") : "" }, feito ? "✓" : String(x.n));
+    }));
+}
+
+function linhaPrev(p, ref, ctx, sug = "") {
+  const t = textoPasso(p, ref);
+  const venc = M.preventivaVencida(p, ref);
+  const lim = M.venceEfetivo(p);
+  return el("div", { class: "pv-lin" + (t.alerta ? " alerta" : "") + (t.passo === "feita" || t.passo === "fora" ? " apagada" : ""),
+    dataset: { id: p.id, passo: t.passo }, onclick: cliqueLimpo(() => abrirFichaPrev(p.id, ctx)) },
+    trilhaPassos(p, ref),
+    el("div", { class: "pv-frota" }, el("b", {}, p.frota || "—"),
+      el("span", {}, [p.plano || "preventiva", p.qtd > 1 ? `${p.qtd}×` : "", p.onde_fazer === "Terceiro" ? "terceiro" : ""].filter(Boolean).join(" · "))),
+    el("div", { class: "pv-venc" + (venc ? " venceu" : "") }, lim ? `${venc ? "venceu" : "vence"} ${brCurto(lim)}` : "sem vencimento"),
+    el("div", { class: "pv-falta" }, t.texto),
+    el("div", { class: "pv-acoes", onclick: e => e.stopPropagation() }, botaoPasso(p, ref, sug), botaoMais("preventiva", p.id, ctx)));
+}
+
+/** Os passos em cartões, com quantas frotas em cada: é o filtro da lista. */
+function quadroPassos(plano, ref, atual, ir) {
+  const conta = new Map(ORDEM_PASSO.map(x => [x, 0]));
+  const problema = new Map();
+  for (const p of plano) {
+    const x = M.passoPreventiva(p);
+    conta.set(x, conta.get(x) + 1);
+    if (M.passoAtrasado(p, ref)) problema.set(x, (problema.get(x) || 0) + 1);
+  }
+  const cartao = (id, marca, nome, n, sub, cls = "") => el("button", { type: "button", class: "passo-c " + cls + (atual === id ? " on" : ""),
+    dataset: { passo: id }, "aria-pressed": atual === id ? "true" : "false", onclick: () => ir(atual === id ? "" : id) },
+    el("span", { class: "pc-cab" }, marca ? el("span", { class: "pc-n" }, marca) : null, el("span", { class: "pc-nome" }, nome)),
+    el("b", { class: "pc-v" }, String(n)),
+    el("small", { class: "pc-sub" + (problema.get(id) ? " alerta" : "") }, sub));
+  return el("div", { class: "passos", role: "group", "aria-label": "Passo" },
+    cartao("", "", "Todas", plano.length, "no plano do mês", "todas"),
+    ...M.PASSOS_PREV.map(x => cartao(x.id, String(x.n), x.nome, conta.get(x.id),
+      problema.get(x.id) ? `${problema.get(x.id)} com problema` : quemDoPasso(x))),
+    cartao("feita", "✓", NOME_PASSO.feita, conta.get("feita"), plano.length ? `${Math.round(conta.get("feita") * 100 / plano.length)}% do plano` : "", "feita"),
+    conta.get("fora") ? cartao("fora", "", "Adiadas", conta.get("fora"), "ou canceladas", "fora") : null);
+}
+
+/** A lista do mês, por passo, na ordem do fluxo. Dentro do passo, o que está
+ *  com problema primeiro, depois o que vence antes. */
+function listaPrev(itens, ref, ctx, { agrupar = true } = {}) {
+  const sug = sugestoesDeParada(itens, ref);
+  const ordem = (a, b) => M.passoAtrasado(b, ref) - M.passoAtrasado(a, ref) ||
+    String(M.venceEfetivo(a) || "9").localeCompare(String(M.venceEfetivo(b) || "9")) || natural(a.frota, b.frota);
+  const grupos = ORDEM_PASSO.map(id => ({ id, itens: itens.filter(p => M.passoPreventiva(p) === id).sort(id === "feita"
+    ? (a, b) => String(b.realizada_em || "").localeCompare(String(a.realizada_em || "")) || natural(a.frota, b.frota) : ordem) }))
+    .filter(g => g.itens.length);
+  const cab = g => {
+    const x = PASSO.get(g.id);
+    return el("div", { class: "pv-grupo", dataset: { passo: g.id } },
+      x ? el("span", { class: "pc-n" }, String(x.n)) : null,
+      el("b", {}, x ? x.nome : NOME_PASSO[g.id]),
+      el("span", { class: "n" }, String(g.itens.length)),
+      x ? el("span", { class: "pv-faz" }, x.faz) : null);
+  };
+  return el("div", { class: "pv-lista" }, grupos.flatMap(g => [agrupar ? cab(g) : null,
+    ...g.itens.map(p => linhaPrev(p, ref, ctx, sug.get(p.id) || ""))].filter(Boolean)));
+}
+
+/** O passo a passo da ficha: cada passo com a sua data. */
+function passoAPasso(p, ref) {
+  const passo = M.passoPreventiva(p);
+  const i = ORDEM_PASSO.indexOf(passo);
+  const alerta = M.passoAtrasado(p, ref);
+  const datas = {
+    liberar: p.disponivel_agora ? "agora" : p.disponivel_em ? brCurto(p.disponivel_em) : "",
+    parada: p.dia_parada ? brCurto(p.dia_parada) : "",
+    chegada: p.entregue_em ? brCurto(p.entregue_em) : p.em_andamento ? "na oficina" : "",
+    baixa: p.realizada_em ? brCurto(p.realizada_em) : p.realizada_sem_data ? "sem data" : "",
+  };
+  return el("ol", { class: "passo-a-passo" + (passo === "fora" ? " fora" : "") }, M.PASSOS_PREV.map((x, k) => {
+    const feito = passo === "feita" || (passo !== "fora" && k < i);
+    const agora = k === i;
+    return el("li", { class: feito ? "feito" : agora ? "agora" + (alerta ? " alerta" : "") : "" },
+      el("span", { class: "pp-n" }, feito ? "✓" : String(x.n)),
+      el("span", { class: "pp-txt" }, el("b", {}, x.nome), el("small", {}, datas[x.id] || (agora ? "falta" : "—"))),
+      el("small", { class: "pp-quem" }, x.quem));
   }));
-  return el("div", {}, faixa, !marcadas.length
-    ? el("p", { class: "nota pp-nada" }, "Nenhuma parada nova marcada nos próximos 14 dias.") : null);
 }
 
 /** A linha do mês: quanto saiu, quanto venceu, e quanto do mês já passou. */
@@ -831,110 +855,6 @@ function linhaDoMes(r, mes, ref) {
     el("div", { class: "ml-trilho", title: noMes ? `${pctFeito}% realizadas · ${pctMes}% do mês passou` : `${pctFeito}% realizadas` },
       el("span", { class: "ml-cheio", style: `width:${pctFeito}%` }),
       noMes ? el("i", { class: "ml-hoje", style: `left:${pctMes}%` }) : null));
-}
-
-// ── a tabela de uma seção ───────────────────────────────────────────────────
-
-const data = (iso, cls = "") => iso
-  ? el("span", { class: cls }, brCurto(iso)) : el("span", { class: "seg" }, "—");
-
-function botaoDaLinha(p, ref) {
-  const quem = M.esperandoQuem(p, ref);
-  const s = M.situacaoPreventiva(p, ref);
-  const parar = fn => e => { e.stopPropagation(); fn(); };
-  if (quem === "Operação" && pessoas.pode("disponibilidade")) {
-    return el("button", { class: "mini acao-op", onclick: parar(() => informarDisponibilidade(p)) }, "Informar");
-  }
-  if (!pessoas.pode("parada")) return "";
-  if (s === "Disponível: marcar a parada" || s === "Com data: marcar a parada" ||
-    s.startsWith("Conflito")) {
-    return el("button", { class: "mini acao-pcm", title: "Programar a parada",
-      onclick: parar(() => marcarParada(p)) }, "Programar");
-  }
-  if ((s === "Parada passou, sem baixa" || ((s === "Programada" || s === "Programada depois do prazo") && p.dia_parada <= ref)) &&
-    !p.entregue_em && !p.em_andamento) {
-    return el("button", { class: "mini acao-pcm", title: "Anotar o dia em que a frota chegou na oficina",
-      onclick: parar(() => registrarEntregaPrev(p)) }, "Chegou");
-  }
-  if (s === "Programada" || s === "Programada depois do prazo" ||
-    s === "Em andamento" || s === "Parada passou, sem baixa") {
-    return el("button", { class: "mini baixa", onclick: parar(() => darPorFeita(p)) }, "Realizada");
-  }
-  if (p.realizada_sem_data) {
-    return el("button", { class: "mini sem-data", onclick: parar(() => darPorFeita(p)) }, "✓ sem data");
-  }
-  if (p.realizada_em) return el("span", { class: "feito-em" }, "✓ " + brCurto(p.realizada_em));
-  return "";
-}
-
-function tabelaPrev(itens, ctx, ref) {
-  const cab = el("tr", {},
-    el("th", { class: "c-sit" }, "Situação"),
-    el("th", { class: "c-fr" }, "Frota"),
-    el("th", { class: "c-plano" }, "Preventivas"),
-    el("th", { class: "c-dt num" }, "Vence"),
-    el("th", { class: "c-dt c-lib num", title: "Data de liberação informada pela operação" }, "Liberação"),
-    el("th", { class: "c-dt num", title: "Data da parada, programada pelo PCM" }, "Parada"),
-    el("th", { class: "c-onde" }, "Execução"),
-    el("th", { class: "c-os" }, "OS"),
-    el("th", { class: "c-hh num" }, "HH"),
-    el("th", { class: "c-feito" }, ""));
-  const corpo = el("tbody", {}, itens.map(p => {
-    const s = M.situacaoPreventiva(p, ref);
-    const cor = M.corDe(s);
-    const venc = M.preventivaVencida(p, ref);
-    const lim = M.venceEfetivo(p);
-    const conflito = s.startsWith("Conflito");
-    const tr = el("tr", {
-      class: `lin ${cor}${M.preventivaFeita(p) ? " feita" : ""}` +
-        (p.cancelada ? " cancel" : p.adiada ? " adiada" : ""),
-      dataset: { id: p.id },
-    },
-      el("td", { class: "c-sit" }, el("span", { class: "sit " + cor, title: M.rotulo(s) }, M.rotulo(s))),
-      el("td", { class: "c-fr" },
-        el("div", { class: "fr" }, p.frota),
-        el("div", { class: "seg" }, [p.equipamento, p.local].filter(Boolean).join(" · "))),
-      el("td", { class: "c-plano" },
-        el("div", { class: "t" }, p.plano || el("span", { class: "seg" }, "—"),
-          p.qtd > 1 ? el("span", { class: "tag" }, `${p.qtd}×`) : null),
-        (p.motivo && !M.preventivaFeita(p)) ? el("div", { class: "porque" }, p.motivo) : null),
-      el("td", { class: "c-dt num", title: p.prazo_service ? "prazo do Service" : "vencimento no plano" },
-        data(lim, venc ? "venceu" : ""),
-        p.prazo_service ? el("div", { class: "seg" }, "Service") : null),
-      el("td", { class: "c-dt num" }, p.disponivel_agora
-        ? el("span", { class: "agora" }, "Agora")
-        : data(p.disponivel_em, conflito ? "venceu" : "")),
-      el("td", { class: "c-dt num" }, data(p.dia_parada,
-        s === "Parada passou, sem baixa" || s === "Programada depois do prazo" ? "venceu" : ""),
-        p.reprog_parada ? el("div", { class: "tag reprog", title: `primeira data ${br(p.parada_orig)}` +
-          (p.motivo_parada ? ` · ${p.motivo_parada}` : "") }, `↻ ${p.reprog_parada}×`) : null,
-        p.entregue_em ? el("div", { class: "seg chegou" + (M.atrasoEntrega(p) ? " tarde" : ""),
-          title: p.motivo_entrega ? "chegou atrasada: " + p.motivo_entrega : "dia em que a frota chegou na oficina" },
-          `chegou ${brCurto(p.entregue_em)}` + (M.atrasoEntrega(p) ? ` · +${M.atrasoEntrega(p)} d` : ""))
-          : M.entregaAtrasando(p, ref) ? el("div", { class: "seg chegou tarde" }, `não chegou · +${M.atrasoEntrega(p, ref)} d`) : null),
-      el("td", { class: "c-onde" }, p.onde_fazer || el("span", { class: "seg" }, "—")),
-      el("td", { class: "c-os" }, p.os ? el("span", { class: "os" }, p.os)
-        : !p.cancelada && pessoas.pode("parada") ? campoOSPrev(p) : el("span", { class: "seg" }, "—"),
-        // onde a OS preventiva está na Programação (ligação com o plano)
-        (() => {
-          const a = OFICINA ? ev.atividadeDaPreventiva(p) : null;
-          if (!a) return null;
-          const t = M.feita(a) ? "com baixa" : a.semana ? `S${a.semana}${a.dia ? " · " + a.dia : ""}` : "carteira";
-          return el("small", { class: "na-prog", title: "A OS preventiva na Programação" }, "▸ " + t);
-        })()),
-      el("td", { class: "c-hh num" }, p.hh ? String(p.hh).replace(".", ",") : el("span", { class: "seg" }, "—")),
-      el("td", { class: "c-feito" }, botaoDaLinha(p, ref), botaoMais("preventiva", p.id, ctx)));
-    tr.addEventListener("click", cliqueLimpo(() => abrirFichaPrev(p.id, ctx)));
-    return tr;
-  }));
-  const tabela = el("table", { class: "grade prev" }, el("thead", {}, cab), corpo);
-  const cartoes = el("div", { class: "lista" }, itens.map(p => {
-    const b = botaoDaLinha(p, ref);
-    return cartaoPrev(p, ctx, { acoes: b ? [b] : [] });
-  }));
-  return el("div", { class: "grade-caixa" },
-    el("div", { class: "so-tabela" }, tabela),
-    el("div", { class: "so-cartao" }, cartoes));
 }
 
 function tabelaFora(itens, ctx) {
@@ -970,22 +890,26 @@ export const rotuloMes = m => {
   return i < 0 ? (m || "sem mês") : `${NOME_MES[i]}/20${aa}`;
 };
 
-// As situações na ordem em que pedem ação.
-const ORDEM_SIT = ["Parada passou, sem baixa", "Conflito: Operação depois do prazo",
-  "Programada depois do prazo", "Disponível: marcar a parada", "Com data: marcar a parada",
-  "Sem data da Operação", "Em andamento", "Programada", "Realizada",
-  "Passa para o mês seguinte", "Cancelada"];
+// O passo de cada situação da planilha (para ir do Painel à lista).
+const PASSO_DA_SIT = { "Sem data da Operação": "liberar", "Disponível: marcar a parada": "parada",
+  "Com data: marcar a parada": "parada", "Conflito: Operação depois do prazo": "parada", "Programada": "chegada",
+  "Programada depois do prazo": "chegada", "Parada passou, sem baixa": "chegada", "Em andamento": "baixa",
+  "Realizada": "feita", "Passa para o mês seguinte": "fora", "Cancelada": "fora" };
 
-const estado = { mes: "", busca: "", situacoes: new Set(), foraAberto: false,
-  vista: "plano", tipoMud: "", filaAberta: new Set() };
+const estado = { mes: "", busca: "", passo: "", foraAberto: false, vista: "plano", tipoMud: "", dia: "" };
+
+// As etiquetas do calendário das preventivas, e o que cada cor quer dizer.
+const LEGENDA_PREV = [["aberta", "Parada marcada"], ["hoje", "Parada hoje"], ["atrasada", "Não chegou"],
+  ["aprovar", "Na oficina"], ["feita", "Realizada"], ["libera", "Liberação prevista"]];
 
 export async function montar(raiz, ctx, params = new URLSearchParams()) {
-  if (["plano", "painel", "mudancas"].includes(params.get("v"))) estado.vista = params.get("v");
+  if (["plano", "calendario", "painel", "mudancas"].includes(params.get("v"))) estado.vista = params.get("v");
+  if (params.get("passo") != null) estado.passo = ORDEM_PASSO.includes(params.get("passo")) ? params.get("passo") : "";
   const fBusca = el("input", { class: "busca", type: "search", value: estado.busca,
     placeholder: "frota, equipamento, local, OS…",
     oninput: () => { estado.busca = fBusca.value; pintar(); } });
   // O mês: ‹ e › andam um mês; o campo pula para qualquer um.
-  const irMes = m => { if (!m) return; estado.mes = m; estado.situacoes.clear(); pintar(); };
+  const irMes = m => { if (!m) return; estado.mes = m; estado.dia = ""; pintar(); };
   const fMes = el("input", { type: "month", class: "nav-mes-in", "aria-label": "Mês do plano",
     onchange: () => { if (fMes.value) irMes(mesDeISO(fMes.value)); } });
   const navMes = el("div", { class: "nav-mes" },
@@ -997,9 +921,10 @@ export async function montar(raiz, ctx, params = new URLSearchParams()) {
   const titulo = el("span", { class: "sub" });
   const corpo = el("div", {});
 
-  // Três jeitos de olhar o mesmo mês: a lista de trabalho, o painel com os
-  // números e as decisões, e o registro do que mudou.
-  const vistas = el("div", { class: "segmentos" }, [["plano", "Plano"], ["painel", "Painel"], ["mudancas", "Mudanças"]]
+  // Quatro jeitos de olhar o mesmo mês: a lista de trabalho (o passo a passo),
+  // as paradas no calendário, o painel com os números e as decisões, e o
+  // registro do que mudou.
+  const vistas = el("div", { class: "segmentos" }, [["plano", "Plano"], ["calendario", "Calendário"], ["painel", "Painel"], ["mudancas", "Mudanças"]]
     .map(([v, t]) => el("button", { class: "seg-op", dataset: { v },
       onclick: () => { estado.vista = v; pintar(); } }, t)));
   raiz.append(
@@ -1036,8 +961,8 @@ export async function montar(raiz, ctx, params = new URLSearchParams()) {
     if (!doMes.length) return pintarMesVazio(meses);
     if (estado.vista === "painel") return pintarPainel(doMes, ref);
     if (estado.vista === "mudancas") return pintarMudancas(doMes);
-    const plano = doMes.filter(p => !p.fora);
-    const fora = doMes.filter(p => p.fora).sort((a, b) => natural(a.frota, b.frota));
+    const plano = doMes.filter(p => !p.fora && !p.excluida);
+    const fora = doMes.filter(p => p.fora && !p.excluida).sort((a, b) => natural(a.frota, b.frota));
     const r = M.resumoPreventivas(doMes, ref);
 
     const q = semAcento(estado.busca.trim());
@@ -1055,46 +980,28 @@ export async function montar(raiz, ctx, params = new URLSearchParams()) {
           "(OS anotada nos dois lados, ou parada marcada sem a OS no dia)."),
         el("button", { class: "primario-leve", onclick: () => ligarAProgramacao(doMes) }, "Ver e ligar")));
     }
+    if (estado.vista === "calendario") return pintarCalendario(plano.filter(achou), ref);
 
-    // ── para fazer, e as próximas paradas
-    corpo.append(el("div", { class: "titulo-secao" }, "Para fazer",
-      el("span", { class: "n" }, "· cada linha com o botão que resolve · clique na frota para ver tudo")));
-    corpo.append(paraFazer(plano.filter(achou), ref, ctx));
-    corpo.append(el("div", { class: "titulo-secao" }, "Próximas paradas",
-      el("span", { class: "n" }, "· os próximos 14 dias")));
-    corpo.append(proximasParadas(plano.filter(achou), ref, ctx));
-
-    // ── o plano inteiro: a faixa de situações filtra, e uma tabela só
-    const conta = new Map();
-    for (const p of plano) {
-      const s = M.situacaoPreventiva(p, ref);
-      conta.set(s, (conta.get(s) || 0) + 1);
+    // ── os passos: quantas frotas em cada um; tocar filtra
+    const buscadas = plano.filter(achou);
+    corpo.append(quadroPassos(buscadas, ref, estado.passo, id => { estado.passo = id; pintar(); }));
+    const x = PASSO.get(estado.passo);
+    const semLib = buscadas.filter(p => M.passoPreventiva(p) === "liberar");
+    if (x || (estado.passo === "" && semLib.length && pessoas.pode("parada"))) {
+      corpo.append(el("div", { class: "passo-explica" },
+        x ? el("span", {}, el("b", {}, `Passo ${x.n} · ${x.nome}. `), x.faz,
+          el("span", { class: "seg" }, ` ${x.quem === "PCM" ? "É com o PCM." : "É com a operação."}`)) : el("span", { class: "seg" },
+          `${semLib.length} frota${semLib.length === 1 ? "" : "s"} ainda sem a liberação da operação.`),
+        el("div", { class: "espaco" }),
+        (estado.passo === "liberar" || !x) && semLib.length && pessoas.pode("parada")
+          ? el("button", { type: "button", class: "mini", title: "A lista, pronta para colar no grupo",
+            onclick: () => copiar(textoCobranca(semLib, ref), "Cobrança") }, "Copiar a cobrança") : null));
     }
-    const passa = p => achou(p) && (!estado.situacoes.size || estado.situacoes.has(M.situacaoPreventiva(p, ref)));
-    const ordem = (a, b) =>
-      ORDEM_SIT.indexOf(M.situacaoPreventiva(a, ref)) - ORDEM_SIT.indexOf(M.situacaoPreventiva(b, ref)) ||
-      String(M.venceEfetivo(a) || "9").localeCompare(String(M.venceEfetivo(b) || "9")) ||
-      natural(a.frota, b.frota);
-    const visiveis = plano.filter(passa).sort(ordem);
-    const qtd = l => l.reduce((s, p) => s + (Number(p.qtd) || 1), 0);
+    const visiveis = estado.passo ? buscadas.filter(p => M.passoPreventiva(p) === estado.passo) : buscadas;
+    corpo.append(visiveis.length ? listaPrev(visiveis, ref, ctx, { agrupar: !estado.passo })
+      : vazio(estado.passo ? `Nenhuma frota no passo ${(x || {}).nome || NOME_PASSO[estado.passo] || ""}.` : "Nada com esta busca."));
 
-    corpo.append(el("div", { class: "titulo-secao", id: "plano-do-mes" }, `O plano de ${rotuloMes(estado.mes).split("/")[0]}`,
-      el("span", { class: "n" }, `· ${visiveis.length} frota${visiveis.length === 1 ? "" : "s"}, ` +
-        `${qtd(visiveis)} preventiva${qtd(visiveis) === 1 ? "" : "s"} · toque na situação para filtrar`)));
-    corpo.append(el("div", { class: "faixa-sit" },
-      el("button", { class: "fsit todas" + (estado.situacoes.size ? "" : " on"),
-        onclick: () => { estado.situacoes.clear(); pintar(); } },
-        el("b", {}, String(plano.length)), " Todas"),
-      ORDEM_SIT.filter(s => conta.get(s)).map(s => el("button", {
-        class: `fsit ${M.corDe(s)}${estado.situacoes.has(s) ? " on" : ""}`,
-        onclick: () => {
-          estado.situacoes.has(s) ? estado.situacoes.delete(s) : estado.situacoes.add(s);
-          pintar();
-        },
-      }, el("b", {}, String(conta.get(s))), " ", M.rotulo(s)))));
-    corpo.append(visiveis.length ? tabelaPrev(visiveis, ctx, ref) : vazio("Nada com estes filtros."));
-
-    if (fora.length && !estado.situacoes.size) {
+    if (fora.length && !estado.passo) {
       const det = el("details", { class: "outros", open: estado.foraAberto },
         el("summary", {}, `Fora do plano de ${rotuloMes(estado.mes).split("/")[0]} · ` +
           `${fora.length} frota${fora.length === 1 ? "" : "s"} · não entram na contagem acima`),
@@ -1103,6 +1010,97 @@ export async function montar(raiz, ctx, params = new URLSearchParams()) {
       det.addEventListener("toggle", () => { estado.foraAberto = det.open; });
       corpo.append(det);
     }
+  }
+
+  // ── o calendário das paradas ─────────────────────────────────────────────
+  // Cada frota no dia da parada (a realizada, no dia em que saiu; a liberada
+  // sem parada, no dia em que a operação disse que libera). Do lado: o dia
+  // tocado, o que não chegou, as liberadas esperando a parada e o andamento.
+  function pintarCalendario(plano, ref) {
+    const mesISO = mesDoPlano(estado.mes) || ref.slice(0, 7);
+    const sug = sugestoesDeParada(plano, ref);
+    const itens = [];
+    const diaDe = new Map();
+    for (const p of plano) {
+      const passo = M.passoPreventiva(p);
+      const t = textoPasso(p, ref).texto;
+      const rot = (fim = "") => [el("b", {}, p.frota || "—"), " ", fim || p.plano || "preventiva"];
+      let dia = "", classe = "";
+      if (passo === "feita" && p.realizada_em) { dia = p.realizada_em; classe = "feita"; }
+      else if (passo === "baixa") { dia = p.entregue_em || p.dia_parada; classe = "aprovar"; }
+      else if (passo === "chegada") { dia = p.dia_parada; classe = p.dia_parada < ref ? "atrasada" : p.dia_parada === ref ? "hoje" : "aberta"; }
+      // a liberação que já passou não diz mais nada no calendário: está na lista do lado
+      else if (passo === "parada" && p.disponivel_em >= ref) { dia = p.disponivel_em; classe = "libera"; }
+      if (!dia) continue;
+      diaDe.set(p.id, dia);
+      itens.push({ dia, id: p.id, classe, titulo: `${p.frota} · ${p.plano || "preventiva"} — ${t}`,
+        rotulo: rot(classe === "libera" ? "libera" : "") });
+    }
+    const dia = estado.dia || (ref.startsWith(mesISO) ? ref : "");
+    const presentes = new Set(itens.map(i => i.classe));
+    const cal = el("div", { class: "cal-cartao" },
+      calendarioMes({ mes: mesISO, itens, ref, selecionado: dia,
+        aoDia: d => { estado.dia = d; pintar(); if (matchMedia("(max-width: 1100px)").matches) {
+          const c = corpo.querySelector(".tr-card.dia"); if (c) c.scrollIntoView({ block: "nearest", behavior: "smooth" }); } },
+        aoItem: it => abrirFichaPrev(it.id, ctx) }),
+      presentes.size ? el("div", { class: "cal-leg" }, LEGENDA_PREV.filter(([c]) => presentes.has(c))
+        .map(([c, rot]) => el("span", { class: "leg-item" }, el("i", { class: "ev-cor " + c }), rot))) : null);
+
+    const linha = p => {
+      const it = itens.find(i => i.id === p.id);
+      const b = botaoPasso(p, ref, sug.get(p.id) || "");
+      return itemAgenda({ classe: it ? it.classe : "fila", id: p.id,
+        titulo: [el("b", {}, p.frota || "—"), " · ", p.plano || "preventiva"], sub: textoPasso(p, ref).texto,
+        acoes: b ? [b] : [], aoClicar: cliqueLimpo(() => abrirFichaPrev(p.id, ctx)) });
+    };
+    const lista = (l, max = 0) => el("div", { class: "ag-lista" }, (max ? l.slice(0, max) : l).map(linha));
+    const porVenc = (a, b) => String(M.venceEfetivo(a) || "9").localeCompare(String(M.venceEfetivo(b) || "9")) || natural(a.frota, b.frota);
+
+    const doDia = dia ? plano.filter(p => diaDe.get(p.id) === dia).sort(porVenc) : [];
+    const cartaoDia = cartaoTrilho(dia === ref ? "Hoje" : dia ? "Dia selecionado" : "Escolha um dia",
+      dia ? (doDia.length ? lista(doDia) : el("p", { class: "tr-vazio" }, "Nenhuma parada neste dia."))
+        : el("p", { class: "tr-vazio" }, "Toque num dia do calendário para ver as paradas dele."),
+      { classe: "dia", sub: dia ? diaPorExtenso(dia) : "",
+        acao: dia && dia !== ref ? el("button", { type: "button", class: "discreto mini", onclick: () => { estado.dia = ""; irMes(mesDaData(ref)); } },
+          "Voltar para hoje") : null });
+
+    const naoChegou = plano.filter(p => M.passoPreventiva(p) === "chegada" && p.dia_parada < ref)
+      .sort((a, b) => String(a.dia_parada).localeCompare(String(b.dia_parada)));
+    const vencidas = plano.filter(p => M.preventivaVencida(p, ref)).length;
+    const alerta = naoChegou.length || vencidas ? cartaoTrilho(naoChegou.length
+      ? `${naoChegou.length} não chegou${naoChegou.length === 1 ? "" : "ram"}` : `${vencidas} vencida${vencidas === 1 ? "" : "s"}`,
+      el("div", {}, naoChegou.length ? lista(naoChegou, 4) : null,
+        naoChegou.length && vencidas ? el("p", { class: "tr-nota" }, `${vencidas} preventiva${vencidas === 1 ? "" : "s"} com o vencimento passado.`) : null),
+      { classe: "alerta", sub: naoChegou.length ? "a parada passou e a frota não chegou na oficina" : "o vencimento passou e não foi realizada",
+        acao: el("div", { class: "tr-acoes" }, naoChegou.length > 4 ? el("button", { type: "button", class: "mini", onclick: () => {
+          estado.vista = "plano"; estado.passo = "chegada"; pintar(); } }, `Ver as ${naoChegou.length}`) : null) }) : null;
+
+    const liberadas = plano.filter(p => M.passoPreventiva(p) === "parada").sort(porVenc);
+    const semParada = liberadas.length ? cartaoTrilho(`Liberadas, sem parada · ${liberadas.length}`, lista(liberadas, 5),
+      { classe: "sem-prazo", sub: "a operação liberou; falta o dia",
+        acao: liberadas.length > 5 ? el("button", { type: "button", class: "mini", onclick: () => {
+          estado.vista = "plano"; estado.passo = "parada"; pintar(); } }, `Ver as ${liberadas.length}`) : null }) : null;
+
+    const valem = plano.filter(p => !p.adiada && !p.cancelada);
+    const feitas = valem.filter(M.preventivaFeita).length;
+    const andamento = cartaoTrilho(`Realizadas · ${rotuloMes(estado.mes).split("/")[0]}`,
+      valem.length ? anel([{ rotulo: "Realizadas", valor: feitas, cor: "var(--s1)" },
+        { rotulo: "Faltam", valor: valem.length - feitas, cor: "var(--ctx)" }], { rotuloCentro: "realizadas" })
+        : el("p", { class: "tr-vazio" }, "Nada no plano."),
+      { classe: "pontual", sub: `${valem.length} frota${valem.length === 1 ? "" : "s"} no plano`,
+        acao: el("button", { type: "button", class: "mini", onclick: () => { estado.vista = "painel"; pintar(); } }, "Ver o painel") });
+
+    const semLib = plano.filter(p => M.passoPreventiva(p) === "liberar").sort(porVenc);
+    const aguardando = semLib.length ? cartaoTrilho(`Sem liberação · ${semLib.length}`,
+      pessoas.pode("disponibilidade") ? lista(semLib, 5) : el("p", { class: "tr-nota" }, "A operação ainda não disse quando estas frotas ficam livres."),
+      { classe: "sem-prazo", sub: "esperando a operação",
+        acao: el("div", { class: "tr-acoes" },
+          pessoas.pode("parada") ? el("button", { type: "button", class: "mini", title: "A lista, pronta para colar no grupo",
+            onclick: () => copiar(textoCobranca(semLib, ref), "Cobrança") }, "Copiar a cobrança") : null,
+          el("button", { type: "button", class: "mini", onclick: () => { estado.vista = "plano"; estado.passo = "liberar"; pintar(); } }, "Ver na lista")) }) : null;
+
+    corpo.append(agenda(cal, cartaoDia, alerta, pessoas.pode("parada") ? semParada : aguardando,
+      andamento, pessoas.pode("parada") ? aguardando : semParada));
   }
 
   // ── o mês sem plano ──────────────────────────────────────────────────────
@@ -1138,7 +1136,7 @@ export async function montar(raiz, ctx, params = new URLSearchParams()) {
     const adiadas = plano.filter(p => p.adiada).length;
     const hhFeito = Math.round(feitas.reduce((t, p) => t + (Number(p.hh) || 0), 0) * 10) / 10;
     const pc = v => v == null ? "—" : Math.round(v * 100) + "%";
-    const irPara = (...sits) => () => { estado.vista = "plano"; estado.situacoes = new Set(sits); pintar(); };
+    const irPara = passo => () => { estado.vista = "plano"; estado.passo = passo; pintar(); };
 
     const kpiClic = (rot, val, det, cls, fazer) => {
       const k = kpi(rot, val, det, cls);
@@ -1150,13 +1148,13 @@ export async function montar(raiz, ctx, params = new URLSearchParams()) {
         const n = plano.filter(p => p.fonte === "").length;
         return `${r.frotas} frotas` + (n ? ` · ${n} incluída${n === 1 ? "" : "s"} no site` : "");
       })(), ""),
-      kpiClic("Realizadas", pc(r.pct_realizadas), `${r.realizadas} de ${r.preventivas}`, r.realizadas ? "ok" : "", irPara("Realizada")),
+      kpiClic("Realizadas", pc(r.pct_realizadas), `${r.realizadas} de ${r.preventivas}`, r.realizadas ? "ok" : "", irPara("feita")),
       kpiClic("No prazo", pc(comData.length ? noPrazo.length / comData.length : null),
         comData.length ? `${noPrazo.length} de ${comData.length} realizadas até o vencimento` : "nenhuma realizada com data", ""),
       kpiClic("Vencidas", r.vencidas, "abertas com o vencimento passado", r.vencidas ? "vencida" : ""),
-      kpiClic("Aguardando a operação", esperaOp.length, "sem a liberação da frota", esperaOp.length ? "hoje" : "", irPara("Sem data da Operação")),
+      kpiClic("Aguardando a operação", esperaOp.length, "sem a liberação da frota", esperaOp.length ? "hoje" : "", irPara("liberar")),
       kpiClic("Aguardando o PCM", esperaPCM.length, "liberadas, sem parada", esperaPCM.length ? "andando" : "",
-        irPara("Parada passou, sem baixa", "Conflito: Operação depois do prazo", "Disponível: marcar a parada", "Com data: marcar a parada")),
+        irPara("parada")),
       kpiClic("Reprogra\u00admações", reprog + adiadas, `${reprog} de parada · ${adiadas} adiada${adiadas === 1 ? "" : "s"}`, reprog + adiadas ? "hoje" : "",
         () => { estado.vista = "mudancas"; estado.tipoMud = "reprogramacao"; pintar(); }),
       kpiClic("HH", String(r.hh).replace(".", ","), `previstos · ${String(hhFeito).replace(".", ",")} realizados`, "")));
@@ -1198,14 +1196,16 @@ export async function montar(raiz, ctx, params = new URLSearchParams()) {
     const conta = new Map();
     for (const p of plano) {
       if (p.adiada || p.cancelada) continue;
-      const x = M.situacaoPreventiva(p, ref); conta.set(x, (conta.get(x) || 0) + qtdDe(p));
+      const x = M.passoPreventiva(p); conta.set(x, (conta.get(x) || 0) + qtdDe(p));
     }
     const foraDoMes = plano.filter(p => p.adiada || p.cancelada).length;
-    const itensSit = ORDEM_SIT.filter(x => conta.get(x)).map(x => ({ rotulo: M.rotulo(x), chave: x,
-      valor: conta.get(x), cor: `var(--${M.corDe(x)})` }));
-    // Rosca: como o plano do mês se divide. Mais de seis situações, as menores
-    // viram "Outras" — a lista completa está a um clique, na vista Plano.
-    pendurar(cartaoGrafico("Onde está cada preventiva", "como o plano do mês se divide" +
+    // Uma cor por passo, na ordem fixa das séries; a realizada no verde de feito.
+    const COR_PASSO = { liberar: "var(--s4)", parada: "var(--s2)", chegada: "var(--s1)", baixa: "var(--s5)", feita: "var(--ok)" };
+    const itensSit = ORDEM_PASSO.filter(x => conta.get(x)).map(x => ({ rotulo: (PASSO.get(x) || {}).nome || NOME_PASSO[x], chave: x,
+      valor: conta.get(x), cor: COR_PASSO[x] }));
+    // Rosca: como o plano do mês se divide pelos passos — a lista de cada um
+    // está a um clique, na vista Plano.
+    pendurar(cartaoGrafico("Em que passo está cada preventiva", "liberação, parada, chegada, baixa ou realizada" +
       (foraDoMes ? ` · ${foraDoMes} adiada${foraDoMes === 1 ? "" : "s"} ou cancelada${foraDoMes === 1 ? "" : "s"} fora` : "") +
       " · clique para ver a lista",
       el("div", { class: "g-corpo" })),

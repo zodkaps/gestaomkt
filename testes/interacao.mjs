@@ -388,7 +388,7 @@ ok("entrando com a senha dele, o que ficou guardado sobe e a fila esvazia",
 
 // ── o Pedro conclui, o Mateus aprova ──────────────────────────────────────
 // Quem faz a movimentação marca como concluída; o PCM só confere e aprova.
-await p.evaluate(() => { location.hash = "#/movimentacoes"; });
+await p.evaluate(() => { location.hash = "#/movimentacoes?vista=lista"; });
 await p.waitForTimeout(900);
 await p.fill(".filtros .busca", MOV_APROVAR);
 await p.waitForTimeout(500);
@@ -398,9 +398,17 @@ await p.fill(".caixa input[type=date]", "2026-10-07");
 // Passou do prazo (05/10): o diálogo pede o porquê ali mesmo, e escolher o
 // motivo já sugere quem atrasou.
 const pedePorque = await p.evaluate(() => !document.querySelector(".caixa .bloco-atraso").hidden);
-// Tudo digitado: o porquê e quem atrasou são texto livre, sem lista pronta.
-await p.fill(".caixa .bloco-atraso textarea", "A frota estava em viagem para Natal");
-await p.fill(".caixa .bloco-atraso input", "Operação");
+// Sem o porquê, não grava: a caixa fica aberta e diz o que falta.
+await p.click('.caixa footer button.primario');
+await p.waitForTimeout(400);
+const semPorque = await p.evaluate(id => ({ aberta: !!document.querySelector(".caixa .bloco-atraso"),
+  gravou: !!mkt.ev.porId(id, "movimentacao").chegou_em }), idMovAprovar);
+ok("concluída depois do prazo sem o porquê: não grava, e a caixa continua aberta", semPorque.aberta && !semPorque.gravou,
+  JSON.stringify(semPorque));
+// O motivo e quem atrasou num toque; o detalhe, se quiser.
+await p.click('.caixa .bloco-atraso .chip-op[data-cat="operacao"]');
+await p.fill(".caixa .bloco-atraso .justificar input >> nth=0", "para Natal");
+await p.click('.caixa .bloco-atraso .chip-op[data-quem="Operação"]');
 await p.click('.caixa footer button.primario');
 await p.waitForFunction(id => mkt.ev.porId(id, "movimentacao").chegou_em, idMovAprovar, { timeout: 5000 })
   .catch(() => {});
@@ -409,8 +417,8 @@ const doPedro = await p.evaluate(id => {
   return { sit: mkt.M.situacaoMovimentacao(m), por: m.motivo_atraso, quem: m.quem_atrasou,
     aprovarVisivel: !!document.querySelector("button.aprovar") };
 }, idMovAprovar);
-ok("concluindo depois do prazo, o diálogo pede o porquê — e grava com quem atrasou",
-  pedePorque && doPedro.por === "A frota estava em viagem para Natal" && doPedro.quem === "Operação",
+ok("concluindo depois do prazo, o diálogo pede o porquê — e grava o motivo pronto, o detalhe e quem atrasou",
+  pedePorque && doPedro.por === "Frota em viagem ou em uso — para Natal" && doPedro.quem === "Operação",
   JSON.stringify({ pedePorque, ...doPedro }));
 ok("o Pedro conclui e ela fica aguardando aprovação",
   doPedro.sit === "Aguardando aprovação", JSON.stringify(doPedro));
@@ -423,10 +431,10 @@ await p.reload({ waitUntil: "networkidle" });
 await p.waitForSelector('input[placeholder="Seu e-mail"]', { timeout: 8000 });
 await entrarComo(p, "Mateus");
 await p.waitForTimeout(1500);
-await p.evaluate(() => { location.hash = "#/movimentacoes"; });
+await p.evaluate(() => { location.hash = "#/movimentacoes?vista=lista"; });
 await p.waitForTimeout(1200);
 const fila = await p.evaluate(id => ({
-  recorte: (document.querySelector(".segmentos .seg-op.on") || {}).textContent || "",
+  recorte: (document.querySelector(".filtros .segmentos .seg-op.on") || {}).textContent || "",
   linha: !!document.querySelector(`.so-tabela tr.lin[data-id="${id}"] button.aprovar`),
 }), idMovAprovar);
 ok("o Mateus abre direto na fila de aprovação, com a do Pedro lá",
@@ -948,6 +956,8 @@ ok("um clique aprova: Concluída com atraso, concluída pelo Pedro, aprovada pel
   await p.fill(".caixa input[placeholder='por que fechar de novo']", "número da reunião");
   await p.click('.caixa footer button:has-text("Fechar de novo")');
   await p.waitForFunction(sem => mkt.ev.fechamentoDe(sem.ano, sem.semana).fonte === "digitar", sem, { timeout: 5000 });
+  // a tela repinta no quadro seguinte ao lançamento (ev.avisar junta os avisos)
+  await p.waitForFunction(() => /84/.test(document.querySelector(".grande .g-val")?.textContent || ""), null, { timeout: 3000 }).catch(() => {});
   const digitado = await p.evaluate(sem => { const f = mkt.ev.fechamentoDe(sem.ano, sem.semana);
     return { a: f.aderencia, c: f.cumprimento, m: f.motivo, tela: document.querySelector(".grande .g-val").textContent }; }, sem);
   ok("digitar o número apresentado registra 84% e 62,9%, com o motivo",
@@ -1401,7 +1411,7 @@ ok("um clique aprova: Concluída com atraso, concluída pelo Pedro, aprovada pel
 // ── movimentação por categoria ─────────────────────────────────────────────
 {
   const F = "F-MC" + Date.now().toString(36).slice(-4).toUpperCase();
-  await p.evaluate(() => { location.hash = "#/movimentacoes"; });
+  await p.evaluate(() => { location.hash = "#/movimentacoes?vista=lista"; });
   await p.waitForTimeout(800);
   await p.click('.cabec button:has-text("+ Nova")');
   await p.waitForSelector(".caixa .cat-escolha");
@@ -1458,6 +1468,68 @@ ok("um clique aprova: Concluída com atraso, concluída pelo Pedro, aprovada pel
   const minhas = paraVoce.filter(x => x.tem).map(x => x.cat);
   ok("no Para você, as em aberto vêm em seções por categoria", ["top", "lavagem", "buscar"].every(c => minhas.includes(c)) &&
     paraVoce.map(x => x.cat).indexOf("top") < paraVoce.map(x => x.cat).indexOf("buscar"), JSON.stringify(paraVoce));
+}
+
+// ── a agenda das movimentações, e a sequência de etapas ────────────────────
+// A Movimentação abre no calendário do mês: cada uma no dia do prazo, e do
+// lado o que é de hoje. Lavar e depois levar ao fornecedor é uma sequência:
+// duas etapas da mesma frota, cada uma com o seu prazo.
+{
+  const F = "F-AG" + Date.now().toString(36).slice(-4).toUpperCase();
+  const { hoje, depois } = await p.evaluate(() => ({ hoje: mkt.M.hoje(), depois: mkt.M.somaDias(mkt.M.hoje(), 2) }));
+  await p.evaluate(() => { location.hash = "#/movimentacoes?vista=agenda"; });
+  await p.waitForSelector(".cal .cal-dia", { timeout: 5000 });
+  await p.click('.cabec button:has-text("+ Nova")');
+  await p.waitForSelector(".caixa .form-mov", { timeout: 5000 });
+  await p.fill('.caixa .form-mov input[placeholder="ex.: F-745"]', F);
+  await p.click('.caixa .etapa[data-n] .cat-op[data-cat="lavagem"]');
+  await p.fill('.caixa .etapa >> nth=0 >> input[placeholder^="ex.: Cardan"]', "Lava-jato");
+  await p.fill('.caixa .etapa >> nth=0 >> input[type=date]', hoje);
+  await p.click(".caixa .mais-etapa");
+  await p.fill('.caixa .etapa >> nth=1 >> input[placeholder^="ex.: Coletar"]', "Levar");
+  await p.fill('.caixa .etapa >> nth=1 >> input[placeholder^="ex.: Cardan"]', "Cardan Service");
+  await p.fill('.caixa .etapa >> nth=1 >> input[type=date]', depois);
+  const previaSeq = await p.textContent(".caixa .previa-mov");
+  ok("o formulário com duas etapas mostra as duas, em ordem", /1\. .*Lava-jato/.test(previaSeq) && /2\. .*Levar · Cardan Service/.test(previaSeq), previaSeq);
+  await p.click('.caixa footer button:has-text("Registrar")');
+  await p.waitForFunction(f => mkt.ev.lista("movimentacao").filter(m => m.frota === f).length === 2, F, { timeout: 5000 });
+  await p.waitForTimeout(500);
+  const seq = await p.evaluate(f => mkt.ev.lista("movimentacao").filter(m => m.frota === f).sort((a, b) => a.etapa - b.etapa)
+    .map(m => [m.etapa, m.acao || m.destino, m.prometida_para, !!m.roteiro]), F);
+  ok("viram duas movimentações da mesma sequência, cada uma com o seu prazo",
+    JSON.stringify(seq) === JSON.stringify([[1, "Lavar", hoje, true], [2, "Levar", depois, true]]), JSON.stringify(seq));
+  const cal = await p.evaluate(([f, hoje, depois]) => {
+    const no = d => [...document.querySelectorAll(`.cal-dia[data-dia="${d}"] .ev-chip`)].filter(c => c.textContent.includes(f))
+      .map(c => c.className.replace("ev-chip ", "") + ":" + c.textContent);
+    return { hoje: no(hoje), depois: no(depois),
+      rail: [...document.querySelectorAll(".tr-card.dia .ag-item")].filter(i => i.textContent.includes(f)).map(i => i.textContent) };
+  }, [F, hoje, depois]);
+  ok("no calendário, a 1ª etapa vence hoje e a 2ª espera, cada uma no seu dia",
+    cal.hoje.length === 1 && /^hoje:/.test(cal.hoje[0]) && /1\/2/.test(cal.hoje[0]) &&
+    cal.depois.length === 1 && /^espera:/.test(cal.depois[0]) && /2\/2/.test(cal.depois[0]), JSON.stringify(cal));
+  ok("e a de hoje aparece na coluna Hoje, com o botão de concluir", cal.rail.length === 1 && /Concluir/.test(cal.rail[0]), JSON.stringify(cal.rail));
+  // tocar no dia da 2ª mostra o dia do lado
+  await p.click(`.cal-dia[data-dia="${depois}"] .cal-num`);
+  await p.waitForTimeout(300);
+  const dia2 = await p.evaluate(f => ({ tit: document.querySelector(".tr-card.dia h2")?.textContent,
+    tem: [...document.querySelectorAll(".tr-card.dia .ag-item")].some(i => i.textContent.includes(f) && i.textContent.includes("espera a 1")) }), F);
+  ok("tocar num dia mostra o que tem nele, e a etapa diz que espera a anterior", dia2.tit === "Dia selecionado" && dia2.tem, JSON.stringify(dia2));
+  // a ficha mostra a sequência
+  const id2 = await p.evaluate(f => mkt.ev.lista("movimentacao").find(m => m.frota === f && m.etapa === 2).id, F);
+  await p.click(`.cal-dia[data-dia="${depois}"] .ev-chip[data-id="${id2}"]`);
+  await p.waitForSelector(".caixa .sequencia", { timeout: 5000 });
+  const ficha = await p.evaluate(() => ({ linhas: [...document.querySelectorAll(".caixa .seq-lin")].map(l => l.className.replace("seq-lin", "").trim()),
+    aviso: document.querySelector(".caixa .aviso-atraso")?.textContent || "" }));
+  ok("a ficha da 2ª etapa mostra a sequência, qual é a da vez e que ela espera a 1ª",
+    JSON.stringify(ficha.linhas) === JSON.stringify(["da-vez", "esta"]) && /espera a etapa 1/.test(ficha.aviso), JSON.stringify(ficha));
+  await p.keyboard.press("Escape");
+  await p.waitForTimeout(300);
+  // Lista e Agenda: o mesmo, de dois jeitos
+  await p.click('.troca-vista .seg-op[data-vista="lista"]');
+  await p.waitForSelector(".so-tabela .grade.mov", { timeout: 5000 });
+  ok("o botão Lista troca o calendário pela tabela", await p.evaluate(() => !document.querySelector(".cal") && !!document.querySelector(".grade.mov")));
+  await p.click('.troca-vista .seg-op[data-vista="agenda"]');
+  await p.waitForTimeout(300);
 }
 
 // ── designar o executante num toque, e em lote ─────────────────────────────
@@ -1654,34 +1726,59 @@ ok("um clique aprova: Concluída com atraso, concluída pelo Pedro, aprovada pel
     const sem = await nova("15 mil km", mkt.M.somaDias(ref, 12));
     return { ids: { lib, sem }, mes };
   }, F);
-  await p.evaluate(() => { location.hash = "#/preventivas?v=plano"; });
-  await p.waitForSelector(".pf-quadro");
+  await p.evaluate(() => { location.hash = "#/preventivas?v=plano&passo="; });
+  await p.waitForSelector(".passos");
   await p.fill(".filtros .busca", F);
   await p.waitForTimeout(500);
   const filas = await p.evaluate(ids => ({
-    programar: !!document.querySelector(`.pf-col[data-fila="programar"] .pf-lin[data-id="${ids.lib}"]`),
-    liberar: !!document.querySelector(`.pf-col[data-fila="liberar"] .pf-lin[data-id="${ids.sem}"]`),
-    botao: (document.querySelector(`.pf-col[data-fila="programar"] .pf-lin[data-id="${ids.lib}"] button`) || {}).textContent || "",
+    programar: !!document.querySelector(`.pv-lin[data-passo="parada"][data-id="${ids.lib}"]`),
+    liberar: !!document.querySelector(`.pv-lin[data-passo="liberar"][data-id="${ids.sem}"]`),
+    botao: (document.querySelector(`.pv-lin[data-id="${ids.lib}"] button.passo-b`) || {}).textContent || "",
+    trilha: (document.querySelector(`.pv-lin[data-id="${ids.lib}"] .trilha`) || {}).title || "",
+    contaParada: (document.querySelector('.passo-c[data-passo="parada"] .pc-v') || {}).textContent || "",
     semNull: !/(^|\W)null(\W|$)/.test(document.querySelector("main").innerText),
   }), ids);
-  ok("a liberada cai em 'Programar a parada' e a sem liberação em 'Cobrar a liberação'",
-    filas.programar && filas.liberar, JSON.stringify(filas));
-  ok("o botão já diz a data sugerida para a parada", /^Programar \d\d\/\d\d$/.test(filas.botao), filas.botao);
-  ok("nenhum \"null\" solto nas filas", filas.semNull);
-  await p.click(`.pf-col[data-fila="programar"] .pf-lin[data-id="${ids.lib}"] button`);
+  ok("a liberada fica no passo 2 (Parada) e a sem liberação no passo 1 (Liberação)",
+    filas.programar && filas.liberar && filas.trilha === "passo 2 de 4: Parada", JSON.stringify(filas));
+  ok("o botão do passo já diz a data sugerida para a parada", /^Marcar \d\d\/\d\d$/.test(filas.botao), filas.botao);
+  ok("nenhum \"null\" solto na lista do mês", filas.semNull);
+  // o cartão do passo filtra a lista
+  await p.click('.passo-c[data-passo="liberar"]');
+  await p.waitForTimeout(300);
+  const soLib = await p.evaluate(ids => ({ lib: !!document.querySelector(`.pv-lin[data-id="${ids.lib}"]`),
+    sem: !!document.querySelector(`.pv-lin[data-id="${ids.sem}"]`) }), ids);
+  ok("tocar no passo Liberação deixa só as que esperam a operação", !soLib.lib && soLib.sem, JSON.stringify(soLib));
+  await p.click('.passo-c[data-passo="liberar"]');
+  await p.waitForTimeout(300);
+  await p.click(`.pv-lin[data-id="${ids.lib}"] button.passo-b`);
   await p.waitForSelector(".caixa input[type=date]");
   const sugerida = await p.inputValue(".caixa input[type=date]");
   ok("e abre a caixa da parada com essa data preenchida", sugerida && filas.botao.endsWith(sugerida.slice(8, 10) + "/" + sugerida.slice(5, 7)),
     sugerida);
   await p.click('.caixa footer button:has-text("Cancelar")');
   await p.waitForTimeout(300);
-  // a OS da preventiva, digitada na linha da tabela
-  await p.click(`.grade.prev input.os-in[data-id="${ids.sem}"]`);
+  // a ficha: o passo a passo com as datas, e a OS se digita nela
+  await p.evaluate(async id => { const pv = await import("/js/tela/preventivas.js"); pv.abrirFichaPrev(id, mkt.ctx); }, ids.lib);
+  await p.waitForSelector(".caixa .passo-a-passo");
+  const fichaPasso = await p.evaluate(() => ({
+    passos: [...document.querySelectorAll(".caixa .passo-a-passo li")].map(li => li.className + ":" + li.querySelector("b").textContent),
+    falta: (document.querySelector(".caixa .fp-falta") || {}).textContent || "",
+    primeiro: (document.querySelector(".caixa footer button") || {}).textContent || "" }));
+  ok("a ficha mostra o passo a passo, o que falta e o botão do próximo passo primeiro",
+    fichaPasso.passos.join() === "feito:Liberação,agora:Parada,:Chegada,:Baixa" && /falta marcar o dia da parada/.test(fichaPasso.falta) &&
+    fichaPasso.primeiro === "Marcar parada", JSON.stringify(fichaPasso));
+  await p.keyboard.press("Escape");
+  await p.waitForTimeout(300);
+  await p.evaluate(async id => { const pv = await import("/js/tela/preventivas.js"); pv.abrirFichaPrev(id, mkt.ctx); }, ids.sem);
+  await p.waitForSelector(`.caixa input.os-in[data-id="${ids.sem}"]`);
+  await p.click(`.caixa input.os-in[data-id="${ids.sem}"]`);
   await p.keyboard.type(OSP);
   await p.keyboard.press("Enter");
   await p.waitForFunction(id => mkt.ev.porId(id, "preventiva").os, ids.sem, { timeout: 5000 }).catch(() => {});
-  ok("a OS da preventiva se digita na linha, com Enter",
+  ok("a OS da preventiva se digita na ficha, com Enter",
     (await p.evaluate(id => mkt.ev.porId(id, "preventiva").os, ids.sem)) === OSP);
+  await p.keyboard.press("Escape");
+  await p.waitForTimeout(300);
   await p.fill(".filtros .busca", "");
   await p.waitForTimeout(300);
 }
@@ -1787,9 +1884,9 @@ ok("um clique aprova: Concluída com atraso, concluída pelo Pedro, aprovada pel
   await av.waitForTimeout(500);
   // As abas: um assunto por vez; "Para resolver" mostra quantos.
   const abasAv = await av.evaluate(() => [...document.querySelectorAll(".abas .aba")].map(b => b.textContent));
-  ok("a Avaliação vem em abas: Resumo, Para resolver (com quantos), Análise e Todos os atrasos",
-    abasAv.length === 4 && abasAv[0] === "Resumo" && /^Para resolver\d+$/.test(abasAv[1]) && abasAv[2] === "Análise",
-    JSON.stringify(abasAv));
+  ok("a Avaliação vem em abas: Resumo, Para resolver (com quantos), Motivos, Análise e Todos os atrasos",
+    abasAv.length === 5 && abasAv[0] === "Resumo" && /^Para resolver\d+$/.test(abasAv[1]) && abasAv[2] === "Motivos" &&
+    abasAv[3] === "Análise", JSON.stringify(abasAv));
   const aba = async id => { await av.click(`.abas [data-aba="${id}"]`); await av.waitForTimeout(400); };
   await aba("resolver");
   const agora = await av.evaluate(frota => [...document.querySelectorAll("#av-agora + .tabela-rolagem tbody tr")]
@@ -1806,8 +1903,9 @@ ok("um clique aprova: Concluída com atraso, concluída pelo Pedro, aprovada pel
   const pede = await av.evaluate(() => ({ aviso: document.querySelector(".caixa p.nada").textContent,
     porque: !document.querySelector(".caixa .justificar").closest("[hidden]") }));
   ok("chegou dois dias depois da parada: a caixa diz e pede o porquê", /2 dias depois/.test(pede.aviso) && pede.porque, JSON.stringify(pede));
-  await av.fill(".caixa .justificar textarea", "frota voltou de viagem só na terça");
-  await av.fill(".caixa .justificar input", "Operação");
+  await av.click('.caixa .justificar .chip-op[data-cat="operacao"]');
+  await av.fill(".caixa .justificar input >> nth=0", "frota voltou de viagem só na terça");
+  await av.click('.caixa .justificar .chip-op[data-quem="Operação"]');
   await av.click('.caixa button:has-text("Gravar")');
   await av.waitForTimeout(700);
   const depois = await av.evaluate(([id, frota]) => {
@@ -1821,7 +1919,7 @@ ok("um clique aprova: Concluída com atraso, concluída pelo Pedro, aprovada pel
   await aba("resumo");
   depois.kpi = await av.evaluate(() => [...document.querySelectorAll(".kpi")].find(k => k.textContent.includes("Frotas no dia da preventiva"))?.textContent || "");
   ok("gravou a chegada com o combinado e o porquê, e a preventiva ficou em andamento",
-    JSON.stringify(depois.p) === JSON.stringify([ids.ontem, depois.p[1], "frota voltou de viagem só na terça", "Operação", true]) && !!depois.p[1],
+    JSON.stringify(depois.p) === JSON.stringify([ids.ontem, depois.p[1], "Frota em viagem ou em uso — frota voltou de viagem só na terça", "Operação", true]) && !!depois.p[1],
     JSON.stringify(depois.p));
   ok("saiu do atrasando agora e entrou nos atrasos do período, com o motivo", !depois.aindaAtrasando && depois.noPeriodo, JSON.stringify(depois));
   ok("e o número das frotas no dia da preventiva já conta", /chegaram no dia/.test(depois.kpi), depois.kpi);
@@ -1833,6 +1931,22 @@ ok("um clique aprova: Concluída com atraso, concluída pelo Pedro, aprovada pel
   const analise = await av.evaluate(() => [...document.querySelectorAll(".bi-grade .g-card .g-tit")].map(t => t.textContent));
   ok("e a Análise, o resto: pontualidade, frotas, categoria e tamanho", analise.includes("Frotas com mais atrasos") &&
     analise.includes("Tamanho dos atrasos") && !analise.includes("Por que atrasou"), analise.join(" | "));
+  // Os motivos, organizados: cada motivo com quantos, os dias e quem; tocar
+  // abre os atrasos dele.
+  await aba("motivos");
+  const motivo = await av.evaluate(() => { const l = document.querySelector('.mt-lin[data-motivo="operacao"]');
+    return l && { nome: l.querySelector(".mt-nome b").textContent, quem: l.querySelector(".mt-quem").textContent }; });
+  ok("na aba Motivos, a chegada atrasada está em 'Frota em viagem ou em uso', com quem atrasou",
+    !!motivo && motivo.nome === "Frota em viagem ou em uso" && /Operação \d+/.test(motivo.quem), JSON.stringify(motivo));
+  await av.click('.mt-lin[data-motivo="operacao"]');
+  await av.waitForTimeout(400);
+  const doMotivo = await av.evaluate(frota => ({ aba: document.querySelector(".aba.on")?.dataset.aba,
+    filtro: document.querySelector(".chip-filtro")?.textContent || "",
+    tem: [...document.querySelectorAll(".tabela.avaliacao tbody tr")].some(tr => tr.textContent.includes(frota)) }), FAV);
+  ok("e tocar no motivo abre Todos os atrasos só dele, com a etiqueta do filtro", doMotivo.aba === "lista" &&
+    /Motivo: Frota em viagem ou em uso/.test(doMotivo.filtro) && doMotivo.tem, JSON.stringify(doMotivo));
+  await av.click(".chip-filtro");
+  await av.waitForTimeout(300);
   await aba("lista");
 
   await av.fill(".filtros input.busca-frota", FAV);

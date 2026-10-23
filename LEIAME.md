@@ -36,7 +36,7 @@ A oficina devolver a frota atrasada **não** conta: o que se avalia é a operaç
 - **A frota chegou** é um lançamento novo (`prev_entregue`), do PCM: no dia da
   parada ou depois, o botão está na fila *Dar baixa* das Preventivas, na ficha,
   nas decisões e na própria Avaliação. Chegou depois da parada, a caixa pede o
-  porquê e o responsável — pode ficar para depois. Sem parada marcada não há
+  porquê e o responsável — e sem eles não grava (desde 23/10). Sem parada marcada não há
   dia combinado: a frota liberada está esperando o PCM, não atrasando.
 - **Remarcar a liberação exige o motivo.** A primeira liberação, e confirmar a
   mesma data, não pedem.
@@ -44,12 +44,14 @@ A oficina devolver a frota atrasada **não** conta: o que se avalia é a operaç
   a frota no alto — **qualquer frota se digita**, lançada ou não: "617" acha a
   F-617, um pedaço do número mostra as que têm ele, e a frota que ninguém lançou
   aparece vazia, dizendo que não há nada dela (o mesmo no filtro do Registro).
-  Embaixo, **quatro abas**, um assunto por vez:
+  Embaixo, **cinco abas**, um assunto por vez:
   - **Resumo** — quatro números (movimentações no prazo, frotas no dia da
     preventiva, liberações remarcadas, atrasando agora), a faixa do que pede
     ação, e três gráficos: semana a semana, por que atrasou e quem atrasou;
   - **Para resolver** — o que está atrasando agora e o que falta justificar,
     cada linha com o botão que resolve (o número da aba é quantos são);
+  - **Motivos** — cada motivo pronto numa linha: quantos atrasos (a barra, nas
+    cores dos tipos), os dias somados e quem atrasou; tocar abre os atrasos dele;
   - **Análise** — pontualidade por semana, frotas, categoria e tamanho do atraso;
   - **Todos os atrasos** — a tabela do período, com busca.
   A pontualidade conta só o que tinha data combinada; o sem prazo aparece à
@@ -79,6 +81,48 @@ A oficina devolver a frota atrasada **não** conta: o que se avalia é a operaç
   aparelho lembra). As barras de filtro de todas as telas são um cartão só, com
   os controles da mesma altura; os segmentos são uma pílula com a opção
   escolhida em relevo; as abas separam assuntos.
+
+### Desde 23/10/2026: agenda, etapas, motivos prontos e o passo a passo
+
+O visual segue o exemplo que o PCM mandou (um app de agenda): menu lateral
+azul-marinho, fundo cinza-azulado, cartões brancos bem redondos, o azul da
+marca (`#2563eb`) no botão principal e no dia de hoje, a busca numa pílula com
+lupa. As etiquetas do calendário são pares de cor (texto escuro sobre o mesmo
+tom bem claro), todos acima de 4,5:1, e sempre levam o texto.
+
+- **Movimentação abre na Agenda** (o botão **Lista** volta para a tabela de
+  antes; `?vista=lista` no endereço, e `?v=` de um recorte também abre a lista).
+  O mês em calendário: cada movimentação no dia do prazo — a concluída, no dia
+  em que foi feita — na cor da situação. Do lado: o dia tocado (Hoje, de
+  início), as atrasadas com Concluir e Justificar, a fila de aprovação do PCM,
+  a pontualidade do mês num anel e as sem prazo (que não vão ao calendário). No
+  celular, cada etiqueta vira um ponto e o dia tocado abre embaixo. O
+  calendário é `js/tela/calendario.js`, o mesmo das Preventivas.
+- **Sequência de etapas para a mesma frota** (lavar → levar ao fornecedor): no
+  "+ Nova", **+ Adicionar etapa**. Cada etapa é uma movimentação inteira, com
+  categoria, o que fazer, onde e prazo próprios — conta sozinha na Avaliação.
+  As etapas têm o mesmo `roteiro` e `etapa` 1, 2, 3… Enquanto a anterior não é
+  feita, a seguinte mostra "espera a 1" (no calendário, apagada). A ficha mostra
+  a sequência e qual é a da vez, e tem **+ Próxima etapa** (que transforma uma
+  movimentação avulsa na etapa 1).
+- **O porquê do atraso é obrigatório e se toca**: concluir uma movimentação
+  depois do prazo, anotar a chegada da frota depois da parada ou remarcar a
+  liberação pede o motivo pronto (outra prioridade, frota em viagem, esperando
+  outra frota, esperando outra etapa, sem motorista, fornecedor sem vaga, falta
+  de peça, outro) e quem atrasou (Operação, Motorista, Fornecedor, Oficina,
+  PCM, ou escrito). O detalhe é livre; em "Outro motivo", obrigatório. As
+  justificativas antigas, em texto, caem no motivo que as palavras indicam
+  (`M.categoriaDoMotivo`), sem regravar nada.
+- **Preventivas em passo a passo.** Cada frota está num de quatro passos, cada
+  um de alguém: **1 Liberação** (a operação diz quando a frota fica livre),
+  **2 Parada** (o PCM marca o dia), **3 Chegada** (a frota chega na oficina),
+  **4 Baixa** (o PCM dá a baixa). No alto, os passos em cartões com quantas
+  frotas em cada — tocar filtra. A lista vem agrupada pelo passo; cada linha
+  tem as quatro bolinhas, a frase do que falta ("A parada era 08/10 e a frota
+  não chegou") e **um botão só**, o do próximo passo. A ficha abre com o passo a
+  passo e as datas de cada um, e o botão do próximo passo em destaque; a OS se
+  digita nela. A vista **Calendário** põe as paradas no mês. A Situação da
+  planilha continua por baixo — é ela que os números conferem.
 
 **As telas da oficina saíram do menu, mas nada foi apagado.** Painel, Hoje,
 Programação, Semana, Resultados e Frota continuam no código, e os lançamentos
