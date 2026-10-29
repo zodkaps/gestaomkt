@@ -953,6 +953,7 @@ export function descreverEvento(e, comAtividade = false) {
     }
     case "prev_parada": txt = `parada programada para ${br(d.dia)}`; break;
     case "prev_realizada": txt = `preventiva realizada em ${br(d.em)}`; break;
+    case "prev_fechada": txt = `OS da preventiva${d.os ? " " + d.os : ""} fechada em ${br(d.em)}`; break;
     case "semana_fechada": {
       const p = v => v == null ? "—" : (Math.round(v * 1000) / 10).toLocaleString("pt-BR") + "%";
       txt = `semana ${d.semana} fechada: aderência ${p(d.aderencia)} · cumprimento ${p(d.cumprimento)}` +

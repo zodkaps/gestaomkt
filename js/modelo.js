@@ -447,6 +447,8 @@ export function moldePreventiva() {
     // — com o motivo da última. A liberação da operação também se conta.
     parada_orig: "", reprog_parada: 0, motivo_parada: "", reprog_liberacao: 0,
     pendencias: 0, realizada_em: "", realizada_sem_data: false,
+    // O fechamento: o dia em que a OS da preventiva foi encerrada no Protheus.
+    fechada_em: "",
     em_andamento: false, adiada: false, cancelada: false,
     // A entrega da frota na oficina para a parada (ver `prev_entregue`): o dia
     // em que chegou, o dia combinado naquele momento e, quando chegou depois
@@ -575,6 +577,44 @@ export function atrasoEntrega(p, ref) {
     return p.entrega_combinada ? Math.max(0, difDias(p.entrega_combinada, p.entregue_em) || 0) : 0;
   }
   return entregaAtrasando(p, ref) ? Math.max(0, difDias(combinadoEntrega(p), ref || hoje()) || 0) : 0;
+}
+
+// ── a planilha em blocos ───────────────────────────────────────────────────
+// A aba Preventivas também se lê como a planilha do PCM: cada frota numa
+// linha, e as datas em quatro blocos — disponibilidade, parada, realização do
+// serviço e fechamento. Aqui só as contas de cada bloco; a tela é
+// `js/tela/prevplanilha.js`.
+
+/** Dias de oficina: da entrada da frota até a realização (ou até hoje, se
+ *  ainda está lá). Sem a entrada anotada, não há conta. */
+export function diasNaOficina(p, ref) {
+  if (!p.entregue_em) return null;
+  const fim = p.realizada_em || (preventivaFeita(p) || p.adiada || p.cancelada ? "" : ref || hoje());
+  return fim ? Math.max(0, difDias(p.entregue_em, fim) || 0) : null;
+}
+
+/** Como a preventiva terminou, ou como está, contra o vencimento: a coluna
+ *  Resultado do bloco Fechamento. `classe` é a cor do chip. */
+export function resultadoPreventiva(p, ref) {
+  const lim = venceEfetivo(p);
+  if (p.cancelada) return { texto: "Cancelada", classe: "cancelada", motivo: p.motivo || "" };
+  if (p.adiada) return { texto: "Adiada para o mês seguinte", classe: "hoje", motivo: p.motivo || "" };
+  if (preventivaFeita(p)) {
+    if (!p.realizada_em) return { texto: "Realizada, sem a data", classe: "programada" };
+    if (!lim) return { texto: "Realizada", classe: "ok" };
+    const n = difDias(lim, p.realizada_em);
+    return n > 0 ? { texto: `${n} dia${n === 1 ? "" : "s"} depois do vencimento`, classe: "ok-tarde" }
+      : { texto: "No prazo", classe: "ok" };
+  }
+  if (preventivaVencida(p, ref)) {
+    const n = difDias(lim, ref || hoje());
+    return { texto: `Vencida há ${n} dia${n === 1 ? "" : "s"}`, classe: "vencida" };
+  }
+  if (lim) {
+    const n = difDias(ref || hoje(), lim);
+    return { texto: n === 0 ? "Vence hoje" : `Vence em ${n} dia${n === 1 ? "" : "s"}`, classe: n <= 3 ? "hoje" : "andando" };
+  }
+  return { texto: "Em aberto", classe: "programada" };
 }
 
 /** Os números do alto da aba Preventivas, com as mesmas contas. */

@@ -27,7 +27,7 @@ const fita = () => OFICINA ? ev.log : ev.log.filter(e => e.alvo_tipo in ALVOS);
 // sem a oficina.
 const TIPOS_DO_SITE = new Set(["criada", "importada", "editada", "excluida", "justificada",
   "mov_prometida", "mov_chegou", "mov_aprovada", "mov_devolvida", "mov_cancelada",
-  "prev_disponivel", "prev_parada", "prev_entregue", "prev_andamento", "prev_realizada", "prev_adiada",
+  "prev_disponivel", "prev_parada", "prev_entregue", "prev_andamento", "prev_realizada", "prev_fechada", "prev_adiada",
   "prev_cancelada", "prev_reaberta"]);
 const ORIGENS = { manual: "lançado no site", planilha: "da planilha", claude: "pedido ao Claude",
   painel: "decisão do Painel", vinculo: "preventiva ↔ OS (automático)" };

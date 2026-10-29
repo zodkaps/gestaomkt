@@ -30,6 +30,7 @@ import { listaDecisoes } from "./decidir.js";
 import { conciliacao, descrever as descreverLigacao, eventosDaConciliacao } from "../vinculo.js";
 import { OFICINA } from "../foco.js";
 import { calendarioMes, agenda, cartaoTrilho, itemAgenda, anel, diaPorExtenso } from "./calendario.js";
+import { pintarPlanilha } from "./prevplanilha.js";
 
 // ── o cartão (celular, e a tela Para você) ──────────────────────────────────
 
@@ -423,6 +424,7 @@ const CAMPOS_PREV = {
   frota: ["frota"], plano: ["preventivas"], qtd: ["quantidade"], vence: ["vencimento", "data"],
   prazo_service: ["prazo do Service", "data"], dia_parada: ["parada", "data"], onde_fazer: ["onde fazer"],
   equipamento: ["equipamento"], local: ["local"], os: ["OS"], hh: ["HH"], realizada_em: ["realizada em", "data"],
+  fechada_em: ["OS fechada em", "data"],
   em_andamento: ["em andamento", "sim"], fora: ["fora do plano", "sim"], obs: ["observação"], mes: ["mês do plano"],
 };
 const valorCampo = (v, tipo) => v == null || v === "" ? "—"
@@ -457,6 +459,11 @@ export function descreverMudancaPrev(m) {
     }
     case "prev_adiada": return r("reprogramacao", "adiou para o próximo mês");
     case "prev_realizada": return r("realizacao", `registrou a realização em ${brCurto(d.em)}`, detalhes(["realizada_em", "em_andamento"]));
+    case "prev_fechada": {
+      const de = antes && antes.fechada_em;
+      return r("fechamento", de && de !== d.em ? `corrigiu o fechamento da OS: ${brCurto(de)} → ${brCurto(d.em)}`
+        : `fechou a OS${d.os ? " " + d.os : ""} em ${brCurto(d.em)}`, detalhes(["fechada_em", "os"]));
+    }
     case "prev_andamento": return r("andamento", d.sim === false ? "retirou de em andamento" : "marcou em andamento");
     case "prev_entregue": {
       const n = d.combinado ? Math.max(0, M.difDias(d.combinado, d.em) || 0) : 0;
@@ -492,6 +499,32 @@ export async function darPorFeita(p) {
     await ev.aplicar(r);
     avisar(`${p.frota}: preventiva realizada.`);
   } catch (e) { erro(e.message); }
+}
+
+/** O fechamento: a OS da preventiva encerrada no Protheus. Vem depois da
+ *  realização — às vezes dias depois —, por isso tem data própria. */
+export async function fecharOSPrev(p) {
+  const eData = el("input", { type: "date", value: p.fechada_em || M.hoje(), max: M.hoje(), min: p.realizada_em || "" });
+  const eOS = el("input", { value: p.os, inputmode: "numeric", placeholder: "OS no Protheus" });
+  const r = await caixa({
+    titulo: p.fechada_em ? "Corrigir o fechamento da OS" : "Fechar a OS da preventiva",
+    corpo: el("div", {},
+      el("p", {}, el("b", {}, p.frota), p.plano ? ` · ${p.plano}` : "",
+        p.realizada_em ? ` · realizada em ${br(p.realizada_em)}` : ""),
+      el("p", { class: "nada" }, "O dia em que a OS foi encerrada no Protheus. Fica no registro da preventiva."),
+      campo("OS fechada em", eData), campo("OS", eOS)),
+    acoes: [{ rotulo: "Cancelar", valor: false },
+      { rotulo: "Gravar", classe: "primario", acao: () => {
+        const os = eOS.value.replace(/\D+/g, "");
+        return ev.fecharPreventiva(p, eData.value, os ? os.padStart(6, "0") : "");
+      } }],
+  });
+  if (!r) return false;
+  try {
+    await ev.aplicar(r);
+    avisar(`${p.frota}: OS fechada em ${br(r.dados.em)}.`);
+    return true;
+  } catch (x) { erro(x.message); return false; }
 }
 
 export async function passarParaOMesSeguinte(p) {
@@ -542,14 +575,14 @@ export async function reabrirPrev(p) {
   } catch (x) { erro(x.message); }
 }
 
-const TIPO_MUDANCA = {
+export const TIPO_MUDANCA = {
   inclusao: ["Inclusão", ""], liberacao: ["Liberação", "andando"], parada: ["Parada", "andando"],
   reprogramacao: ["Reprogramação", "hoje"], realizacao: ["Realização", "ok"], andamento: ["Andamento", ""],
   cancelamento: ["Cancelamento", "vencida"], reabertura: ["Reabertura", ""], edicao: ["Edição", ""],
-  entrega: ["Chegada", "ok"],
+  entrega: ["Chegada", "ok"], fechamento: ["Fechamento", "ok"],
 };
 
-function linhaMudanca(m, comFrota = false) {
+export function linhaMudanca(m, comFrota = false) {
   const e = m.e;
   const [rot, cor] = TIPO_MUDANCA[m.tipo] || ["Mudança", ""];
   const quando = new Date(e.ts);
@@ -620,11 +653,12 @@ export async function abrirFichaPrev(id, ctx) {
       OFICINA ? linha("Pendências na carteira", p.pendencias ? String(p.pendencias) : null) : null,
       linha("Realizada em", p.realizada_em ? br(p.realizada_em)
         : p.realizada_sem_data ? "marcada Realizada na planilha, sem a data" : null),
+      linha("OS fechada em", p.fechada_em ? br(p.fechada_em) : M.preventivaFeita(p) ? el("span", { class: "nada" }, "a fechar") : null),
       linha("Por que está fora", p.por_que_fora),
       linha("Se não for realizada, motivo", p.motivo),
       linha("Observação", p.obs)),
     el("h2", { class: "mini" }, `Registro de mudanças · ${hist.length}`),
-    el("div", {}, hist.map(linhaMudanca)));
+    el("div", {}, hist.map(m => linhaMudanca(m))));
 
   // O botão do próximo passo vem primeiro e em destaque; os outros, depois.
   const acoes = [];
@@ -655,6 +689,10 @@ export async function abrirFichaPrev(id, ctx) {
     if (p.realizada_sem_data) {
       acoes.push({ rotulo: "Informar a data", classe: "primario", acao: async () => { await darPorFeita(p); } });
     }
+    if (M.preventivaFeita(p) && pessoas.pode("preventiva_feita")) {
+      acoes.push({ rotulo: p.fechada_em ? "Corrigir o fechamento" : "Fechar a OS", ...(p.fechada_em || p.realizada_sem_data ? {} : { classe: "primario" }),
+        acao: async () => { await fecharOSPrev(p); } });
+    }
     acoes.push({ rotulo: "Reabrir", acao: async () => { await reabrirPrev(p); } });
   }
   await caixa({ titulo: p.frota || "Preventiva", corpo, acoes, largura: "640px" });
@@ -680,7 +718,7 @@ export async function gravarOSPrev(p, texto) {
   } catch (x) { erro(x.message); return false; }
 }
 
-function campoOSPrev(p) {
+export function campoOSPrev(p) {
   const entrada = el("input", {
     class: "os-in", inputmode: "numeric", placeholder: "sem OS", "aria-label": `OS da preventiva da ${p.frota}`,
     title: "Digite a OS e aperte Enter", dataset: { id: p.id },
@@ -839,7 +877,7 @@ function passoAPasso(p, ref) {
 }
 
 /** A linha do mês: quanto saiu, quanto venceu, e quanto do mês já passou. */
-function linhaDoMes(r, mes, ref) {
+export function linhaDoMes(r, mes, ref) {
   const [ano, m] = mesDoPlano(mes).split("-").map(Number);
   const noMes = ano && ref.slice(0, 7) === mesDoPlano(mes);
   const diasMes = ano ? new Date(Date.UTC(ano, m, 0)).getUTCDate() : 30;
@@ -857,7 +895,7 @@ function linhaDoMes(r, mes, ref) {
       noMes ? el("i", { class: "ml-hoje", style: `left:${pctMes}%` }) : null));
 }
 
-function tabelaFora(itens, ctx) {
+export function tabelaFora(itens, ctx) {
   return el("div", { class: "rolagem" }, el("table", { class: "tabela fora" },
     el("thead", {}, el("tr", {},
       ["Frota", "Equipamento", "Local", "Preventivas", "Qtd.", "Por que está fora", "Observação"]
@@ -896,14 +934,16 @@ const PASSO_DA_SIT = { "Sem data da Operação": "liberar", "Disponível: marcar
   "Programada depois do prazo": "chegada", "Parada passou, sem baixa": "chegada", "Em andamento": "baixa",
   "Realizada": "feita", "Passa para o mês seguinte": "fora", "Cancelada": "fora" };
 
-const estado = { mes: "", busca: "", passo: "", foraAberto: false, vista: "plano", tipoMud: "", dia: "" };
+const estado = { mes: "", busca: "", passo: "", foraAberto: false, vista: "planilha", tipoMud: "", dia: "",
+  // a vista Planilha: o filtro, a ordem e os registros abertos
+  plFiltro: "", plOrdem: "agenda", plAbertos: new Set() };
 
 // As etiquetas do calendário das preventivas, e o que cada cor quer dizer.
 const LEGENDA_PREV = [["aberta", "Parada marcada"], ["hoje", "Parada hoje"], ["atrasada", "Não chegou"],
   ["aprovar", "Na oficina"], ["feita", "Realizada"], ["libera", "Liberação prevista"]];
 
 export async function montar(raiz, ctx, params = new URLSearchParams()) {
-  if (["plano", "calendario", "painel", "mudancas"].includes(params.get("v"))) estado.vista = params.get("v");
+  if (["planilha", "plano", "calendario", "painel", "mudancas"].includes(params.get("v"))) estado.vista = params.get("v");
   if (params.get("passo") != null) estado.passo = ORDEM_PASSO.includes(params.get("passo")) ? params.get("passo") : "";
   const fBusca = el("input", { class: "busca", type: "search", value: estado.busca,
     placeholder: "frota, equipamento, local, OS…",
@@ -921,10 +961,11 @@ export async function montar(raiz, ctx, params = new URLSearchParams()) {
   const titulo = el("span", { class: "sub" });
   const corpo = el("div", {});
 
-  // Quatro jeitos de olhar o mesmo mês: a lista de trabalho (o passo a passo),
-  // as paradas no calendário, o painel com os números e as decisões, e o
-  // registro do que mudou.
-  const vistas = el("div", { class: "segmentos" }, [["plano", "Plano"], ["calendario", "Calendário"], ["painel", "Painel"], ["mudancas", "Mudanças"]]
+  // Cinco jeitos de olhar o mesmo mês: a planilha em blocos (a de entrada,
+  // desde 29/10/2026), a lista de trabalho (o passo a passo), as paradas no
+  // calendário, o painel com os números e as decisões, e o registro do que mudou.
+  const vistas = el("div", { class: "segmentos" }, [["planilha", "Planilha"], ["plano", "Passo a passo"], ["calendario", "Calendário"],
+    ["painel", "Painel"], ["mudancas", "Mudanças"]]
     .map(([v, t]) => el("button", { class: "seg-op", dataset: { v },
       onclick: () => { estado.vista = v; pintar(); } }, t)));
   raiz.append(
@@ -933,7 +974,7 @@ export async function montar(raiz, ctx, params = new URLSearchParams()) {
       pessoas.pode("parada") ? el("button", { class: "primario",
         onclick: async () => {
           const id = await incluirPreventiva(estado.mes);
-          if (id) { const p = ev.porId(id, "preventiva"); if (p && p.mes) estado.mes = p.mes; estado.vista = "plano"; pintar(); }
+          if (id) { const p = ev.porId(id, "preventiva"); if (p && p.mes) estado.mes = p.mes; if (estado.vista !== "planilha") estado.vista = "plano"; pintar(); }
         } }, "+ Incluir frota") : null),
     el("div", { class: "filtros" }, fBusca, titulo),
     corpo);
@@ -961,6 +1002,7 @@ export async function montar(raiz, ctx, params = new URLSearchParams()) {
     if (!doMes.length) return pintarMesVazio(meses);
     if (estado.vista === "painel") return pintarPainel(doMes, ref);
     if (estado.vista === "mudancas") return pintarMudancas(doMes);
+    if (estado.vista === "planilha") return pintarPlanilha(corpo, { doMes, ref, ctx, estado, repintar: pintar });
     const plano = doMes.filter(p => !p.fora && !p.excluida);
     const fora = doMes.filter(p => p.fora && !p.excluida).sort((a, b) => natural(a.frota, b.frota));
     const r = M.resumoPreventivas(doMes, ref);

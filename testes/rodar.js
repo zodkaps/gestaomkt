@@ -1458,5 +1458,49 @@ titulo("modelo.js — o passo a passo da preventiva");
     ["1 Liberação · Operação", "2 Parada · PCM", "3 Chegada · Operação", "4 Baixa · PCM"]);
 }
 
+titulo("a planilha em blocos — fechamento e resultado");
+{
+  const H = "2026-10-29";
+  const P = extra => ({ ...modelo.moldePreventiva(), frota: "F-1", vence: "2026-10-25", ...extra });
+  igual("o resultado diz como terminou contra o vencimento", [
+    P({ realizada_em: "2026-10-24" }), P({ realizada_em: "2026-10-27" }), P({ realizada_sem_data: true }),
+    P({ adiada: true, motivo: "frota em viagem" }), P({ cancelada: true }), P({}), P({ vence: "2026-10-30" }), P({ vence: "" }),
+  ].map(p => { const r = modelo.resultadoPreventiva(p, H); return [r.texto, r.classe]; }), [
+    ["No prazo", "ok"], ["2 dias depois do vencimento", "ok-tarde"], ["Realizada, sem a data", "programada"],
+    ["Adiada para o mês seguinte", "hoje"], ["Cancelada", "cancelada"], ["Vencida há 4 dias", "vencida"],
+    ["Vence em 1 dia", "hoje"], ["Em aberto", "programada"]]);
+  igual("e o adiamento leva o porquê", modelo.resultadoPreventiva(P({ adiada: true, motivo: "frota em viagem" }), H).motivo, "frota em viagem");
+  igual("dias de oficina: da entrada à realização, ou até hoje", [
+    modelo.diasNaOficina(P({ entregue_em: "2026-10-21", realizada_em: "2026-10-26" }), H),
+    modelo.diasNaOficina(P({ entregue_em: "2026-10-27" }), H), modelo.diasNaOficina(P({}), H)], [5, 2, null]);
+
+  await pessoas.entrarLocal("Mateus");
+  const [cri] = await ev.aplicar(ev.novaPreventiva({ ...modelo.moldePreventiva(), frota: "F-FECHA", mes: "Out-26", id: undefined }), { silencioso: true });
+  let p = ev.porId(cri.alvo, "preventiva");
+  let recusa = "";
+  try { ev.fecharPreventiva(p, "2026-10-20"); } catch (e) { recusa = e.message; }
+  ok("fechar a OS antes de realizada é recusado", /baixa/i.test(recusa), recusa);
+  await ev.aplicar(ev.preventivaFeita(p, "2026-10-20", "012345"), { silencioso: true });
+  p = ev.porId(cri.alvo, "preventiva");
+  recusa = "";
+  try { ev.fecharPreventiva(p, "2026-10-19"); } catch (e) { recusa = e.message; }
+  ok("e antes do dia da realização também", /antes da realização/.test(recusa), recusa);
+  recusa = "";
+  try { ev.fecharPreventiva(p, modelo.somaDias(modelo.hoje(), 1)); } catch (e) { recusa = e.message; }
+  ok("e depois de hoje", /depois de hoje/.test(recusa), recusa);
+  await ev.aplicar(ev.fecharPreventiva(p, "2026-10-22"), { silencioso: true });
+  p = ev.porId(cri.alvo, "preventiva");
+  igual("fechada: o dia fica, e a OS da realização vai junto", [p.fechada_em, p.os, ev.log[ev.log.length - 1].dados.os],
+    ["2026-10-22", "012345", "012345"]);
+  await ev.aplicar(ev.reabrirPreventiva(p), { silencioso: true });
+  p = ev.porId(cri.alvo, "preventiva");
+  ok("reabrir desfaz a realização e o fechamento", !p.realizada_em && !p.fechada_em);
+  ok("e a fita tocada de novo dá o mesmo", JSON.stringify(ev.reconstruir().preventiva.get(p.id)) === JSON.stringify(p));
+  await pessoas.sair();
+  recusa = "";
+  try { ev.fecharPreventiva({ ...p, realizada_em: "2026-10-20" }, "2026-10-22"); } catch (e) { recusa = e.message; }
+  ok("sem ser do PCM, não fecha", /permissão/.test(recusa), recusa);
+}
+
 console.log(`\n${passou} passaram, ${falhou} falharam`);
 if (falhou) { for (const f of falhas) console.log(`  × ${f}`); process.exit(1); }

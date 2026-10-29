@@ -43,6 +43,7 @@ export const TIPOS = {
   prev_andamento: "preventiva em andamento",
   prev_entregue: "frota entregue na oficina",
   prev_realizada: "preventiva realizada",
+  prev_fechada: "OS da preventiva fechada",
   prev_adiada: "preventiva adiada para o próximo mês",
   prev_cancelada: "preventiva cancelada",
   prev_reaberta: "preventiva reaberta",
@@ -299,6 +300,12 @@ function aplicarNoAlvo(a, ev, d) {
       a.em_andamento = false;
       if (d.os) a.os = d.os;
       break;
+    case "prev_fechada":
+      // O fechamento: a OS da preventiva encerrada no Protheus. Vem depois da
+      // realização (o serviço feito) e às vezes dias depois dela.
+      a.fechada_em = d.em || "";
+      if (d.os) a.os = d.os;
+      break;
     case "prev_andamento":
       a.em_andamento = d.sim !== false;
       break;
@@ -325,6 +332,7 @@ function aplicarNoAlvo(a, ev, d) {
       // Desfaz a baixa, o adiamento ou o cancelamento: volta para o mapa.
       a.realizada_em = "";
       a.realizada_sem_data = false;
+      a.fechada_em = "";
       a.adiada = false;
       a.cancelada = false;
       break;
@@ -798,6 +806,20 @@ export function preventivaFeita(p, em, os = "") {
   if (!em) throw new Error("Exige a data em que foi feita.");
   return { tipo: "prev_realizada", alvo: p.id, alvo_tipo: "preventiva",
     dados: { em, os } };
+}
+
+/** O fechamento: a OS da preventiva encerrada no Protheus. Só depois de
+ *  realizada, e nunca antes do dia da realização nem depois de hoje. Lançar de
+ *  novo corrige a data; o registro guarda as duas. */
+export function fecharPreventiva(p, em, os = "") {
+  pessoas.exigir("preventiva_feita");
+  if (!prevFeita(p)) throw new Error("Dê a baixa da realização antes de fechar a OS.");
+  if (!em) throw new Error("Informe o dia em que a OS foi fechada.");
+  if (em > hoje()) throw new Error("A OS não pode ter sido fechada depois de hoje.");
+  if (p.realizada_em && em < p.realizada_em) throw new Error("A OS não pode ter sido fechada antes da realização (" +
+    em.split("-").reverse().join("/") + " é antes de " + p.realizada_em.split("-").reverse().join("/") + ").");
+  return { tipo: "prev_fechada", alvo: p.id, alvo_tipo: "preventiva",
+    dados: { em, os: String(os || "").trim() || p.os || "" } };
 }
 
 export function adiarPreventiva(p, motivo) {

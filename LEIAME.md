@@ -132,6 +132,47 @@ tom bem claro), todos acima de 4,5:1, e sempre levam o texto.
   (`js/icones.js`), não caracteres — a mão do "Para você" virava emoji
   colorido em alguns aparelhos.
 
+### Desde 29/10/2026: as Preventivas como planilha em blocos
+
+O PCM pediu a aba de Preventivas "como uma planilha/agenda dividida em
+blocos", com as observações e o registro das reprogramações e das mudanças de
+disponibilidade — e o porquê de cada uma. A vista **Planilha** é agora a de
+entrada (`?v=planilha`; o passo a passo de antes continua em **Passo a passo**,
+`?v=plano`). A tela é `js/tela/prevplanilha.js`.
+
+- **Uma frota por linha, na ordem da agenda**: o que está em aberto pela
+  próxima data (a parada, senão a liberação, senão o vencimento); depois as
+  realizadas; por último as adiadas e canceladas. Dá para ordenar por frota ou
+  por vencimento.
+- **Quatro blocos de colunas**, cada um num par de cor da agenda e com o número
+  sempre à vista: **1 Disponibilidade** (a operação: a data, e as mudanças com o
+  porquê), **2 Parada** (o PCM: o dia programado, e as reprogramações — quantas,
+  a primeira data e o porquê), **3 Realização do serviço** (a entrada da frota na
+  oficina, com o atraso e o porquê, e o dia em que o serviço saiu, onde e
+  quantos dias de oficina) e **4 Fechamento** (a OS, o dia em que ela foi
+  fechada no Protheus, e o resultado: no prazo, quantos dias depois do
+  vencimento, vencida, adiada ou cancelada com o motivo). Depois, as
+  **Observações**.
+- **A célula vazia tem o botão que a preenche** (Informar, Marcar, Chegou, Dar
+  baixa, Fechar OS) para quem pode; a **data preenchida se toca para mudar** —
+  e é pela mesma caixa de antes, então reprogramar a parada continua exigindo o
+  motivo, e mudar a liberação também.
+- **O registro de cada frota abre embaixo da linha** (o ▸ com o número, ao lado
+  da frota): tudo o que aconteceu, do mais novo para o mais antigo, com quem,
+  quando e o porquê. *Abrir todos os registros* abre os do filtro.
+- **A faixa de cima filtra**: sem disponibilidade, disponível sem parada,
+  parada marcada, na oficina, realizada com a OS a fechar, fechadas, adiadas e
+  canceladas, e **com reprogramação**.
+- **Baixar a planilha** gera o Excel do mês (`Preventivas novembro 2026.xlsx`):
+  a aba *Plano* com os mesmos blocos no cabeçalho e a aba *Registro* com uma
+  linha por lançamento, com o porquê.
+- **O fechamento é um lançamento novo** (`prev_fechada`, do PCM): o dia em que
+  a OS da preventiva foi encerrada no Protheus. Só depois da baixa, nunca antes
+  do dia da realização nem depois de hoje; lançar de novo corrige, e reabrir a
+  preventiva desfaz.
+- **No celular**, cada linha vira um cartão com os quatro blocos em dois por
+  dois, as observações e o registro.
+
 **As telas da oficina saíram do menu, mas nada foi apagado.** Painel, Hoje,
 Programação, Semana, Resultados e Frota continuam no código, e os lançamentos
 continuam na fita. Para consultar, abra o site com **`?oficina=1`** no
@@ -831,6 +872,7 @@ memória. Divergência ali é bug, não opinião.
 | `prev_parada` | o PCM programou a data da parada; mudar a data já marcada é **reprogramar** e conta | a data; **motivo** se mudar |
 | `prev_andamento` | a preventiva está em execução (Status Em andamento) | — |
 | `prev_realizada` | a preventiva foi realizada | a data |
+| `prev_fechada` | a OS da preventiva foi fechada no Protheus (só o PCM; só depois de realizada) | a data (do dia da realização até hoje) |
 | `prev_adiada` | adiada para o próximo mês (Status Reprogramada) | **motivo** |
 | `prev_cancelada` | não será executada | **motivo** |
 | `prev_reaberta` | desfaz realizada, adiada ou cancelada | — |
