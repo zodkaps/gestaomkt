@@ -25,6 +25,9 @@ const DESENHOS = {
   bandeira: '<path d="M5.5 21V4"/><path d="M5.5 4.5h11.5l-2.5 4 2.5 4H5.5"/>',
   pergunta: '<circle cx="12" cy="12" r="8.5"/><path d="M9.6 9.5a2.5 2.5 0 0 1 4.8.9c0 1.7-2.4 2.2-2.4 3.6"/><path d="M12 17.2h.01" stroke-width="2.6"/>',
   adicionar: '<path d="M12 5v14M5 12h14"/>',
+  // o alto da tela: buscar o que os outros lançaram, e trocar claro/escuro
+  atualizar: '<path d="M20 11a8 8 0 0 0-14.3-4.9L4 8"/><path d="M4 3.5V8h4.5"/><path d="M4 13a8 8 0 0 0 14.3 4.9L20 16"/><path d="M20 20.5V16h-4.5"/>',
+  tema: '<circle cx="12" cy="12" r="8.5"/><path d="M12 3.5a8.5 8.5 0 0 0 0 17z" fill="currentColor" stroke="none"/>',
 };
 
 /** O ícone como <svg>, na cor do texto em volta. */

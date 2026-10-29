@@ -579,11 +579,10 @@ export function atrasoEntrega(p, ref) {
   return entregaAtrasando(p, ref) ? Math.max(0, difDias(combinadoEntrega(p), ref || hoje()) || 0) : 0;
 }
 
-// ── a planilha em blocos ───────────────────────────────────────────────────
-// A aba Preventivas também se lê como a planilha do PCM: cada frota numa
-// linha, e as datas em quatro blocos — disponibilidade, parada, realização do
-// serviço e fechamento. Aqui só as contas de cada bloco; a tela é
-// `js/tela/prevplanilha.js`.
+// ── os blocos da planilha do PCM ───────────────────────────────────────────
+// O Excel do mês (`js/tela/prevexcel.js`) põe cada frota numa linha, com as
+// datas em quatro blocos — disponibilidade, parada, realização do serviço e
+// fechamento. Aqui só as contas de cada bloco.
 
 /** Dias de oficina: da entrada da frota até a realização (ou até hoje, se
  *  ainda está lá). Sem a entrada anotada, não há conta. */

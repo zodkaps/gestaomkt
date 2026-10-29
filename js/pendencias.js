@@ -180,7 +180,9 @@ function diaDe(linhas, ref) {
  *  Cada bloco: { frota, numero, nova, fonte, dia, situacao, temPreventiva,
  *  motivos, notas, itens, ignoradas }. Cada item: { texto, alerta, top, os,
  *  dividida }. */
-export function lerPendencias(texto, { frotas = [], frotaPadrao = "", ref = new Date().toISOString().slice(0, 10) } = {}) {
+const hojeLocal = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`; };
+
+export function lerPendencias(texto, { frotas = [], frotaPadrao = "", ref = hojeLocal() } = {}) {
   const linhas = String(texto || "").replace(/\r/g, "").split("\n")
     .map(l => l.replace(/[⁦-⁩]/g, "").replace(/\s+$/, ""));
   const temCabecalho = linhas.some(l => l.trim() && !MARCADOR.test(l.trim()) && frotaDaLinha(l.trim()));

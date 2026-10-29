@@ -16,6 +16,7 @@ import { el, limpar, br, campo, selecao, avisar, erro, confirmar, caixa,
 import { valoresDe } from "./comum.js";
 import * as nuvem from "../nuvem.js";
 import * as pessoas from "../pessoas.js";
+import { OFICINA } from "../foco.js";
 import { daPlanilha, podeGravarFechamento } from "../fechamento.js";
 
 export async function montar(raiz, ctx) {
@@ -24,12 +25,15 @@ export async function montar(raiz, ctx) {
 
   function pintar() {
     limpar(corpo);
-    const total = ev.lista().length;
+    const conta = t => ev.lista(t).filter(x => !x.excluida).length;
+    const partes = [OFICINA ? [conta("atividade"), "atividade", "atividades"] : null,
+      [conta("movimentacao"), "movimentação", "movimentações"], [conta("preventiva"), "preventiva", "preventivas"]]
+      .filter(x => x && x[0]).map(([n, um, varios]) => `${n} ${n === 1 ? um : varios}`);
 
     corpo.append(
-      total
+      ev.log.length
         ? el("p", { style: "color:var(--fraco);font-size:13px" },
-          `${total} atividades no sistema, ${ev.log.length} lançamentos no registro.`)
+          `${partes.join(", ") || "Nada"} no sistema · ${ev.log.length} lançamentos no registro.`)
         : el("p", { style: "color:var(--fraco);font-size:13px" },
           "O sistema está vazio. Comece pela planilha da programação — " +
           "ela traz o acervo inteiro, com as reprogramações que já existem."),
@@ -59,7 +63,7 @@ export async function montar(raiz, ctx) {
   // ── soltar arquivo ────────────────────────────────────────────────────────
 
   function areaArquivo() {
-    const entrada = el("input", { type: "file", accept: ".xlsx,.xlsm,.csv,.txt,.tsv,.pdf",
+    const entrada = el("input", { type: "file", accept: ".xlsx,.xlsm,.csv,.txt,.tsv,.pdf", "aria-label": "Escolher a planilha ou o PDF",
       style: "display:none", onchange: () => { if (entrada.files[0]) abrir(entrada.files[0]); } });
     const area = el("div", { class: "solta", onclick: () => entrada.click() },
       el("p", { style: "font-size:15px;margin-bottom:4px" },
@@ -478,7 +482,7 @@ export async function montar(raiz, ctx) {
   // ── backup ────────────────────────────────────────────────────────────────
 
   function painelBackup() {
-    const entrada = el("input", { type: "file", accept: ".json", style: "display:none",
+    const entrada = el("input", { type: "file", accept: ".json", style: "display:none", "aria-label": "Escolher a cópia de segurança",
       onchange: () => { if (entrada.files[0]) restaurar(entrada.files[0]); } });
 
     return el("div", { class: "painel" },

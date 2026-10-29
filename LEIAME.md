@@ -132,46 +132,45 @@ tom bem claro), todos acima de 4,5:1, e sempre levam o texto.
   (`js/icones.js`), não caracteres — a mão do "Para você" virava emoji
   colorido em alguns aparelhos.
 
-### Desde 29/10/2026: as Preventivas como planilha em blocos
+### Desde 29/10/2026: o Plano de volta, com o que a planilha trazia de bom
 
-O PCM pediu a aba de Preventivas "como uma planilha/agenda dividida em
-blocos", com as observações e o registro das reprogramações e das mudanças de
-disponibilidade — e o porquê de cada uma. A vista **Planilha** é agora a de
-entrada (`?v=planilha`; o passo a passo de antes continua em **Passo a passo**,
-`?v=plano`). A tela é `js/tela/prevplanilha.js`.
+A vista em blocos de colunas (a "planilha") durou um dia: ficou pesada de ler e
+o PCM pediu o passo a passo de volta. Ele voltou como a vista de entrada
+(**Plano**, `?v=plano`; o endereço antigo `?v=planilha` também abre nele), e o
+que a planilha tinha de útil passou para dentro de cada linha:
 
-- **Uma frota por linha, na ordem da agenda**: o que está em aberto pela
-  próxima data (a parada, senão a liberação, senão o vencimento); depois as
-  realizadas; por último as adiadas e canceladas. Dá para ordenar por frota ou
-  por vencimento.
-- **Quatro blocos de colunas**, cada um num par de cor da agenda e com o número
-  sempre à vista: **1 Disponibilidade** (a operação: a data, e as mudanças com o
-  porquê), **2 Parada** (o PCM: o dia programado, e as reprogramações — quantas,
-  a primeira data e o porquê), **3 Realização do serviço** (a entrada da frota na
-  oficina, com o atraso e o porquê, e o dia em que o serviço saiu, onde e
-  quantos dias de oficina) e **4 Fechamento** (a OS, o dia em que ela foi
-  fechada no Protheus, e o resultado: no prazo, quantos dias depois do
-  vencimento, vencida, adiada ou cancelada com o motivo). Depois, as
-  **Observações**.
-- **A célula vazia tem o botão que a preenche** (Informar, Marcar, Chegou, Dar
-  baixa, Fechar OS) para quem pode; a **data preenchida se toca para mudar** —
-  e é pela mesma caixa de antes, então reprogramar a parada continua exigindo o
-  motivo, e mudar a liberação também.
-- **O registro de cada frota abre embaixo da linha** (o ▸ com o número, ao lado
-  da frota): tudo o que aconteceu, do mais novo para o mais antigo, com quem,
-  quando e o porquê. *Abrir todos os registros* abre os do filtro.
-- **A faixa de cima filtra**: sem disponibilidade, disponível sem parada,
-  parada marcada, na oficina, realizada com a OS a fechar, fechadas, adiadas e
-  canceladas, e **com reprogramação**.
-- **Baixar a planilha** gera o Excel do mês (`Preventivas novembro 2026.xlsx`):
-  a aba *Plano* com os mesmos blocos no cabeçalho e a aba *Registro* com uma
-  linha por lançamento, com o porquê.
-- **O fechamento é um lançamento novo** (`prev_fechada`, do PCM): o dia em que
-  a OS da preventiva foi encerrada no Protheus. Só depois da baixa, nunca antes
-  do dia da realização nem depois de hoje; lançar de novo corrige, e reabrir a
-  preventiva desfaz.
-- **No celular**, cada linha vira um cartão com os quatro blocos em dois por
-  dois, as observações e o registro.
+- **As datas dos passos na própria linha**, embaixo da frase do que falta:
+  "liberação 27/10 · parada 29/10 · chegou 29/10 / na oficina · no terceiro".
+- **As mudanças com o porquê**: "↻ 2× parada (era 02/11) · Frota em viagem" —
+  quantas vezes a parada (ou a liberação) mudou, a primeira data e o último
+  motivo. Passar o dedo/mouse mostra todas, uma por linha, com o motivo.
+- **O fechamento da OS** (`prev_fechada`, do PCM): a realizada mostra
+  "OS a fechar" e o botão **Fechar OS**; depois, "OS fechada 30/10". Só depois
+  da baixa, nunca antes do dia da realização nem depois de hoje; lançar de
+  novo corrige, e reabrir a preventiva desfaz. A ficha mostra o dia e deixa
+  corrigir.
+- **Baixar Excel**, na barra da busca: o mês em planilha de verdade
+  (`Preventivas novembro 2026.xlsx`), com a aba *Plano* em blocos —
+  disponibilidade, parada, realização, fechamento, observações — e a aba
+  *Registro*, uma linha por lançamento com o porquê
+  (`js/tela/prevexcel.js`). A planilha ficou no arquivo, não na tela.
+- **Os números de cima falam a mesma língua**: *Todas* diz quantas valem no
+  mês (tirando adiadas e canceladas), *Realizadas* diz a % do plano — a mesma
+  do Painel — e a linha do mês avisa quantas das vencidas já foram adiadas
+  para o mês seguinte (a planilha conta as adiadas como vencidas, e os
+  números continuam batendo com ela).
+
+E, na revisão do site inteiro:
+
+- **Atualizar e tema viraram desenhos** (`js/icones.js`), com nome para o
+  leitor de tela; o Atualizar gira enquanto busca e não aceita dois toques.
+- **Faixas que rolam de lado** (as abas, os passos, as categorias) esmaecem na
+  borda quando há mais para ver.
+- **A data de hoje do leitor de mensagens** (`lerPendencias`) é a do aparelho,
+  não a de Greenwich — depois das 21h a inspeção caía no dia seguinte.
+- **Importar** diz o que há no sistema (movimentações e preventivas) em vez de
+  "vazio" quando a carteira da oficina está fora do menu; os campos de
+  arquivo têm nome; o Diagnóstico não diz mais "mais mais".
 
 **As telas da oficina saíram do menu, mas nada foi apagado.** Painel, Hoje,
 Programação, Semana, Resultados e Frota continuam no código, e os lançamentos

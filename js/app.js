@@ -516,8 +516,14 @@ async function atualizarAgora() {
     return;
   }
   const antes = ev.log.length;
-  const r = await ev.sincronizar();
-  await nuvem.consultarAgora();
+  // o ícone gira enquanto busca: sem isso, o toque parecia não ter feito nada
+  const b = $("#batualizar");
+  if (b) { b.classList.add("girando"); b.disabled = true; }
+  let r;
+  try {
+    r = await ev.sincronizar();
+    await nuvem.consultarAgora();
+  } finally { if (b) { b.classList.remove("girando"); b.disabled = false; } }
   const veio = ev.log.length - antes;
   const c = nuvem.estadoConversa();
   if (r.erro || c.erro) avisar("Não deu: " + (r.erro || c.erro), "ruim");
@@ -556,7 +562,35 @@ async function comecar() {
   document.documentElement.dataset.tema = await dados.lerMeta("tema2", "claro");
 
   const bAtualizar = $("#batualizar");
-  if (bAtualizar) bAtualizar.addEventListener("click", atualizarAgora);
+  // os dois botões do alto eram caracteres (⟳ e ◐), que cada aparelho desenha
+  // de um jeito (no Windows, o ◐ saía como um triângulo); agora são ícones em linha
+  if (bAtualizar) {
+    bAtualizar.replaceChildren(icone("atualizar", 18));
+    bAtualizar.setAttribute("aria-label", "Buscar agora o que os outros lançaram");
+    bAtualizar.addEventListener("click", atualizarAgora);
+  }
+  $("#btema").replaceChildren(icone("tema", 18));
+
+  // As faixas que rolam para o lado (as abas da Avaliação, os passos e as
+  // categorias no celular) escondem o que passa da borda, sem barra de rolagem.
+  // Um esmaecido na ponta diz que tem mais, e some quando se chega ao fim.
+  const FAIXAS = ".abas, .passos, .cat-faixa";
+  const marcar = f => f.classList.toggle("tem-mais", f.scrollWidth - f.clientWidth - f.scrollLeft > 4);
+  let marcando = false;
+  const marcarFaixas = () => {
+    if (marcando) return;
+    marcando = true;
+    requestAnimationFrame(() => {
+      marcando = false;
+      for (const f of document.querySelectorAll(FAIXAS)) {
+        marcar(f);
+        if (!f.dataset.ouveRolagem) { f.dataset.ouveRolagem = "1"; f.addEventListener("scroll", () => marcar(f), { passive: true }); }
+      }
+    });
+  };
+  new MutationObserver(marcarFaixas).observe($("#tela"), { childList: true, subtree: true });
+  addEventListener("resize", marcarFaixas);
+  $("#btema").setAttribute("aria-label", "Trocar entre claro e escuro");
   // A faixa de "sem contato" depende do relógio, não só de lançamento novo.
   setInterval(() => { if (pessoas.quem()) faixa(); }, 15000);
 

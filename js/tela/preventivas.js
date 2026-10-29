@@ -30,7 +30,7 @@ import { listaDecisoes } from "./decidir.js";
 import { conciliacao, descrever as descreverLigacao, eventosDaConciliacao } from "../vinculo.js";
 import { OFICINA } from "../foco.js";
 import { calendarioMes, agenda, cartaoTrilho, itemAgenda, anel, diaPorExtenso } from "./calendario.js";
-import { pintarPlanilha } from "./prevplanilha.js";
+import { baixarPlanilha, registroDe } from "./prevexcel.js";
 
 // ── o cartão (celular, e a tela Para você) ──────────────────────────────────
 
@@ -763,7 +763,8 @@ export function textoPasso(p, ref = M.hoje()) {
     return { passo, alerta: false, texto: (p.entregue_em ? `Na oficina desde ${brCurto(p.entregue_em)}` : "Na oficina") +
       (n ? ` (chegou ${n} dia${n === 1 ? "" : "s"} depois)` : "") + " · dar a baixa quando terminar" };
   }
-  if (passo === "feita") return { passo, alerta: false, texto: p.realizada_em ? `Realizada em ${brCurto(p.realizada_em)}` : "Realizada, sem a data" };
+  if (passo === "feita") return { passo, alerta: false, texto: (p.realizada_em ? `Realizada em ${brCurto(p.realizada_em)}` : "Realizada, sem a data") +
+    (p.fechada_em ? ` · OS fechada ${brCurto(p.fechada_em)}` : " · OS a fechar") };
   return { passo, alerta: false, texto: (p.cancelada ? "Cancelada" : "Adiada para o próximo mês") + (p.motivo ? ` · ${p.motivo}` : "") };
 }
 
@@ -781,6 +782,8 @@ function botaoPasso(p, ref, sug = "") {
     : M.passoAtrasado(p, ref) ? b("Antecipar", () => marcarParada(p), "A parada está depois do vencimento") : null;
   if (passo === "baixa") return b("Dar baixa", () => darPorFeita(p));
   if (passo === "feita" && p.realizada_sem_data) return b("Informar a data", () => darPorFeita(p));
+  if (passo === "feita" && !p.fechada_em && pessoas.pode("preventiva_feita"))
+    return b("Fechar OS", () => fecharOSPrev(p), "A OS da preventiva foi encerrada no Protheus");
   return null;
 }
 
@@ -798,17 +801,44 @@ export function trilhaPassos(p, ref = M.hoje()) {
     }));
 }
 
+/** As datas dos passos já dados, numa linha curta: o caminho da preventiva
+ *  até aqui, sem precisar abrir a ficha. */
+function datasDosPassos(p) {
+  const d = [
+    p.disponivel_agora ? "liberada agora" : p.disponivel_em ? `liberação ${brCurto(p.disponivel_em)}` : "",
+    p.dia_parada ? `parada ${brCurto(p.dia_parada)}` : "",
+    p.entregue_em ? `chegou ${brCurto(p.entregue_em)}` : p.em_andamento ? "na oficina" : "",
+    p.onde_fazer === "Terceiro" ? "no terceiro" : "",
+  ].filter(Boolean);
+  return d.join(" · ");
+}
+
+/** As reprogramações da parada e as mudanças da liberação, cada uma com o
+ *  porquê da última — o que o PCM pediu para ver na própria lista. */
+function mudancasDaLinha(p) {
+  const reg = (p.reprog_parada || p.reprog_liberacao) ? registroDe(p) : null;
+  if (!reg) return null;
+  const ult = l => { const m = l.map(x => String(x.e.motivo || "").trim()).filter(Boolean); return m[m.length - 1] || ""; };
+  const etiqueta = (n, oq, l, extra = "") => n ? el("span", { class: "pv-mud", title: l.map(x => `${x.texto}${x.e.motivo ? " — " + x.e.motivo : ""}`).join("\n") },
+    el("b", {}, `↻ ${n}×`), ` ${oq}${extra}`, ult(l) ? el("i", {}, ` · ${ult(l)}`) : null) : null;
+  const pecas = [etiqueta(p.reprog_parada, "parada", reg.parada, p.parada_orig && p.parada_orig !== p.dia_parada ? ` (era ${brCurto(p.parada_orig)})` : ""),
+    etiqueta(p.reprog_liberacao, "liberação", reg.lib)].filter(Boolean);
+  return pecas.length ? el("div", { class: "pv-muds" }, pecas) : null;
+}
+
 function linhaPrev(p, ref, ctx, sug = "") {
   const t = textoPasso(p, ref);
   const venc = M.preventivaVencida(p, ref);
   const lim = M.venceEfetivo(p);
+  const datas = datasDosPassos(p);
   return el("div", { class: "pv-lin" + (t.alerta ? " alerta" : "") + (t.passo === "feita" || t.passo === "fora" ? " apagada" : ""),
     dataset: { id: p.id, passo: t.passo }, onclick: cliqueLimpo(() => abrirFichaPrev(p.id, ctx)) },
     trilhaPassos(p, ref),
     el("div", { class: "pv-frota" }, el("b", {}, p.frota || "—"),
       el("span", {}, [p.plano || "preventiva", p.qtd > 1 ? `${p.qtd}×` : "", p.onde_fazer === "Terceiro" ? "terceiro" : ""].filter(Boolean).join(" · "))),
     el("div", { class: "pv-venc" + (venc ? " venceu" : "") }, lim ? `${venc ? "venceu" : "vence"} ${brCurto(lim)}` : "sem vencimento"),
-    el("div", { class: "pv-falta" }, t.texto),
+    el("div", { class: "pv-falta" }, el("span", { class: "pv-txt" }, t.texto),
+      datas && t.passo !== "liberar" ? el("span", { class: "pv-datas" }, datas) : null, mudancasDaLinha(p)),
     el("div", { class: "pv-acoes", onclick: e => e.stopPropagation() }, botaoPasso(p, ref, sug), botaoMais("preventiva", p.id, ctx)));
 }
 
@@ -826,11 +856,13 @@ function quadroPassos(plano, ref, atual, ir) {
     el("span", { class: "pc-cab" }, marca ? el("span", { class: "pc-n" }, marca) : null, el("span", { class: "pc-nome" }, nome)),
     el("b", { class: "pc-v" }, String(n)),
     el("small", { class: "pc-sub" + (problema.get(id) ? " alerta" : "") }, sub));
+  const fora = conta.get("fora");
+  const pct = Math.round(M.resumoPreventivas(plano, ref).pct_realizadas * 100);
   return el("div", { class: "passos", role: "group", "aria-label": "Passo" },
-    cartao("", "", "Todas", plano.length, "no plano do mês", "todas"),
+    cartao("", "", "Todas", plano.length, fora ? `${plano.length - fora} valem no mês` : "no plano do mês", "todas"),
     ...M.PASSOS_PREV.map(x => cartao(x.id, String(x.n), x.nome, conta.get(x.id),
       problema.get(x.id) ? `${problema.get(x.id)} com problema` : quemDoPasso(x))),
-    cartao("feita", "✓", NOME_PASSO.feita, conta.get("feita"), plano.length ? `${Math.round(conta.get("feita") * 100 / plano.length)}% do plano` : "", "feita"),
+    cartao("feita", "✓", NOME_PASSO.feita, conta.get("feita"), plano.length ? `${pct}% do plano` : "", "feita"),
     conta.get("fora") ? cartao("fora", "", "Adiadas", conta.get("fora"), "ou canceladas", "fora") : null);
 }
 
@@ -877,7 +909,7 @@ function passoAPasso(p, ref) {
 }
 
 /** A linha do mês: quanto saiu, quanto venceu, e quanto do mês já passou. */
-export function linhaDoMes(r, mes, ref) {
+export function linhaDoMes(r, mes, ref, adiadasVencidas = 0) {
   const [ano, m] = mesDoPlano(mes).split("-").map(Number);
   const noMes = ano && ref.slice(0, 7) === mesDoPlano(mes);
   const diasMes = ano ? new Date(Date.UTC(ano, m, 0)).getUTCDate() : 30;
@@ -887,7 +919,8 @@ export function linhaDoMes(r, mes, ref) {
   return el("div", { class: "mes-linha" },
     el("div", { class: "ml-texto" },
       el("b", {}, `${r.realizadas} de ${r.preventivas}`), " realizadas",
-      r.vencidas ? [" · ", el("span", { class: "ml-venc" }, el("b", {}, String(r.vencidas)), ` vencida${r.vencidas === 1 ? "" : "s"}`)] : null,
+      r.vencidas ? [" · ", el("span", { class: "ml-venc" }, el("b", {}, String(r.vencidas)), ` vencida${r.vencidas === 1 ? "" : "s"}`),
+        adiadasVencidas ? el("span", { class: "seg" }, ` (${adiadasVencidas} já adiada${adiadasVencidas === 1 ? "" : "s"} para o mês seguinte)`) : null] : null,
       " · ", `${r.frotas} frota${r.frotas === 1 ? "" : "s"}`, " · ", `${String(r.hh).replace(".", ",")} HH previstos`,
       noMes ? el("span", { class: "seg" }, ` · ${diasMes - hojeNoMes} dia${diasMes - hojeNoMes === 1 ? "" : "s"} para acabar o mês`) : null),
     el("div", { class: "ml-trilho", title: noMes ? `${pctFeito}% realizadas · ${pctMes}% do mês passou` : `${pctFeito}% realizadas` },
@@ -934,16 +967,16 @@ const PASSO_DA_SIT = { "Sem data da Operação": "liberar", "Disponível: marcar
   "Programada depois do prazo": "chegada", "Parada passou, sem baixa": "chegada", "Em andamento": "baixa",
   "Realizada": "feita", "Passa para o mês seguinte": "fora", "Cancelada": "fora" };
 
-const estado = { mes: "", busca: "", passo: "", foraAberto: false, vista: "planilha", tipoMud: "", dia: "",
-  // a vista Planilha: o filtro, a ordem e os registros abertos
-  plFiltro: "", plOrdem: "agenda", plAbertos: new Set() };
+const estado = { mes: "", busca: "", passo: "", foraAberto: false, vista: "plano", tipoMud: "", dia: "" };
 
 // As etiquetas do calendário das preventivas, e o que cada cor quer dizer.
 const LEGENDA_PREV = [["aberta", "Parada marcada"], ["hoje", "Parada hoje"], ["atrasada", "Não chegou"],
   ["aprovar", "Na oficina"], ["feita", "Realizada"], ["libera", "Liberação prevista"]];
 
 export async function montar(raiz, ctx, params = new URLSearchParams()) {
-  if (["planilha", "plano", "calendario", "painel", "mudancas"].includes(params.get("v"))) estado.vista = params.get("v");
+  // ?v=planilha era a vista em blocos (29/10/2026), que voltou atrás: abre o Plano
+  if (params.get("v") === "planilha") estado.vista = "plano";
+  else if (["plano", "calendario", "painel", "mudancas"].includes(params.get("v"))) estado.vista = params.get("v");
   if (params.get("passo") != null) estado.passo = ORDEM_PASSO.includes(params.get("passo")) ? params.get("passo") : "";
   const fBusca = el("input", { class: "busca", type: "search", value: estado.busca,
     placeholder: "frota, equipamento, local, OS…",
@@ -961,11 +994,11 @@ export async function montar(raiz, ctx, params = new URLSearchParams()) {
   const titulo = el("span", { class: "sub" });
   const corpo = el("div", {});
 
-  // Cinco jeitos de olhar o mesmo mês: a planilha em blocos (a de entrada,
-  // desde 29/10/2026), a lista de trabalho (o passo a passo), as paradas no
-  // calendário, o painel com os números e as decisões, e o registro do que mudou.
-  const vistas = el("div", { class: "segmentos" }, [["planilha", "Planilha"], ["plano", "Passo a passo"], ["calendario", "Calendário"],
-    ["painel", "Painel"], ["mudancas", "Mudanças"]]
+  // Quatro jeitos de olhar o mesmo mês: a lista de trabalho (o passo a passo),
+  // as paradas no calendário, o painel com os números e as decisões, e o
+  // registro do que mudou. A planilha em blocos (29/10/2026) não agradou e
+  // saiu; dela ficou o Excel, no botão da barra.
+  const vistas = el("div", { class: "segmentos" }, [["plano", "Plano"], ["calendario", "Calendário"], ["painel", "Painel"], ["mudancas", "Mudanças"]]
     .map(([v, t]) => el("button", { class: "seg-op", dataset: { v },
       onclick: () => { estado.vista = v; pintar(); } }, t)));
   raiz.append(
@@ -974,9 +1007,11 @@ export async function montar(raiz, ctx, params = new URLSearchParams()) {
       pessoas.pode("parada") ? el("button", { class: "primario",
         onclick: async () => {
           const id = await incluirPreventiva(estado.mes);
-          if (id) { const p = ev.porId(id, "preventiva"); if (p && p.mes) estado.mes = p.mes; if (estado.vista !== "planilha") estado.vista = "plano"; pintar(); }
+          if (id) { const p = ev.porId(id, "preventiva"); if (p && p.mes) estado.mes = p.mes; estado.vista = "plano"; pintar(); }
         } }, "+ Incluir frota") : null),
-    el("div", { class: "filtros" }, fBusca, titulo),
+    el("div", { class: "filtros" }, fBusca, titulo, el("div", { class: "espaco" }),
+      el("button", { type: "button", class: "mini", title: "O plano do mês em Excel, com as datas de cada passo e o registro das mudanças com o porquê",
+        onclick: () => baixarPlanilha(ev.lista("preventiva").filter(p => (p.mes || "") === estado.mes), estado.mes) }, "Baixar Excel")),
     corpo);
 
   const kpi = (rot, val, det, cls = "") =>
@@ -1002,7 +1037,6 @@ export async function montar(raiz, ctx, params = new URLSearchParams()) {
     if (!doMes.length) return pintarMesVazio(meses);
     if (estado.vista === "painel") return pintarPainel(doMes, ref);
     if (estado.vista === "mudancas") return pintarMudancas(doMes);
-    if (estado.vista === "planilha") return pintarPlanilha(corpo, { doMes, ref, ctx, estado, repintar: pintar });
     const plano = doMes.filter(p => !p.fora && !p.excluida);
     const fora = doMes.filter(p => p.fora && !p.excluida).sort((a, b) => natural(a.frota, b.frota));
     const r = M.resumoPreventivas(doMes, ref);
@@ -1011,7 +1045,7 @@ export async function montar(raiz, ctx, params = new URLSearchParams()) {
     const achou = p => !q || semAcento([p.frota, p.equipamento, p.local, p.plano, p.os, p.obs].join(" ")).includes(q);
 
     // ── a linha do mês, no lugar das oito caixas (que continuam no Painel)
-    corpo.append(linhaDoMes(r, estado.mes, ref));
+    corpo.append(linhaDoMes(r, estado.mes, ref, plano.filter(p => p.adiada && M.preventivaVencida(p, ref)).length));
 
     // ── o que dá para ligar à Programação (o que existia antes da ligação)
     if (OFICINA && pessoas.pode("parada")) {

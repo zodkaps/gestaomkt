@@ -1783,7 +1783,7 @@ ok("um clique aprova: Concluída com atraso, concluída pelo Pedro, aprovada pel
   await p.waitForTimeout(300);
 }
 
-// ── Preventivas: a planilha em blocos (disponibilidade, parada, realização, fechamento) ──
+// ── Preventivas: o Plano mostra as datas, as mudanças com o porquê, e fecha a OS ──
 {
   const F = "F-PL" + Date.now().toString(36).slice(-4).toUpperCase();
   const ref = await p.evaluate(() => mkt.M.hoje());
@@ -1792,63 +1792,53 @@ ok("um clique aprova: Concluída com atraso, concluída pelo Pedro, aprovada pel
     const ev = mkt.ev, M = mkt.M, ref = M.hoje();
     const [c] = await ev.aplicar(ev.novaPreventiva({ ...M.moldePreventiva(), frota: f, mes: mesDaData(ref), plano: "1 ano",
       vence: M.somaDias(ref, 20), id: undefined }), { silencioso: true });
-    await ev.aplicar(ev.informarDisponibilidade(ev.porId(c.alvo, "preventiva"), "agora"), { silencioso: true });
-    await ev.aplicar(ev.informarDisponibilidade(ev.porId(c.alvo, "preventiva"), M.somaDias(ref, 2), "Frota em viagem — volta quinta"), { silencioso: true });
-    await ev.aplicar(ev.marcarParada(ev.porId(c.alvo, "preventiva"), M.somaDias(ref, 3), "Interna"), { silencioso: true });
+    const pv = () => ev.porId(c.alvo, "preventiva");
+    await ev.aplicar(ev.informarDisponibilidade(pv(), "agora"), { silencioso: true });
+    await ev.aplicar(ev.informarDisponibilidade(pv(), M.somaDias(ref, 2), "Frota em viagem — volta quinta"), { silencioso: true });
+    await ev.aplicar(ev.marcarParada(pv(), M.somaDias(ref, 3), "Interna"), { silencioso: true });
+    await ev.aplicar(ev.marcarParada(pv(), M.somaDias(ref, 5), "Interna", "Oficina cheia na data"), { silencioso: true });
     return c.alvo;
   }, F);
-  await p.evaluate(() => { location.hash = "#/preventivas?v=planilha"; });
-  await p.waitForSelector(".pl-tabela", { state: "attached" });
+  await p.evaluate(() => { location.hash = "#/preventivas"; });
+  await p.waitForSelector(".passos");
   await p.fill(".filtros .busca", F);
   await p.waitForTimeout(400);
-  const blocos = await p.evaluate(id => ({
-    cab: [...document.querySelectorAll(".pl-tabela thead .pl-bloco")].map(th => th.textContent.replace(/\s+/g, " ").trim()),
-    lib: document.querySelector(`.pl-lin[data-id="${id}"] td.b-disp:not(.ini)`)?.innerText.replace(/\s+/g, " ").trim(),
-    parada: document.querySelector(`.pl-lin[data-id="${id}"] td.b-parada.ini`)?.innerText.trim(),
-    semNull: !/(^|\W)(null|undefined)(\W|$)/.test(document.querySelector(".pl-tabela").innerText),
-  }), id);
-  ok("a planilha é a vista de entrada, com os quatro blocos no cabeçalho",
-    blocos.cab.join(" | ") === "1Disponibilidadeoperação | 2ParadaPCM | 3Realização do serviçooficina | 4FechamentoPCM", JSON.stringify(blocos.cab));
-  ok("a mudança da disponibilidade aparece no bloco 1, com o porquê", /↻ 1×/.test(blocos.lib) && /Frota em viagem/.test(blocos.lib), blocos.lib);
-  const dia3 = await p.evaluate(() => { const d = mkt.M.somaDias(mkt.M.hoje(), 3); return d.slice(8, 10) + "/" + d.slice(5, 7); });
-  ok("e a parada no bloco 2", blocos.parada === dia3, JSON.stringify({ ...blocos, dia3 }));
-  ok("nenhum \"null\" solto na planilha", blocos.semNull);
-  // tocar na data da parada abre a reprogramação, que pede o motivo
-  await p.click(`.pl-lin[data-id="${id}"] td.b-parada.ini .pl-v`);
-  await p.waitForSelector(".caixa input[type=date]");
-  await p.fill(".caixa input[type=date]", await p.evaluate(() => mkt.M.somaDias(mkt.M.hoje(), 5)));
-  await p.click('.caixa footer button:has-text("Reprogramar")');
-  await p.waitForTimeout(300);
-  const semMotivo = await p.evaluate(() => !!document.querySelector(".caixa input[type=date]"));
-  ok("reprogramar pela planilha sem o motivo não fecha a caixa", semMotivo);
-  await p.fill('.caixa input[placeholder^="ex.: frota em viagem"]', "Oficina cheia na data");
-  await p.click('.caixa footer button:has-text("Reprogramar")');
-  await p.waitForTimeout(600);
-  const reprog = await p.evaluate(id => document.querySelector(`.pl-lin[data-id="${id}"] td.b-parada:not(.ini)`)?.innerText.replace(/\s+/g, " ").trim(), id);
-  ok("e a reprogramação entra no bloco 2: quantas vezes, a primeira data e o porquê",
-    /↻ 1×/.test(reprog) && /1ª/.test(reprog) && /Oficina cheia na data/.test(reprog), reprog);
-  // o registro abre embaixo da linha
-  await p.click(`.pl-lin[data-id="${id}"] .pl-breg`);
-  await p.waitForSelector(`.pl-reg-lin[data-id="${id}"]`);
-  const reg = await p.evaluate(id => document.querySelector(`.pl-reg-lin[data-id="${id}"]`).innerText, id);
-  ok("o registro da frota mostra a reprogramação e a mudança de disponibilidade, com o motivo",
-    /reprogramou a parada/.test(reg) && /mudou a liberação/.test(reg) && /Oficina cheia na data/.test(reg) && /Frota em viagem/.test(reg), reg.slice(0, 300));
-  // realização e fechamento
+  const linha = await p.evaluate(id => {
+    const l = document.querySelector(`.pv-lin[data-id="${id}"]`);
+    return { vista: document.querySelector(".segmentos .seg-op.on")?.dataset.v, opcoes: [...document.querySelectorAll(".segmentos .seg-op")].map(b => b.textContent),
+      datas: l?.querySelector(".pv-datas")?.textContent || "", muds: l?.querySelector(".pv-muds")?.textContent || "",
+      dica: l?.querySelector(".pv-mud")?.title || "" };
+  }, id);
+  ok("o Plano voltou a ser a vista de entrada, e a Planilha saiu", linha.vista === "plano" &&
+    linha.opcoes.join() === "Plano,Calendário,Painel,Mudanças", JSON.stringify(linha));
+  ok("a linha mostra as datas dos passos já dados", /liberação \d\d\/\d\d/.test(linha.datas) && /parada \d\d\/\d\d/.test(linha.datas), linha.datas);
+  ok("e as mudanças com o porquê: a reprogramação da parada e a da liberação",
+    /↻ 1× parada \(era \d\d\/\d\d\) · Oficina cheia na data/.test(linha.muds) && /↻ 1× liberação · Frota em viagem/.test(linha.muds), linha.muds);
+  ok("passar o mouse mostra de que dia para que dia mudou", /reprogramou a parada: \d\d\/\d\d → \d\d\/\d\d — Oficina cheia/.test(linha.dica), linha.dica);
+  // realizada: o próximo botão é o de fechar a OS
   await p.evaluate(async id => { const ev = mkt.ev; await ev.aplicar(ev.registrarEntrega(ev.porId(id, "preventiva"), mkt.M.hoje()), { silencioso: true });
     await ev.aplicar(ev.preventivaFeita(ev.porId(id, "preventiva"), mkt.M.hoje(), "045678"), { silencioso: true }); }, id);
   await p.waitForTimeout(400);
-  await p.click(`.pl-lin[data-id="${id}"] .pl-b:has-text("Fechar OS")`);
+  const feita = await p.evaluate(id => ({ txt: document.querySelector(`.pv-lin[data-id="${id}"] .pv-txt`)?.textContent || "",
+    b: document.querySelector(`.pv-lin[data-id="${id}"] button.passo-b`)?.textContent || "" }), id);
+  ok("realizada, a linha diz que a OS falta fechar e oferece o botão", /OS a fechar/.test(feita.txt) && feita.b === "Fechar OS", JSON.stringify(feita));
+  await p.click(`.pv-lin[data-id="${id}"] button.passo-b`);
   await p.waitForSelector(".caixa input[type=date]");
   await p.click('.caixa footer button:has-text("Gravar")');
   await p.waitForTimeout(600);
   const fech = await p.evaluate(id => ({ x: mkt.ev.porId(id, "preventiva").fechada_em,
-    cel: document.querySelector(`.pl-lin[data-id="${id}"] td.b-fech.ini`)?.innerText.replace(/\s+/g, " ").trim(),
-    res: document.querySelector(`.pl-lin[data-id="${id}"] td.b-fech:not(.ini)`)?.innerText.trim() }), id);
-  ok("o bloco 4 fecha a OS: o dia fica, e o resultado diz se foi no prazo",
-    fech.x === ref && /OS 045678/.test(fech.cel) && /fechada/.test(fech.cel) && fech.res === "No prazo", JSON.stringify(fech));
-  // baixar a planilha
-  const [dl] = await Promise.all([p.waitForEvent("download", { timeout: 8000 }), p.click('.pl-barra button:has-text("Baixar a planilha")')]);
-  ok("baixar a planilha gera o Excel do mês", /^Preventivas .+\.xlsx$/.test(dl.suggestedFilename()), dl.suggestedFilename());
+    txt: document.querySelector(`.pv-lin[data-id="${id}"] .pv-txt`)?.textContent || "",
+    b: !!document.querySelector(`.pv-lin[data-id="${id}"] button.passo-b`) }), id);
+  ok("fechada, a linha mostra o dia e o botão sai", fech.x === ref && /OS fechada \d\d\/\d\d/.test(fech.txt) && !fech.b, JSON.stringify(fech));
+  // o Excel do mês
+  const [dl] = await Promise.all([p.waitForEvent("download", { timeout: 8000 }), p.click('.filtros button:has-text("Baixar Excel")')]);
+  ok("o Excel do mês sai pelo botão da barra", /^Preventivas .+\.xlsx$/.test(dl.suggestedFilename()), dl.suggestedFilename());
+  // o endereço antigo da planilha cai no Plano
+  await p.evaluate(() => { location.hash = "#/avaliacao"; });
+  await p.waitForTimeout(300);
+  await p.evaluate(() => { location.hash = "#/preventivas?v=planilha"; });
+  await p.waitForSelector(".passos");
+  ok("o endereço antigo ?v=planilha abre o Plano", await p.evaluate(() => document.querySelector(".segmentos .seg-op.on")?.dataset.v === "plano"));
   await p.fill(".filtros .busca", "");
   await p.waitForTimeout(300);
 }

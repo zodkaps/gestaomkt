@@ -93,7 +93,7 @@ function itemTamanho() {
   const folga = !isFinite(t.anos) || t.anos > 50 ? "mais de 50 anos" : t.anos >= 2 ? `uns ${Math.floor(t.anos)} anos`
     : t.anos >= 1 / 12 ? `uns ${Math.max(1, Math.round(t.anos * 12))} meses` : "poucas semanas";
   const projecao = t.cedo ? "Quanto ainda cabe aparece depois de uma semana de uso, quando o ritmo do dia a dia já diz alguma coisa."
-    : `No ritmo do dia a dia (${ritmo}, sem contar importação de planilha), cabe mais ${folga}.`;
+    : `No ritmo do dia a dia (${ritmo}, sem contar importação de planilha), ainda há espaço para ${folga}.`;
   return {
     estado: t.pct >= 0.6 ? "aviso" : "ok",
     titulo: `Espaço no banco: ≈ ${mb(t.bytes)} MB de 500 MB (${pct}%)`,
