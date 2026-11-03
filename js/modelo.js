@@ -543,6 +543,21 @@ export function passoPreventiva(p) {
   return "liberar";
 }
 
+/** A frota está livre para a preventiva agora: a operação liberou ("agora",
+ *  ou a data já chegou) e ela ainda não entrou na oficina. É o que o PCM pode
+ *  mandar parar hoje (pedido de 03/11/2026: "ver o que está liberado agora"). */
+export function liberadaAgora(p, ref) {
+  if (!preventivaAberta(p) || p.entregue_em || p.em_andamento) return false;
+  return !!p.disponivel_agora || (!!p.disponivel_em && p.disponivel_em <= (ref || hoje()));
+}
+
+/** Libera nos próximos `dias` dias (ainda não hoje). */
+export function liberaEmBreve(p, ref, dias = 7) {
+  const r = ref || hoje();
+  if (!preventivaAberta(p) || p.entregue_em || p.em_andamento || p.disponivel_agora || !p.disponivel_em) return false;
+  return p.disponivel_em > r && p.disponivel_em <= somaDias(r, dias);
+}
+
 /** O passo está com problema: a liberação ou a parada ficou depois do
  *  vencimento, ou a parada passou e a frota não chegou. */
 export function passoAtrasado(p, ref) {

@@ -172,6 +172,42 @@ E, na revisão do site inteiro:
   "vazio" quando a carteira da oficina está fora do menu; os campos de
   arquivo têm nome; o Diagnóstico não diz mais "mais mais".
 
+### Desde 03/11/2026: o que está liberado agora, várias de uma vez, e o "Já realizada"
+
+O PCM pediu três coisas na aba de Preventivas: ver o que está liberado agora,
+lançar mais de uma frota por vez, e um atalho para dizer que a preventiva já
+foi feita.
+
+- **Liberadas agora** é o segundo cartão do quadro (`M.liberadaAgora`): a
+  operação liberou ("agora", ou a data já chegou) e a frota ainda não entrou na
+  oficina — é o que dá para mandar parar hoje. Tocar filtra a lista; o
+  subtítulo diz quantas liberam nos próximos 7 dias (`M.liberaEmBreve`), e
+  *Copiar a lista* põe as liberadas em texto para o grupo. Na lista, cada uma
+  tem a etiqueta verde **liberada** (`?passo=livre` abre direto).
+- **Várias de uma vez** (`js/tela/prevlote.js`): cada linha aberta tem a
+  caixinha, e cada passo tem **Marcar as N** no cabeçalho (filtrado num passo
+  só, no alto da lista). Com alguma marcada, a barra mostra só o que serve para
+  as marcadas e que a pessoa pode lançar: *Informar liberação* (agora ou a
+  partir de um dia), *Marcar parada* (o dia e onde), *Chegou* (o dia de cada
+  uma) e *Já realizada* (a mesma data para todas, ou uma por frota, e a OS de
+  cada uma). As caixas montam os mesmos lançamentos da caixa de uma frota só:
+  mudar uma liberação ou uma parada já informada continua exigindo o motivo, e
+  quem chegou depois do combinado continua exigindo o porquê e quem atrasou. A
+  operação, que só libera, só vê a caixinha onde liberar serve.
+- **Já realizada** é o atalho de adiantar, ao lado do botão do passo (no
+  celular, só o ✓): a preventiva vai direto para Realizadas, e a caixa diz quais
+  passos ficam em branco. No passo 4 não aparece — lá o botão do passo já é a
+  baixa. O ⋯ e o botão direito ganharam *A frota já chegou na oficina* (mesmo
+  sem a parada marcada), *Já realizada* e *Fechar a OS*.
+- **Realizada depois de hoje é recusada** (`ev.preventivaFeita`), como já era a
+  chegada e o fechamento.
+- **Acabamento**: sem vencimento no plano, a coluna mostra "—" em vez de
+  repetir "sem vencimento" em cada linha; no celular, o alto da aba cabe em
+  menos linhas (as vistas e o *+ Incluir* na mesma linha, o total ao lado do
+  Excel); o aviso que aparece embaixo sobe acima do *+ Registrar*, em vez de
+  ficar por baixo dele; e o foco do teclado tem o mesmo contorno no site
+  inteiro.
+
 **As telas da oficina saíram do menu, mas nada foi apagado.** Painel, Hoje,
 Programação, Semana, Resultados e Frota continuam no código, e os lançamentos
 continuam na fita. Para consultar, abra o site com **`?oficina=1`** no

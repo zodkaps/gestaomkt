@@ -558,6 +558,8 @@ h2.mini {
   pointer-events: none; width: max-content; max-width: 92vw;
 }
 @media (min-width: 861px) { #avisos { bottom: 18px; } }
+/* no celular o "+ Registrar" flutua no mesmo lugar: o aviso sobe acima dele */
+@media (max-width: 860px) { #avisos { bottom: calc(var(--nav) + env(safe-area-inset-bottom) + 76px); } }
 .aviso {
   background: var(--papel3); color: var(--texto);
   border: 1px solid var(--borda);
@@ -2129,3 +2131,68 @@ input.busca-frota:focus { background-color: var(--papel); }
 #batualizar.girando .ic { animation: girar .9s linear infinite; }
 @keyframes girar { to { transform: rotate(360deg); } }
 @media (prefers-reduced-motion: reduce) { #batualizar.girando .ic { animation: none; opacity: .5; } }
+
+/* ── Preventivas (03/11/2026): liberadas agora, várias de uma vez, e o atalho
+   de adiantar ("Já realizada") ───────────────────────────────────────────── */
+.passo-c.livre .pc-cab::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: var(--ok); box-shadow: 0 0 0 3px var(--ok-fundo); }
+.passo-c.livre.on { border-color: var(--ok); box-shadow: 0 0 0 1px var(--ok) inset; background: var(--ok-fundo); }
+.passo-explica.livre { border-left: 3px solid var(--ok); }
+.pv-livre { display: inline-block; margin-left: 6px; padding: 0 6px; border-radius: 999px; font-size: 10.5px; font-weight: 700;
+  line-height: 16px; vertical-align: 2px; color: var(--ok); background: var(--ok-fundo); letter-spacing: .01em; }
+.pv-venc.sem { color: var(--muito-fraco); }
+
+/* a caixinha de marcar: uma coluna a mais na frente da linha */
+.pv-lista.com-sel .pv-lin { grid-template-columns: 20px 104px minmax(120px, 190px) 96px minmax(0, 1fr) auto; }
+.pv-sel { display: flex; align-items: center; justify-content: center; }
+.pv-sel input { width: 16px; height: 16px; margin: 0; cursor: pointer; accent-color: var(--marca); }
+.pv-lin.marcada { background: var(--marca-clara); box-shadow: inset 3px 0 0 var(--marca); }
+.pv-grupo .marcar-g { margin-left: auto; background: transparent; }
+.pv-barra { gap: 10px; flex-wrap: wrap; }
+.pv-barra-nomes { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 46ch; font-size: 12.5px; }
+.pv-barra .lote-b { font-size: 12.5px; padding: 3px 10px; }
+
+/* "Já realizada": discreto na linha, verde quando a mão chega */
+button.mini.ja-feita { display: inline-flex; align-items: center; gap: 4px; background: transparent; color: var(--fraco);
+  border-color: var(--linha); white-space: nowrap; }
+button.mini.ja-feita .ic { flex: 0 0 auto; }
+button.mini.ja-feita:hover, button.mini.ja-feita:focus-visible { color: var(--ok); border-color: var(--ok); background: var(--ok-fundo); }
+
+/* a lista das caixas de lote */
+.lote-prev { list-style: none; margin: 4px 0 12px; padding: 0; max-height: 320px; overflow: auto;
+  border: 1px solid var(--linha); border-radius: var(--raio); }
+.lote-prev li { display: flex; align-items: center; gap: 10px; padding: 7px 10px; }
+.lote-prev li + li { border-top: 1px solid var(--linha); }
+.lote-prev label { display: flex; align-items: baseline; gap: 8px; flex: 1; min-width: 0; cursor: pointer; margin: 0; }
+.lote-prev label input { width: auto; margin: 0; align-self: center; }
+.lote-prev label small { color: var(--fraco); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.lote-campos { display: flex; gap: 6px; flex: 0 0 auto; }
+.lote-campos input, .lote-prev li > input[type=date] { width: auto; }
+.lote-campos .lote-os { width: 84px; }
+
+@media (max-width: 760px) {
+  .pv-lista.com-sel .pv-lin { grid-template-columns: 20px minmax(0, 1fr) auto; grid-template-areas: "sel frota acoes" ". trilha venc" ". falta falta"; }
+  .pv-sel { grid-area: sel; }
+  .pv-lin button.mini.ja-feita { padding: 1px 6px; }
+  .pv-lin button.mini.ja-feita .rot { display: none; }      /* no celular, só o ✓; o nome está no ⋯ */
+  .pv-barra-nomes { display: none; }
+  .lote-prev li { flex-wrap: wrap; row-gap: 6px; }
+  .lote-prev label { flex-basis: 100%; }
+  .lote-prev label b { white-space: nowrap; }
+  .lote-campos { margin-left: 24px; }
+}
+
+/* o foco do teclado igual no site inteiro (só quando se navega pelo teclado);
+   :where não pesa — quem já tem o seu continua com o seu */
+:where(button, a, summary, [role="button"], [tabindex]):focus-visible { outline: 2px solid var(--marca); outline-offset: 2px; }
+:where(input[type="checkbox"], input[type="radio"]):focus-visible { outline: 2px solid var(--marca); outline-offset: 2px; }
+
+/* Preventivas no celular: o alto em menos linhas — as vistas e o Incluir na
+   mesma linha; a busca inteira, e o total do plano ao lado do Excel */
+@media (max-width: 760px) {
+  .cabec .segmentos .seg-op { padding: 5px 7px; }
+  .cabec .prev-incluir { padding: 6px 10px; margin-left: auto; }
+  .cabec .prev-incluir .rot { display: none; }
+  .prev-filtros .busca { flex: 1 1 100%; max-width: none; }
+  .prev-filtros .sub { flex: 1 1 0; min-width: 0; font-size: 12.5px; }
+  .prev-filtros .espaco { display: none; }
+}

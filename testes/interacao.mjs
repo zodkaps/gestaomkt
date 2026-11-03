@@ -1843,6 +1843,76 @@ ok("um clique aprova: Concluída com atraso, concluída pelo Pedro, aprovada pel
   await p.waitForTimeout(300);
 }
 
+// ── Preventivas: o que está liberado agora, várias de uma vez, e o "Já realizada" ──
+{
+  const F = "F-LT" + Date.now().toString(36).slice(-4).toUpperCase();
+  const ids = await p.evaluate(async f => {
+    const { mesDaData } = await import("/js/decisoes.js");
+    const ev = mkt.ev, M = mkt.M, ref = M.hoje();
+    const cs = await ev.aplicar(["A", "B", "C", "D"].map(x => ev.novaPreventiva({ ...M.moldePreventiva(), frota: f + x,
+      mes: mesDaData(ref), plano: "1 ano", vence: M.somaDias(ref, 20), id: undefined })), { silencioso: true });
+    await ev.aplicar(ev.informarDisponibilidade(ev.porId(cs[0].alvo, "preventiva"), "agora"), { silencioso: true });
+    return cs.map(c => c.alvo);
+  }, F);
+  const pv = () => p.evaluate(ids => ids.map(id => { const x = mkt.ev.porId(id, "preventiva"); return { passo: mkt.M.passoPreventiva(x), livre: mkt.M.liberadaAgora(x), dia: x.realizada_em, os: x.os }; }), ids);
+  await p.evaluate(() => { location.hash = "#/preventivas"; });
+  await p.waitForSelector(".passos");
+  await p.fill(".filtros .busca", F);
+  await p.waitForTimeout(400);
+  ok("o quadro tem o cartão Liberadas agora, com quantas", (await p.textContent('.passo-c[data-passo="livre"] .pc-v')) === "1");
+  await p.click('.passo-c[data-passo="livre"]');
+  await p.waitForTimeout(300);
+  const livre = await p.evaluate(() => ({ linhas: [...document.querySelectorAll(".pv-lin")].map(l => l.dataset.id),
+    etiqueta: !!document.querySelector(".pv-lin .pv-livre"), explica: document.querySelector(".passo-explica.livre")?.textContent || "" }));
+  ok("tocar nele mostra só as liberadas, com a etiqueta", livre.linhas.join() === ids[0] && livre.etiqueta && /Liberadas agora/.test(livre.explica), JSON.stringify(livre));
+  await p.click('.passo-c[data-passo="livre"]');           // de novo: volta a Todas
+  await p.waitForTimeout(300);
+  ok("cada linha aberta tem o atalho Já realizada", (await p.locator(".pv-lin button.ja-feita").count()) === 4);
+  // marcar duas e liberar de uma vez
+  await p.check(`.pv-lin[data-id="${ids[1]}"] input.sel-item`);
+  await p.check(`.pv-lin[data-id="${ids[2]}"] input.sel-item`);
+  const barra = await p.evaluate(() => ({ txt: document.querySelector(".pv-barra")?.textContent || "", vis: !document.querySelector(".pv-barra")?.hidden,
+    lotes: [...document.querySelectorAll(".pv-barra [data-lote]")].map(b => b.dataset.lote) }));
+  ok("marcadas, aparece a barra com os lançamentos que servem", barra.vis && /2 marcadas/.test(barra.txt) &&
+    barra.lotes.join() === "liberar,parada,chegou,feita", JSON.stringify(barra));
+  await p.click('.pv-barra [data-lote="liberar"]');
+  await p.waitForSelector(".caixa .lote-prev");
+  ok("a caixa da liberação lista as duas", (await p.locator(".caixa .lote-prev li").count()) === 2);
+  await p.click('.caixa footer button:has-text("Informar")');
+  await p.waitForTimeout(600);
+  let r = await pv();
+  ok("Informar libera as duas de uma vez, e a barra some", r[1].livre && r[2].livre && !r[3].livre &&
+    await p.evaluate(() => !!document.querySelector(".pv-barra")?.hidden || !document.querySelector(".pv-barra")), JSON.stringify(r));
+  // as três liberadas: Marcar as 3 no grupo e dar a baixa nas três, uma com OS
+  await p.click('.pv-grupo[data-passo="parada"] .marcar-g');
+  await p.waitForTimeout(200);
+  ok("Marcar as N do grupo marca o passo inteiro", (await p.locator(".pv-lin.marcada").count()) === 3);
+  await p.click('.pv-barra [data-lote="feita"]');
+  await p.waitForSelector(".caixa .lote-prev");
+  const ontem = await p.evaluate(() => mkt.M.somaDias(mkt.M.hoje(), -1));
+  await p.fill('.caixa input[aria-label="Mesma data para todas"]', ontem);
+  await p.fill(`.caixa input[aria-label="OS (${F}A)"]`, "7788");
+  await p.click(".caixa footer button.primario");
+  await p.waitForTimeout(600);
+  r = await pv();
+  ok("Já realizada em lote: as três vão para Realizadas no dia escolhido, com a OS de quem tem",
+    r.slice(0, 3).every(x => x.passo === "feita" && x.dia === ontem) && r[0].os === "007788" && r[1].os === "", JSON.stringify(r));
+  // a que sobrou: o atalho da linha diz o que pula, e o ⋯ tem as opções novas
+  await p.click(`.pv-lin[data-id="${ids[3]}"] button.ja-feita`);
+  await p.waitForSelector(".caixa");
+  const cx = (await p.textContent(".caixa .corpo")).replace(/\s+/g, " ");
+  ok("o Já realizada da linha avisa os passos que ficam em branco", /Os passos que faltavam \(liberação, parada, chegada\) ficam em branco/.test(cx), cx);
+  ok("e não deixa escolher dia depois de hoje", (await p.getAttribute(".caixa input[type=date]", "max")) === await p.evaluate(() => mkt.M.hoje()));
+  await p.keyboard.press("Escape");
+  await p.click(`.pv-lin[data-id="${ids[3]}"] button.mais`);
+  await p.waitForSelector(".caixa");
+  const menu = await p.textContent(".caixa");
+  ok("o ⋯ tem A frota já chegou e Já realizada", /A frota já chegou na oficina/.test(menu) && /Já realizada/.test(menu), menu.replace(/\s+/g, " ").slice(0, 200));
+  await p.keyboard.press("Escape");
+  await p.fill(".filtros .busca", "");
+  await p.waitForTimeout(300);
+}
+
 // ── cópias antigas do aparelho: somem da tela, e o lançado nelas vai para a certa ──
 {
   const F = "F-CP" + Date.now().toString(36).slice(-4).toUpperCase();

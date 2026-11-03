@@ -804,6 +804,7 @@ export function novaPreventiva(campos) {
 export function preventivaFeita(p, em, os = "") {
   pessoas.exigir("preventiva_feita");
   if (!em) throw new Error("Exige a data em que foi feita.");
+  if (em > hoje()) throw new Error("A preventiva não pode ter sido realizada depois de hoje.");
   return { tipo: "prev_realizada", alvo: p.id, alvo_tipo: "preventiva",
     dados: { em, os } };
 }

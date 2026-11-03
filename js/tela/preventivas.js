@@ -31,6 +31,8 @@ import { conciliacao, descrever as descreverLigacao, eventosDaConciliacao } from
 import { OFICINA } from "../foco.js";
 import { calendarioMes, agenda, cartaoTrilho, itemAgenda, anel, diaPorExtenso } from "./calendario.js";
 import { baixarPlanilha, registroDe } from "./prevexcel.js";
+import { LOTES, abrirLote, podeMarcar } from "./prevlote.js";
+import { icone } from "../icones.js";
 
 // ── o cartão (celular, e a tela Para você) ──────────────────────────────────
 
@@ -481,12 +483,19 @@ export function descreverMudancaPrev(m) {
 }
 
 export async function darPorFeita(p) {
-  const eData = el("input", { type: "date", value: M.hoje() });
+  const eData = el("input", { type: "date", value: M.hoje(), max: M.hoje() });
   const eOS = el("input", { value: p.os, inputmode: "numeric", placeholder: "OS no Protheus" });
+  // Adiantar: realizada sem ter passado pelos passos no site. Os que faltaram
+  // ficam em branco — e a caixa diz quais, para ninguém achar que sumiram.
+  const passo = M.passoPreventiva(p);
+  const i = M.PASSOS_PREV.findIndex(x => x.id === passo);
+  const pula = i >= 0 && i < 3 ? M.PASSOS_PREV.slice(i, 3).map(x => x.nome.toLowerCase()) : [];
   const r = await caixa({
-    titulo: "Preventiva realizada",
+    titulo: pula.length ? "Preventiva já realizada" : "Preventiva realizada",
     corpo: el("div", {},
       el("p", {}, el("b", {}, p.frota), p.plano ? ` · ${p.plano}` : ""),
+      pula.length ? el("p", { class: "nada" }, `Vai direto para Realizadas. ${pula.length === 1 ? "O passo" : "Os passos"} que ` +
+        `faltava${pula.length === 1 ? "" : "m"} (${pula.join(", ")}) fica${pula.length === 1 ? "" : "m"} em branco no registro.`) : null,
       campo("Realizada em", eData), campo("OS", eOS)),
     acoes: [{ rotulo: "Cancelar", valor: false },
       { rotulo: "Confirmar", classe: "primario", acao: () => {
@@ -787,6 +796,17 @@ function botaoPasso(p, ref, sug = "") {
   return null;
 }
 
+/** O atalho de adiantar (pedido de 03/11/2026): a preventiva já foi feita —
+ *  a frota foi direto, ou a parada foi combinada de boca — e vai para
+ *  Realizadas sem passar pelos passos que faltam. No passo 4 não aparece: lá
+ *  o botão do passo já é a baixa. */
+function botaoJaFeita(p) {
+  if (!["liberar", "parada", "chegada"].includes(M.passoPreventiva(p)) || !pessoas.pode("preventiva_feita")) return null;
+  return el("button", { type: "button", class: "mini ja-feita", "aria-label": `Já realizada (${p.frota})`,
+    title: "Adiantar: a preventiva já foi feita — dá a baixa direto, sem os passos que faltam",
+    onclick: e => { e.stopPropagation(); darPorFeita(p); } }, icone("visto", 14), el("span", { class: "rot" }, "Já realizada"));
+}
+
 /** Os quatro passos em bolinhas: feito (✓), o da vez (aceso; vermelho se
  *  com problema) e os que faltam. */
 export function trilhaPassos(p, ref = M.hoje()) {
@@ -804,8 +824,10 @@ export function trilhaPassos(p, ref = M.hoje()) {
 /** As datas dos passos já dados, numa linha curta: o caminho da preventiva
  *  até aqui, sem precisar abrir a ficha. */
 function datasDosPassos(p) {
+  // no passo 2 a frase do que falta já diz a liberação: aqui seria repetir
+  const naFrase = M.passoPreventiva(p) === "parada";
   const d = [
-    p.disponivel_agora ? "liberada agora" : p.disponivel_em ? `liberação ${brCurto(p.disponivel_em)}` : "",
+    naFrase ? "" : p.disponivel_agora ? "liberada agora" : p.disponivel_em ? `liberação ${brCurto(p.disponivel_em)}` : "",
     p.dia_parada ? `parada ${brCurto(p.dia_parada)}` : "",
     p.entregue_em ? `chegou ${brCurto(p.entregue_em)}` : p.em_andamento ? "na oficina" : "",
     p.onde_fazer === "Terceiro" ? "no terceiro" : "",
@@ -826,20 +848,27 @@ function mudancasDaLinha(p) {
   return pecas.length ? el("div", { class: "pv-muds" }, pecas) : null;
 }
 
-function linhaPrev(p, ref, ctx, sug = "") {
+function linhaPrev(p, ref, ctx, sug = "", sel = null) {
   const t = textoPasso(p, ref);
   const venc = M.preventivaVencida(p, ref);
   const lim = M.venceEfetivo(p);
   const datas = datasDosPassos(p);
-  return el("div", { class: "pv-lin" + (t.alerta ? " alerta" : "") + (t.passo === "feita" || t.passo === "fora" ? " apagada" : ""),
+  const marcada = !!sel && sel.set.has(p.id);
+  const livre = M.liberadaAgora(p, ref);
+  return el("div", { class: "pv-lin" + (t.alerta ? " alerta" : "") + (t.passo === "feita" || t.passo === "fora" ? " apagada" : "") + (marcada ? " marcada" : ""),
     dataset: { id: p.id, passo: t.passo }, onclick: cliqueLimpo(() => abrirFichaPrev(p.id, ctx)) },
+    sel ? el("span", { class: "pv-sel", onclick: e => e.stopPropagation() }, podeMarcar(p)
+      ? el("input", { type: "checkbox", class: "sel-item", checked: marcada, dataset: { sel: p.id },
+        title: "Marcar — para lançar o mesmo passo em várias frotas", "aria-label": `Marcar ${p.frota}`,
+        onchange: e => sel.marcar([p.id], e.target.checked) }) : null) : null,
     trilhaPassos(p, ref),
-    el("div", { class: "pv-frota" }, el("b", {}, p.frota || "—"),
+    el("div", { class: "pv-frota" }, el("b", {}, p.frota || "—", livre ? el("span", { class: "pv-livre",
+      title: p.disponivel_agora ? "A operação liberou: disponível agora" : `A operação liberou a partir de ${br(p.disponivel_em)}` }, "liberada") : null),
       el("span", {}, [p.plano || "preventiva", p.qtd > 1 ? `${p.qtd}×` : "", p.onde_fazer === "Terceiro" ? "terceiro" : ""].filter(Boolean).join(" · "))),
-    el("div", { class: "pv-venc" + (venc ? " venceu" : "") }, lim ? `${venc ? "venceu" : "vence"} ${brCurto(lim)}` : "sem vencimento"),
+    el("div", { class: "pv-venc" + (venc ? " venceu" : "") + (lim ? "" : " sem"), title: lim ? "" : "Sem vencimento no plano" }, lim ? `${venc ? "venceu" : "vence"} ${brCurto(lim)}` : "—"),
     el("div", { class: "pv-falta" }, el("span", { class: "pv-txt" }, t.texto),
       datas && t.passo !== "liberar" ? el("span", { class: "pv-datas" }, datas) : null, mudancasDaLinha(p)),
-    el("div", { class: "pv-acoes", onclick: e => e.stopPropagation() }, botaoPasso(p, ref, sug), botaoMais("preventiva", p.id, ctx)));
+    el("div", { class: "pv-acoes", onclick: e => e.stopPropagation() }, botaoPasso(p, ref, sug), botaoJaFeita(p), botaoMais("preventiva", p.id, ctx)));
 }
 
 /** Os passos em cartões, com quantas frotas em cada: é o filtro da lista. */
@@ -858,8 +887,11 @@ function quadroPassos(plano, ref, atual, ir) {
     el("small", { class: "pc-sub" + (problema.get(id) ? " alerta" : "") }, sub));
   const fora = conta.get("fora");
   const pct = Math.round(M.resumoPreventivas(plano, ref).pct_realizadas * 100);
+  const livres = plano.filter(p => M.liberadaAgora(p, ref)).length;
+  const embreve = plano.filter(p => M.liberaEmBreve(p, ref)).length;
   return el("div", { class: "passos", role: "group", "aria-label": "Passo" },
     cartao("", "", "Todas", plano.length, fora ? `${plano.length - fora} valem no mês` : "no plano do mês", "todas"),
+    cartao("livre", "", "Liberadas agora", livres, embreve ? `+${embreve} em 7 dias` : "livres para parar", "livre"),
     ...M.PASSOS_PREV.map(x => cartao(x.id, String(x.n), x.nome, conta.get(x.id),
       problema.get(x.id) ? `${problema.get(x.id)} com problema` : quemDoPasso(x))),
     cartao("feita", "✓", NOME_PASSO.feita, conta.get("feita"), plano.length ? `${pct}% do plano` : "", "feita"),
@@ -868,7 +900,7 @@ function quadroPassos(plano, ref, atual, ir) {
 
 /** A lista do mês, por passo, na ordem do fluxo. Dentro do passo, o que está
  *  com problema primeiro, depois o que vence antes. */
-function listaPrev(itens, ref, ctx, { agrupar = true } = {}) {
+function listaPrev(itens, ref, ctx, { agrupar = true, sel = null } = {}) {
   const sug = sugestoesDeParada(itens, ref);
   const ordem = (a, b) => M.passoAtrasado(b, ref) - M.passoAtrasado(a, ref) ||
     String(M.venceEfetivo(a) || "9").localeCompare(String(M.venceEfetivo(b) || "9")) || natural(a.frota, b.frota);
@@ -877,14 +909,25 @@ function listaPrev(itens, ref, ctx, { agrupar = true } = {}) {
     .filter(g => g.itens.length);
   const cab = g => {
     const x = PASSO.get(g.id);
+    const ids = sel ? g.itens.filter(podeMarcar).map(p => p.id) : [];
     return el("div", { class: "pv-grupo", dataset: { passo: g.id } },
       x ? el("span", { class: "pc-n" }, String(x.n)) : null,
       el("b", {}, x ? x.nome : NOME_PASSO[g.id]),
       el("span", { class: "n" }, String(g.itens.length)),
-      x ? el("span", { class: "pv-faz" }, x.faz) : null);
+      x ? el("span", { class: "pv-faz" }, x.faz) : null,
+      ids.length > 1 ? el("button", { type: "button", class: "mini marcar-g", dataset: { marcarGrupo: ids.join(",") },
+        onclick: () => sel.marcar(ids, !ids.every(id => sel.set.has(id))) },
+        ids.every(id => sel.set.has(id)) ? "Desmarcar" : `Marcar as ${ids.length}`) : null);
   };
-  return el("div", { class: "pv-lista" }, grupos.flatMap(g => [agrupar ? cab(g) : null,
-    ...g.itens.map(p => linhaPrev(p, ref, ctx, sug.get(p.id) || ""))].filter(Boolean)));
+  // filtrado num passo só não há cabeçalho de grupo: o Marcar todas vai no alto da lista
+  const todos = sel && !agrupar ? itens.filter(podeMarcar).map(p => p.id) : [];
+  const topo = todos.length > 1 ? el("div", { class: "pv-grupo pv-grupo-sel" },
+    el("span", { class: "pv-faz" }, `${itens.length} na lista`),
+    el("button", { type: "button", class: "mini marcar-g", dataset: { marcarGrupo: todos.join(",") },
+      onclick: () => sel.marcar(todos, !todos.every(id => sel.set.has(id))) },
+      todos.every(id => sel.set.has(id)) ? "Desmarcar" : `Marcar as ${todos.length}`)) : null;
+  return el("div", { class: "pv-lista" + (sel ? " com-sel" : "") }, topo, grupos.flatMap(g => [agrupar ? cab(g) : null,
+    ...g.itens.map(p => linhaPrev(p, ref, ctx, sug.get(p.id) || "", sel))].filter(Boolean)));
 }
 
 /** O passo a passo da ficha: cada passo com a sua data. */
@@ -906,6 +949,13 @@ function passoAPasso(p, ref) {
       el("span", { class: "pp-txt" }, el("b", {}, x.nome), el("small", {}, datas[x.id] || (agora ? "falta" : "—"))),
       el("small", { class: "pp-quem" }, x.quem));
   }));
+}
+
+/** As liberadas agora, em texto para colar no grupo. */
+function textoLiberadas(itens, ref) {
+  const linhas = itens.slice().sort((a, b) => natural(a.frota, b.frota)).map(p => `- ${p.frota}` +
+    (p.plano ? ` · ${p.plano}` : "") + (p.dia_parada ? ` · parada ${brCurto(p.dia_parada)}` : " · sem parada marcada"));
+  return [`Frotas liberadas para a preventiva (${brCurto(ref)}):`, ...linhas].join("\n");
 }
 
 /** A linha do mês: quanto saiu, quanto venceu, e quanto do mês já passou. */
@@ -977,7 +1027,7 @@ export async function montar(raiz, ctx, params = new URLSearchParams()) {
   // ?v=planilha era a vista em blocos (29/10/2026), que voltou atrás: abre o Plano
   if (params.get("v") === "planilha") estado.vista = "plano";
   else if (["plano", "calendario", "painel", "mudancas"].includes(params.get("v"))) estado.vista = params.get("v");
-  if (params.get("passo") != null) estado.passo = ORDEM_PASSO.includes(params.get("passo")) ? params.get("passo") : "";
+  if (params.get("passo") != null) estado.passo = [...ORDEM_PASSO, "livre"].includes(params.get("passo")) ? params.get("passo") : "";
   const fBusca = el("input", { class: "busca", type: "search", value: estado.busca,
     placeholder: "frota, equipamento, local, OS…",
     oninput: () => { estado.busca = fBusca.value; pintar(); } });
@@ -1004,15 +1054,53 @@ export async function montar(raiz, ctx, params = new URLSearchParams()) {
   raiz.append(
     el("div", { class: "cabec" }, el("h1", {}, "Preventivas"), navMes, vistas,
       el("div", { class: "espaco" }),
-      pessoas.pode("parada") ? el("button", { class: "primario",
+      pessoas.pode("parada") ? el("button", { class: "primario prev-incluir", title: "Incluir uma frota no plano deste mês",
         onclick: async () => {
           const id = await incluirPreventiva(estado.mes);
           if (id) { const p = ev.porId(id, "preventiva"); if (p && p.mes) estado.mes = p.mes; estado.vista = "plano"; pintar(); }
-        } }, "+ Incluir frota") : null),
-    el("div", { class: "filtros" }, fBusca, titulo, el("div", { class: "espaco" }),
+        } }, "+ Incluir", el("span", { class: "rot" }, " frota")) : null),
+    el("div", { class: "filtros prev-filtros" }, fBusca, titulo, el("div", { class: "espaco" }),
       el("button", { type: "button", class: "mini", title: "O plano do mês em Excel, com as datas de cada passo e o registro das mudanças com o porquê",
         onclick: () => baixarPlanilha(ev.lista("preventiva").filter(p => (p.mes || "") === estado.mes), estado.mes) }, "Baixar Excel")),
     corpo);
+
+  // As marcadas do Plano: o mesmo passo para várias frotas de uma vez
+  // (`prevlote.js`). A barra aparece com a primeira caixinha marcada e mostra
+  // só os lançamentos que servem para as marcadas e que a pessoa pode fazer.
+  const barraSel = el("div", { class: "barra-sel pv-barra", hidden: true, role: "region", "aria-label": "Marcadas" });
+  const sel = {
+    set: new Set(),
+    marcar(ids, on) {
+      for (const id of ids) on ? this.set.add(id) : this.set.delete(id);
+      for (const c of corpo.querySelectorAll("input.sel-item")) {
+        c.checked = this.set.has(c.dataset.sel);
+        const lin = c.closest(".pv-lin"); if (lin) lin.classList.toggle("marcada", c.checked);
+      }
+      for (const b of corpo.querySelectorAll("[data-marcar-grupo]")) {
+        const g = b.dataset.marcarGrupo.split(",");
+        b.textContent = g.every(id => this.set.has(id)) ? "Desmarcar" : `Marcar as ${g.length}`;
+      }
+      pintarBarra();
+    },
+  };
+  function pintarBarra() {
+    limpar(barraSel);
+    const marcadas = [...sel.set].map(id => ev.porId(id, "preventiva")).filter(Boolean);
+    barraSel.hidden = !marcadas.length;
+    if (!marcadas.length) return;
+    const nomes = marcadas.map(p => p.frota).sort((a, b) => natural(a, b));
+    barraSel.append(
+      el("b", {}, `${marcadas.length} marcada${marcadas.length === 1 ? "" : "s"}`),
+      el("span", { class: "seg pv-barra-nomes" }, nomes.slice(0, 8).join(", ") + (nomes.length > 8 ? ` e mais ${nomes.length - 8}` : "")),
+      el("div", { class: "espaco" }),
+      ...LOTES.filter(l => pessoas.pode(l.pode)).map(l => {
+        const n = marcadas.filter(l.serve).length;
+        return n ? el("button", { type: "button", class: "mini lote-b" + (l.id === "feita" ? " ja-feita" : ""), dataset: { lote: l.id },
+          onclick: async () => { if (await abrirLote(l.id, marcadas)) { sel.set.clear(); pintar(); } } },
+          l.id === "feita" ? icone("visto", 14) : null, `${l.rotulo}${n < marcadas.length ? ` (${n})` : ""}`) : null;
+      }),
+      el("button", { type: "button", class: "mini", onclick: () => sel.marcar([...sel.set], false) }, "Desmarcar"));
+  }
 
   const kpi = (rot, val, det, cls = "") =>
     el("div", { class: "kpi " + cls },
@@ -1063,7 +1151,17 @@ export async function montar(raiz, ctx, params = new URLSearchParams()) {
     corpo.append(quadroPassos(buscadas, ref, estado.passo, id => { estado.passo = id; pintar(); }));
     const x = PASSO.get(estado.passo);
     const semLib = buscadas.filter(p => M.passoPreventiva(p) === "liberar");
-    if (x || (estado.passo === "" && semLib.length && pessoas.pode("parada"))) {
+    const livres = buscadas.filter(p => M.liberadaAgora(p, ref));
+    if (estado.passo === "livre") {
+      const embreve = buscadas.filter(p => M.liberaEmBreve(p, ref));
+      corpo.append(el("div", { class: "passo-explica livre" },
+        el("span", {}, el("b", {}, "Liberadas agora. "), "A operação liberou e a frota ainda não entrou na oficina: dá para mandar parar.",
+          embreve.length ? el("span", { class: "seg" }, ` ${embreve.length} libera${embreve.length === 1 ? "" : "m"} nos próximos 7 dias: ` +
+            embreve.sort((a, b) => a.disponivel_em.localeCompare(b.disponivel_em)).map(p => `${p.frota} (${brCurto(p.disponivel_em)})`).join(", ") + ".") : null),
+        el("div", { class: "espaco" }),
+        livres.length ? el("button", { type: "button", class: "mini", title: "A lista, pronta para colar no grupo",
+          onclick: () => copiar(textoLiberadas(livres, ref), "Lista") }, "Copiar a lista") : null));
+    } else if (x || (estado.passo === "" && semLib.length && pessoas.pode("parada"))) {
       corpo.append(el("div", { class: "passo-explica" },
         x ? el("span", {}, el("b", {}, `Passo ${x.n} · ${x.nome}. `), x.faz,
           el("span", { class: "seg" }, ` ${x.quem === "PCM" ? "É com o PCM." : "É com a operação."}`)) : el("span", { class: "seg" },
@@ -1073,9 +1171,16 @@ export async function montar(raiz, ctx, params = new URLSearchParams()) {
           ? el("button", { type: "button", class: "mini", title: "A lista, pronta para colar no grupo",
             onclick: () => copiar(textoCobranca(semLib, ref), "Cobrança") }, "Copiar a cobrança") : null));
     }
-    const visiveis = estado.passo ? buscadas.filter(p => M.passoPreventiva(p) === estado.passo) : buscadas;
-    corpo.append(visiveis.length ? listaPrev(visiveis, ref, ctx, { agrupar: !estado.passo })
-      : vazio(estado.passo ? `Nenhuma frota no passo ${(x || {}).nome || NOME_PASSO[estado.passo] || ""}.` : "Nada com esta busca."));
+    const visiveis = estado.passo === "livre" ? livres
+      : estado.passo ? buscadas.filter(p => M.passoPreventiva(p) === estado.passo) : buscadas;
+    // a marcação vale para o que está na tela: trocar o filtro desmarca o que saiu dela
+    const naTela = new Set(visiveis.filter(podeMarcar).map(p => p.id));
+    for (const id of [...sel.set]) if (!naTela.has(id)) sel.set.delete(id);
+    const comSel = naTela.size > 0 && LOTES.some(l => pessoas.pode(l.pode));
+    if (comSel) { corpo.append(barraSel); pintarBarra(); }
+    corpo.append(visiveis.length ? listaPrev(visiveis, ref, ctx, { agrupar: !estado.passo || estado.passo === "livre", sel: comSel ? sel : null })
+      : vazio(estado.passo === "livre" ? "Nenhuma frota liberada agora."
+        : estado.passo ? `Nenhuma frota no passo ${(x || {}).nome || NOME_PASSO[estado.passo] || ""}.` : "Nada com esta busca."));
 
     if (fora.length && !estado.passo) {
       const det = el("details", { class: "outros", open: estado.foraAberto },

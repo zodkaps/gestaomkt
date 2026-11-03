@@ -13,7 +13,7 @@ import { el, caixa, campo, confirmar, erro, avisar } from "../ui.js";
 import { concluir, reprogramar, devolverParaCarteira, justificar, anotarOS } from "./comum.js";
 import { concluirMov, aprovar, devolver, prometerData, cancelarMov, editarMov, tituloMov } from "./movimentacoes.js";
 import { informarDisponibilidade, marcarParada, darPorFeita, passarParaOMesSeguinte,
-  cancelarPrev, andamento, reabrirPrev, editarPreventiva } from "./preventivas.js";
+  cancelarPrev, andamento, reabrirPrev, editarPreventiva, registrarEntregaPrev, fecharOSPrev } from "./preventivas.js";
 
 export function menuDe(tipo, id, ctx) {
   const item = ev.porId(id, tipo);
@@ -185,10 +185,15 @@ export async function menuPreventiva(p, ctx) {
     op.push(p.dia_parada
       ? { chave: "parada", rotulo: "Reprogramar a parada", explica: `hoje em ${p.dia_parada.split("-").reverse().slice(0, 2).join("/")} — exige motivo` }
       : { chave: "parada", rotulo: "Programar a parada", explica: "data em que a frota entra em manutenção" });
+    if (!p.entregue_em) op.push({ chave: "chegou", rotulo: "A frota já chegou na oficina", explica: p.dia_parada ? "anotar o dia da chegada" : "mesmo sem a parada marcada" });
     op.push({ chave: "andamento", rotulo: p.em_andamento ? "Retirar de em andamento" : "Marcar em andamento" });
-    op.push({ chave: "feita", rotulo: "Registrar realização", explica: "preventiva concluída, com a data" });
+    if (pode("preventiva_feita")) op.push({ chave: "feita", rotulo: M.passoPreventiva(p) === "baixa" ? "Dar a baixa" : "Já realizada",
+      explica: M.passoPreventiva(p) === "baixa" ? "preventiva concluída, com a data" : "adiantar: dá a baixa direto, sem os passos que faltam" });
     op.push({ chave: "mes", rotulo: "Adiar para o próximo mês", explica: "sai da contagem deste mês, com o motivo" });
     op.push({ chave: "cancelar", rotulo: "Cancelar", perigo: true, explica: "não será executada neste mês" });
+  }
+  if (M.preventivaFeita(p) && !p.fechada_em && pode("preventiva_feita")) {
+    op.push({ chave: "fechar", rotulo: "Fechar a OS", explica: "o dia em que a OS foi encerrada no Protheus" });
   }
   if (!aberta && !p.fora && pode("parada")) {
     op.push({ chave: "reabrir", rotulo: "Reabrir", explica: "volta para o plano do mês" });
@@ -204,6 +209,8 @@ export async function menuPreventiva(p, ctx) {
   if (r === "disponivel") return informarDisponibilidade(p);
   if (r === "parada") return marcarParada(p);
   if (r === "andamento") return andamento(p, !p.em_andamento);
+  if (r === "chegou") return registrarEntregaPrev(p);
+  if (r === "fechar") return fecharOSPrev(p);
   if (r === "feita") return darPorFeita(p);
   if (r === "mes") return passarParaOMesSeguinte(p);
   if (r === "cancelar") return cancelarPrev(p);

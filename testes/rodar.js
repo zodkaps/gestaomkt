@@ -1502,5 +1502,39 @@ titulo("a planilha em blocos — fechamento e resultado");
   ok("sem ser do PCM, não fecha", /permissão/.test(recusa), recusa);
 }
 
+titulo("liberadas agora, e adiantar até a realização");
+{
+  const H = "2026-11-03";
+  const P = extra => ({ ...modelo.moldePreventiva(), frota: "F-1", ...extra });
+  igual("liberada agora: a operação liberou e a frota ainda não entrou", [
+    P({ disponivel_agora: true }), P({ disponivel_em: "2026-11-03" }), P({ disponivel_em: "2026-11-02" }),
+    P({ disponivel_em: "2026-11-04" }), P({}), P({ disponivel_agora: true, entregue_em: "2026-11-02" }),
+    P({ disponivel_agora: true, em_andamento: true }), P({ disponivel_agora: true, realizada_em: "2026-11-01" }),
+    P({ disponivel_agora: true, adiada: true }), P({ disponivel_agora: true, dia_parada: "2026-11-05" }),
+  ].map(p => modelo.liberadaAgora(p, H)), [true, true, true, false, false, false, false, false, false, true]);
+  igual("libera em breve: nos próximos 7 dias, sem contar hoje", [
+    P({ disponivel_em: "2026-11-04" }), P({ disponivel_em: "2026-11-10" }), P({ disponivel_em: "2026-11-11" }),
+    P({ disponivel_em: "2026-11-03" }), P({ disponivel_agora: true })].map(p => modelo.liberaEmBreve(p, H)),
+  [true, true, false, false, false]);
+
+  await pessoas.entrarLocal("Mateus");
+  const criadas = await ev.aplicar(["F-ADI1", "F-ADI2"].map(frota =>
+    ev.novaPreventiva({ ...modelo.moldePreventiva(), frota, mes: "Nov-26", id: undefined })), { silencioso: true });
+  const ps = () => criadas.map(c => ev.porId(c.alvo, "preventiva"));
+  ok("sem nenhum passo, as duas estão em Liberação", ps().every(p => modelo.passoPreventiva(p) === "liberar"));
+  let recusa = "";
+  try { ev.preventivaFeita(ps()[0], modelo.somaDias(modelo.hoje(), 1)); } catch (e) { recusa = e.message; }
+  ok("realizada depois de hoje é recusada", /depois de hoje/.test(recusa), recusa);
+  // o lote: os mesmos lançamentos de uma só, gravados juntos
+  await ev.aplicar(ps().map(p => ev.informarDisponibilidade(p, "agora")), { silencioso: true });
+  ok("liberadas as duas de uma vez", ps().every(p => modelo.liberadaAgora(p) && modelo.passoPreventiva(p) === "parada"));
+  await ev.aplicar(ps().map((p, i) => ev.preventivaFeita(p, modelo.hoje(), i ? "" : "4321")), { silencioso: true });
+  igual("adiantadas: realizadas sem parada nem chegada, cada uma com a sua OS",
+    ps().map(p => [modelo.passoPreventiva(p), p.realizada_em === modelo.hoje(), p.dia_parada, p.entregue_em, p.os]),
+    [["feita", true, "", "", "4321"], ["feita", true, "", "", ""]]);
+  ok("e realizada não conta mais como liberada", ps().every(p => !modelo.liberadaAgora(p)));
+  await pessoas.sair();
+}
+
 console.log(`\n${passou} passaram, ${falhou} falharam`);
 if (falhou) { for (const f of falhas) console.log(`  × ${f}`); process.exit(1); }
