@@ -324,9 +324,8 @@ async function pintar() {
   pintarMenu(id);
   pintarPessoa();
   pintarVoltar();
-  const bReg = $("#bregistrar");
-  if (bReg) bReg.hidden = !pessoas.quem() || !pessoas.papel() || tela.oculta ||
-    !(pessoas.pode("movimentar") || pessoas.pode("disponibilidade"));
+  const bBusca = $("#bbuscar");
+  if (bBusca) bBusca.hidden = !pessoas.quem() || !pessoas.papel() || tela.oculta;
   $("#topo .titulo").textContent = tela.oculta ? "" : tela.nome;
   limpar($("#acoes-topo"));
 
@@ -600,12 +599,21 @@ async function comecar() {
     await dados.gravarMeta("tema2", novo);
   });
 
-  // "+ Registrar": lançar de qualquer tela (ver `tela/registrar.js`). No alto
-  // no computador; no celular, flutua acima da barra de baixo, onde o dedo está.
-  $("#acoes-topo").before(el("button", { id: "bregistrar", class: "primario", hidden: true,
-    title: "Registrar uma movimentação, a chegada da frota, a liberação ou o porquê de um atraso",
-    onclick: () => import("./tela/registrar.js").then(m => m.abrirRegistrar(ctx)).catch(e => erro(e.message)) },
-    el("span", { class: "reg-mais", "aria-hidden": "true" }, "+"), el("span", { class: "rot" }, " Registrar")));
+  // "Buscar frota" (no lugar do "+ Registrar", 03/11/2026; ver
+  // `tela/buscarfrota.js`): a frota digitada e tudo o que ela tem em aberto,
+  // com o botão de cada coisa. No alto, em toda tela; Ctrl+K abre de qualquer lugar.
+  const abrirBusca = () => import("./tela/buscarfrota.js").then(m => m.abrirBuscaFrota(ctx)).catch(e => erro(e.message));
+  $("#acoes-topo").before(el("button", { id: "bbuscar", class: "buscar-topo", hidden: true,
+    title: "Buscar frota — o que ela tem em aberto, e lançar dali (Ctrl+K)", "aria-label": "Buscar frota",
+    onclick: abrirBusca },
+    icone("buscar", 17), el("span", { class: "rot" }, "Buscar frota"), el("kbd", { class: "atalho", "aria-hidden": "true" }, "Ctrl K")));
+  document.addEventListener("keydown", e => {
+    if (!(e.ctrlKey || e.metaKey) || e.altKey || String(e.key).toLowerCase() !== "k") return;
+    const b = $("#bbuscar");
+    if (!b || b.hidden || document.querySelector(".fundo")) return;
+    e.preventDefault();
+    abrirBusca();
+  });
 
   // O botão de voltar mora no alto, antes do título; o caminho é anotado ANTES
   // de a tela nova se pintar, para o botão já nascer com o nome certo.

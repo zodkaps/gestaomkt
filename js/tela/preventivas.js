@@ -777,12 +777,12 @@ export function textoPasso(p, ref = M.hoje()) {
   return { passo, alerta: false, texto: (p.cancelada ? "Cancelada" : "Adiada para o próximo mês") + (p.motivo ? ` · ${p.motivo}` : "") };
 }
 
-/** O botão do próximo passo — um só — ou nada, se o passo não é de quem
- *  está olhando (ou se é só esperar o dia). */
-function botaoPasso(p, ref, sug = "") {
+/** O próximo passo — um só — como {rotulo, fn, title}, ou nada, se o passo
+ *  não é de quem está olhando (ou se é só esperar o dia). A linha do Plano faz
+ *  dele um botão; o Buscar frota (`buscarfrota.js`) também. */
+export function proximoPasso(p, ref, sug = "") {
   const passo = M.passoPreventiva(p);
-  const b = (rot, fn, title = "") => el("button", { type: "button", class: "mini primario-leve passo-b", title,
-    onclick: e => { e.stopPropagation(); fn(); } }, rot);
+  const b = (rotulo, fn, title = "") => ({ rotulo, fn, title });
   if (passo === "liberar") return pessoas.pode("disponibilidade") ? b("Informar liberação", () => informarDisponibilidade(p)) : null;
   if (!pessoas.pode("parada")) return null;
   if (passo === "parada") return sug ? b(`Marcar ${brCurto(sug)}`, () => marcarParada(p, { sugestao: sug }), `Marcar a parada em ${br(sug)} (sugestão)`)
@@ -796,12 +796,20 @@ function botaoPasso(p, ref, sug = "") {
   return null;
 }
 
+function botaoPasso(p, ref, sug = "") {
+  const x = proximoPasso(p, ref, sug);
+  return x ? el("button", { type: "button", class: "mini primario-leve passo-b", title: x.title,
+    onclick: e => { e.stopPropagation(); x.fn(); } }, x.rotulo) : null;
+}
+
 /** O atalho de adiantar (pedido de 03/11/2026): a preventiva já foi feita —
  *  a frota foi direto, ou a parada foi combinada de boca — e vai para
  *  Realizadas sem passar pelos passos que faltam. No passo 4 não aparece: lá
  *  o botão do passo já é a baixa. */
+export const podeJaFeita = p => ["liberar", "parada", "chegada"].includes(M.passoPreventiva(p)) && pessoas.pode("preventiva_feita");
+
 function botaoJaFeita(p) {
-  if (!["liberar", "parada", "chegada"].includes(M.passoPreventiva(p)) || !pessoas.pode("preventiva_feita")) return null;
+  if (!podeJaFeita(p)) return null;
   return el("button", { type: "button", class: "mini ja-feita", "aria-label": `Já realizada (${p.frota})`,
     title: "Adiantar: a preventiva já foi feita — dá a baixa direto, sem os passos que faltam",
     onclick: e => { e.stopPropagation(); darPorFeita(p); } }, icone("visto", 14), el("span", { class: "rot" }, "Já realizada"));

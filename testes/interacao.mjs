@@ -2117,38 +2117,45 @@ ok("um clique aprova: Concluída com atraso, concluída pelo Pedro, aprovada pel
   ok("no Registro a frota também se digita, e só o número acha os lançamentos dela",
     reg.et.includes("Frota: " + NUM) && /\d+ lançamentos?/.test(reg.texto) && !/Nada com esses filtros/.test(reg.texto), reg.et);
 
-  // ── + Registrar: a frota digitada e o que aconteceu, em dois toques ─────
+  // ── Buscar frota (no lugar do + Registrar): a frota e tudo o que ela tem em aberto ──
   const FREG = "F-REG-" + Date.now().toString(36).slice(-5).toUpperCase();
-  await av.click("#bregistrar");
-  await av.waitForSelector(".caixa .reg-op", { timeout: 5000 });
+  ok("o + Registrar saiu; no lugar, o Buscar frota no alto", !(await av.locator("#bregistrar").count()) && await av.locator("#bbuscar").isVisible());
+  await av.keyboard.press("Control+k");
+  await av.waitForSelector(".caixa .buscar-frota", { timeout: 5000 });
+  ok("Ctrl+K abre a busca, e vazia ela mostra as frotas com alguma coisa em aberto",
+    /Digite a frota/.test(await av.textContent(".bf-res")));
   await av.fill('.caixa input[aria-label="Frota"]', FREG);
   await av.waitForTimeout(300);
-  const opsReg = await av.evaluate(() => [...document.querySelectorAll(".caixa .reg-op")].map(b => ({ op: b.dataset.op, off: b.disabled })));
-  ok("+ Registrar com uma frota nova: só dá para pedir movimentação ou pôr no plano; o resto não tem nada dela",
-    opsReg.find(o => o.op === "mov-nova") && !opsReg.find(o => o.op === "mov-nova").off &&
-    opsReg.find(o => o.op === "mov-feita").off && opsReg.find(o => o.op === "chegou").off, JSON.stringify(opsReg));
-  await av.click('.caixa .reg-op[data-op="mov-nova"]');
+  const fNova = await av.evaluate(() => ({ cab: document.querySelector(".bf-cab")?.textContent || "",
+    criar: [...document.querySelectorAll(".bf-criar button")].map(b => b.textContent.trim()), itens: document.querySelectorAll(".bf-item").length }));
+  ok("uma frota nova: nada em aberto, e dá para pedir movimentação ou pôr no plano", /frota nova/.test(fNova.cab) && !fNova.itens &&
+    fNova.criar.join() === "Pedir movimentação,Pôr no plano de preventivas", JSON.stringify(fNova));
+  await av.click('.bf-criar button:has-text("Pedir movimentação")');
   await av.waitForSelector('.caixa input[placeholder="ex.: F-745"]', { timeout: 5000 });
   const veio = await av.inputValue('.caixa input[placeholder="ex.: F-745"]');
   ok("pedir a movimentação abre o formulário de sempre, com a frota já digitada", veio === FREG, veio);
   await av.fill('.caixa input[placeholder^="ex.: Coletar"]', "Levar");
   await av.fill('.caixa input[placeholder^="ex.: Cardan"]', "Borracharia");
   await av.click('.caixa footer button:has-text("Registrar")');
-  await av.waitForTimeout(600);
-  await av.click("#bregistrar");
-  await av.waitForSelector(".caixa .reg-op", { timeout: 5000 });
-  await av.fill('.caixa input[aria-label="Frota"]', FREG.toLowerCase());
+  await av.waitForSelector(".caixa .buscar-frota", { timeout: 5000 });
   await av.waitForTimeout(300);
-  const feita = await av.evaluate(() => (document.querySelector('.caixa .reg-op[data-op="mov-feita"] .reg-n') || {}).textContent);
-  ok("na volta, a mesma frota (digitada em minúsculas) tem 1 movimentação em aberto", feita === "1 em aberto", feita);
-  await av.click('.caixa .reg-op[data-op="mov-feita"]');
+  const volta = await av.evaluate(() => ({ frota: document.querySelector('.caixa input[aria-label="Frota"]')?.value,
+    item: document.querySelector(".bf-item .bf-txt b")?.textContent || "", bt: [...document.querySelectorAll(".bf-item button")].map(b => b.textContent) }));
+  ok("gravou e a busca volta na mesma frota, com a movimentação e o Concluir", volta.frota === FREG && /Levar/.test(volta.item) &&
+    volta.bt.includes("Concluir"), JSON.stringify(volta));
+  await av.click('.bf-item button:has-text("Concluir")');
   await av.waitForSelector('.caixa footer button:has-text("Concluir")', { timeout: 5000 });
   await av.click('.caixa footer button:has-text("Concluir")');
-  await av.waitForTimeout(600);
+  await av.waitForSelector(".caixa .buscar-frota", { timeout: 5000 });
+  await av.waitForTimeout(300);
   const concluida = await av.evaluate(frota => mkt.ev.lista("movimentacao").filter(m => m.frota === frota)
     .map(m => [m.acao, m.destino, !!m.chegou_em, m.aprovada]), FREG);
-  ok("com uma só em aberto, abre direto o concluir — e grava", JSON.stringify(concluida) === JSON.stringify([["Levar", "Borracharia", true, true]]),
+  ok("Concluir de dentro da busca grava (o PCM conclui e aprova), e a frota fica sem nada em aberto",
+    JSON.stringify(concluida) === JSON.stringify([["Levar", "Borracharia", true, true]]) && /nada em aberto/.test(await av.textContent(".bf-cab")),
     JSON.stringify(concluida));
+  await av.keyboard.press("Escape");
+  await av.waitForTimeout(200);
+  ok("Esc fecha a busca", !(await av.locator(".fundo").count()));
 
   // ── Preventivas: qualquer mês, e o plano de um mês novo ───────────────────
   await av.evaluate(() => { location.hash = "#/preventivas"; });
@@ -2195,12 +2202,13 @@ ok("um clique aprova: Concluída com atraso, concluída pelo Pedro, aprovada pel
   const botoesOp = await op.evaluate(() => [...document.querySelectorAll("#av-agora + .tabela-rolagem button")].map(b => b.textContent));
   ok("e não vê o botão 'A frota chegou' (mas conclui a movimentação)", !botoesOp.includes("A frota chegou") &&
     botoesOp.includes("Concluir"), botoesOp.join(" | "));
-  await op.click("#bregistrar");
-  await op.waitForSelector(".caixa .reg-op", { timeout: 5000 });
-  const opsOp = await op.evaluate(() => [...document.querySelectorAll(".caixa .reg-op b")].map(b => b.textContent));
-  ok("o + Registrar da operação só oferece o que ela pode", opsOp.includes("Pedir uma movimentação") &&
-    opsOp.includes("Liberação para a preventiva") && !opsOp.includes("A frota chegou na oficina") &&
-    !opsOp.includes("Pôr a frota no plano de preventivas"), opsOp.join(" | "));
+  await op.click("#bbuscar");
+  await op.waitForSelector(".caixa .buscar-frota", { timeout: 5000 });
+  await op.fill('.caixa input[aria-label="Frota"]', FREG);
+  await op.waitForTimeout(300);
+  const opsOp = await op.evaluate(() => [...document.querySelectorAll(".bf-criar button, .bf-item button")].map(b => b.textContent.trim()));
+  ok("a busca da operação só oferece o que ela pode", opsOp.includes("Pedir movimentação") &&
+    !opsOp.includes("Pôr no plano de preventivas"), opsOp.join(" | "));
   await op.keyboard.press("Escape");
   await op.context().close();
   await av.context().close();

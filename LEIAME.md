@@ -60,13 +60,19 @@ A oficina devolver a frota atrasada **não** conta: o que se avalia é a operaç
 - As contas ficam em `js/avaliacao.js` (puras, testadas em `testes/rodar.js`);
   a tela em `js/tela/avaliacao.js`.
 
-- **+ Registrar**, no alto de todas as telas (no celular, o botão redondo acima
-  da barra de baixo): digita a frota — qualquer uma — e toca no que aconteceu:
-  pedir uma movimentação, movimentação feita, a frota chegou na oficina,
-  liberação para a preventiva, justificar um atraso ou pôr a frota no plano. Ao
-  lado de cada um, quantos estão em aberto daquela frota; com um só, abre
-  direto. As caixas são as mesmas das telas (`js/tela/registrar.js`), então o
-  motivo e a permissão valem igual: a operação não vê o que é do PCM.
+- **Buscar frota**, no alto de todas as telas (no celular, a lupa ao lado do
+  atualizar; **Ctrl+K** de qualquer lugar). Até 03/11/2026 era o
+  **+ Registrar**, que perguntava "o que aconteceu?" e repetia os botões que
+  cada aba já tem — o PCM pediu para reformular. Ficou o que ele tinha de
+  próprio: começar pela frota. Digita a frota — só o número basta — e aparece
+  tudo o que ela tem em aberto: a preventiva com o passo, o botão do próximo
+  passo e o *Já realizada*; as movimentações com *Concluir*, *Justificar* e
+  *Aprovar*; e embaixo *Pedir movimentação* e *Pôr no plano de preventivas*,
+  com a frota já digitada. Vazia, mostra as frotas com alguma coisa em aberto,
+  para tocar. Cada botão abre a mesma caixa da aba (`js/tela/buscarfrota.js`),
+  então o motivo e a permissão valem igual; ao gravar, a busca volta na mesma
+  frota, já com o que mudou, para lançar a próxima coisa. O botão redondo que
+  flutuava no celular saiu — cobria a lista.
 - **Preventivas de qualquer mês**: ‹ e › andam um mês, e o campo do mês pula
   para qualquer um. O mês sem plano diz isso e oferece **+ Incluir frota** e
   **Trazer frotas de outro mês** — a lista do mês de origem, cada frota com o
@@ -128,7 +134,7 @@ tom bem claro), todos acima de 4,5:1, e sempre levam o texto.
   rola dentro do próprio cartão — a página não desce mais só por causa dela.
 - **A logo é um calendário** (`logo.svg`: a folha do mês com o dia marcado e
   dado por feito), no menu, na tela de entrar, na aba do navegador e no ícone
-  do aplicativo. Os ícones do menu e do "+ Registrar" são desenhos em linha
+  do aplicativo. Os ícones do menu e do "+ Registrar" (hoje Buscar frota) são desenhos em linha
   (`js/icones.js`), não caracteres — a mão do "Para você" virava emoji
   colorido em alguns aparelhos.
 
@@ -204,9 +210,9 @@ foi feita.
 - **Acabamento**: sem vencimento no plano, a coluna mostra "—" em vez de
   repetir "sem vencimento" em cada linha; no celular, o alto da aba cabe em
   menos linhas (as vistas e o *+ Incluir* na mesma linha, o total ao lado do
-  Excel); o aviso que aparece embaixo sobe acima do *+ Registrar*, em vez de
-  ficar por baixo dele; e o foco do teclado tem o mesmo contorno no site
-  inteiro.
+  Excel); e o foco do teclado tem o mesmo contorno no site inteiro.
+- **O + Registrar virou Buscar frota** (ver a seção da Avaliação, acima): a
+  frota e tudo o que ela tem em aberto, com o botão de cada coisa.
 
 **As telas da oficina saíram do menu, mas nada foi apagado.** Painel, Hoje,
 Programação, Semana, Resultados e Frota continuam no código, e os lançamentos
@@ -285,7 +291,7 @@ olhando:
 | Cancelar, Desfazer o cancelamento | PCM (OS); os dois (movimentação) | cancelada não conta como concluída |
 | Concluir, Definir o prazo, Aprovar, Devolver à operação | operação conclui; PCM aprova ou devolve | |
 | Editar (movimentação) | PCM e operação | o que fazer, onde, prioridade, prazo e detalhes, enquanto não for cancelada; aprovação não se edita |
-| Programar a parada, Reprogramar a parada, Registrar realização, Marcar em andamento, Adiar para o próximo mês | PCM | reprogramar a parada exige motivo e conta |
+| Programar a parada, Reprogramar a parada, A frota já chegou, Já realizada / Dar a baixa, Fechar a OS, Marcar em andamento, Adiar para o próximo mês | PCM | reprogramar a parada exige motivo e conta; realizada não pode ser depois de hoje |
 | Editar (preventiva) | PCM | frota, plano, vencimento, prazo do Service, local, onde fazer, HH, OS, observação |
 | Informar liberação | operação | data em que a frota fica disponível para a manutenção |
 | **Excluir** | **só o PCM** | deixa de aparecer nas telas; o histórico é mantido |
@@ -1295,7 +1301,8 @@ porque toda escrita já passa por `aplicar()`.
 | `js/foco.js` | o que o site mostra: sem `?oficina=1`, as telas da oficina ficam fora do menu; a primeira tela de quem entra |
 | `js/avaliacao.js` | as contas da Avaliação da operação: os três atrasos, o que atrasa agora, o que falta justificar, os agrupamentos dos gráficos |
 | `js/tela/avaliacao.js` | a tela Avaliação, em abas: Resumo, Para resolver, Análise e Todos os atrasos |
-| `js/tela/registrar.js` | o "+ Registrar": a frota digitada e o que aconteceu, abrindo as caixas de sempre |
+| `js/tela/buscarfrota.js` | o Buscar frota (Ctrl+K): a frota digitada e tudo o que ela tem em aberto, abrindo as caixas de sempre |
+| `js/tela/prevlote.js` | as preventivas em lote: a barra das marcadas no Plano e as caixas de liberação, parada, chegada e realizada |
 | `js/decisoes.js` | **o que decidir agora**: as regras do Painel, puras, e a data sugerida para a parada |
 | `js/vinculo.js` | o *Ver e ligar*: o que fazer, preventiva por preventiva, para ligar o que já existia à Programação |
 | `js/registro.js` | as contas do Registro: o dia de cada lançamento, o filtro, o resumo do dia e o tamanho da fita |

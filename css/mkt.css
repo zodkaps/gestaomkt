@@ -558,8 +558,6 @@ h2.mini {
   pointer-events: none; width: max-content; max-width: 92vw;
 }
 @media (min-width: 861px) { #avisos { bottom: 18px; } }
-/* no celular o "+ Registrar" flutua no mesmo lugar: o aviso sobe acima dele */
-@media (max-width: 860px) { #avisos { bottom: calc(var(--nav) + env(safe-area-inset-bottom) + 76px); } }
 .aviso {
   background: var(--papel3); color: var(--texto);
   border: 1px solid var(--borda);
@@ -1689,34 +1687,44 @@ tr.cat-bloco .n, .mov-grupo-tit .n { color: var(--fraco); font-weight: 500; }
 .pede-acao .seg { color: var(--fraco); }
 .av-nota { margin: 14px 0 0; }
 
-/* "+ Registrar": no alto no computador; no celular, flutua acima da barra */
-#bregistrar { font-weight: 700; padding: 7px 14px; border-radius: 8px; }
-#bregistrar .reg-mais { font-size: 17px; font-weight: 800; line-height: 1; }
-#topo #bregistrar { align-self: center; }
+/* "Buscar frota" (no lugar do "+ Registrar", 03/11/2026): no alto, em toda
+   tela; no celular, só a lupa, ao lado do atualizar */
+.buscar-topo { align-self: center; gap: 8px; min-width: 210px; justify-content: flex-start; padding: 6px 10px;
+  color: var(--fraco); background: var(--campo, var(--papel)); border: 1px solid var(--borda); border-radius: 9px; }
+.buscar-topo:hover { color: var(--texto); border-color: var(--marca); }
+.buscar-topo .ic { display: block; flex: 0 0 auto; }
+.buscar-topo .rot { flex: 1; text-align: left; }
+.buscar-topo .atalho { font-family: inherit; font-size: 10.5px; font-weight: 650; line-height: 1; padding: 3px 5px; border-radius: 5px; color: var(--muito-fraco);
+  border: 1px solid var(--linha); background: var(--papel2); }
 @media (max-width: 860px) {
-  #bregistrar { position: fixed; right: 14px; bottom: calc(var(--nav) + env(safe-area-inset-bottom) + 14px); z-index: 40;
-    border-radius: 999px; padding: 12px 18px; font-size: 14.5px; box-shadow: 0 6px 18px rgba(20, 30, 40, .28); }
-  main { padding-bottom: 84px; }
+  .buscar-topo { min-width: 0; padding: 7px; border-color: transparent; background: transparent; color: var(--texto); }
+  .buscar-topo .rot, .buscar-topo .atalho { display: none; }
 }
-.registrar .reg-pergunta { font-size: 11.5px; font-weight: 700; color: var(--fraco); text-transform: uppercase;
-  letter-spacing: .06em; margin: 6px 0 8px; }
-.reg-opcoes { display: grid; gap: 8px; }
-.reg-op { display: grid; grid-template-columns: 38px 1fr auto; align-items: center; gap: 12px; text-align: left;
-  padding: 10px 12px; border-radius: 10px; border: 1px solid var(--linha); background: var(--papel); white-space: normal; width: 100%; }
-.reg-op:hover:not(:disabled) { border-color: var(--marca); background: var(--marca-clara); }
-.reg-op:disabled { opacity: .5; }
-.reg-ic { width: 38px; height: 38px; border-radius: 10px; display: grid; place-items: center;
-  background: var(--marca-clara); color: var(--marca); font-size: 17px; font-weight: 800; }
-.reg-txt { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
-.reg-txt b { font-size: 14px; }
-.reg-txt small { font-size: 12px; color: var(--fraco); }
-.reg-n { font-size: 12px; color: var(--fraco); white-space: nowrap; }
-.reg-itens { display: flex; flex-direction: column; gap: 6px; }
-.reg-item { display: grid; grid-template-columns: minmax(64px, auto) 1fr auto; gap: 10px; text-align: left;
-  padding: 10px 12px; border-radius: 8px; white-space: normal; width: 100%; }
-.reg-item:hover { border-color: var(--marca); background: var(--marca-clara); }
-.reg-item .reg-info { font-size: 12px; color: var(--fraco); }
-@media (max-width: 520px) { .reg-item { grid-template-columns: auto 1fr; } .reg-item .reg-info { grid-column: 2; } }
+.buscar-frota .bf-res { margin-top: 12px; display: flex; flex-direction: column; gap: 14px; }
+.bf-dica { margin: 0; }
+.bf-sec h3 { margin: 0 0 6px; font-size: 11.5px; font-weight: 700; color: var(--fraco); text-transform: uppercase; letter-spacing: .06em; }
+.bf-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.bf-chips small { color: var(--muito-fraco); font-weight: 700; }
+.bf-cab { display: flex; align-items: baseline; gap: 10px; }
+.bf-cab b { font-size: 18px; }
+.bf-item { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 10px; align-items: center;
+  padding: 9px 10px; border: 1px solid var(--linha); border-radius: 10px; background: var(--papel); }
+.bf-item + .bf-item { margin-top: 6px; }
+.bf-item.alerta { border-color: var(--vencida); box-shadow: inset 3px 0 0 var(--vencida); }
+.bf-ic { width: 30px; height: 30px; border-radius: 8px; display: grid; place-items: center; background: var(--marca-clara); color: var(--marca); }
+.bf-ic .ic { display: block; }
+.bf-txt { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+.bf-txt b { font-size: 13.5px; }
+.bf-txt small { font-size: 12px; color: var(--fraco); }
+.bf-item.alerta .bf-txt small { color: var(--vencida); }
+.bf-acoes { display: flex; flex-wrap: wrap; gap: 4px; justify-content: flex-end; }
+.bf-acoes .ic { display: block; }
+.bf-criar { display: flex; flex-wrap: wrap; gap: 8px; padding-top: 12px; border-top: 1px solid var(--linha); }
+.bf-criar button .ic, .bf-acoes button .ic { flex: 0 0 auto; }
+@media (max-width: 560px) {
+  .bf-item { grid-template-columns: auto minmax(0, 1fr); }
+  .bf-acoes { grid-column: 1 / -1; justify-content: flex-start; }
+}
 
 /* o Registro: a importação numa linha só, que abre */
 details.evento.importacao { display: block; }
@@ -2104,7 +2112,6 @@ input.busca-frota:focus { background-color: var(--papel); }
 #menu a:not(.ativo) b .ic { opacity: .85; }
 @media (max-width: 860px) { #menu a b .ic { width: 21px; height: 21px; } }
 .com-ic { display: inline-flex; align-items: center; gap: 10px; }
-.reg-ic .ic { display: block; }
 
 /* A coluna da direita da agenda termina com o calendário: no computador, ela
    ocupa a altura dele e rola por dentro. Antes ela descia sozinha pela
