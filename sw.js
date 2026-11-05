@@ -7,7 +7,7 @@
 // A estratégia é rede primeiro, cache como rede reserva: assim uma versão nova
 // do site chega sem precisar de truque, e a falta de rede não trava nada.
 
-const VERSAO = "mkt-v41";
+const VERSAO = "mkt-v42";
 const ARQUIVOS = [
   "./",
   "./index.html",
@@ -66,12 +66,24 @@ const ARQUIVOS = [
   "./js/nuvem.js",
   "./js/pessoas.js",
   "./js/config.js",
+  // o painel de OS do Protheus (05/11/2026): a página e o código. Os DADOS não
+  // passam por aqui — vêm do bucket privado do Supabase, que é outro endereço.
+  "./os.html",
+  "./css/os.css",
+  "./js/os/inicio.js",
+  "./js/os/painel.js",
+  "./js/os/importar.js",
+  "./js/os/montar.js",
+  "./vendor/d3.min.js",
+  "./vendor/jspdf.umd.min.js",
+  "./vendor/jspdf.plugin.autotable.min.js",
   // Os arquivos SQL entram no cache porque o diagnóstico os mostra para copiar:
   // quem está consertando a instalação é justamente quem não tem o site
   // funcionando inteiro.
   "./sql/01_esquema.sql",
   "./sql/02_acesso.sql",
   "./sql/03_liberar_acessos.sql",
+  "./sql/04_painel_os.sql",
   "./sql/00_conferir_rls.sql",
 ];
 

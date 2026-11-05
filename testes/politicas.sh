@@ -50,7 +50,7 @@ insert into public.pessoas (email, nome, papel) values
 SQL
 
 saida=$(psql -h "$D/sock" -U postgres -q -f "$AQUI/testes/politicas.sql" 2>&1)
-echo "$saida" | grep -E "──|→ passou|→ não viu|→ VIU|ERROR" | sed 's/psql:.*ERROR:/   ✓ recusado:/'
+echo "$saida" | grep -E "──|→ passou|→ não viu|→ VIU|ERROR" | sed -E 's/^(psql:.*)?ERROR:/   ✓ recusado:/'
 
 # Rodar o 01 DEPOIS do 02 foi o que derrubou a parede no projeto de verdade: o
 # 01 antigo recriava políticas abertas por cima. Agora tem de continuar fechado.
@@ -77,6 +77,52 @@ psql -h "$D/sock" -U postgres -q -v ON_ERROR_STOP=1 -f "$AQUI/sql/03_liberar_ace
 soltas=$(psql -h "$D/sock" -U postgres -tA -c \
   "select string_agg(email || '=' || (email_confirmed_at is not null), ',' order by email) from auth.users")
 echo "   $soltas"
+
+# O 04 (painel de OS, 05/11/2026): o bucket privado do Storage. Ser PCM não
+# basta — só quem tem a marca os_makro lê e grava; ninguém se dá a marca.
+echo "── 12. Painel de OS: só quem tem a marca lê e grava o bucket privado"
+psql -h "$D/sock" -U postgres -q -v ON_ERROR_STOP=1 <<'SQL'
+-- o mínimo do Storage do Supabase que as políticas usam
+create schema if not exists storage;
+create table if not exists storage.buckets (id text primary key, name text, public boolean, file_size_limit bigint, allowed_mime_types text[]);
+create table if not exists storage.objects (id bigserial primary key, bucket_id text, name text, unique (bucket_id, name));
+alter table storage.objects enable row level security;
+grant usage on schema storage to anon, authenticated;
+grant select, insert, update, delete on storage.objects to authenticated;
+grant usage, select on sequence storage.objects_id_seq to authenticated;
+insert into public.pessoas (email, nome, papel) values ('lucas@makroteste.com.br', 'Lucas', 'pcm') on conflict do nothing;
+SQL
+for vez in 1 2; do psql -h "$D/sock" -U postgres -q -v ON_ERROR_STOP=1 -f "$AQUI/sql/04_painel_os.sql" 2>&1 | grep -v NOTICE || true; done
+psql -h "$D/sock" -U postgres -q -v ON_ERROR_STOP=1 -c "update public.pessoas set os_makro = true where nome = 'Mateus'"
+os=$(psql -h "$D/sock" -U postgres -q 2>&1 <<'SQL'
+\set ON_ERROR_STOP off
+begin; set local role authenticated; set local request.jwt.claims = '{"email":"mateus@makroteste.com.br"}';
+  insert into storage.objects (bucket_id, name) values ('painel-os', 'atual.json.gz');
+  select '   → os: Mateus gravou'; commit;
+begin; set local role authenticated; set local request.jwt.claims = '{"email":"mateus@makroteste.com.br"}';
+  select '   → os: Mateus viu ' || count(*) from storage.objects where bucket_id = 'painel-os';
+  select '   → os: Mateus ve_os ' || public.ve_os(); commit;
+begin; set local role authenticated; set local request.jwt.claims = '{"email":"lucas@makroteste.com.br"}';
+  select '   → os: Lucas viu ' || count(*) from storage.objects where bucket_id = 'painel-os';
+  select '   → os: Lucas ve_os ' || public.ve_os(); commit;
+begin; set local role authenticated; set local request.jwt.claims = '{"email":"lucas@makroteste.com.br"}';
+  insert into storage.objects (bucket_id, name) values ('painel-os', 'lucas.json.gz'); rollback;
+begin; set local role authenticated; set local request.jwt.claims = '{"email":"pedro@makroteste.com.br"}';
+  insert into storage.objects (bucket_id, name) values ('painel-os', 'pedro.json.gz'); rollback;
+begin; set local role authenticated; set local request.jwt.claims = '{"email":"lucas@makroteste.com.br"}';
+  update public.pessoas set os_makro = true where nome = 'Lucas'; rollback;
+begin; set local role anon;
+  select count(*) from storage.objects; rollback;
+begin; set local role anon;
+  select public.ve_os(); rollback;
+select '   → os: bucket público? ' || public from storage.buckets where id = 'painel-os';
+SQL
+)
+echo "$os" | grep -E "→ os:|ERROR" | sed -E 's/^(psql:.*)?ERROR:/   ✓ recusado:/'
+os_ok=$(echo "$os" | grep -cE "Mateus gravou|Mateus viu 1|Mateus ve_os true|Lucas viu 0|Lucas ve_os false|público\? false" || true)
+os_rec=$(echo "$os" | grep -c "ERROR" || true)
+echo "   $os_ok de 6 conferências do painel de OS · $os_rec de 5 proibidas recusadas"
+[ "$os_ok" = "6" ] && [ "$os_rec" = "5" ] || { echo "FALHOU: o painel de OS não está fechado como devia"; exit 1; }
 
 passou=$(echo "$saida" | grep -c "→ passou" || true)
 recusado=$(( $(echo "$saida" | grep -c "ERROR" || true) + $(echo "$fora_de_ordem" | grep -c "ERROR" || true) ))

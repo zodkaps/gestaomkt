@@ -214,6 +214,46 @@ foi feita.
 - **O + Registrar virou Buscar frota** (ver a seção da Avaliação, acima): a
   frota e tudo o que ela tem em aberto, com o botão de cada coisa.
 
+### Desde 05/11/2026: o painel de OS do Protheus, dentro do site — só para quem tem acesso
+
+O painel de OS (a STJ e a STL do Protheus: carteira, programação, não
+liberadas, frotas, mão de obra, a carteira para imprimir) era um artefato à
+parte, que o Claude atualizava todo dia com os arquivos mandados no chat. Veio
+para cá, a pedido do Mateus, com duas condições: ficar junto das movimentações
+e preventivas, e **só ele ter acesso**.
+
+- **Onde fica**: `os.html` (o item **OS Makro** do menu — no celular, em
+  *Mais*). O login é o mesmo do site. O item só aparece para quem o banco
+  libera, e a página, aberta direto, também pergunta ao banco antes de mostrar
+  qualquer coisa.
+- **Quem vê**: não é o papel (ser PCM não basta). É a marca **`os_makro`** na
+  tabela `pessoas` (`sql/04_painel_os.sql`), que só se liga pelo SQL Editor:
+  `update public.pessoas set os_makro = true where nome = 'Mateus';`. O
+  `testes/politicas.sh` prova que o Lucas (PCM) não lê nem grava, que ninguém se
+  dá a marca, e que o bucket não é público.
+- **Onde moram os dados**: **nunca no repositório** (ele é público, e o site
+  também). Ficam no bucket privado `painel-os` do Supabase: `atual.json.gz` (o
+  painel do dia, ~550 KB), `dias/AAAA-MM-DD.json.gz` (uma cópia por dia) e
+  `historico.json.gz` (a base histórica). O aparelho de quem tem acesso guarda
+  uma cópia, presa ao e-mail, para abrir sem rede.
+- **Como atualiza**: *Atualizar com o Protheus*, no alto da página. Solta-se a
+  STJ e a STL do dia (as partes _1, _2… juntas, .xlsx ou .csv); o site lê os
+  arquivos **no próprio computador** (`js/os/montar.js` — o `montar.py` e o
+  `pagina.py` do painel, com as mesmas regras, conferidos OS por OS contra os
+  de 05/11/2026), mostra o que mudou desde o painel anterior (o que fechou, o
+  que abriu, o que não veio no export, se alguma OS perdeu o executante — sinal
+  de STL faltando parte) e só grava quando a pessoa clica em *Gravar*.
+- **A base histórica**: os exports de hoje trazem só 2026. O que veio antes
+  (OS de 2024 e 2025 das frotas do PCM, a mão de obra delas, o último dia de
+  cada pessoa na STL antiga, a lista de frotas e os "principais do PCM") é um
+  arquivo, `historico-os.json.gz`, que vem **uma vez**, junto com a primeira
+  STJ e STL. Se a STJ do dia começar depois do fim da base histórica, o site
+  explica e não grava (as OS do meio ficariam de fora). **Na virada de 2027**:
+  continue exportando a STJ e a STL desde 01/01/2026, ou peça ao Claude uma base
+  histórica nova.
+- **Nomes de gente não entram no código**: a lista dos "principais do PCM"
+  vem com a base histórica; sem ela, o botão some.
+
 **As telas da oficina saíram do menu, mas nada foi apagado.** Painel, Hoje,
 Programação, Semana, Resultados e Frota continuam no código, e os lançamentos
 continuam na fita. Para consultar, abra o site com **`?oficina=1`** no
@@ -1336,6 +1376,13 @@ porque toda escrita já passa por `aplicar()`.
 | `testes/rodar.js` | os testes do núcleo |
 | `testes/resultados.mjs` | o site dá o mesmo número que as abas Resultados, Semana, Preventivas e Movimentações da planilha, linha a linha |
 | `planilha/` | **o processo antigo, que continua funcionando** até o site assumir |
+| `os.html`, `css/os.css` | o painel de OS do Protheus (a página e o estilo dela) — sem dado nenhum |
+| `js/os/inicio.js` | a porta do painel de OS: o login do site, a pergunta `ve_os()` ao banco, o bucket privado e a cópia do aparelho |
+| `js/os/painel.js` | o painel de OS (o do artefato v9): abas, filtros, gráficos, a carteira, a folha para imprimir |
+| `js/os/montar.js` | a STJ e a STL viram o painel — o `montar.py` + `pagina.py`, no navegador; e o comparar de um dia para o outro |
+| `js/os/importar.js` | a caixa *Atualizar com o Protheus*: ler, conferir, gravar no bucket |
+| `sql/04_painel_os.sql` | a marca `os_makro`, a função `ve_os()` e o bucket privado `painel-os` com as políticas |
+| `vendor/d3.min.js`, `vendor/jspdf*.js` | d3 7.8.5 (ISC), jsPDF 2.5.1 e AutoTable 3.8.2 (MIT), só para o painel de OS |
 
 ## Os testes
 

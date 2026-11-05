@@ -17,7 +17,7 @@ const TIPOS = { ".html": "text/html", ".js": "text/javascript", ".mjs": "text/ja
 export function servirCopia({ nuvem, porta = 8125, pasta = "/tmp/mkt-copia-teste" }) {
   rmSync(pasta, { recursive: true, force: true });
   mkdirSync(pasta, { recursive: true });
-  for (const d of ["index.html", "manifest.json", "logo.svg", "css", "js", "vendor", "sql"]) {
+  for (const d of ["index.html", "os.html", "manifest.json", "logo.svg", "css", "js", "vendor", "sql"]) {
     cpSync(join(RAIZ, d), join(pasta, d), { recursive: true });
   }
   // Troca SÓ o endereço, no config de verdade. Escrever um config inteiro aqui
@@ -53,7 +53,7 @@ export function servirCopia({ nuvem, porta = 8125, pasta = "/tmp/mkt-copia-teste
  *  verdade recusa domínio de teste (`.local`, `.test`…) — e o de mentira agora
  *  recusa igual. Nunca saem desta máquina. */
 export const EQUIPE_TESTE = [
-  { email: "mateus@makroteste.com.br", nome: "Mateus", papel: "pcm" },
+  { email: "mateus@makroteste.com.br", nome: "Mateus", papel: "pcm", os_makro: true },
   { email: "lucas@makroteste.com.br", nome: "Lucas", papel: "pcm" },
   { email: "pedro@makroteste.com.br", nome: "Pedro", papel: "operacao" },
   { email: "joao.victor@makroteste.com.br", nome: "João Victor", papel: "operacao" },

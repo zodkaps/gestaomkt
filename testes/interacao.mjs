@@ -2324,6 +2324,97 @@ const diag = await celular.evaluate(() => document.body.innerText);
 ok("e o Diagnóstico não manda rodar SQL por causa de sessão",
   !/recusou o acesso mesmo com você dentro/.test(diag), diag.slice(0, 200));
 
+// ── o painel de OS do Protheus: dentro do site, só para quem tem a marca ────
+// O Mateus solta a STJ e a STL (aqui, inventadas: o repositório é público) e a
+// base histórica; o site monta, mostra o resumo, grava no bucket privado e abre
+// o painel. O Lucas é PCM e não tem a marca: nem o item no menu, nem a página.
+{
+  const { mkdirSync, writeFileSync } = await import("node:fs");
+  const { gzipSync } = await import("node:zlib");
+  const xsrc = await readFile(new URL("../vendor/xlsx.mini.min.js", import.meta.url), "utf8");
+  new Function(xsrc + "\nglobalThis.XLSX = XLSX;")();
+  const PASTA = "/tmp/mkt-os-teste";
+  mkdirSync(PASTA, { recursive: true });
+  const D = (iso) => { const [y, m, d] = iso.split("-").map(Number); return new Date(y, m - 1, d); };
+  const CAB_STJ = ["Filial", "Ordem Serv.", "Plano Manut.", "Dt. Original", "Bem", "Nome do Bem", "Serviço", "Nome Serviço", "Centro Custo", "Contador",
+    "P. In. Man.", "R. In. Man.", "R. Fim Man.", "Término", "Situação", "Terceiro", "Categoria OS", "Obs O.S", "Dt.Liberacao"];
+  const os = (o, bem, ab, term, sit, fim = null) => [ "010101", o, "000000", D(ab), bem, "CAVALO TRATOR", "MC", "TROCAR LONA", "10001", 0, D(ab), null, fim && D(fim), term, sit, "Não", "PROGRAMADA", "", null];
+  const excel = (nome, linhas) => {
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(linhas, { cellDates: true }), "Plan1");
+    writeFileSync(`${PASTA}/${nome}`, XLSX.write(wb, { type: "buffer", bookType: "xlsx" }));
+    return `${PASTA}/${nome}`;
+  };
+  const linhasSTJ = [os("100001", "0433", "2026-10-01", "Não", "Liberado"), os("100002", "0433", "2026-10-20", "Não", "Pendente"),
+    os("100003", "0617", "2026-10-25", "Sim", "Liberado", "2026-11-03"), os("100004", "0999", "2026-10-25", "Não", "Liberado")];
+  // uma STJ que só começa em outubro deixaria de fora as OS de janeiro a setembro: o site não grava
+  const fSTJout = excel("STJ_outubro.xlsx", [["STJ"], CAB_STJ, ...linhasSTJ]);
+  const fSTJ = excel("STJ.xlsx", [["STJ"], CAB_STJ, os("100000", "0617", "2026-01-05", "Sim", "Liberado", "2026-02-01"), ...linhasSTJ]);
+  const CAB_STL = ["Filial", "Ordem", "Tipo", "Tipo Insumo", "Código", "Nome Insumo", "Quantidade", "Data Início"];
+  const fSTL = excel("STL_1.xlsx", [CAB_STL, ["010101", "100001", "PLAN", "Mão de Obra", "000111", "FULANO DE TESTE", 2, D("2026-11-04")],
+    ["010101", "100003", "REAL", "Mão de Obra", "000111", "FULANO DE TESTE", 1.5, D("2026-11-03")]]);
+  const fHist = `${PASTA}/historico-os.json.gz`;
+  writeFileSync(fHist, gzipSync(JSON.stringify({ versao: 1, feito_em: "2026-11-05", corte: "2026-01-01", ate: "2026-12-31", frotas: ["0433", "0617"],
+    stj: { cab: CAB_STJ, linhas: [["010101", "090001", "000000", "01/03/2025", "0617", "CAVALO TRATOR", "MC", "TROCAR PNEU", "10001", "0", "01/03/2025", "", "10/03/2025", "Sim", "Liberado", "Não", "", "", ""]] },
+    stl: { cab: CAB_STL, linhas: [] }, ult: {} })));
+  const fRuim = `${PASTA}/qualquer.csv`;
+  writeFileSync(fRuim, "Filial;Coisa\n1;2\n");
+
+  const ctxL = await nav.newContext({ viewport: { width: 1280, height: 860 } });
+  const lu = await ctxL.newPage();
+  await lu.goto(site.endereco, { waitUntil: "networkidle" });
+  await entrarComo(lu, "Lucas");
+  ok("painel de OS: o Lucas (PCM, sem a marca) não tem o item no menu", !(await lu.isVisible('#menu a[href="os.html"]')));
+  await lu.goto(site.endereco + "os.html", { waitUntil: "networkidle" });
+  await lu.waitForTimeout(1200);
+  ok("e abrindo a página direto, ela diz que não está liberado e não mostra nada",
+    (await lu.textContent("#os-porta")).includes("não está liberado") && await lu.isHidden("main.pg"));
+  await ctxL.close();
+
+  const ctxM = await nav.newContext({ viewport: { width: 1280, height: 860 } });
+  const mt = await ctxM.newPage();
+  mt.on("pageerror", e => console.log("  [erro na página do painel de OS]", e.message));
+  await mt.goto(site.endereco + "os.html", { waitUntil: "networkidle" });
+  await mt.waitForTimeout(800);
+  ok("painel de OS: sem entrar, manda entrar no site", (await mt.textContent("#os-porta")).includes("Entre no site primeiro"));
+  await mt.goto(site.endereco, { waitUntil: "networkidle" });
+  await entrarComo(mt, "Mateus");
+  await mt.waitForTimeout(800);
+  ok("o Mateus tem OS Makro no menu", await mt.isVisible('#menu a[href="os.html"]'));
+  await mt.click('#menu a[href="os.html"]');
+  await mt.waitForTimeout(1500);
+  if (await mt.isVisible('#os-porta button:has-text("Atualizar com o Protheus")')) await mt.click('#os-porta button:has-text("Atualizar com o Protheus")');
+  else await mt.click("#os-atualizar");
+  await mt.fill("#imp-data", "2026-11-05");
+  await mt.setInputFiles("#imp-arq", [fSTJout, fRuim]);
+  await mt.waitForTimeout(800);
+  const soSTJ = await mt.innerText("#os-importar");
+  ok("só a STJ: pede a STL, e o arquivo que não é do Protheus aparece com o porquê",
+    /Falta a STL/.test(soSTJ) && /não parece a STJ nem a STL/.test(soSTJ) && await mt.isDisabled('button:has-text("Gravar no painel")'), soSTJ.slice(0, 300));
+  await mt.setInputFiles("#imp-arq", [fSTL, fHist]);
+  await mt.waitForSelector(".imp-num", { timeout: 30000 });
+  ok("a STJ que começa em outubro: o site explica e não grava",
+    /A STJ começa em 01\/10\/2026, mas a base histórica só vai até 31\/12\/2025/.test(await mt.innerText(".imp-resumo")) && await mt.isDisabled('button:has-text("Gravar no painel")'));
+  await mt.click('#os-importar li.erro .imp-tira');
+  await mt.click('#os-importar li:has-text("STJ_outubro.xlsx") .imp-tira');
+  await mt.setInputFiles("#imp-arq", [fSTJ]);
+  await mt.waitForFunction(() => !document.querySelector('#os-importar .imp-acoes .botao.prim').disabled, null, { timeout: 30000 });
+  const res = (await mt.innerText(".imp-resumo")).replace(/\s+/g, " ");
+  ok("com a STJ desde janeiro, a STL e a base histórica: o resumo antes de gravar", /2 abertas · 1 liberadas, 1 aguardando/.test(res) && /5 OS em 2 frotas/.test(res), res);
+  await mt.click('button:has-text("Gravar no painel")');
+  await mt.waitForSelector("#kpis .kpi", { timeout: 30000 });
+  await mt.waitForTimeout(600);
+  const kp = await mt.$$eval("#kpis .kpi .val", v => v.map(x => x.textContent));
+  ok("gravou e abriu: 2 abertas, 1 fechada nas 12 semanas", kp[0] === "2" && kp[1] === "1", kp.join(" | "));
+  ok("e a aba Não liberadas com 1", (await mt.textContent("#n-pendentes")) === "1");
+  // abrir de novo, num aparelho que já tem: vem do guardado, igual
+  await mt.goto(site.endereco + "os.html#executantes", { waitUntil: "networkidle" });
+  await mt.waitForTimeout(1500);
+  ok("reabrir: a aba Executantes com a pessoa da STL", (await mt.innerText("#executantes")).includes("Fulano de Teste"));
+  ok("e o link de volta para o site", await mt.isVisible('.faixa-links a[href="./"]'));
+  await ctxM.close();
+}
+
 await nav.close();
 site.fechar();
 console.log(falhou ? `\n${falhou} falharam` : "\ntudo como projetado");

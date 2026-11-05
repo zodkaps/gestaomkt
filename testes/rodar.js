@@ -1536,5 +1536,98 @@ titulo("liberadas agora, e adiantar até a realização");
   await pessoas.sair();
 }
 
+// ── o painel de OS do Protheus: a montagem no navegador (js/os/montar.js) ──
+// As mesmas regras do montar.py do painel, com dado inventado: a conferência
+// contra os exports de verdade foi feita fora do repositório (eles não entram
+// aqui — o repositório é público), e bateu OS por OS em 05/11/2026.
+{
+  const M = await import("../js/os/montar.js");
+  const igual = (nome, a, b) => ok(nome, JSON.stringify(a) === JSON.stringify(b), `${JSON.stringify(a)} ≠ ${JSON.stringify(b)}`);
+  const D = (iso) => { const [y, m, d] = iso.split("-").map(Number); return new Date(y, m - 1, d); };
+  igual("datas: do Excel, dd/mm/aaaa, dd/mm/aa e AAAA-MM-DD; o resto não é data",
+    [M.iso(D("2026-11-05")), M.iso("05/11/2026"), M.iso("5/11/26"), M.iso("2026-11-05"), M.iso("31/02/2026"), M.iso(46000), M.iso("")],
+    ["2026-11-05", "2026-11-05", "2026-11-05", "2026-11-05", "", "", ""]);
+  igual("número: do Excel, e em texto com vírgula decimal", [M.num(1.5), M.num("1.234,5"), M.num("2"), M.num(""), M.num("x")], [1.5, 1234.5, 2, 0, 0]);
+  igual("categoria: as grafias juntam; a sigla sem legenda fica Outra",
+    ["PROGRAMADA", "pv", "emerencial", "Dano não crítico", "PR", "", "inspeção"].map((c) => M.categoria(c)),
+    [["Programada", "P"], ["Preventiva (PV)", "P"], ["Emergencial", "N"], ["Dano não crítico", "N"], ["Outra: PR", "O"], ["Sem categoria", "S"], ["Inspeção", "O"]]);
+  igual("observação: CPF e telefone digitados saem; número de frota fica",
+    M.semDoc("cpf 123.456.789-00 tel (84) 99999-1234 frota 9711 doc 12345678901"),
+    "cpf [nº omitido] tel [nº omitido] frota 9711 doc [nº omitido]");
+  igual("nome da pessoa e frota do bem", [M.nome("FULANO DA SILVA DE SOUZA"), M.frota("0433"), M.frota("X1")], ["Fulano da Silva de Souza", "F-433", "X1"]);
+  const CAB_STJ = ["Filial", "Ordem Serv.", "Plano Manut.", "Dt. Original", "Bem", "Nome do Bem", "Serviço", "Nome Serviço", "Centro Custo", "Contador",
+    "P. In. Man.", "R. In. Man.", "R. Fim Man.", "Término", "Situação", "Terceiro", "Categoria OS", "Obs O.S", "Dt.Liberacao"];
+  const os = (o, bem, ab, term, sit, fim = null, extra = {}) => CAB_STJ.map((c) => ({ "Filial": "010101", "Ordem Serv.": o, "Plano Manut.": "000000",
+    "Dt. Original": D(ab), "Bem": bem, "Nome do Bem": "CAVALO TRATOR", "Serviço": "MC", "Nome Serviço": "TROCAR LONA", "Centro Custo": "10001", "Contador": 0,
+    "P. In. Man.": D(ab), "R. In. Man.": null, "R. Fim Man.": fim && D(fim), "Término": term, "Situação": sit, "Terceiro": "Não", "Categoria OS": "PROGRAMADA",
+    "Obs O.S": "", "Dt.Liberacao": null, ...extra })[c]);
+  // o export vem com título em cima e o cabeçalho com espaço no fim, como o do Protheus
+  const stj = M.tabela([["STJ"], [" "], CAB_STJ.map((c) => c + "  "),
+    os("100001", "0433", "2026-10-01", "Não", "Liberado", null, { "Obs O.S": "ligar (84) 99999-1234", "Dt.Liberacao": D("2026-10-02") }),
+    os("100002", "0433", "2026-10-20", "Não", "Pendente", null, { "Categoria OS": "emergencial" }),
+    os("100003", "0617", "2026-10-25", "Sim", "Liberado", "2026-11-03", { "Plano Manut.": "000123" }),
+    os("100004", "0999", "2026-10-25", "Não", "Liberado"),             // frota fora da lista
+    os("100005", "0617", "2026-10-26", "Não", "Cancelado"),            // cancelada
+    os("100006", "0617", "2023-05-01", "Sim", "Liberado", "2023-06-01"), // finalizada antes de 2024
+  ], "STJ.xlsx");
+  igual("a STJ: cabeçalho achado abaixo do título, e o tipo reconhecido", [stj.cab[0], M.tipoDaTabela(stj), stj.linhas.length], ["Filial", "STJ", 6]);
+  const CAB_STL = ["Filial", "Ordem", "Tipo", "Tipo Insumo", "Código", "Nome Insumo", "Quantidade", "Data Início"];
+  const stl = M.tabela([CAB_STL,
+    ["010101", "100001", "PLAN", "Mão de Obra", "000111", "FULANO DE TESTE", 2, D("2026-11-06")],
+    ["010101", "100003", "REAL", "Mão de Obra", "000111", "FULANO DE TESTE", 1.25, D("2026-11-03")],
+    ["010101", "100003", "REAL", "Mão de Obra", "000111", "FULANO DE TESTE", 0.5, D("2026-11-01")],
+    ["010101", "100002", "PLAN", "Terceiro", "999", "OFICINA DE FORA", 1, D("2026-10-21")],
+    ["010101", "100002", "PLAN", "Especialidade", "MEC", "MECANICO", 1, D("2026-10-21")],
+    ["040101", "777777", "REAL", "Mão de Obra", "000222", "CICLANO DE OUTRA FILIAL", 1, D("2026-11-02")],   // OS de fora do painel
+  ], "STL_1.xlsx");
+  // a base histórica: a OS de 2025 que o export de hoje não traz mais, e uma repetida (a de hoje vale)
+  const sem = M.lerSemente({ versao: 1, feito_em: "2026-11-05", corte: "2026-01-01", ate: "2026-12-31", frotas: ["433", "0617"],
+    stj: { cab: CAB_STJ, linhas: [os("090001", "0617", "2025-03-01", "Sim", "Liberado", "2025-03-10").map((v) => (v instanceof Date ? M.iso(v).split("-").reverse().join("/") : v)),
+      os("100001", "0433", "2026-10-01", "Sim", "Liberado", "2026-10-05").map((v) => (v instanceof Date ? M.iso(v).split("-").reverse().join("/") : v))] },
+    stl: { cab: CAB_STL, linhas: [["010101", "090001", "REAL", "Mão de Obra", "000111", "FULANO DE TESTE", "3,5", "05/03/2025"]] },
+    ult: { "Beltrano Antigo": { real: "2025-05-01", plan: "" } } });
+  const m = M.montar({ stj: [stj, sem.stj], stl: [stl, sem.stl], frotas: sem.frotas, base: "2026-11-05", desde: "2024-01-01", ult0: sem.ult });
+  const P = M.dadosDoPainel(m);
+  igual("entram só as frotas da lista, sem cancelada e sem finalizada antes de 2024",
+    P.os.map((a) => [a[0], a[2], a[6]]), [["090001", "F-617", "F"], ["100003", "F-617", "F"], ["100001", "F-433", "A"], ["100002", "F-433", "P"]].sort((x, y) => (x[1] + x[0] < y[1] + y[0] ? -1 : 1)));
+  ok("a OS repetida entre a de hoje e a histórica conta uma vez, e vale a de hoje", m.repetidas === 1 && P.os.find((a) => a[0] === "100001")[6] === "A");
+  const o1 = P.os.find((a) => a[0] === "100001"), o2 = P.os.find((a) => a[0] === "100002"), o3 = P.os.find((a) => a[0] === "100003");
+  igual("a OS liberada: observação sem o telefone, liberada em, programada para", [o1[12], o1[11], o1[19]], ["ligar [nº omitido]", "2026-10-02", "2026-10-01"]);
+  igual("a pendente: categoria, insumo Terceiro e a especialidade prevista na STL", [P.cats[o2[10]], o2[17], o2[18]], ["Emergencial", "S", "Mecanico"]);
+  igual("a finalizada: preventiva (tem plano), fim", [o3[8], o3[7]], ["P", "2026-11-03"]);
+  const fulano = P.exec["Fulano de Teste"];
+  igual("mão de obra: horas apontadas somadas, a prevista e o primeiro dia de cada",
+    fulano.map(([i, h, hp, prev, real]) => [P.os[i][0], h, hp, prev, real]),
+    [["090001", 3.5, 0, "", "2025-03-05"], ["100003", 1.75, 0, "", "2026-11-01"], ["100001", 0, 2, "2026-11-06", ""]].sort((x, y) => P.os.findIndex((a) => a[0] === x[0]) - P.os.findIndex((a) => a[0] === y[0])));
+  igual("o último dia de cada pessoa vem da STL inteira (a OS de outra filial também conta)",
+    [m.ultimo["Fulano de Teste"], m.ultimo["Ciclano de Outra Filial"], m.ultimo["Beltrano Antigo"]],
+    [{ real: "2026-11-03", plan: "" }, { real: "2026-11-02", plan: "" }, { real: "2025-05-01", plan: "" }]);
+  ok("e o previsto para depois da data do export não conta como último dia", P.ult["Fulano de Teste"][1] === "");
+  igual("a lista de frotas do PCM, com o nome do equipamento", m.frotasRows, [{ frota: "F-433", bem: "0433", equipamento: "Cavalo trator" }, { frota: "F-617", bem: "0617", equipamento: "Cavalo trator" }]);
+  // comparar: o que mudou de um dia para o outro
+  const ontem = JSON.parse(JSON.stringify(P));
+  ontem.os.find((a) => a[0] === "100003")[6] = "A";              // estava aberta: fechou
+  ontem.os.push(["100099", "010101", "F-433", 0, "Sumiu", "2026-09-01", "P", "", "C", "N", 0, "", "", "", "", "", "", "N", "", ""]);
+  const c = M.comparar(ontem, P);
+  igual("comparar: fechou uma, sumiu uma (aberta), nenhuma perdeu executante",
+    [c.fecharam.map((a) => a[0]), c.sumiram.map((a) => a[0]), c.sumiramAbertas.length, c.perdeuExecutante.length, c.novas.length], [["100003"], ["100099"], 1, 0, 0]);
+  const semMao = M.dadosDoPainel(M.montar({ stj: [stj, sem.stj], stl: [sem.stl], frotas: sem.frotas, base: "2026-11-05", ult0: {} }));
+  ok("comparar: faltando parte da STL, as OS que tinham executante aparecem", M.comparar(P, semMao).perdeuExecutante.map((a) => a[0]).sort().join() === "100001,100003");
+  // os .csv do Protheus: ; de separador, vírgula decimal, quebra de linha dentro de aspas
+  const csv = M.tabelaDoCSV("﻿STL\r\nFilial;Ordem;Tipo;Tipo Insumo;Código;Nome Insumo;Quantidade;Data Início\r\n010101;100001;REAL;Mão de Obra;000111;\"FULANO\r\nDE TESTE\";1,5;04/11/2026\r\n", "STL.csv");
+  igual("o .csv: título, ; e o campo com quebra de linha", [M.tipoDaTabela(csv), csv.linhas.length, M.txt(csv.linhas[0][5]), M.num(csv.linhas[0][6])], ["STL", 1, "FULANO DE TESTE", 1.5]);
+  // o .xlsx pelo mesmo SheetJS do site: as datas voltam como data
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([["STJ"], CAB_STJ, os("100001", "0433", "2026-10-01", "Não", "Liberado")], { cellDates: true }), "STJ");
+  const xl = M.tabelaDoExcel(XLSX, XLSX.write(wb, { type: "buffer", bookType: "xlsx" }), "STJ.xlsx");
+  igual("o .xlsx: o cabeçalho e a data de abertura", [M.tipoDaTabela(xl), M.iso(xl.linhas[0][CAB_STJ.indexOf("Dt. Original")])], ["STJ", "2026-10-01"]);
+  let recusa = "";
+  try { M.montar({ stj: [M.tabela([["Filial", "Bem"], ["010101", "0433"]], "ruim.xlsx")], stl: [stl], frotas: ["433"], base: "2026-11-05" }); } catch (e) { recusa = e.message; }
+  ok("STJ sem as colunas que importam é recusada, dizendo quais", /faltam as colunas Nome do Bem, Nome Serviço/.test(recusa), recusa);
+  recusa = "";
+  try { M.lerSemente({ qualquer: 1 }); } catch (e) { recusa = e.message; }
+  ok("e um arquivo qualquer não passa por base histórica", /não é a base histórica/.test(recusa), recusa);
+}
+
 console.log(`\n${passou} passaram, ${falhou} falharam`);
 if (falhou) { for (const f of falhas) console.log(`  × ${f}`); process.exit(1); }

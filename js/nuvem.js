@@ -351,7 +351,7 @@ function cabecalhos(extra = {}) {
     "Content-Type": "application/json", ...extra };
 }
 
-async function chamar(caminho, opcoes = {}, deNovo = false) {
+async function chamar(caminho, opcoes = {}, deNovo = false, raiz = "rest/v1") {
   await renovarSePreciso();
   // O cabeçalho é montado por quem chama, ANTES da renovação: sem refazê-lo
   // aqui, a primeira chamada depois de renovar ia com a credencial velha.
@@ -359,15 +359,20 @@ async function chamar(caminho, opcoes = {}, deNovo = false) {
   if (headers.Authorization) headers.Authorization = "Bearer " + (sessao ? sessao.access_token : chave);
   // 45 s: a primeira carga traz centenas de lançamentos de uma vez, e no 3G do
   // pátio isso demora — mas não pode demorar para sempre.
-  const r = await buscar(`${url}/rest/v1/${caminho}`, { ...opcoes, headers }, 45000);
+  const r = await buscar(`${url}/${raiz}/${caminho}`, { ...opcoes, headers }, 45000);
   // 401 com sessão é credencial vencida antes da hora (relógio do aparelho
   // adiantado, aba dormindo): renova à força e tenta uma vez mais.
   if (r.status === 401 && sessao && !deNovo) {
     await renovarSePreciso(true);
-    if (sessao) return chamar(caminho, opcoes, true);
+    if (sessao) return chamar(caminho, opcoes, true, raiz);
     throw new Error(motivoSaida || "Sua sessão foi encerrada. Entre de novo.");
   }
   if (!r.ok) {
+    // o Storage responde "não existe" com 400 e statusCode 404 dentro: quem chama decide
+    if (opcoes.semErro404 && (r.status === 404 || r.status === 400)) {
+      const t = await r.clone().text().catch(() => "");
+      if (r.status === 404 || /"statusCode"\s*:\s*"?404|not_?found/i.test(t)) return null;
+    }
     const t = await r.text().catch(() => "");
     const claro = traduzir(t || `${r.status} ${r.statusText}`);
     // Se a tradução não reconheceu, vai o original — melhor um erro feio do
@@ -412,6 +417,47 @@ export async function enviar(eventos) {
     });
   }
   return limpos.length;
+}
+
+// ── o painel de OS: arquivos privados no Storage (05/11/2026) ───────────────
+// As OS do Protheus não moram no repositório (público): ficam no bucket
+// privado `painel-os`, que só quem tem a marca `os_makro` em `pessoas` lê e
+// grava (sql/04_painel_os.sql). O site só pergunta; quem decide é o banco.
+
+/** Este acesso vê o painel de OS? `true`/`false` como o banco responde (sem a
+ *  migração 04, também `false`); `null` quando não deu para perguntar — sem
+ *  rede, o painel abre o que já estava guardado neste aparelho. */
+export async function veOs() {
+  if (!autenticado()) return false;
+  try {
+    const r = await chamar("rpc/ve_os", { method: "POST", headers: cabecalhos(), body: "{}" });
+    return (await r.json()) === true;
+  } catch (e) {
+    const semRede = e instanceof TypeError || /não respondeu|failed to fetch|network/i.test(String(e && e.message));
+    return semRede ? null : false;
+  }
+}
+
+/** Um arquivo do bucket, como Blob; `null` se não existe (ou não é seu). */
+export async function baixarArquivo(bucket, caminho) {
+  const r = await chamar(`object/authenticated/${bucket}/${caminho}`,
+    { method: "GET", headers: cabecalhos(), cache: "no-store", semErro404: true }, false, "storage/v1");
+  return r ? r.blob() : null;
+}
+
+/** Os arquivos de uma pasta do bucket (nome, updated_at, metadata.size). Pedir
+ *  a lista antes evita pedir um arquivo que não existe — o Storage responde 400
+ *  e o navegador escreve erro no console. */
+export async function listarArquivos(bucket, prefixo = "") {
+  const r = await chamar(`object/list/${bucket}`, { method: "POST", headers: cabecalhos(),
+    body: JSON.stringify({ prefix: prefixo, limit: 1000, offset: 0, sortBy: { column: "name", order: "asc" } }) }, false, "storage/v1");
+  return r.json();
+}
+
+/** Grava (ou troca) um arquivo do bucket. */
+export async function subirArquivo(bucket, caminho, blob, tipo = "application/gzip") {
+  await chamar(`object/${bucket}/${caminho}`, { method: "POST", body: blob,
+    headers: cabecalhos({ "Content-Type": tipo, "x-upsert": "true", "cache-control": "max-age=0" }) }, false, "storage/v1");
 }
 
 /** Quem é quem, direto do banco. O papel deixa de morar no código: é a tabela

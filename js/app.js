@@ -170,11 +170,26 @@ function alvo() {
 // barra rolava na horizontal, e a Movimentação ficava escondida à direita.
 const TELA_PEQUENA = matchMedia("(max-width: 860px)");
 
+// O painel de OS do Protheus (os.html, 05/11/2026) não é uma tela daqui: é uma
+// página à parte, com o mesmo acesso. O item só aparece para quem o banco
+// libera — a marca `os_makro` em `pessoas` (sql/04_painel_os.sql).
+const LINK_OS = { id: "os", icone: "barras", nome: "OS Makro", grupo: "Protheus", link: "os.html" };
+let acessoOs = false;
+async function conferirAcessoOs() {
+  const v = nuvem.autenticado() ? await nuvem.veOs() : false;
+  if (v === null) return;              // sem rede: fica como estava
+  if (v !== acessoOs) { acessoOs = v; pintarMenu(alvo().id); }
+}
+
 function pintarMenu(id) {
   const nav = $("#menu nav");
   limpar(nav);
   if (!pessoas.quem()) return;
   const todas = telasDoPapel();
+  if (acessoOs) {
+    const i = todas.findIndex(t => t.grupo === "Gestão");
+    todas.splice(i < 0 ? todas.length : i, 0, LINK_OS);
+  }
   const naBarra = TELA_PEQUENA.matches && todas.length > 5 ? todas.filter(t => t.celular) : todas;
   const resto = todas.filter(t => !naBarra.includes(t));
   let grupoAtual = null;
@@ -185,7 +200,7 @@ function pintarMenu(id) {
     }
     let n = null;
     try { n = t.contar ? t.contar() : null; } catch (e) { n = null; }
-    nav.append(el("a", { href: "#/" + t.id, class: t.id === id ? "ativo" : "" },
+    nav.append(el("a", { href: t.link || "#/" + t.id, class: t.id === id ? "ativo" : "" },
       el("b", {}, icone(t.icone)), el("span", {}, t.nome),
       n ? el("span", { class: "cont" }, String(n)) : null));
   }
@@ -206,7 +221,8 @@ async function maisTelas(telas) {
         el("b", { class: "com-ic" }, icone(t.icone), t.nome)))),
     acoes: [{ rotulo: "Fechar", valor: "" }],
   });
-  if (escolhida) location.hash = "#/" + escolhida;
+  if (escolhida === LINK_OS.id) location.href = LINK_OS.link;
+  else if (escolhida) location.hash = "#/" + escolhida;
 }
 
 // Girar o celular ou abrir numa janela estreita refaz a barra.
@@ -541,7 +557,8 @@ async function salvarBackup() {
 
 async function ligarNuvem() {
   if (pararDeOuvirNuvem) { pararDeOuvirNuvem(); pararDeOuvirNuvem = null; }
-  if (!nuvem.ligada() || !nuvem.autenticado()) return;
+  if (!nuvem.ligada() || !nuvem.autenticado()) { acessoOs = false; return; }
+  conferirAcessoOs().catch(() => {});
   await ev.sincronizar();
   pararDeOuvirNuvem = nuvem.observar(async novos => {
     const n = await ev.receber(novos);

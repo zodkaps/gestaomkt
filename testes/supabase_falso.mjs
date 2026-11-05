@@ -64,6 +64,9 @@ let n = 0;
 
 const json = (res, cod, o) => res.writeHead(cod, { "content-type": "application/json" }).end(JSON.stringify(o));
 const corpo = req => new Promise(ok => { let s = ""; req.on("data", c => s += c); req.on("end", () => ok(s ? JSON.parse(s) : {})); });
+const bruto = req => new Promise(ok => { const p = []; req.on("data", c => p.push(c)); req.on("end", () => ok(Buffer.concat(p))); });
+// o Storage: o bucket privado do painel de OS (sql/04_painel_os.sql) — só quem tem os_makro
+const arquivos = new Map();   // "bucket/caminho" → { dados, tipo }
 const quem = req => {
   const a = (req.headers.authorization || "").replace("Bearer ", "");
   return tokens.get(a) || null;
@@ -74,7 +77,7 @@ createServer(async (req, res) => {
   res.setHeader("Access-Control-Allow-Origin", "*");
   res.setHeader("Access-Control-Allow-Headers", "*");
   res.setHeader("Access-Control-Expose-Headers", "content-range");
-  res.setHeader("Access-Control-Allow-Methods", "GET,POST,OPTIONS");
+  res.setHeader("Access-Control-Allow-Methods", "GET,POST,PUT,OPTIONS");
   if (req.method === "OPTIONS") return res.writeHead(204).end();
 
   if (u.pathname === "/__falha") {
@@ -171,6 +174,48 @@ createServer(async (req, res) => {
   // chave é pública, então quem não está em `pessoas` lê as tabelas vazias.
   const eu = falha === "sem_pessoa" ? null : PESSOAS.find(p => p.email === email);
 
+  // ── o painel de OS: a pergunta e o bucket privado ──
+  const veOs = !!(eu && eu.os_makro);
+  if (u.pathname === "/rest/v1/rpc/ve_os") {
+    if (falha === "tabela") return json(res, 404, { code: "PGRST202", message: "Could not find the function public.ve_os" });
+    return json(res, 200, veOs);
+  }
+  if (u.pathname.startsWith("/storage/v1/object/")) {
+    const nega = (cod) => json(res, cod === 404 ? 400 : 403, cod === 404 ? { statusCode: "404", error: "not_found", message: "Object not found" }
+      : { statusCode: "403", error: "Unauthorized", message: "new row violates row-level security policy" });
+    if (req.method === "POST" && u.pathname.startsWith("/storage/v1/object/list/")) {
+      const bucket = u.pathname.replace("/storage/v1/object/list/", ""), { prefix = "" } = await corpo(req);
+      if (!veOs) return json(res, 200, []);            // a RLS de leitura: sem a marca, a lista vem vazia
+      const raiz = bucket + "/" + (prefix ? prefix.replace(/\/?$/, "/") : "");
+      const nomes = new Map();
+      for (const [k, a] of arquivos) {
+        if (!k.startsWith(raiz)) continue;
+        const resto = k.slice(raiz.length), i = resto.indexOf("/");
+        if (i >= 0) nomes.set(resto.slice(0, i), { name: resto.slice(0, i), id: null });   // uma pasta
+        else nomes.set(resto, { name: resto, id: "id-" + resto, updated_at: a.em, metadata: { size: a.dados.length } });
+      }
+      return json(res, 200, [...nomes.values()].sort((x, y) => x.name.localeCompare(y.name)));
+    }
+    if (req.method === "GET") {
+      const k = u.pathname.replace("/storage/v1/object/authenticated/", "");
+      const a = arquivos.get(k);
+      if (!a || !veOs) return nega(404);          // sem a marca, como se não existisse
+      res.writeHead(200, { "content-type": a.tipo, "cache-control": "max-age=3600" });
+      return res.end(a.dados);
+    }
+    if (req.method === "POST" || req.method === "PUT") {
+      const k = u.pathname.replace("/storage/v1/object/", "");
+      const dados = await bruto(req);
+      if (!veOs) return nega(403);
+      if (!k.startsWith("painel-os/")) return json(res, 400, { statusCode: "404", error: "Bucket not found", message: "Bucket not found" });
+      if ((req.headers["content-type"] || "") !== "application/gzip") return json(res, 415, { statusCode: "415", error: "invalid_mime_type", message: "mime type not supported" });
+      if (arquivos.has(k) && req.headers["x-upsert"] !== "true") return json(res, 400, { statusCode: "409", error: "Duplicate", message: "The resource already exists" });
+      arquivos.set(k, { dados, tipo: req.headers["content-type"], em: new Date().toISOString() });
+      process.stderr.write(`[falso] ${eu.nome}: arquivo ${k} (${dados.length} bytes)\n`);
+      return json(res, 200, { Key: k });
+    }
+  }
+
   if (u.pathname.startsWith("/rest/v1/pessoas")) {
     if (falha === "tabela") {
       return json(res, 404, { code: "42P01", message: 'relation "public.pessoas" does not exist' });
@@ -178,7 +223,7 @@ createServer(async (req, res) => {
     if (falha === "permissao") {
       return json(res, 403, { code: "42501", message: "permission denied for table pessoas" });
     }
-    return json(res, 200, eu ? PESSOAS : []);
+    return json(res, 200, eu ? PESSOAS.map(({ os_makro, ...p }) => p) : []);
   }
 
   if (u.pathname.startsWith("/rest/v1/eventos")) {
