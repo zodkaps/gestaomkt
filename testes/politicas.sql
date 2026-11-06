@@ -133,7 +133,7 @@ rollback;
 -- pode bastar para ler a carteira. Quem não está em `pessoas` vê zero linhas.
 begin;
   set local role authenticated;
-  set local request.jwt.claims = '{"email":"alguem.de.fora@gmail.com"}';
+  set local request.jwt.claims = '{"email":"beltrano.teste@gmail.com"}';
   select case when (select count(*) from eventos) = 0
                and (select count(*) from pessoas) = 0
               then '   → não viu nada'

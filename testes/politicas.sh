@@ -71,7 +71,7 @@ echo "$fora_de_ordem" | grep ERROR | sed 's/.*ERROR:/   ✓ recusado:/'
 echo "── 11. O 03 solta a conta presa do Pedro, e não a de um estranho"
 psql -h "$D/sock" -U postgres -q -v ON_ERROR_STOP=1 <<'SQL'
 create table if not exists auth.users (email text primary key, email_confirmed_at timestamptz);
-insert into auth.users values ('pedro@makroteste.com.br', null), ('estranho@gmail.com', null);
+insert into auth.users values ('pedro@makroteste.com.br', null), ('ciclano@gmail.com', null);
 SQL
 psql -h "$D/sock" -U postgres -q -v ON_ERROR_STOP=1 -f "$AQUI/sql/03_liberar_acessos.sql" >/dev/null
 soltas=$(psql -h "$D/sock" -U postgres -tA -c \
@@ -130,5 +130,5 @@ vazio=$(echo "$saida" | grep -c "→ não viu nada" || true)
 echo
 echo "$passou de 6 permitidas passaram · $recusado de 13 proibidas foram recusadas · $vazio de 1 conta sem papel não viu nada"
 [ "$passou" = "6" ] && [ "$recusado" = "13" ] && [ "$vazio" = "1" ] || { echo "FALHOU"; exit 1; }
-[ "$soltas" = "estranho@gmail.com=false,pedro@makroteste.com.br=true" ] || { echo "FALHOU: o 03 soltou errado"; exit 1; }
+[ "$soltas" = "ciclano@gmail.com=false,pedro@makroteste.com.br=true" ] || { echo "FALHOU: o 03 soltou errado"; exit 1; }
 echo "tudo como projetado"

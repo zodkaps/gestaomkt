@@ -1289,7 +1289,7 @@ As regras do cruzamento:
 
 ### `js/texto.js` — por que a posição da peça é o centro
 
-Porte do `planilha/texto.py`. Manutenção escreve serviços que só diferem pelo
+Porte do `texto.py` do processo antigo da planilha. Manutenção escreve serviços que só diferem pelo
 lugar: "lona de freio dianteira LD" e "lona de freio dianteira LE" são duas
 rodas, duas peças, dois serviços. Um comparador por parecença achou 182 pares
 suspeitos nas atividades e errou em quase todos; o mesmo comparador, ensinado a
@@ -1359,6 +1359,15 @@ travas existem de propósito — não tirar sem saber o porquê:
   atacar (CVE-2023-30533 e CVE-2024-22363); a corrigida (0.20.3) só sai pelo
   `cdn.sheetjs.com`, fora do npm. Enquanto não troca, o risco fica restrito a
   arquivos que o próprio PCM solta em Importar.
+- **Dado da Makro fora do repositório** (06/11/2026): saíram a pasta
+  `planilha/` (as planilhas, os lotes de pendências e os scripts com elas
+  coladas), o `index.html` do site antigo (trazia a lista de frotas embutida) e
+  o e-mail de verdade dos testes — do código e do histórico. O `.gitignore`
+  barra planilha, export, base histórica e backup. Os testes leem a planilha de
+  fora do repositório (`node testes/rodar.js caminho/da/planilha.xlsx`).
+- **O banco do site antigo**, que ainda mora no mesmo projeto, foi fechado em
+  `sql/05_endurecer.sql`: o que não conferia quem chama não se chama mais pela
+  API.
 
 ---
 
@@ -1419,13 +1428,13 @@ travas existem de propósito — não tirar sem saber o porquê:
 | `sw.js` | offline: rede primeiro, cache como reserva |
 | `testes/rodar.js` | os testes do núcleo |
 | `testes/resultados.mjs` | o site dá o mesmo número que as abas Resultados, Semana, Preventivas e Movimentações da planilha, linha a linha |
-| `planilha/` | **o processo antigo, que continua funcionando** até o site assumir |
 | `os.html`, `css/os.css` | o painel de OS do Protheus (a página e o estilo dela) — sem dado nenhum |
 | `js/os/tema.js` | o tema (claro/escuro) do painel de OS antes de pintar — em arquivo por causa da CSP |
 | `js/os/inicio.js` | a porta do painel de OS: o login do site, a pergunta `ve_os()` ao banco, o bucket privado e a cópia do aparelho |
 | `js/os/painel.js` | o painel de OS (o do artefato v9): abas, filtros, gráficos, a carteira, a folha para imprimir |
 | `js/os/montar.js` | a STJ e a STL viram o painel — o `montar.py` + `pagina.py`, no navegador; e o comparar de um dia para o outro |
 | `js/os/importar.js` | a caixa *Atualizar com o Protheus*: ler, conferir, gravar no bucket |
+| `sql/05_endurecer.sql` | fecha o que sobrou do site antigo no mesmo projeto (funções que a API não deve chamar, `search_path` fixo) |
 | `sql/04_painel_os.sql` | a marca `os_makro`, a função `ve_os()` e o bucket privado `painel-os` com as políticas |
 | `vendor/d3.min.js`, `vendor/jspdf*.js` | d3 7.8.5 (ISC), jsPDF 4.2.1 e AutoTable 5.0.9 (MIT), só para o painel de OS |
 

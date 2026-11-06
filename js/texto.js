@@ -1,6 +1,7 @@
 // A identidade de uma atividade: o serviço, e onde na frota ele acontece.
 //
-// Porte do `planilha/texto.py`, que é o que já roda na planilha hoje. O motivo
+// Porte do `texto.py` do processo antigo da planilha (fora do repositório desde
+// 06/11/2026, junto com as planilhas: dado da Makro não mora em repositório público). O motivo
 // de ele existir está medido: um comparador por parecença acha 182 pares
 // suspeitos nas atividades da planilha e erra em quase todos, porque manutenção
 // escreve serviços que só diferem pelo lugar da peça — "lona de freio dianteira

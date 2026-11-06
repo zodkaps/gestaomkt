@@ -1166,7 +1166,7 @@ titulo("legado.js — lançamentos que caíram nas cópias antigas do aparelho")
 titulo("config.js e pessoas.js — nunca ficar trancado para fora");
 const cfg = await import("../js/config.js");
 igual("quem digita o e-mail entra com ele",
-  cfg.emailDe("mateusedvaoli@gmail.com"), "mateusedvaoli@gmail.com");
+  cfg.emailDe("fulano.de.tal@gmail.com"), "fulano.de.tal@gmail.com");
 igual("e o e-mail digitado com maiúscula e espaço também",
   cfg.emailDe("  Mateus@Gmail.com "), "mateus@gmail.com");
 // A primeira versão inventava pedro@makro.local para quem digitasse "Pedro".
@@ -1176,7 +1176,7 @@ ok("o domínio que barrou a equipe é reconhecido como de teste",
   cfg.dominioDeTeste("pedro@makro.local") && cfg.dominioDeTeste("a@b.test") &&
   cfg.dominioDeTeste("a@example.com"));
 ok("e e-mail de verdade não é", !cfg.dominioDeTeste("lucas.souza@makroengenharia.com") &&
-  !cfg.dominioDeTeste("mateusedvaoli@gmail.com"));
+  !cfg.dominioDeTeste("fulano.de.tal@gmail.com"));
 
 // Pelo nome, só num aparelho que já conhece a equipe — e sem adivinhar.
 await dados.gravarMeta("elenco", [...ELENCO,

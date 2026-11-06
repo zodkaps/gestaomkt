@@ -1,2 +1,15 @@
 __pycache__/
 *.pyc
+
+# Dado da Makro não entra aqui: o repositório e o site são públicos.
+# Planilhas, exports do Protheus (STJ/STL), a base histórica do painel de OS,
+# backups do site e lotes de pendências ficam fora do Git — no aparelho de
+# quem usa, no bucket privado ou no Drive.
+planilha/
+*.xlsx
+*.xlsm
+*.xls
+*.csv
+*.json.gz
+historico-os*
+makro-programacao-*.json
