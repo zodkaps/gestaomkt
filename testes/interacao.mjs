@@ -2412,6 +2412,20 @@ ok("e o Diagnóstico não manda rodar SQL por causa de sessão",
   await mt.waitForTimeout(1500);
   ok("reabrir: a aba Executantes com a pessoa da STL", (await mt.innerText("#executantes")).includes("Fulano de Teste"));
   ok("e o link de volta para o site", await mt.isVisible('.faixa-links a[href="./"]'));
+  // o avanço: na semana 45 (02 a 08/11, dados de 05/11) tinha 3 para fechar no começo, fechou 1, ficou com 2
+  await mt.click("#aba-avanco");
+  await mt.waitForSelector(".av-kpis", { timeout: 10000 });
+  const av = await mt.$$eval(".av-kpis .kpi .val", v => v.map(x => x.textContent).join("|"));
+  ok("aba Avanço: tinha 3, fechou 1, nada entrou, ficou com 2", av === "3|1|0|2", av);
+  await mt.click('.av-kpis button.kpi:has-text("Fecharam")');
+  await mt.waitForTimeout(400);
+  ok("e a lista das que fecharam traz a OS fechada em 03/11", (await mt.innerText("#av-lista")).includes("100003"));
+  await mt.click('#avanco .ctl .seg button:has-text("Mês")');
+  await mt.waitForTimeout(300);
+  await mt.click('#avanco .pg-nav button[aria-label="Período anterior"]');
+  await mt.waitForTimeout(300);
+  const out = await mt.$$eval(".av-kpis .kpi .val", v => v.map(x => x.textContent).join("|"));
+  ok("em outubro: nada no começo, entraram 3, ficaram 3", out === "0|0|3|3", out);
   // o modo escuro: um botão no alto, e a escolha é a mesma do ◐ do site
   const tema = () => mt.evaluate(() => document.documentElement.dataset.theme);
   const antesTema = await tema();

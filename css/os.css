@@ -7,7 +7,7 @@
   --texto: #1f2937; --fraco: #5b6474; --muito-fraco: #737d8e;
   --marca: #2563eb; --marca-clara: #e8efff; --marca-texto: #ffffff;
   --faixa: #1b2340; --faixa-texto: #ffffff; --faixa-fraco: #aab3cf; --faixa-on: rgba(255, 255, 255, .12);
-  --liberada: #2a78d6; --pendente: #eda100; --finalizada: #1baf7a; --fech-depois: #9ad8bd; --prog: #7b61d9; --nprog: #eb6834; --ctx: #c4c9d2; --alerta: #d03b3b; --pend1: #f6cd6b; --pend2: #eda100; --pend3: #a35f00;
+  --liberada: #2a78d6; --pendente: #eda100; --finalizada: #1baf7a; --fech-depois: #9ad8bd; --prog: #7b61d9; --nprog: #eb6834; --ctx: #c4c9d2; --alerta: #d03b3b; --pend1: #f6cd6b; --pend2: #eda100; --pend3: #a35f00; --nova: #9cc3f0;
   --liberada-f: #e7efff; --liberada-t: #1d4ed8; --pendente-f: #fff4d6; --pendente-t: #92400e;
   --finalizada-f: #e3f6ec; --finalizada-t: #166534; --alerta-f: #fde8e7; --alerta-t: #b42318;
   --dica: #ffffff; --sombra: 0 1px 2px rgba(16, 24, 40, .04), 0 2px 10px rgba(16, 24, 40, .05);
@@ -21,7 +21,7 @@
     --texto: #e7e9ee; --fraco: #b3b9c6; --muito-fraco: #8d94a3;
     --marca: #5b8def; --marca-clara: #1c2740; --marca-texto: #0e1117;
     --faixa: #111a33; --faixa-texto: #ffffff; --faixa-fraco: #9aa5c4; --faixa-on: rgba(255, 255, 255, .1);
-    --liberada: #3987e5; --pendente: #c98500; --finalizada: #199e70; --fech-depois: #2f7a5f; --prog: #7d6ae6; --nprog: #d95926; --ctx: #4a4f5a; --alerta: #e5534b; --pend1: #6b4c10; --pend2: #c98500; --pend3: #f3bb52;
+    --liberada: #3987e5; --pendente: #c98500; --finalizada: #199e70; --fech-depois: #2f7a5f; --prog: #7d6ae6; --nprog: #d95926; --ctx: #4a4f5a; --alerta: #e5534b; --pend1: #6b4c10; --pend2: #c98500; --pend3: #f3bb52; --nova: #2b5487;
     --liberada-f: #1a2a45; --liberada-t: #9cc2ff; --pendente-f: #3a2e12; --pendente-t: #ffd27a;
     --finalizada-f: #15301e; --finalizada-t: #8fe0a8; --alerta-f: #3a1a1c; --alerta-t: #ffa39e;
     --dica: #1e222b; --sombra: 0 1px 2px rgba(0, 0, 0, .45);
@@ -33,7 +33,7 @@
   --texto: #e7e9ee; --fraco: #b3b9c6; --muito-fraco: #8d94a3;
   --marca: #5b8def; --marca-clara: #1c2740; --marca-texto: #0e1117;
   --faixa: #111a33; --faixa-texto: #ffffff; --faixa-fraco: #9aa5c4; --faixa-on: rgba(255, 255, 255, .1);
-  --liberada: #3987e5; --pendente: #c98500; --finalizada: #199e70; --fech-depois: #2f7a5f; --prog: #7d6ae6; --nprog: #d95926; --ctx: #4a4f5a; --alerta: #e5534b; --pend1: #6b4c10; --pend2: #c98500; --pend3: #f3bb52;
+  --liberada: #3987e5; --pendente: #c98500; --finalizada: #199e70; --fech-depois: #2f7a5f; --prog: #7d6ae6; --nprog: #d95926; --ctx: #4a4f5a; --alerta: #e5534b; --pend1: #6b4c10; --pend2: #c98500; --pend3: #f3bb52; --nova: #2b5487;
   --liberada-f: #1a2a45; --liberada-t: #9cc2ff; --pendente-f: #3a2e12; --pendente-t: #ffd27a;
   --finalizada-f: #15301e; --finalizada-t: #8fe0a8; --alerta-f: #3a1a1c; --alerta-t: #ffa39e;
   --dica: #1e222b; --sombra: 0 1px 2px rgba(0, 0, 0, .45);
@@ -484,3 +484,6 @@ li.erro .imp-nome small { color: var(--alerta-t); }
   .pill-per select { flex: 1 1 auto; min-width: 0; }
   .pill-busca { flex: 1 1 100%; min-width: 0; max-width: none; width: 100%; }
 }
+/* Avanço (06/11/2026): quatro números numa linha, dois no celular */
+.kpis.mini.av-kpis { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+@media (max-width: 900px) { .kpis.mini.av-kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); } }

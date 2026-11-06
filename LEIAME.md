@@ -253,6 +253,12 @@ e preventivas, e **só ele ter acesso**.
   histórica nova.
 - **Nomes de gente não entram no código**: a lista dos "principais do PCM"
   vem com a base histórica; sem ela, o botão some.
+- **Avanço** (06/11/2026): por dia, semana ou mês (‹ ›), o que estava para
+  fechar no começo do período, quanto disso fechou, o que entrou e com quanto
+  ficou — da equipe, de cada pessoa ou de cada frota, com a carteira no fim de
+  cada período e a lista das OS. Pelas datas do Protheus (abertura e fim da
+  manutenção) e pela mão de obra de hoje na STL; os filtros da barra valem
+  (um Executante mostra só ele).
 - **Modo escuro** (06/11/2026): o botão *Modo escuro / Modo claro* no alto do
   painel. A escolha é a mesma do ◐ do site (a chave `tema2`): trocou num, o
   outro abre igual.

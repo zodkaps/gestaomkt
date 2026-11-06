@@ -115,7 +115,7 @@ export function iniciarPainel(D, { baixar } = {}) {
   // marcadas", todos menos eles); entre filtros, todos ao mesmo tempo. Na barra, os quatro de todo dia:
   // Frota, Situação, Executante (com "Sem executante" no alto) e Programação; o resto em "Mais
   // filtros", à vista, em grupos (v6, 03/11/2026: o "+ Filtro" da v5 escondia os campos).
-  const ABAS = ['geral', 'programacao', 'pendentes', 'carteira', 'frotas', 'executantes'];
+  const ABAS = ['geral', 'programacao', 'avanco', 'pendentes', 'carteira', 'frotas', 'executantes'];
   const MULTI = ['frota', 'sit', 'prog', 'tipo', 'exec', 'esp', 'equip', 'serv', 'ccusto', 'filial', 'idade', 'prev', 'mesAb', 'mesFim', 'lanc'];
   const PRINC = ['frota', 'sit', 'exec', 'prog'];
   const GUARDA_MAIS = 'painel-os-mais-filtros';
@@ -123,7 +123,8 @@ export function iniciarPainel(D, { baixar } = {}) {
   const guardarMais = () => { try { localStorage.setItem(GUARDA_MAIS, V.mais ? '1' : '0'); } catch (e) { /* sem armazenamento */ } };
   const F = { periodo: '12s', q: '', neg: new Set(), r: {} };
   for (const k of MULTI) F[k] = new Set();
-  const V = { aba: ABAS.includes(location.hash.slice(1)) ? location.hash.slice(1) : 'geral', ord: {}, cart: {}, execQuem: 'aponta', mais: lerMais(), frotaOrd: 'ab', frotaN: 20, pg: { esc: 'semana', ref: D.base, por: 'exec' } };
+  const V = { aba: ABAS.includes(location.hash.slice(1)) ? location.hash.slice(1) : 'geral', ord: {}, cart: {}, execQuem: 'aponta', mais: lerMais(), frotaOrd: 'ab', frotaN: 20, pg: { esc: 'semana', ref: D.base, por: 'exec' },
+    av: { esc: 'semana', ref: D.base, por: 'exec', lista: 'fechou' } };
   const periodo = () => PERIODOS.find((p) => p.k === F.periodo) || PERIODOS[1];
   const PREV = { vencida: 'Prevista e a data já passou', futura: 'Prevista de hoje em diante', sem: 'Sem data prevista na STL' };
   const SEM_EQUIP = 'Sem equipamento', SEM_CC = 'Sem centro de custo';
@@ -1046,6 +1047,167 @@ export function iniciarPainel(D, { baixar } = {}) {
       nota: `${plural(progs.length, 'OS programada', 'OS programadas')} para o período, com os filtros · a situação de hoje` });
   }
 
+  // ── Avanço: o que cada um tinha para fechar no começo do período, quanto fechou e com quanto ficou (06/11/2026) ──
+  // Pedido do Mateus: "o Luiz Paulo tava com 21 para fechar e 5 fechadas" — e no dia seguinte, com 14. Aqui
+  // isso se vê por dia, semana ou mês, para a equipe, para cada pessoa ou cada frota. Conta pelas datas do
+  // Protheus (abertura e fim da manutenção) e pela mão de obra de hoje na STL:
+  //   tinha  — aberta antes do período e ainda não finalizada na véspera dele;
+  //   fechou — das que tinha, finalizada até o fim do período (ou até hoje, no período de agora);
+  //   entrou — aberta dentro do período (as que já fecharam e as que seguem abertas);
+  //   no fim — as que tinha e não fechou, mais as que entraram e seguem abertas.
+  // O fim lançado com a data do serviço (às vezes dias depois) entra no dia do serviço.
+  const avancoDe = (o, de, ate) => {
+    if (!o.abertura || o.abertura > ate) return null;
+    const fechou = o.sit === 'F' && o.fim && o.fim <= ate;
+    if (o.abertura < de) {
+      if (o.sit === 'F' && o.fim && o.fim < de) return null;     // já estava fechada antes do período
+      return fechou ? 'fechou' : 'ainda';
+    }
+    return fechou ? 'entrouFechou' : 'entrouAberta';
+  };
+  const somaAvanco = (y) => Object.assign(y, { tinha: y.fechou + y.ainda, entrou: y.entrouFechou + y.entrouAberta,
+    fim: y.ainda + y.entrouAberta, pct: y.fechou + y.ainda ? y.fechou / (y.fechou + y.ainda) : null });
+  function contaAvanco(lista, p) {
+    const ate = p.ate < D.base ? p.ate : D.base;
+    const x = { ...p, ateReal: ate, fechou: 0, ainda: 0, entrouFechou: 0, entrouAberta: 0 };
+    for (const o of lista) { const k = avancoDe(o, p.de, ate); if (k) x[k]++; }
+    return somaAvanco(x);
+  }
+  const LIG_AV = new Set(['da', 'de', 'do', 'das', 'dos', 'e']);
+  /** O nome curto de cada pessoa (as duas primeiras palavras, e mais uma enquanto dois ficarem iguais). */
+  function curtos(nomes) {
+    const pal = (n) => n.split(' ').filter((w) => !LIG_AV.has(w.toLowerCase()));
+    const c = new Map(nomes.map((n) => [n, pal(n).slice(0, 2).join(' ')]));
+    for (let k = 3; k <= 6; k++) {
+      const conta = d3.rollup([...c.values()], (v) => v.length, (x) => x);
+      const iguais = nomes.filter((n) => conta.get(c.get(n)) > 1);
+      if (!iguais.length) break;
+      for (const n of iguais) c.set(n, pal(n).slice(0, k).join(' '));
+    }
+    return c;
+  }
+  const LISTAS_AV = [['fechou', 'Fecharam'], ['ainda', 'Ainda para fechar'], ['entrou', 'Entraram']];
+  function desenharAvanco() {
+    const raiz = $('#avanco');
+    const av = V.av;
+    const todas = recorte({ sem: 'sit' }).todas;
+    const sel = periodoDe(av.esc, av.ref);
+    const atual = periodoDe(av.esc, D.base), noAtual = atual.chave === sel.chave;
+    const x = contaAvanco(todas, sel);
+    const vespera = iso(t(sel.de) - DIA);
+    const ir = (d) => { av.ref = d > D.base ? D.base : d; zerarPaginas(); desenhar(); };
+    const unid = { dia: 'dia', semana: 'semana', mes: 'mês' }[av.esc];
+    const seg = el('div', { class: 'seg', role: 'group', 'aria-label': 'Ver por' }, ...[['dia', 'Dia'], ['semana', 'Semana'], ['mes', 'Mês']].map(([k, rot]) =>
+      el('button', { type: 'button', 'aria-pressed': String(av.esc === k), text: rot,
+        on: { click: () => { av.ref = D.base >= sel.de && D.base <= sel.ate ? D.base : sel.de; av.esc = k; zerarPaginas(); desenhar(); } } })));
+    const por = av.por;
+    const segPor = el('div', { class: 'seg', role: 'group', 'aria-label': 'Cada um por' }, ...[['exec', 'Executante'], ['frota', 'Frota']].map(([k, rot]) =>
+      el('button', { type: 'button', 'aria-pressed': String(por === k), text: rot, on: { click: () => { av.por = k; desenhar(); } } })));
+    const nav = el('div', { class: 'pg-nav' },
+      el('button', { type: 'button', class: 'botao mini', 'aria-label': 'Período anterior', text: '‹', on: { click: () => ir(andar(av.esc, sel.de, -1)) } }),
+      el('b', { class: 'pg-rot', text: sel.rot }),
+      el('button', { type: 'button', class: 'botao mini', 'aria-label': 'Próximo período', text: '›', disabled: noAtual ? true : null, on: { click: () => ir(andar(av.esc, sel.de, 1)) } }),
+      noAtual ? null : el('button', { type: 'button', class: 'botao mini', text: { dia: 'Hoje', semana: 'Esta semana', mes: 'Este mês' }[av.esc], on: { click: () => ir(D.base) } }));
+    const verLista = (k) => { av.lista = k; zerarPaginas(); desenhar(); const l = $('#av-lista'); if (l) l.scrollIntoView({ behavior: 'smooth', block: 'start' }); };
+    const k = (rot, val, pe, cor, cls = '', fazer = null) => el(fazer ? 'button' : 'div', { class: 'kpi', type: fazer ? 'button' : null, on: fazer ? { click: fazer } : {} },
+      el('span', { class: 'rot' }, cor ? el('i', { class: 'ponto', style: 'background:' + cor }) : null, rot), el('span', { class: 'val ' + cls, text: val }), el('span', { class: 'pe', text: pe }));
+    const dif = x.fim - x.tinha;
+    const kpis = el('div', { class: 'kpis mini av-kpis' },
+      k('Tinham para fechar', nf.format(x.tinha), `no começo: abertas até ${dm(vespera)}`, COR.A, '', () => verLista('ainda')),
+      k('Fecharam', nf.format(x.fechou), x.tinha ? `${pc.format(x.pct)} das que tinham · até ${dm(x.ateReal)}` : 'nada para fechar no começo', COR.F,
+        x.pct !== null && x.pct >= 0.5 ? 'bom' : '', () => verLista('fechou')),
+      k('Entraram', nf.format(x.entrou), `abertas no período · ${nf.format(x.entrouFechou)} já fechadas`, 'var(--nova)', '', () => verLista('entrou')),
+      k(noAtual ? 'Para fechar hoje' : 'Ficaram para fechar', nf.format(x.fim),
+        dif > 0 ? `a carteira cresceu ${nf.format(dif)} no período` : dif < 0 ? `a carteira diminuiu ${nf.format(-dif)} no período` : 'a carteira ficou igual',
+        'var(--fraco)', dif > 0 ? 'ruim' : dif < 0 ? 'bom' : ''));
+    // quais: todas, só as com alguém (da equipe ou terceiro) ou só as sem executante — é o filtro Executante
+    const ex = [...F.exec].sort().join(), quais = F.neg.has('exec') ? '' : !ex ? 'todas' : ex === 'g:I,g:T' ? 'com' : ex === 'g:S' ? 'sem' : '';
+    const segQuais = el('div', { class: 'seg', role: 'group', 'aria-label': 'Quais OS' }, ...[['todas', 'Todas'], ['com', 'Com executante'], ['sem', 'Sem executante']].map(([kk, rot]) =>
+      el('button', { type: 'button', 'aria-pressed': String(quais === kk), text: rot,
+        on: { click: () => aplicar(() => { if (kk === 'todas') { F.exec.clear(); F.neg.delete('exec'); } else so('exec', ...(kk === 'com' ? ['g:I', 'g:T'] : ['g:S'])); }) } })));
+    const topo = el('article', { class: 'cartao c12' },
+      el('div', { class: 'cab' }, el('div', {}, el('h2', { text: 'Avanço do fechamento' }),
+        el('p', { class: 'nota', text: 'O que estava para fechar no começo do período, quanto disso fechou, o que entrou e com quanto ficou. Pelas datas do Protheus (abertura e fim da manutenção) e por quem está na mão de obra da STL hoje.' }),
+        el('p', { class: 'nota uso', text: 'Os filtros da barra valem aqui (escolha um Executante para ver só ele); o período é o desta caixa. Clique num número para ver as OS.' })),
+        el('div', { class: 'acoes' }, el('div', { class: 'ctl' }, segQuais, seg))),
+      nav, kpis);
+    // a sequência: a carteira no fim de cada período, até o escolhido (e os 2 seguintes, se já passaram)
+    const N = { dia: 14, semana: 12, mes: 12 }[av.esc];
+    let fimRef = sel.de;
+    for (let j = 1; j <= 2; j++) { const prox = andar(av.esc, sel.de, j); if (prox <= D.base) fimRef = prox; }
+    const janela = [];
+    for (let i = -(N - 1); i <= 0; i++) janela.push(contaAvanco(todas, periodoDe(av.esc, andar(av.esc, fimRef, i))));
+    const PARTES_FIM = [{ k: 'ainda', nome: 'Das que já tinha', cor: COR.A, texto: 'claro' }, { k: 'entrouAberta', nome: 'Entraram no período', cor: 'var(--nova)', texto: 'tema' }];
+    const dicaAv = (l) => [['Tinham no começo', nf.format(l.tinha), COR.A], ['Fecharam', `${nf.format(l.fechou)}${l.tinha ? ' · ' + pc.format(l.pct) : ''}`, COR.F],
+      ['Entraram', `${nf.format(l.entrou)} · ${nf.format(l.entrouFechou)} já fechadas`, 'var(--nova)'], ['No fim', nf.format(l.fim)]];
+    const gSeq = el('div', { class: 'graf rolar-x' });
+    const seq = el('article', { class: 'cartao c12', 'data-imagem': true },
+      el('div', { class: 'cab' }, el('div', {}, el('h2', { text: `A carteira no fim de cada ${unid}` }),
+        el('p', { class: 'nota', text: 'Cada coluna é o que ficou para fechar no fim do período; embaixo, quanto do que tinha no começo foi fechado' }),
+        el('p', { class: 'nota uso', text: 'Coluna baixando é carteira andando · clique numa coluna para ver o período' })), el('div', { class: 'acoes' })),
+      el('div', { class: 'legenda' }, ...PARTES_FIM.map((p) => el('span', {}, el('i', { style: 'background:' + p.cor }), p.nome)), el('span', { text: 'o número em cima é o total no fim' })),
+      gSeq);
+    // cada pessoa (ou frota): das que tinha no começo, quantas fechou
+    const m = new Map();
+    for (const o of todas) {
+      const kk = avancoDe(o, sel.de, x.ateReal);
+      if (!kk) continue;
+      const chaves = por === 'frota' ? [o.frota] : o.pessoas.length ? o.pessoas.map((q) => q.nome) : [GRUPO[o.grupo]];
+      for (const c of chaves) {
+        if (!m.has(c)) m.set(c, { chave: c, nome: c, fechou: 0, ainda: 0, entrouFechou: 0, entrouAberta: 0 });
+        m.get(c)[kk]++;
+      }
+    }
+    const grupoDe = { [GRUPO.S]: 'g:S', [GRUPO.T]: 'g:T' };
+    const linhas = [...m.values()].map((y) => somaAvanco({ ...y, aponta: por === 'exec' && !grupoDe[y.chave] ? aponta(y.nome) : true }));
+    const noGrafico = linhas.filter((y) => y.tinha && !grupoDe[y.chave]).sort((a, b) => b.tinha - a.tinha || b.fechou - a.fechou || a.nome.localeCompare(b.nome, 'pt', { numeric: true }));
+    const curto = por === 'exec' ? curtos(noGrafico.map((y) => y.nome)) : null;
+    const gCada = el('div', { class: 'graf rolar-x' }), notaCada = el('p', { class: 'nota' });
+    const cada = el('article', { class: 'cartao c12', 'data-imagem': true },
+      el('div', { class: 'cab' }, el('div', {}, el('h2', { text: (por === 'exec' ? 'Cada pessoa da equipe' : 'Cada frota') + ' · ' + sel.rot }), notaCada,
+        el('p', { class: 'nota uso', text: 'O número em cima é o que tinha no começo; embaixo, a % que fechou · clique para ver só ' + (por === 'exec' ? 'a pessoa' : 'a frota') })),
+        el('div', { class: 'acoes' }, el('div', { class: 'ctl' }, segPor))),
+      el('div', { class: 'legenda' }, el('span', {}, el('i', { style: 'background:' + COR.F }), 'Fechou'), el('span', {}, el('i', { style: 'background:' + COR.A }), 'Ainda para fechar')),
+      gCada);
+    const tCada = el('div', { class: 'bt-rolagem' });
+    const tab = el('article', { class: 'cartao c12' },
+      el('div', { class: 'cab' }, el('div', {}, el('h2', { text: 'Os números de ' + (por === 'exec' ? 'cada pessoa' : 'cada frota') + ' · ' + sel.rot }),
+        el('p', { class: 'nota uso', text: 'Clique no título de uma coluna para ordenar, ou numa linha para filtrar' + (por === 'exec' ? ' · Sem executante e Terceirizada aparecem só aqui' : '') }))),
+      tCada);
+    // a lista: as que fecharam, as que ainda estão para fechar, ou as que entraram
+    const qual = av.lista;
+    const daLista = (o) => { const kk = avancoDe(o, sel.de, x.ateReal); return qual === 'entrou' ? kk === 'entrouFechou' || kk === 'entrouAberta' : kk === qual; };
+    const itens = todas.filter(daLista);
+    const conta = { fechou: x.fechou, ainda: x.ainda, entrou: x.entrou };
+    const lista = el('article', { class: 'cartao c12', id: 'av-lista' });
+    raiz.replaceChildren(el('div', { class: 'grade' }, topo, seq, cada, tab, lista));
+    prepararImagem(seq);
+    prepararImagem(cada);
+    colunasEmPe(gSeq, { linhas: janela, partes: PARTES_FIM, titulo: `A carteira no fim de cada ${unid}`, H: 300, passoMin: 46, passoMax: 92,
+      nomes: (l) => ({ fortes: [l.curto], fracos: [l.tinha ? 'fechou ' + pc.format(l.pct) : '—'] }), dica: dicaAv,
+      marcado: (l) => l.chave === sel.chave, aoClicar: (l) => ir(l.de) });
+    const rola = colunasEmPe(gCada, { linhas: noGrafico, titulo: 'Avanço de ' + (por === 'exec' ? 'cada pessoa' : 'cada frota'), H: 320, passoMin: por === 'exec' ? 64 : 54, passoMax: 96,
+      partes: [{ k: 'fechou', nome: 'Fechou', cor: COR.F, texto: 'escuro' }, { k: 'ainda', nome: 'Ainda para fechar', cor: COR.A, texto: 'claro' }],
+      nomes: (l) => ({ fortes: [por === 'exec' ? curto.get(l.nome) : l.nome], fracos: [(l.pct === null ? '—' : pc.format(l.pct)) + (por === 'exec' && !l.aponta ? ' · não aponta' : '')] }),
+      dica: (l) => [['Tinha no começo', nf.format(l.tinha)], ['Fechou', `${nf.format(l.fechou)} · ${l.pct === null ? '—' : pc.format(l.pct)}`, COR.F], ['Ainda para fechar', nf.format(l.ainda), COR.A],
+        ['Entraram no período', `${nf.format(l.entrou)} · ${nf.format(l.entrouFechou)} já fechadas`, 'var(--nova)'], ['Para fechar no fim', nf.format(l.fim)]],
+      aoClicar: (l) => aplicar(() => (por === 'frota' ? so('frota', l.chave) : so('exec', l.chave))) });
+    notaCada.textContent = noGrafico.length ? `${plural(noGrafico.length, por === 'exec' ? 'pessoa' : 'frota', por === 'exec' ? 'pessoas' : 'frotas')} com OS para fechar no começo, de quem tinha mais para quem tinha menos` + (rola ? ' · role para o lado' : '') : '';
+    tabelaNums(tCada, { id: 'av-' + por, linhas, totalRot: 'Tinha no começo', padrao: { k: '_tot', dir: 'desc' },
+      nome: { rot: por === 'exec' ? 'Executante' : 'Frota', ver: (l) => [l.nome, por === 'frota' ? eqDe.get(l.chave) || '' : grupoDe[l.chave] ? 'ninguém da equipe na STL' : l.aponta ? '' : foraTxt(l.nome)] },
+      partes: [{ k: 'tinha' }],
+      cols: [{ k: 'fechou', rot: 'Fechou' }, { k: 'pct', rot: '% fechado', val: (l) => (l.pct === null ? -1 : l.pct), fmt: (v) => (v < 0 ? '—' : pc.format(v)) },
+        { k: 'ainda', rot: 'Ainda para fechar' }, { k: 'entrou', rot: 'Entraram' }, { k: 'fim', rot: noAtual ? 'Para fechar hoje' : 'Ficaram para fechar' }],
+      vazioTxt: 'Nada para fechar neste período com estes filtros.',
+      aoClicar: (l) => aplicar(() => (por === 'frota' ? so('frota', l.chave) : so('exec', grupoDe[l.chave] || l.chave))) });
+    carteira(lista, itens, itens, { chave: 'av', semSegm: true,
+      titulo: { fechou: 'As que fecharam', ainda: 'As que ainda estão para fechar', entrou: 'As que entraram' }[qual] + ' · ' + sel.rot,
+      nota: { fechou: `Das que estavam para fechar no começo, as finalizadas até ${dm(x.ateReal)}`, ainda: `Das que estavam para fechar no começo, as que não fecharam até ${dm(x.ateReal)}`,
+        entrou: 'Abertas no Protheus dentro do período, já fechadas ou não' }[qual] });
+    lista.querySelector('.cab .acoes').prepend(el('div', { class: 'ctl' }, el('div', { class: 'seg', role: 'group', 'aria-label': 'Quais OS' }, ...LISTAS_AV.map(([kk, rot]) =>
+      el('button', { type: 'button', 'aria-pressed': String(qual === kk), text: `${rot} · ${nf.format(conta[kk])}`, on: { click: () => { av.lista = kk; zerarPaginas(); desenhar(); } } })))));
+  }
+
   // ── Não liberadas: as OS abertas no Protheus que ainda aguardam liberação (05/11/2026) ──
   // Todas, de qualquer data; os filtros da barra valem, menos a Situação (a aba já é ela). A idade conta da
   // abertura, numa cor só, do claro ao escuro. As liberadas vêm da data de liberação da STJ.
@@ -1657,7 +1819,7 @@ export function iniciarPainel(D, { baixar } = {}) {
   }
 
   // ── o desenho ──
-  const DESENHO = { geral: desenharGeral, programacao: desenharProg, pendentes: desenharPendentes, carteira: desenharCarteira, frotas: desenharFrotas, executantes: desenharExecutantes };
+  const DESENHO = { geral: desenharGeral, programacao: desenharProg, avanco: desenharAvanco, pendentes: desenharPendentes, carteira: desenharCarteira, frotas: desenharFrotas, executantes: desenharExecutantes };
   function desenhar() {
     esconderDica();
     sincronizarCampos();
