@@ -253,6 +253,9 @@ e preventivas, e **só ele ter acesso**.
   histórica nova.
 - **Nomes de gente não entram no código**: a lista dos "principais do PCM"
   vem com a base histórica; sem ela, o botão some.
+- **Modo escuro** (06/11/2026): o botão *Modo escuro / Modo claro* no alto do
+  painel. A escolha é a mesma do ◐ do site (a chave `tema2`): trocou num, o
+  outro abre igual.
 
 **As telas da oficina saíram do menu, mas nada foi apagado.** Painel, Hoje,
 Programação, Semana, Resultados e Frota continuam no código, e os lançamentos

@@ -9,6 +9,10 @@
 <meta name="theme-color" content="#16213a">
 <link rel="icon" href="logo.svg" type="image/svg+xml">
 <link rel="stylesheet" href="css/os.css">
+<script>
+  // o tema escolhido antes de pintar, para não piscar claro ao abrir no escuro (o certo vem do inicio.js)
+  try { var t = localStorage.getItem("os-tema"); if (t === "dark" || t === "light") document.documentElement.dataset.theme = t; } catch (e) {}
+</script>
 <script src="vendor/d3.min.js"></script>
 </head>
 <body>
@@ -18,7 +22,7 @@
     <div class="marca">
       <svg viewBox="0 0 64 64" aria-hidden="true"><defs><linearGradient id="lg-f" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#3b82f6"/><stop offset="1" stop-color="#1e40af"/></linearGradient><linearGradient id="lg-d" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#fb923c"/><stop offset="1" stop-color="#ea580c"/></linearGradient></defs><rect width="64" height="64" rx="15" fill="url(#lg-f)"/><rect x="12" y="15" width="38" height="34" rx="7" fill="#ffffff"/><path d="M12 22a7 7 0 0 1 7-7h24a7 7 0 0 1 7 7v2H12z" fill="#dbe6ff"/><rect x="20" y="10" width="5" height="10" rx="2.5" fill="#ffffff" stroke="#1e40af" stroke-width="2"/><rect x="37" y="10" width="5" height="10" rx="2.5" fill="#ffffff" stroke="#1e40af" stroke-width="2"/><g fill="#b6c8ee"><rect x="17" y="29" width="6" height="5" rx="1.6"/><rect x="25" y="29" width="6" height="5" rx="1.6"/><rect x="33" y="29" width="6" height="5" rx="1.6"/><rect x="17" y="37" width="6" height="5" rx="1.6"/><rect x="25" y="37" width="6" height="5" rx="1.6"/></g><rect x="32" y="34" width="20" height="17" rx="5" fill="url(#lg-d)" stroke="#ffffff" stroke-width="2.5"/><path d="M37 42.5l3.4 3.4 6.6-6.8" fill="none" stroke="#ffffff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg>
       <div><h1>Painel de OS · Makro</h1><p id="sub"></p>
-        <p class="faixa-links"><a href="./">‹ Movimentações e preventivas</a><button type="button" id="os-atualizar" hidden>Atualizar com o Protheus</button></p></div>
+        <p class="faixa-links"><a href="./">‹ Movimentações e preventivas</a><button type="button" id="os-atualizar" hidden>Atualizar com o Protheus</button><button type="button" id="os-tema" class="tema" aria-pressed="false">Modo escuro</button></p></div>
     </div>
     <nav class="abas" role="tablist" aria-label="Partes do painel" hidden>
       <button class="aba" role="tab" type="button" id="aba-geral" data-aba="geral" aria-controls="geral">Visão geral</button>

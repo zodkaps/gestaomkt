@@ -2412,6 +2412,22 @@ ok("e o Diagnóstico não manda rodar SQL por causa de sessão",
   await mt.waitForTimeout(1500);
   ok("reabrir: a aba Executantes com a pessoa da STL", (await mt.innerText("#executantes")).includes("Fulano de Teste"));
   ok("e o link de volta para o site", await mt.isVisible('.faixa-links a[href="./"]'));
+  // o modo escuro: um botão no alto, e a escolha é a mesma do ◐ do site
+  const tema = () => mt.evaluate(() => document.documentElement.dataset.theme);
+  const antesTema = await tema();
+  await mt.click("#os-tema");
+  await mt.waitForTimeout(300);
+  const depoisTema = await tema();
+  ok("o botão troca o painel entre claro e escuro", antesTema !== depoisTema && ["light", "dark"].includes(depoisTema), `${antesTema} → ${depoisTema}`);
+  if (depoisTema !== "dark") { await mt.click("#os-tema"); await mt.waitForTimeout(300); }
+  await mt.reload({ waitUntil: "networkidle" });
+  await mt.waitForTimeout(800);
+  ok("escuro continua escuro ao abrir de novo, e o botão oferece voltar", (await tema()) === "dark" && (await mt.textContent("#os-tema")) === "Modo claro");
+  await mt.goto(site.endereco, { waitUntil: "networkidle" });
+  await mt.waitForTimeout(800);
+  ok("e o site abre escuro também (a mesma escolha)", await mt.evaluate(() => document.documentElement.dataset.tema === ""));
+  await mt.click("#btema");
+  await mt.waitForTimeout(300);
   await ctxM.close();
 }
 

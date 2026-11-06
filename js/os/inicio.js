@@ -52,6 +52,27 @@ const baixar = {
 
 let atualD = null;
 
+// ── claro ou escuro ──
+// A escolha é a mesma do ◐ do site (a chave "tema2": "claro" ou "" para o
+// escuro): trocou num, o outro abre igual. Uma cópia no localStorage deixa o
+// os.html pintar no tema certo antes de abrir o banco do aparelho.
+async function ligarTema() {
+  const botao = $("#os-tema");
+  const pintar = (escuro) => {
+    document.documentElement.dataset.theme = escuro ? "dark" : "light";
+    botao.textContent = escuro ? "Modo claro" : "Modo escuro";
+    botao.setAttribute("aria-pressed", String(escuro));
+    botao.title = escuro ? "Voltar para o tema claro" : "Ver o painel no tema escuro";
+    try { localStorage.setItem("os-tema", escuro ? "dark" : "light"); } catch (e) { /* sem armazenamento */ }
+  };
+  pintar((await dados.lerMeta("tema2", "claro")) !== "claro");
+  botao.addEventListener("click", async () => {
+    const escuro = document.documentElement.dataset.theme !== "dark";
+    pintar(escuro);
+    await dados.gravarMeta("tema2", escuro ? "" : "claro");
+  });
+}
+
 function mostrar(D, aviso = "") {
   atualD = D;
   $("#os-porta").hidden = true;
@@ -62,6 +83,7 @@ function mostrar(D, aviso = "") {
 
 async function comecar() {
   await dados.abrir();
+  await ligarTema();
   await nuvem.carregarConfig();
   if (!nuvem.ligada() || !nuvem.autenticado()) {
     return porta("Entre no site primeiro", "O painel de OS usa o mesmo acesso das movimentações e preventivas. Entre por lá e volte pelo menu, em OS Makro.", linkSite("Entrar no site"));

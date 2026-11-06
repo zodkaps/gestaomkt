@@ -426,6 +426,9 @@ select { color-scheme: inherit; }
 .faixa-links a, .faixa-links button { color: var(--faixa-fraco); text-decoration: none; background: none; border: 0; padding: 0; font: inherit; cursor: pointer; }
 .faixa-links a:hover, .faixa-links button:hover { color: var(--faixa-texto); text-decoration: underline; }
 .faixa-links button { font-weight: 650; color: var(--faixa-texto); }
+.faixa-links button.tema { display: inline-flex; align-items: center; gap: 5px; font-weight: 500; color: var(--faixa-fraco); }
+.faixa-links button.tema::before { content: ""; width: 12px; height: 12px; border-radius: 50%; border: 1.5px solid currentColor;
+  background: linear-gradient(90deg, currentColor 50%, transparent 50%); flex: none; }
 .porta { padding-block: 48px 64px; }
 .porta-msg { color: var(--fraco); font-size: 14px; }
 .porta-caixa { max-width: 34rem; margin: 0 auto; background: var(--papel); border: 1px solid var(--linha); border-radius: 14px; box-shadow: var(--sombra); padding: 22px 22px 20px; display: grid; gap: 10px; }
