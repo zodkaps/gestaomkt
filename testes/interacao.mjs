@@ -31,6 +31,11 @@ const p = await (await nav.newContext({ viewport: { width: 1280, height: 860 } }
 // custa uma tarde.
 p.on("pageerror", e => console.log("  [erro na página]", e.message));
 p.on("console", m => { if (m.type() === "error" && !/Failed to load resource/.test(m.text())) console.log("  [console]", m.text()); });
+// A política de conteúdo (CSP) das páginas: o que ela barrar é falha — um
+// script, um estilo, uma chamada ou um worker que o site precisa e não pode.
+const recusasCSP = [];
+const vigiarCSP = pg => pg.on("console", m => { if (/Content Security Policy/i.test(m.text())) recusasCSP.push(m.text().slice(0, 200)); });
+vigiarCSP(p);
 
 await p.goto(COM_OFICINA, { waitUntil: "networkidle" });
 await p.waitForTimeout(400);
@@ -1716,7 +1721,7 @@ ok("um clique aprova: Concluída com atraso, concluída pelo Pedro, aprovada pel
 {
   const F = "F-PF" + Date.now().toString(36).slice(-4).toUpperCase();
   const OSP = String(400000 + Date.now() % 500000);
-  const { ids, mes } = await p.evaluate(async f => {
+  const { ids } = await p.evaluate(async f => {
     const { mesDaData } = await import("/js/decisoes.js");
     const ev = mkt.ev, ref = mkt.M.hoje(), mes = mesDaData(ref);
     const nova = async (plano, vence) => (await ev.aplicar(ev.novaPreventiva({ ...mkt.M.moldePreventiva(), frota: f, mes, plano,
@@ -1986,6 +1991,7 @@ ok("um clique aprova: Concluída com atraso, concluída pelo Pedro, aprovada pel
 {
   const av = await (await nav.newContext({ viewport: { width: 1280, height: 860 } })).newPage();
   av.on("pageerror", e => console.log("  [erro na página]", e.message));
+  vigiarCSP(av);
   await av.goto(site.endereco, { waitUntil: "networkidle" });
   await entrarComo(av, "Mateus");
   await av.waitForTimeout(600);
@@ -2374,6 +2380,7 @@ ok("e o Diagnóstico não manda rodar SQL por causa de sessão",
   const ctxM = await nav.newContext({ viewport: { width: 1280, height: 860 } });
   const mt = await ctxM.newPage();
   mt.on("pageerror", e => console.log("  [erro na página do painel de OS]", e.message));
+  vigiarCSP(mt);
   await mt.goto(site.endereco + "os.html", { waitUntil: "networkidle" });
   await mt.waitForTimeout(800);
   ok("painel de OS: sem entrar, manda entrar no site", (await mt.textContent("#os-porta")).includes("Entre no site primeiro"));
@@ -2426,6 +2433,27 @@ ok("e o Diagnóstico não manda rodar SQL por causa de sessão",
   await mt.waitForTimeout(300);
   const out = await mt.$$eval(".av-kpis .kpi .val", v => v.map(x => x.textContent).join("|"));
   ok("em outubro: nada no começo, entraram 3, ficaram 3", out === "0|0|3|3", out);
+  // os downloads do painel — a lista em CSV, o gráfico em imagem e a carteira em PDF (o gerador carrega
+  // de vendor/ só agora) —, todos debaixo da política de conteúdo da página
+  await mt.click("#aba-carteira");
+  await mt.waitForTimeout(500);
+  const [dCSV] = await Promise.all([mt.waitForEvent("download", { timeout: 8000 }), mt.click("#carteira .baixar-csv >> visible=true")]);
+  const tCSV = await readFile(await dCSV.path(), "utf8");
+  ok("a lista da carteira sai em CSV para o Excel: cabeçalho e as OS", tCSV.startsWith("\uFEFFOS;Filial;Frota;") && tCSV.includes("100001"), tCSV.slice(0, 80));
+  await mt.click("#aba-geral");
+  await mt.waitForTimeout(500);
+  const [dPNG] = await Promise.all([mt.waitForEvent("download", { timeout: 8000 }), mt.click("#c-frotas .baixar")]);
+  const bPNG = await readFile(await dPNG.path());
+  ok("um gráfico sai como imagem PNG", bPNG.subarray(1, 4).toString() === "PNG", dPNG.suggestedFilename());
+  await mt.click("#aba-carteira");
+  await mt.waitForTimeout(300);
+  await mt.click('#c-carteira button:has-text("Imprimir carteira")');
+  await mt.waitForTimeout(300);
+  const [dPDF] = await Promise.all([mt.waitForEvent("download", { timeout: 20000 }), mt.click('button:has-text("Baixar o PDF")')]);
+  const bPDF = await readFile(await dPDF.path());
+  ok("a carteira para imprimir sai em PDF", bPDF.subarray(0, 5).toString() === "%PDF-" && /\.pdf$/.test(dPDF.suggestedFilename()), dPDF.suggestedFilename());
+  await mt.keyboard.press("Escape");
+  await mt.waitForTimeout(200);
   // o modo escuro: um botão no alto, e a escolha é a mesma do ◐ do site
   const tema = () => mt.evaluate(() => document.documentElement.dataset.theme);
   const antesTema = await tema();
@@ -2442,8 +2470,15 @@ ok("e o Diagnóstico não manda rodar SQL por causa de sessão",
   ok("e o site abre escuro também (a mesma escolha)", await mt.evaluate(() => document.documentElement.dataset.tema === ""));
   await mt.click("#btema");
   await mt.waitForTimeout(300);
+  // sair: a cópia do painel (dado do Protheus) não fica no aparelho para o próximo que entrar
+  const tinhaCopia = await mt.evaluate(async () => !!(await mkt.dados.lerMeta("painel_os", null)));
+  await mt.evaluate(async () => { await mkt.pessoas.sair(); });
+  const ficouCopia = await mt.evaluate(async () => await mkt.dados.lerMeta("painel_os", null));
+  ok("ao sair, a cópia do painel de OS some deste aparelho", tinhaCopia && ficouCopia === null, `${tinhaCopia} → ${JSON.stringify(ficouCopia)?.slice(0, 40)}`);
   await ctxM.close();
 }
+
+ok("nenhuma página foi barrada pela política de conteúdo (CSP)", !recusasCSP.length, recusasCSP.slice(0, 3).join(" | "));
 
 await nav.close();
 site.fechar();

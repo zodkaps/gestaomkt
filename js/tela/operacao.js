@@ -9,7 +9,7 @@
 import * as ev from "../eventos.js";
 import * as M from "../modelo.js";
 import * as pessoas from "../pessoas.js";
-import { el, limpar, br, brCurto, chip, avisar, vazio, cartaoNumero } from "../ui.js";
+import { el, limpar, br, cartaoNumero } from "../ui.js";
 import { secao, justificar } from "./comum.js";
 import { concluirMov, novaMovimentacao, cartaoMov } from "./movimentacoes.js";
 import { informarDisponibilidade, cartaoPrev } from "./preventivas.js";

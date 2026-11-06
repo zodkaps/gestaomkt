@@ -28,8 +28,6 @@ export const LOTES = [
   { id: "feita", rotulo: "Já realizada", pode: "preventiva_feita", serve: p => M.preventivaAberta(p) },
 ];
 
-export const podeAlgumLote = () => LOTES.some(l => pessoas.pode(l.pode));
-
 /** A caixinha só aparece na linha em que algum lote que a pessoa pode fazer
  *  serve: a operação, que só libera, não marca a frota que já está na oficina. */
 export const podeMarcar = p => LOTES.some(l => pessoas.pode(l.pode) && l.serve(p));

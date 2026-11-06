@@ -226,6 +226,22 @@ if (abas) {
   await bk.restaurar(arquivo);
   igual("o backup volta idêntico", bk.assinatura() === antes, true);
   igual("e com as mesmas atividades", ev.lista().length, 754);
+  // um backup adulterado não troca o endereço do banco nem a sessão deste aparelho
+  const nuvemAntes = await dados.lerMeta("nuvem", null), sessaoAntes = await dados.lerMeta("sessao", null);
+  await bk.restaurar({ ...arquivo, preferencias: { ...arquivo.preferencias,
+    nuvem: { url: "https://servidor-de-outra-pessoa.example", chave: "x".repeat(40) }, sessao: { access_token: "falso" } } });
+  igual("restaurar só traz as preferências do backup: o banco e a sessão ficam como estavam",
+    [await dados.lerMeta("nuvem", null), await dados.lerMeta("sessao", null)], [nuvemAntes, sessaoAntes]);
+  igual("e a fita volta igual", bk.assinatura() === antes, true);
+  // um evento com um campo "__proto__" (do banco ou de um backup) não mexe no protótipo da atividade
+  {
+    const alvo = ev.lista()[0];
+    const mapas = ev.reconstruir([...ev.log, { id: "teste-proto", tipo: "editada", alvo: alvo.id, alvo_tipo: "atividade",
+      ts: new Date().toISOString(), autor: "Teste", dados: JSON.parse('{"para": {"__proto__": {"cancelada": true}, "obs": "editada"}}') }]);
+    const a = mapas.atividade.get(alvo.id);
+    igual("um campo __proto__ num evento é ignorado; os outros campos entram",
+      [Object.getPrototypeOf(a) === Object.prototype, a.cancelada === true && !alvo.cancelada, a.obs], [true, false, "editada"]);
+  }
 
   // ── Protheus ──────────────────────────────────────────────────────────────
   titulo("importar.js — cruzamento com a base do Protheus");
@@ -1243,6 +1259,18 @@ titulo("texto.js — qualquer frota se digita");
     texto.filtroDeFrota("F-", conhecidas).vazio && texto.filtroDeFrota(" f ", conhecidas).bate("F-700"));
 }
 
+titulo("texto.js — a célula do CSV não vira fórmula no Excel");
+{
+  const c = texto.celulaCSV;
+  igual("texto que começa com = + - @ ganha o apóstrofo",
+    ["=HIPERLINK(\"x\")", "+1", "- Soldar trinca", "@soma", "\tx"].map(c),
+    ["\"'=HIPERLINK(\"\"x\"\")\"", "'+1", "'- Soldar trinca", "'@soma", "'\tx"]);
+  igual("número continua número, e vazio é vazio", [c(-3), c(1.5), c(0), c(null), c(undefined), c("")], ["-3", "1.5", "0", "", "", ""]);
+  igual("; aspas e quebra de linha vão entre aspas", [c("a;b"), c('diz "oi"'), c("um\ndois"), c("a\r\nb")],
+    ['"a;b"', '"diz ""oi"""', '"um\ndois"', '"a\r\nb"']);
+  igual("o texto comum não muda", [c("F-617"), c("Troca de óleo"), c("433")], ["F-617", "Troca de óleo", "433"]);
+}
+
 // ── a avaliação da operação ─────────────────────────────────────────────────
 titulo("eventos.js — a frota chegou para a preventiva");
 {
@@ -1627,6 +1655,28 @@ titulo("liberadas agora, e adiantar até a realização");
   recusa = "";
   try { M.lerSemente({ qualquer: 1 }); } catch (e) { recusa = e.message; }
   ok("e um arquivo qualquer não passa por base histórica", /não é a base histórica/.test(recusa), recusa);
+}
+
+// ── o que vai para o ar ─────────────────────────────────────────────────────
+titulo("sw.js e as páginas — o que funciona sem rede, e o que a página deixa rodar");
+{
+  const { readdir } = await import("node:fs/promises");
+  const { existsSync } = await import("node:fs");
+  const sw = await readFile(resolve(RAIZ, "sw.js"), "utf8");
+  const lista = [...sw.slice(sw.indexOf("const ARQUIVOS"), sw.indexOf("];")).matchAll(/"\.\/([^"]*)"/g)].map((m) => m[1]).filter(Boolean);
+  const doSite = (await readdir(resolve(RAIZ, "js"), { recursive: true })).filter((f) => f.endsWith(".js")).map((f) => "js/" + f)
+    .concat((await readdir(resolve(RAIZ, "css"))).map((f) => "css/" + f), ["index.html", "os.html"]);
+  const faltam = doSite.filter((f) => !lista.includes(f));
+  ok("todo arquivo de js/, css/ e as páginas estão no sw.js (sem rede, abre a versão inteira)", !faltam.length, faltam.join(", "));
+  const sumidos = lista.filter((f) => !existsSync(resolve(RAIZ, f)));
+  ok("e tudo o que o sw.js lista existe (um nome errado derruba a instalação inteira)", !sumidos.length, sumidos.join(", "));
+  for (const pag of ["index.html", "os.html"]) {
+    const h = await readFile(resolve(RAIZ, pag), "utf8");
+    const csp = (h.match(/http-equiv="Content-Security-Policy" content="([^"]*)"/) || [])[1] || "";
+    ok(`${pag}: a política de conteúdo só deixa rodar script do próprio site, sem eval`,
+      /script-src 'self';/.test(csp) && !/unsafe-eval/.test(csp) && /object-src 'none'/.test(csp), csp);
+    ok(`${pag}: nenhum script escrito dentro do HTML (a política o barraria)`, !/<script(?![^>]*\bsrc=)[^>]*>/.test(h));
+  }
 }
 
 console.log(`\n${passou} passaram, ${falhou} falharam`);

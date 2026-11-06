@@ -85,7 +85,6 @@ function contarSemJustificativa() {
 }
 
 function contagemOperacao() {
-  const hoje = M.hoje();
   return ev.lista("movimentacao").filter(M.movimentacaoAberta).length +
     ev.lista("preventiva").filter(p => M.preventivaAberta(p) &&
       M.esperandoQuem(p) === "Operação").length;

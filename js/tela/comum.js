@@ -9,7 +9,7 @@ import * as M from "../modelo.js";
 import * as pessoas from "../pessoas.js";
 import { normalizarOSLista } from "../importar.js";
 import { el, br, brCurto, quando, caixa, campo, selecao, comSugestoes, chip,
-  avisar, erro, confirmar, vazio, cliqueLimpo } from "../ui.js";
+  avisar, erro, confirmar, cliqueLimpo } from "../ui.js";
 
 // ── listas que o próprio acervo alimenta ────────────────────────────────────
 // Nada aqui é cadastro: a lista de executantes é quem já apareceu em alguma

@@ -1327,6 +1327,41 @@ porque toda escrita já passa por `aplicar()`.
 
 ---
 
+## Segurança do site (revisão de 06/11/2026)
+
+O repositório e o site são públicos; quem protege os dados é o banco (RLS,
+`sql/02_acesso.sql` e `sql/04_painel_os.sql`). Do lado do navegador, estas
+travas existem de propósito — não tirar sem saber o porquê:
+
+- **Política de conteúdo (CSP)** no `index.html` e no `os.html`: a página só
+  roda script do próprio site, sem `eval`, e só conversa com `*.supabase.co`.
+  Se algum dia alguém conseguir pôr HTML no site (uma observação maliciosa, um
+  evento adulterado), o script dele não roda e não manda nada para fora — nem
+  a senha de quem entra. Por isso **não existe script escrito dentro do HTML**
+  (o tema do painel de OS está em `js/os/tema.js`). Biblioteca nova de outro
+  endereço, ou outro servidor para chamar: tem de entrar na CSP, senão o
+  navegador barra. O teste do navegador falha se a CSP barrar qualquer coisa.
+- **Texto da pessoa vira texto, nunca HTML**: as telas montam tudo com `el()`
+  (`js/ui.js`), que escreve `textContent`. O único `innerHTML` do site é o dos
+  ícones e desenhos fixos do próprio código.
+- **CSV sem fórmula** (`celulaCSV`, em `js/texto.js`): célula que começa com
+  `= + - @` ganha um apóstrofo, senão o Excel a executaria como fórmula.
+- **Restaurar um backup** só traz os eventos e as preferências do Protheus — o
+  endereço do banco, a sessão e quem entrou nunca vêm de arquivo.
+- **Evento com campo `__proto__`** é ignorado na fita (`juntar`, em
+  `js/eventos.js`).
+- **Sair apaga a cópia do painel de OS** deste aparelho (é dado do Protheus).
+- **PDF de fora** (inspeção, TOP) é lido pelo pdf.js sem montar código a partir
+  dele (`isEvalSupported: false`).
+- **Bibliotecas** em `vendor/`, sem CDN: jsPDF 4.2.1 e AutoTable 5.0.9 (as
+  falhas conhecidas da 2.5.1 ficaram para trás), pdf.js 4.10.38, d3 7.8.5. A
+  SheetJS 0.18.5 tem duas falhas conhecidas na leitura de arquivo feito para
+  atacar (CVE-2023-30533 e CVE-2024-22363); a corrigida (0.20.3) só sai pelo
+  `cdn.sheetjs.com`, fora do npm. Enquanto não troca, o risco fica restrito a
+  arquivos que o próprio PCM solta em Importar.
+
+---
+
 ## Os arquivos
 
 | arquivo | o que faz |
@@ -1386,12 +1421,13 @@ porque toda escrita já passa por `aplicar()`.
 | `testes/resultados.mjs` | o site dá o mesmo número que as abas Resultados, Semana, Preventivas e Movimentações da planilha, linha a linha |
 | `planilha/` | **o processo antigo, que continua funcionando** até o site assumir |
 | `os.html`, `css/os.css` | o painel de OS do Protheus (a página e o estilo dela) — sem dado nenhum |
+| `js/os/tema.js` | o tema (claro/escuro) do painel de OS antes de pintar — em arquivo por causa da CSP |
 | `js/os/inicio.js` | a porta do painel de OS: o login do site, a pergunta `ve_os()` ao banco, o bucket privado e a cópia do aparelho |
 | `js/os/painel.js` | o painel de OS (o do artefato v9): abas, filtros, gráficos, a carteira, a folha para imprimir |
 | `js/os/montar.js` | a STJ e a STL viram o painel — o `montar.py` + `pagina.py`, no navegador; e o comparar de um dia para o outro |
 | `js/os/importar.js` | a caixa *Atualizar com o Protheus*: ler, conferir, gravar no bucket |
 | `sql/04_painel_os.sql` | a marca `os_makro`, a função `ve_os()` e o bucket privado `painel-os` com as políticas |
-| `vendor/d3.min.js`, `vendor/jspdf*.js` | d3 7.8.5 (ISC), jsPDF 2.5.1 e AutoTable 3.8.2 (MIT), só para o painel de OS |
+| `vendor/d3.min.js`, `vendor/jspdf*.js` | d3 7.8.5 (ISC), jsPDF 4.2.1 e AutoTable 5.0.9 (MIT), só para o painel de OS |
 
 ## Os testes
 

@@ -80,4 +80,12 @@ node testes/interacao.mjs            # navegador; precisa do servidor limpo
 bash testes/politicas.sh             # o banco recusa o que deve recusar
 ```
 
-Mudou arquivo em `js/`? Acrescentar em `sw.js` (lista e versão).
+Mudou arquivo em `js/`? Acrescentar em `sw.js` (lista e versão) — o
+`testes/rodar.js` acusa o que faltar.
+
+## Segurança (LEIAME, "Segurança do site")
+
+- Texto da pessoa entra na tela por `el()` (`textContent`), nunca `innerHTML`.
+- Nada de script dentro do HTML, nem biblioteca ou servidor fora da CSP do
+  `index.html`/`os.html`: o navegador barra, e o teste do navegador falha.
+- CSV sai por `celulaCSV` (`js/texto.js`), que não deixa célula virar fórmula.

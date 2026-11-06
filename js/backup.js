@@ -8,8 +8,15 @@
 
 import * as dados from "./dados.js";
 import * as ev from "./eventos.js";
+import { celulaCSV } from "./texto.js";
 
 export const VERSAO = 1;
+
+/** As preferências que viajam no backup — e só elas voltam na restauração.
+ *  O resto do que o aparelho guarda (o endereço do banco, a sessão, quem
+ *  entrou) nunca vem de arquivo: um backup adulterado que trouxesse outro
+ *  `nuvem` mandaria a senha de quem entra para o servidor de outra pessoa. */
+const PREFERENCIAS = ["mapa_protheus", "cabecalho_protheus"];
 
 /** Só os eventos, em texto estável. É contra isto que se compara se dois
  *  backups têm o mesmo conteúdo — a data de geração muda a cada exportação e
@@ -24,10 +31,7 @@ export async function exportar() {
     versao: VERSAO,
     gerado_em: new Date().toISOString(),
     eventos: ev.log.map(({ seq, ...resto }) => resto),
-    preferencias: {
-      mapa_protheus: await dados.lerMeta("mapa_protheus", null),
-      cabecalho_protheus: await dados.lerMeta("cabecalho_protheus", null),
-    },
+    preferencias: Object.fromEntries(await Promise.all(PREFERENCIAS.map(async k => [k, await dados.lerMeta(k, null)]))),
   };
 }
 
@@ -51,7 +55,8 @@ export async function restaurar(obj) {
   }
   await dados.trocarEventos(obj.eventos);
   if (obj.preferencias) {
-    for (const [k, v] of Object.entries(obj.preferencias)) {
+    for (const k of PREFERENCIAS) {
+      const v = obj.preferencias[k];
       if (v != null) await dados.gravarMeta(k, v);
     }
   }
@@ -92,16 +97,12 @@ export function csv(atividades, situacaoDe, prazoDe) {
   const cab = ["OS", "Frota", "Cliente", "Serviço", "Atividade", "Tipo", "Origem",
     "Prioridade", "Semana", "Dia", "Dias", "Início", "Prazo", "Concluída em",
     "Situação", "Semana orig.", "Reprogramações", "Motivo", "Executantes", "Obs."];
-  const esc = v => {
-    const s = String(v == null ? "" : v);
-    return /[";\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
-  };
   const linhas = [cab.join(";")];
   for (const a of atividades) {
     linhas.push([a.os, a.frota, a.cliente, a.servico, a.atividade, a.tipo, a.origem,
       a.prioridade, a.semana, a.dia, a.dias, "", prazoDe(a), a.concluida_em,
       situacaoDe(a), a.semana_orig, a.reprogramacoes, a.motivo,
-      (a.executantes || []).join(", "), a.obs].map(esc).join(";"));
+      (a.executantes || []).join(", "), a.obs].map(celulaCSV).join(";"));
   }
   return "﻿" + linhas.join("\r\n");
 }

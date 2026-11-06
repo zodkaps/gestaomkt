@@ -300,7 +300,16 @@ export async function sair() {
   } catch (e) { /* sair local vale mesmo sem rede */ }
   sessao = null;
   await dados.gravarMeta("sessao", null);
+  await esquecerPrivados();
   anunciar();
+}
+
+/** O que só a pessoa podia ver não fica no aparelho depois que ela sai: a cópia
+ *  do painel de OS (js/os/inicio.js) é dado do Protheus, e o aparelho pode ser
+ *  de outro amanhã. A fita de eventos fica — é de todos, e a fila de quem
+ *  lançou sem rede precisa dela para subir. */
+async function esquecerPrivados() {
+  await dados.gravarMeta("painel_os", null);
 }
 
 /** Renova antes de vencer. Sem rede, devolve a sessão velha: o site continua
@@ -340,6 +349,7 @@ async function derrubarSessao(motivo) {
   sessao = null;
   motivoSaida = motivo;
   await dados.gravarMeta("sessao", null);
+  await esquecerPrivados();
   anunciar();
 }
 

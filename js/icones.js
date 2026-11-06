@@ -48,4 +48,3 @@ export function icone(nome, tam = 18) {
   return s;
 }
 
-export const NOMES_ICONES = Object.keys(DESENHOS);

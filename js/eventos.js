@@ -122,6 +122,15 @@ export function agora() {
 // ── a dobra ─────────────────────────────────────────────────────────────────
 // Um evento por vez, sempre na mesma ordem, sempre com o mesmo resultado.
 
+// Os campos de um evento vêm do banco, escritos por qualquer pessoa da equipe
+// (ou por um backup). Um campo chamado "__proto__" trocaria o protótipo da
+// atividade em vez de virar um campo dela; estes nomes não entram nunca.
+const PROIBIDAS = new Set(["__proto__", "constructor", "prototype"]);
+function juntar(alvo, campos) {
+  for (const [k, v] of Object.entries(campos || {})) if (!PROIBIDAS.has(k)) alvo[k] = v;
+  return alvo;
+}
+
 export function dobrar(mapas, ev) {
   const tipoAlvo = ev.alvo_tipo || "atividade";
   const m = mapas[tipoAlvo];
@@ -153,7 +162,7 @@ export function dobrar(mapas, ev) {
     // planilha atualiza.
     const doSite = (antes && antes._site) || {};
     const daPlanilha = {};
-    for (const [k, v] of Object.entries(d)) if (!doSite[k]) daPlanilha[k] = v;
+    for (const [k, v] of Object.entries(d)) if (!doSite[k] && !PROIBIDAS.has(k)) daPlanilha[k] = v;
     // Aprovação de movimentação só entra por `mov_aprovada`, que só o PCM
     // grava. Movimentação criada à mão nasce sem aprovação, diga o que disser.
     if (tipoAlvo === "movimentacao" && ev.tipo === "criada") {
@@ -187,11 +196,11 @@ export function dobrar(mapas, ev) {
 function aplicarNoAlvo(a, ev, d) {
   switch (ev.tipo) {
     case "editada": {
-      const para = { ...(d.para || {}) };
+      const para = juntar({}, d.para);
       // Editar não aprova: senão bastaria um "editada" com aprovada = true
       // para pular o PCM.
       if (ev.alvo_tipo === "movimentacao") for (const k of DA_APROVACAO) delete para[k];
-      Object.assign(a, para);
+      juntar(a, para);
       break;
     }
     case "excluida":
@@ -203,13 +212,13 @@ function aplicarNoAlvo(a, ev, d) {
 
     // ── atividade ──
     case "programada":
-      Object.assign(a, d.para || {});
+      juntar(a, d.para);
       // A semana original é a da PRIMEIRA programação e nunca mais muda: é
       // contra ela que se mede o quanto uma atividade foi empurrada.
       if (a.semana_orig == null) a.semana_orig = a.semana;
       break;
     case "reprogramada":
-      Object.assign(a, d.para || {});
+      juntar(a, d.para);
       if (a.semana_orig == null) a.semana_orig = (d.de || {}).semana ?? null;
       a.motivo = ev.motivo || "";
       a.reprogramacoes = (a.reprogramacoes || 0) + 1;
@@ -345,30 +354,6 @@ export function reconstruir(fita = log) {
   const m = { atividade: new Map(), movimentacao: new Map(), preventiva: new Map(), semana: new Map() };
   for (const ev of fita) dobrar(m, ev);
   return m;
-}
-
-/** As atividades como estavam num instante: a fita tocada só até ali.
- *
- *  É o que congela a semana sem ninguém precisar lembrar. O número da semana é
- *  o da sexta às 23h59 — baixa dada na segunda e reprogramação feita depois não
- *  mexem nele, como a coluna amarela da planilha. Lançamento feito no celular
- *  sem sinal conta pelo instante em que foi feito, não pelo em que subiu. */
-let memoAntes = { chave: "", estado: null };
-export function comoEstavaEm(instante, fita = log) {
-  const corte = Date.parse(instante);
-  const chave = `${instante}|${fita.length}|${fita.length ? fita[fita.length - 1].id : ""}`;
-  if (fita === log && memoAntes.chave === chave) return memoAntes.estado;
-  const r = reconstruir(fita.filter(e => Date.parse(e.ts) < corte));
-  if (fita === log) memoAntes = { chave, estado: r };
-  return r;
-}
-
-/** O primeiro instante da fita: antes dele, o site não sabe como as coisas
- *  estavam (o histórico veio da planilha, toda com a data da importação). */
-export function inicioDaFita(fita = log) {
-  let menor = Infinity;
-  for (const e of fita) { const t = Date.parse(e.ts); if (t < menor) menor = t; }
-  return menor === Infinity ? null : new Date(menor).toISOString();
 }
 
 /** Reconstrói do zero e compara com o que está na memória. */

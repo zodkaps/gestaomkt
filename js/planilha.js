@@ -4,13 +4,28 @@
 // coluna quer dizer é o `importar.js` — a separação existe porque o formato do
 // export do Protheus pode mudar sem que a leitura de arquivo mude nada.
 
+/** A biblioteca de planilhas (SheetJS, 250 KB), carregada só quando alguém
+ *  lê ou gera um Excel — antes ela vinha em toda abertura do site, e a página
+ *  esperava por ela. Serve às duas páginas (o site e o painel de OS). */
+let xlsxP = null;
+export function carregarXLSX() {
+  if (globalThis.XLSX) return Promise.resolve(globalThis.XLSX);
+  return xlsxP || (xlsxP = new Promise((ok, erro) => {
+    const s = document.createElement("script");
+    s.src = new URL("../vendor/xlsx.mini.min.js", import.meta.url).href;
+    s.onload = () => ok(globalThis.XLSX);
+    s.onerror = () => { xlsxP = null; erro(new Error("A biblioteca de planilhas não carregou (sem rede?).")); };
+    document.head.append(s);
+  }));
+}
+
 /** Devolve [{ nome, linhas: [[célula, …], …] }] para cada aba. */
 export async function ler(arquivo) {
   const nome = (arquivo.name || "").toLowerCase();
   if (nome.endsWith(".csv") || nome.endsWith(".txt") || nome.endsWith(".tsv")) {
     return [{ nome: arquivo.name, linhas: lerCSV(await arquivo.text()) }];
   }
-  if (!globalThis.XLSX) throw new Error("A biblioteca de planilhas não carregou.");
+  const XLSX = await carregarXLSX();
   const buf = await arquivo.arrayBuffer();
   const wb = XLSX.read(buf, { type: "array", cellDates: true });
   return wb.SheetNames.map(n => ({

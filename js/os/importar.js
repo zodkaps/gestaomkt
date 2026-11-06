@@ -12,6 +12,7 @@
 
 import * as nuvem from "../nuvem.js";
 import * as M from "./montar.js";
+import { carregarXLSX } from "../planilha.js";
 
 const BUCKET = "painel-os";
 const DESDE = "2024-01-01";          // as finalizadas entram desde aqui (o painel sempre usou)
@@ -57,18 +58,6 @@ export async function arquivosDoPainel() {
 
 // ── ler os arquivos ──────────────────────────────────────────────────────────
 
-let xlsxP = null;
-function leitorExcel() {
-  if (window.XLSX) return Promise.resolve(window.XLSX);
-  return xlsxP || (xlsxP = new Promise((ok, erro) => {
-    const s = document.createElement("script");
-    s.src = "vendor/xlsx.mini.min.js";
-    s.onload = () => ok(window.XLSX);
-    s.onerror = () => { xlsxP = null; erro(new Error("não carregou o leitor de Excel")); };
-    document.head.append(s);
-  }));
-}
-
 /** Um arquivo solto: a STJ, a STL (em .xlsx ou .csv) ou a base histórica. */
 async function lerArquivo(f) {
   const nome = f.name, baixo = nome.toLowerCase();
@@ -86,7 +75,7 @@ async function lerArquivo(f) {
     if (texto.includes("�")) texto = new TextDecoder("windows-1252").decode(bytes);
     t = M.tabelaDoCSV(texto, nome);
   } else {
-    const XLSX = await leitorExcel();
+    const XLSX = await carregarXLSX();
     t = M.tabelaDoExcel(XLSX, await f.arrayBuffer(), nome);
   }
   const tipo = M.tipoDaTabela(t);

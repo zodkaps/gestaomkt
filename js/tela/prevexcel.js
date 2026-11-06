@@ -7,6 +7,7 @@
 import * as ev from "../eventos.js";
 import * as M from "../modelo.js";
 import { avisar, erro } from "../ui.js";
+import { carregarXLSX } from "../planilha.js";
 import { natural } from "./grade.js";
 import { descreverMudancaPrev, rotuloMes, TIPO_MUDANCA } from "./preventivas.js";
 
@@ -69,8 +70,9 @@ export function linhasDaPlanilha(doMes, ref = M.hoje()) {
   return { cab1, cab2, linhas, registro };
 }
 
-export function baixarPlanilha(doMes, mes, ref = M.hoje()) {
-  if (!globalThis.XLSX) { erro("A biblioteca de planilhas não carregou."); return; }
+export async function baixarPlanilha(doMes, mes, ref = M.hoje()) {
+  let XLSX;
+  try { XLSX = await carregarXLSX(); } catch (e) { erro(e.message); return; }
   const { cab1, cab2, linhas, registro } = linhasDaPlanilha(doMes, ref);
   const ws = XLSX.utils.aoa_to_sheet([cab1, cab2, ...linhas], { cellDates: true, dateNF: "dd/mm/yyyy" });
   // os blocos no cabeçalho, como na tela

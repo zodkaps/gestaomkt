@@ -12,6 +12,8 @@
 //
 // `d3` é o global de vendor/d3.min.js (carregado pela os.html).
 
+import { celulaCSV } from "../texto.js";
+
 /** Desenha o painel com os dados `D` (o bloco que js/os/montar.js monta).
  *  `baixar`: { save({ filename, data }) }, o download do navegador. */
 export function iniciarPainel(D, { baixar } = {}) {
@@ -618,23 +620,6 @@ export function iniciarPainel(D, { baixar } = {}) {
       const o = new Option(rot, String(v)); o.selected = V.frotaN === v; return o; })) : null;
     if (n) n.addEventListener('change', () => { V.frotaN = Number(n.value); desenhar(); });
     alvo.replaceChildren(...[el('span', { text: 'Ordenar' }), seg, n].filter(Boolean));
-  }
-
-  function rosca(caixa, fatias, { sub, aoClicar, tam = 168 }) {
-    const total = d3.sum(fatias, (f) => f.valor);
-    const svg = d3.create('svg').attr('width', tam).attr('height', tam).attr('viewBox', `0 0 ${tam} ${tam}`).attr('role', 'img')
-      .attr('aria-label', fatias.map((f) => `${f.nome}: ${nf.format(f.valor)}`).join('; '));
-    const g = svg.append('g').attr('transform', `translate(${tam / 2},${tam / 2})`);
-    const arcos = d3.pie().sort(null).value((f) => f.valor)(total ? fatias : [{ valor: 1, cor: 'var(--linha)', nome: '' }]);
-    g.selectAll('path').data(arcos).join('path').attr('d', d3.arc().innerRadius(tam * 0.33).outerRadius(tam * 0.48).padAngle(total ? 0.012 : 0))
-      .attr('class', aoClicar && total ? 'clica' : null).style('fill', (d) => d.data.cor)
-      .on('mousemove', (ev, d) => total && mostrarDica(ev, d.data.nome, [['', nf.format(d.data.valor) + ' OS · ' + pc.format(d.data.valor / total)]]))
-      .on('mouseleave', esconderDica).on('click', (ev, d) => aoClicar && total && aoClicar(d.data));
-    txt(g, 0, -7, nf.format(total), { anchor: 'middle', cor: 'var(--texto)', tam: Math.round(tam / 7), peso: 750 });
-    txt(g, 0, tam / 9, sub, { anchor: 'middle', cor: 'var(--muito-fraco)', tam: 11 });
-    const leg = el('div', { class: 'rosca-leg' }, ...fatias.map((f) => el('div', { class: aoClicar ? 'clica' : null, on: aoClicar ? { click: () => aoClicar(f) } : {} },
-      el('i', { class: 'ponto', style: 'background:' + f.cor }), el('span', { text: f.nome }), el('b', { text: nf.format(f.valor) }), el('small', { text: total ? pc.format(f.valor / total) : '—' }))));
-    caixa.replaceChildren(el('div', { class: 'rosca' }, svg.node(), leg));
   }
 
   // ── a tabela ordenável ──
@@ -1504,14 +1489,13 @@ export function iniciarPainel(D, { baixar } = {}) {
   async function baixarCSV(lista, titulo, botao, aviso) {
     botao.disabled = true;
     try {
-      const c = (v) => { const s = String(v ?? ''); return /[;"\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s; };
       const hv = (v) => (v ? String(v).replace('.', ',') : '');
       const linhas = [['OS', 'Filial', 'Frota', 'Equipamento', 'Código do serviço', 'Serviço', 'Categoria', 'Programação', 'Tipo', 'Situação', 'Aberta em', 'Liberada em',
         'Programada para', 'Prevista na STL', 'Início da manutenção', 'Finalizada em', 'Dias', 'Lançada depois (dias)', 'Quem fecha', 'Executantes', 'Especialidade prevista', 'Horas previstas', 'Horas apontadas',
         'Contador', 'Centro de custo', 'Observação'],
         ...lista.map((o) => [o.os, o.filial, o.frota, o.equip, o.servCod, o.servico, o.cat, CLASSE[o.classe], o.tipo, SIT[o.sit], br(o.abertura), br(o.liberada),
           br(o.progEm), br(o.prev), br(o.inicioMan), br(o.fim), o.dias ?? '', o.lancDepois || '', GRUPO[o.grupo], o.quemTxt, o.espTxt, hv(o.hPrev), hv(o.horas), o.contador, o.ccusto, o.obs])];
-      const blob = new Blob(['﻿' + linhas.map((l) => l.map(c).join(';')).join('\r\n')], { type: 'text/csv;charset=utf-8' });
+      const blob = new Blob(['﻿' + linhas.map((l) => l.map(celulaCSV).join(';')).join('\r\n')], { type: 'text/csv;charset=utf-8' });
       const d = await downloadsP;
       if (!d) throw { code: 'unavailable' };
       await d.save({ filename: `${slug(titulo)}-${D.base}.csv`, data: blob });

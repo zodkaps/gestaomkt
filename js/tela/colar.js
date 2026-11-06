@@ -23,7 +23,10 @@ const FONTES = ["Inspeção", "TOP", "Outro"];
 export async function textoDoPDF(arquivo) {
   const pdfjs = await import("../../vendor/pdfjs/pdf.min.mjs");
   pdfjs.GlobalWorkerOptions.workerSrc = new URL("../../vendor/pdfjs/pdf.worker.min.mjs", import.meta.url).href;
-  const doc = await pdfjs.getDocument({ data: new Uint8Array(await arquivo.arrayBuffer()) }).promise;
+  // `isEvalSupported: false`: o PDF vem de fora (e-mail, WhatsApp), e o pdf.js
+  // não precisa montar código a partir dele para só ler o texto. A política de
+  // conteúdo da página já barraria; isto deixa o pdf.js nem tentar.
+  const doc = await pdfjs.getDocument({ data: new Uint8Array(await arquivo.arrayBuffer()), isEvalSupported: false }).promise;
   const linhas = [];
   for (let i = 1; i <= doc.numPages; i++) {
     const pagina = await doc.getPage(i);

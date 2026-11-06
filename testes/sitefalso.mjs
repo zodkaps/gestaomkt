@@ -32,6 +32,14 @@ export function servirCopia({ nuvem, porta = 8125, pasta = "/tmp/mkt-copia-teste
   // O banco de mentira já tem a regra nova: aceita o fechamento da semana.
   const comFechamento = trocado.replace("BANCO_ACEITA_FECHAMENTO = false", "BANCO_ACEITA_FECHAMENTO = true");
   writeFileSync(join(pasta, "js/config.js"), comFechamento);
+  // A política de conteúdo (CSP) das páginas só deixa falar com *.supabase.co;
+  // na cópia, ela passa a aceitar também o banco de mentira — e só ele.
+  for (const html of ["index.html", "os.html"]) {
+    const t = readFileSync(join(pasta, html), "utf8");
+    const comFalso = t.replace("connect-src 'self' https://*.supabase.co", `connect-src 'self' https://*.supabase.co ${new URL(nuvem).origin}`);
+    if (comFalso === t) throw new Error(`não achei a CSP em ${html}`);
+    writeFileSync(join(pasta, html), comFalso);
+  }
   // Sem service worker na cópia: ele guardaria os arquivos entre uma execução
   // e outra e o teste passaria a medir o cache, não o código de agora.
   writeFileSync(join(pasta, "sw.js"), "// vazio de propósito nos testes\n");

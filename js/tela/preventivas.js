@@ -1019,12 +1019,6 @@ export const rotuloMes = m => {
   return i < 0 ? (m || "sem mês") : `${NOME_MES[i]}/20${aa}`;
 };
 
-// O passo de cada situação da planilha (para ir do Painel à lista).
-const PASSO_DA_SIT = { "Sem data da Operação": "liberar", "Disponível: marcar a parada": "parada",
-  "Com data: marcar a parada": "parada", "Conflito: Operação depois do prazo": "parada", "Programada": "chegada",
-  "Programada depois do prazo": "chegada", "Parada passou, sem baixa": "chegada", "Em andamento": "baixa",
-  "Realizada": "feita", "Passa para o mês seguinte": "fora", "Cancelada": "fora" };
-
 const estado = { mes: "", busca: "", passo: "", foraAberto: false, vista: "plano", tipoMud: "", dia: "" };
 
 // As etiquetas do calendário das preventivas, e o que cada cor quer dizer.

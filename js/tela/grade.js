@@ -10,7 +10,6 @@
 // atividade em lista, para as três telas nunca mostrarem a mesma coisa de jeitos
 // diferentes.
 
-import * as ev from "../eventos.js";
 import * as M from "../modelo.js";
 import * as pessoas from "../pessoas.js";
 import { el, brCurto, cliqueLimpo, vazio } from "../ui.js";

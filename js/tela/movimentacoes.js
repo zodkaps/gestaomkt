@@ -17,7 +17,7 @@ import * as M from "../modelo.js";
 import * as pessoas from "../pessoas.js";
 import { el, limpar, br, brCurto, chip, caixa, campo, selecao, comSugestoes,
   avisar, erro, confirmar, vazio, cliqueLimpo } from "../ui.js";
-import { frotas, valoresDe, justificar, camposJustificativa, botaoMais } from "./comum.js";
+import { frotas, justificar, camposJustificativa, botaoMais } from "./comum.js";
 import { busca as semAcento } from "../texto.js";
 import { calendarioMes, navMes, agenda, cartaoTrilho, itemAgenda, anel, trocaVista, nomeMesISO, diaPorExtenso } from "./calendario.js";
 
@@ -267,7 +267,7 @@ export async function proximaEtapaMov(m) {
       f.no),
     acoes: [{ rotulo: "Cancelar", valor: false }, { rotulo: "Adicionar", classe: "primario", acao: () => {
       const v = f.valores();
-      const { prazo, frota, ...campos } = v;
+      const { prazo, frota: _frota, ...campos } = v;   // a frota é a da movimentação
       return ev.proximaEtapa(m, { ...campos, prometida_para: prazo }, ev.lista("movimentacao"));
     } }] });
   if (!r) return false;

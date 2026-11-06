@@ -13,7 +13,6 @@ import * as dados from "../dados.js";
 import * as bk from "../backup.js";
 import { el, limpar, br, campo, selecao, avisar, erro, confirmar, caixa,
   cartaoNumero, vazio, chip } from "../ui.js";
-import { valoresDe } from "./comum.js";
 import * as nuvem from "../nuvem.js";
 import * as pessoas from "../pessoas.js";
 import { OFICINA } from "../foco.js";

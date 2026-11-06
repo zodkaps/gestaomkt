@@ -14,7 +14,6 @@
 
 import * as ev from "../eventos.js";
 import * as M from "../modelo.js";
-import * as pessoas from "../pessoas.js";
 import { el, limpar, br, brCurto, caixa, campo, avisar, erro } from "../ui.js";
 import { fechamentos, vale, naTendencia, daPlanilha, podeGravarFechamento } from "../fechamento.js";
 import { outrosIndicadores } from "./indicadores.js";

@@ -182,3 +182,17 @@ export function filtroDeFrota(digitado, conhecidas = []) {
   const exata = conhecidas.find(f => chaveFrota(f) === q) || "";
   return { exata, vazio: false, bate: f => exata ? chaveFrota(f) === q : chaveFrota(f).includes(q) };
 }
+
+/** Uma célula de CSV para o Excel (separador `;`), sem virar fórmula.
+ *
+ *  Texto que começa com = + - @ (ou tab/CR) o Excel lê como fórmula — e uma
+ *  observação colada do WhatsApp ("- Soldar trinca", "=HIPERLINK(…)") viraria
+ *  erro ou, pior, um link/comando dentro da planilha de quem abre. Por isso o
+ *  texto ganha um apóstrofo na frente, que o Excel esconde. Número continua
+ *  número (um -3 de dias é -3 mesmo). Aspas, ; e quebra de linha vão entre aspas. */
+export function celulaCSV(v) {
+  if (v == null) return "";
+  let s = String(v);
+  if (typeof v === "string" && /^[=+\-@\t\r]/.test(s)) s = "'" + s;
+  return /[;"\r\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
+}

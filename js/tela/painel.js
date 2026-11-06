@@ -14,7 +14,7 @@
 import * as ev from "../eventos.js";
 import * as M from "../modelo.js";
 import * as pessoas from "../pessoas.js";
-import { el, limpar, br, brCurto } from "../ui.js";
+import { el, limpar, br } from "../ui.js";
 import { todas as todasDecisoes, planoVigente, resumir } from "../decisoes.js";
 import { fechamentos, naTendencia } from "../fechamento.js";
 import { listaDecisoes } from "./decidir.js";
