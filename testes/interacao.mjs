@@ -25,7 +25,8 @@ const ok = (nome, cond, detalhe = "") => {
   if (!cond) falhou++;
 };
 
-const nav = await chromium.launch({ executablePath: "/opt/pw-browsers/chromium-1194/chrome-linux/chrome" });
+// o Chromium que vem com o Playwright; CHROME=/caminho/do/chrome aponta outro
+const nav = await chromium.launch(process.env.CHROME ? { executablePath: process.env.CHROME } : {});
 const p = await (await nav.newContext({ viewport: { width: 1280, height: 860 } })).newPage();
 // Erro dentro da página aparece aqui: um teste que falha sem dizer por quê
 // custa uma tarde.
@@ -2433,6 +2434,33 @@ ok("e o Diagnóstico não manda rodar SQL por causa de sessão",
   await mt.waitForTimeout(300);
   const out = await mt.$$eval(".av-kpis .kpi .val", v => v.map(x => x.textContent).join("|"));
   ok("em outubro: nada no começo, entraram 3, ficaram 3", out === "0|0|3|3", out);
+  // o período das finalizadas no calendário (09/11/2026): um pronto, e depois o começo e o fim clicando
+  await mt.click("#aba-geral");
+  await mt.click("#f-periodo");
+  await mt.waitForSelector("#pop .cal-dia");
+  await mt.click('#pop .per-op:has-text("Em 2026")');
+  await mt.waitForTimeout(300);
+  ok("período pronto: entra na barra e a caixa fecha", (await mt.textContent("#f-periodo-txt")) === "Em 2026" && await mt.isHidden("#pop"),
+    await mt.textContent("#f-periodo-txt"));
+  await mt.click("#f-periodo");
+  await mt.click('#pop .cal-dia[data-dia="2026-11-02"]');
+  await mt.click('#pop .cal-dia[data-dia="2026-11-04"]');
+  await mt.waitForTimeout(300);
+  const kpPer = await mt.$$eval("#kpis .kpi", (v) => v.map((x) => x.innerText.replace(/\s+/g, " ")));
+  ok("no calendário, o começo e o fim: só a OS fechada em 03/11 conta como fechada", (await mt.textContent("#f-periodo-txt")) === "02/11/26 a 04/11/26" &&
+    /^Fechadas 1 de 02\/11\/2026 a 04\/11\/2026/.test(kpPer[1]), kpPer[1]);
+  ok("o dia depois do export não se escolhe", await mt.evaluate(() => { document.querySelector("#f-periodo").click(); const b = document.querySelector('#pop .cal-dia[data-dia="2026-11-06"]'); return !!b && b.disabled; }));
+  await mt.keyboard.press("Escape");
+  // as frotas em barras deitadas: uma linha por frota, e o teclado abre a frota
+  ok("o gráfico por frota: uma linha para cada frota com OS", (await mt.$$("#g-frotas svg .lin")).length === 2);
+  await mt.focus('#g-frotas svg .lin[aria-label^="F-617"]');
+  await mt.keyboard.press("Enter");
+  await mt.waitForTimeout(400);
+  ok("Enter numa frota do gráfico abre a ficha dela", await mt.evaluate(() => location.hash) === "#frotas" && (await mt.innerText("#chips")).includes("F-617"));
+  await mt.click('#chips button[aria-label^="Tirar o filtro Frota"]');
+  await mt.click("#f-periodo");
+  await mt.click('#pop .per-op:has-text("Últimas 12 semanas")');
+  await mt.waitForTimeout(300);
   // os downloads do painel — a lista em CSV, o gráfico em imagem e a carteira em PDF (o gerador carrega
   // de vendor/ só agora) —, todos debaixo da política de conteúdo da página
   await mt.click("#aba-carteira");

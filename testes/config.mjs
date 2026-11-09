@@ -25,7 +25,8 @@ const ok = (nome, cond, detalhe = "") => {
   if (!cond) falhou++;
 };
 
-const nav = await chromium.launch({ executablePath: "/opt/pw-browsers/chromium-1194/chrome-linux/chrome" });
+// o Chromium que vem com o Playwright; CHROME=/caminho/do/chrome aponta outro
+const nav = await chromium.launch(process.env.CHROME ? { executablePath: process.env.CHROME } : {});
 const p = await (await nav.newContext({ viewport: { width: 1280, height: 860 } })).newPage();
 const erros = [];
 p.on("pageerror", e => erros.push(e.message));

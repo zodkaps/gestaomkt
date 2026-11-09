@@ -262,6 +262,19 @@ e preventivas, e **só ele ter acesso**.
 - **Modo escuro** (06/11/2026): o botão *Modo escuro / Modo claro* no alto do
   painel. A escolha é a mesma do ◐ do site (a chave `tema2`): trocou num, o
   outro abre igual.
+- **Calendário** (09/11/2026): o período das finalizadas, na barra, abre os
+  prontos (30 dias, 12 semanas, este mês, o mês passado, o ano…) e um
+  calendário — um clique no começo, outro no fim. Os filtros de data (*Aberta
+  em*, *Finalizada em*, *Programada para*…) usam o mesmo calendário. Período
+  de menos de três semanas conta os gráficos de tempo por dia.
+- **Barras deitadas** (09/11/2026): frotas, pessoas, categorias e as faixas
+  da Visão geral viram uma linha por item, com o nome inteiro à esquerda e o
+  total no fim da barra — no lugar das colunas que faziam rolar para o lado e
+  cortavam o nome. As frotas trazem as abertas (liberadas e aguardando) e, na
+  barra fina embaixo, as fechadas. Muitas linhas: as primeiras e o botão
+  *Mostrar todas*. Pelo teclado, Tab chega na linha e Enter abre. O que é
+  tempo (semanas, dias) continua em colunas. As cores vizinhas foram medidas
+  para daltonismo, no claro e no escuro.
 
 **As telas da oficina saíram do menu, mas nada foi apagado.** Painel, Hoje,
 Programação, Semana, Resultados e Frota continuam no código, e os lançamentos
