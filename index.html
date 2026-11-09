@@ -34,6 +34,114 @@
   <main id="tela"><p class="nada">Carregando…</p></main>
 </div>
 
+<!-- O painel de OS do Protheus (09/11/2026): a tela OS Makro (js/tela/os.js) clona este molde para dentro
+     de uma área isolada, com o css/os.css. Só estrutura: os números chegam do bucket privado, nunca daqui. -->
+<template id="molde-os">
+<section class="porta" id="os-porta" aria-live="polite"><p class="porta-msg">Abrindo o painel…</p></section>
+<div class="os-cab" hidden><p id="sub"></p><div class="acoes"><button type="button" class="botao" id="os-atualizar" hidden>Atualizar com o Protheus</button></div></div>
+<nav class="abas" role="tablist" aria-label="Partes do painel" hidden>
+      <button class="aba" role="tab" type="button" id="aba-geral" data-aba="geral" aria-controls="geral">Visão geral</button>
+      <button class="aba" role="tab" type="button" id="aba-indicadores" data-aba="indicadores" aria-controls="indicadores">Indicadores</button>
+      <button class="aba" role="tab" type="button" id="aba-programacao" data-aba="programacao" aria-controls="programacao">Programação</button>
+      <button class="aba" role="tab" type="button" id="aba-avanco" data-aba="avanco" aria-controls="avanco">Avanço</button>
+      <button class="aba" role="tab" type="button" id="aba-pendentes" data-aba="pendentes" aria-controls="pendentes">Não liberadas <span class="n" id="n-pendentes"></span></button>
+      <button class="aba" role="tab" type="button" id="aba-carteira" data-aba="carteira" aria-controls="carteira">Carteira de OS <span class="n" id="n-carteira"></span></button>
+      <button class="aba" role="tab" type="button" id="aba-frotas" data-aba="frotas" aria-controls="frotas">Frotas <span class="n" id="n-frotas"></span></button>
+      <button class="aba" role="tab" type="button" id="aba-executantes" data-aba="executantes" aria-controls="executantes">Executantes</button>
+    </nav>
+<div class="barra" hidden>
+    <div class="barra-cartao" role="search" aria-label="Filtros">
+      <div class="pills">
+        <div class="pills-multi" id="pills-multi"></div>
+        <button type="button" class="pill pill-per" id="f-periodo" aria-haspopup="dialog" aria-expanded="false" title="O período das finalizadas: um pronto ou escolhido no calendário">
+          <svg viewBox="0 0 16 16" aria-hidden="true"><rect x="2" y="3" width="12" height="11" rx="2.2" fill="none" stroke="currentColor" stroke-width="1.4"/><path d="M2 6.6h12M5.2 1.8v2.6M10.8 1.8v2.6" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>
+          <span class="per-rot">Finalizadas</span><span class="pill-rot" id="f-periodo-txt"></span><span class="seta" aria-hidden="true">▾</span>
+        </button>
+        <input class="pill-busca" id="f-q" type="search" placeholder="Buscar OS, serviço, observação, executante…" aria-label="Buscar" autocomplete="off">
+      </div>
+      <div class="mais-painel" id="mais-painel" hidden></div>
+      <div class="chips" id="chips"></div>
+      <div class="pop" id="pop" hidden></div>
+    </div>
+</div>
+<div class="pg" hidden>
+  <p class="aviso" id="aviso" hidden></p>
+
+  <section class="vista" id="geral" role="tabpanel" aria-labelledby="aba-geral" hidden>
+    <div class="kpis kpis5" id="kpis"></div>
+    <div class="grade">
+      <article class="cartao c12" id="c-frotas" data-imagem>
+        <div class="cab"><div><h2>OS abertas e fechadas por frota</h2><p class="nota" id="nota-frotas"></p>
+          <p class="nota uso">Cada OS conta uma vez: está nas abertas até ser finalizada no Protheus; finalizada no período, passa para as fechadas. Passe o mouse para ver os números, clique para abrir a frota.</p></div>
+          <div class="acoes"><div class="ctl" id="ctl-frotas"></div></div></div>
+        <div class="legenda" id="leg-frotas"></div>
+        <div class="graf rolar-x" id="g-frotas"></div>
+      </article>
+      <article class="cartao c8" id="c-fluxo" data-imagem>
+        <div class="cab"><div><h2>Entrada e saída da carteira</h2><p class="nota" id="nota-fluxo"></p></div><div class="acoes"></div></div>
+        <div class="legenda" id="leg-fluxo"></div>
+        <div class="graf rolar-x" id="g-fluxo"></div>
+      </article>
+      <article class="cartao c4" id="c-quem" data-imagem>
+        <div class="cab"><div><h2>Quem vai fechar as abertas</h2><p class="nota">Pela mão de obra da STL</p><p class="nota uso">Clique para ver as OS</p></div><div class="acoes"></div></div>
+        <div class="graf" id="g-quem"></div>
+      </article>
+      <article class="cartao c6" id="c-idade" data-imagem>
+        <div class="cab"><div><h2>Há quanto tempo estão abertas</h2><p class="nota">As abertas, pela data de abertura no Protheus</p><p class="nota uso">Clique numa faixa para ver as OS</p></div><div class="acoes"></div></div>
+        <div class="graf" id="g-idade"></div>
+      </article>
+      <article class="cartao c6" id="c-comp" data-imagem>
+        <div class="cab"><div><h2>Programadas e não programadas</h2><p class="nota" id="nota-comp"></p><p class="nota uso">Pela Categoria da OS no Protheus · clique numa parte para filtrar</p></div><div class="acoes"></div></div>
+        <div class="legenda" id="leg-comp"></div>
+        <div class="graf" id="g-comp"></div>
+      </article>
+      <article class="cartao c12" id="c-cats" data-imagem>
+        <div class="cab"><div><h2>Categorias</h2><p class="nota">Abertas e fechadas no período, por categoria</p><p class="nota uso">Clique para filtrar</p></div><div class="acoes"></div></div>
+        <div class="legenda" id="leg-cats"></div>
+        <div class="graf rolar-x" id="g-cats"></div>
+        <p class="regra" id="regra-prog"></p>
+      </article>
+    </div>
+  </section>
+
+  <section class="vista" id="indicadores" role="tabpanel" aria-labelledby="aba-indicadores" hidden></section>
+
+  <section class="vista" id="programacao" role="tabpanel" aria-labelledby="aba-programacao" hidden></section>
+
+  <section class="vista" id="avanco" role="tabpanel" aria-labelledby="aba-avanco" hidden></section>
+
+  <section class="vista" id="pendentes" role="tabpanel" aria-labelledby="aba-pendentes" hidden></section>
+
+  <section class="vista" id="carteira" role="tabpanel" aria-labelledby="aba-carteira" hidden>
+    <article class="cartao c12" id="c-carteira"></article>
+  </section>
+
+  <section class="vista" id="frotas" role="tabpanel" aria-labelledby="aba-frotas" hidden></section>
+
+  <section class="vista" id="executantes" role="tabpanel" aria-labelledby="aba-executantes" hidden>
+    <div class="kpis" id="kpis-exec" style="grid-template-columns: repeat(auto-fit, minmax(min(100%, 9.5rem), 1fr))"></div>
+    <article class="cartao" id="c-exec" data-imagem>
+      <div class="cab">
+        <div><h2>OS por executante</h2><p class="nota" id="nota-exec"></p><p class="nota uso" id="uso-exec"></p></div>
+        <div class="acoes"><div class="ctl" id="exec-quem"></div></div>
+      </div>
+      <div class="legenda" id="leg-exec"></div>
+      <div class="graf rolar-x" id="g-exec"></div>
+      <div class="fora" id="exec-fora" hidden></div>
+    </article>
+    <article class="cartao" id="c-exec-num">
+      <div class="cab"><div><h2>Os números de cada pessoa</h2><p class="nota uso">Clique no título de uma coluna para ordenar, ou numa pessoa para ver as OS dela</p></div></div>
+      <div class="bt-rolagem" id="t-exec"></div>
+    </article>
+  </section>
+</div>
+
+<div class="dica" id="dica" hidden></div>
+<div class="detalhe-fundo" id="detalhe-fundo" hidden></div>
+<aside class="detalhe" id="detalhe" role="dialog" aria-modal="true" aria-labelledby="detalhe-tit" hidden></aside>
+
+<dialog class="imp" id="os-importar" aria-labelledby="imp-tit"></dialog>
+</template>
 <script type="module" src="js/app.js"></script>
 </body>
 </html>

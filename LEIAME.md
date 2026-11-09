@@ -222,10 +222,15 @@ parte, que o Claude atualizava todo dia com os arquivos mandados no chat. Veio
 para cá, a pedido do Mateus, com duas condições: ficar junto das movimentações
 e preventivas, e **só ele ter acesso**.
 
-- **Onde fica**: `os.html` (o item **OS Makro** do menu — no celular, em
-  *Mais*). O login é o mesmo do site. O item só aparece para quem o banco
-  libera, e a página, aberta direto, também pergunta ao banco antes de mostrar
-  qualquer coisa.
+- **Onde fica** (desde 09/11/2026): uma tela do site, **OS Makro** no menu
+  (endereço `#/os`; no celular, em *Mais*) — com o mesmo topo, o mesmo menu e o
+  mesmo tema das movimentações e preventivas, e não mais uma página à parte. O
+  item só aparece para quem o banco libera, e a tela, aberta direto, também
+  pergunta ao banco antes de mostrar qualquer coisa. O endereço antigo
+  (`os.html`) só leva para a tela. Por dentro, o painel desenha numa área
+  isolada (shadow DOM, `js/tela/os.js`) com o `css/os.css`: ele tem nomes de
+  estilo iguais aos do site (kpi, aba, botão…), e assim um não bagunça o outro;
+  as cores de base e a fonte vêm do site.
 - **Quem vê**: não é o papel (ser PCM não basta). É a marca **`os_makro`** na
   tabela `pessoas` (`sql/04_painel_os.sql`), que só se liga pelo SQL Editor:
   `update public.pessoas set os_makro = true where nome = 'Mateus';`. O
@@ -259,22 +264,32 @@ e preventivas, e **só ele ter acesso**.
   cada período e a lista das OS. Pelas datas do Protheus (abertura e fim da
   manutenção) e pela mão de obra de hoje na STL; os filtros da barra valem
   (um Executante mostra só ele).
-- **Modo escuro** (06/11/2026): o botão *Modo escuro / Modo claro* no alto do
-  painel. A escolha é a mesma do ◐ do site (a chave `tema2`): trocou num, o
-  outro abre igual.
+- **Modo escuro**: é o ◐ do site, que vale para o painel na hora.
 - **Calendário** (09/11/2026): o período das finalizadas, na barra, abre os
   prontos (30 dias, 12 semanas, este mês, o mês passado, o ano…) e um
   calendário — um clique no começo, outro no fim. Os filtros de data (*Aberta
   em*, *Finalizada em*, *Programada para*…) usam o mesmo calendário. Período
   de menos de três semanas conta os gráficos de tempo por dia.
-- **Barras deitadas** (09/11/2026): frotas, pessoas, categorias e as faixas
-  da Visão geral viram uma linha por item, com o nome inteiro à esquerda e o
-  total no fim da barra — no lugar das colunas que faziam rolar para o lado e
-  cortavam o nome. As frotas trazem as abertas (liberadas e aguardando) e, na
-  barra fina embaixo, as fechadas. Muitas linhas: as primeiras e o botão
-  *Mostrar todas*. Pelo teclado, Tab chega na linha e Enter abre. O que é
-  tempo (semanas, dias) continua em colunas. As cores vizinhas foram medidas
+- **Colunas e roscas** (09/11/2026): os gráficos são colunas em pé (o
+  Mateus testou as barras deitadas e preferiu as colunas). Aparecem as que
+  cabem na largura, sem rolar para o lado, e o botão *Mostrar todas* abre o
+  resto. Na frota, a coluna das abertas vem empilhada: liberadas embaixo,
+  aguardando liberação em cima; ao lado, as fechadas. O que é parte do todo,
+  com poucas fatias, é rosca: quem vai fechar as abertas, programadas × não
+  programadas (abertas e fechadas), corretiva × preventiva e a situação das
+  abertas — cada fatia se clica para filtrar. As cores vizinhas foram medidas
   para daltonismo, no claro e no escuro.
+- **Indicadores** (09/11/2026): a aba dos números de PCM, em quatro grupos —
+  *Carteira* (abertas, backlog em semanas, idade, aguardando liberação),
+  *Ritmo* (fechadas por semana, taxa de atendimento, saldo, entraram), *Prazo*
+  (tempo para fechar, fechadas em até 7 dias, aderência à programação,
+  prevista vencida) e *Planejamento e mão de obra* (índice de preventiva,
+  trabalho programado, cobertura de mão de obra, horas apontadas, abertas
+  depois do serviço). Cada cartão diz a regra da conta e compara com o
+  período anterior de mesmo tamanho (▲/▼ com *melhor* ou *pior* escrito). As
+  contas estão em `js/os/indicadores.js` e cada fórmula tem teste com as
+  contas feitas à mão (`testes/rodar.js`). Nenhuma meta é inventada: o número
+  e a regra; quem decide se está bom é o PCM.
 
 **As telas da oficina saíram do menu, mas nada foi apagado.** Painel, Hoje,
 Programação, Semana, Resultados e Frota continuam no código, e os lançamentos
@@ -1346,12 +1361,12 @@ O repositório e o site são públicos; quem protege os dados é o banco (RLS,
 `sql/02_acesso.sql` e `sql/04_painel_os.sql`). Do lado do navegador, estas
 travas existem de propósito — não tirar sem saber o porquê:
 
-- **Política de conteúdo (CSP)** no `index.html` e no `os.html`: a página só
+- **Política de conteúdo (CSP)** no `index.html` (e no `os.html`, que só redireciona): a página só
   roda script do próprio site, sem `eval`, e só conversa com `*.supabase.co`.
   Se algum dia alguém conseguir pôr HTML no site (uma observação maliciosa, um
   evento adulterado), o script dele não roda e não manda nada para fora — nem
   a senha de quem entra. Por isso **não existe script escrito dentro do HTML**
-  (o tema do painel de OS está em `js/os/tema.js`). Biblioteca nova de outro
+  (nem no molde do painel de OS, `<template id="molde-os">`). Biblioteca nova de outro
   endereço, ou outro servidor para chamar: tem de entrar na CSP, senão o
   navegador barra. O teste do navegador falha se a CSP barrar qualquer coisa.
 - **Texto da pessoa vira texto, nunca HTML**: as telas montam tudo com `el()`
@@ -1441,9 +1456,10 @@ travas existem de propósito — não tirar sem saber o porquê:
 | `sw.js` | offline: rede primeiro, cache como reserva |
 | `testes/rodar.js` | os testes do núcleo |
 | `testes/resultados.mjs` | o site dá o mesmo número que as abas Resultados, Semana, Preventivas e Movimentações da planilha, linha a linha |
-| `os.html`, `css/os.css` | o painel de OS do Protheus (a página e o estilo dela) — sem dado nenhum |
-| `js/os/tema.js` | o tema (claro/escuro) do painel de OS antes de pintar — em arquivo por causa da CSP |
-| `js/os/inicio.js` | a porta do painel de OS: o login do site, a pergunta `ve_os()` ao banco, o bucket privado e a cópia do aparelho |
+| `js/tela/os.js` | a tela OS Makro: a área isolada do painel, a pergunta `ve_os()` ao banco, o bucket privado e a cópia do aparelho |
+| `css/os.css`, `<template id="molde-os">` (no `index.html`) | o estilo e a estrutura do painel de OS — sem dado nenhum |
+| `js/os/indicadores.js` | as contas dos indicadores de PCM (só contas; a tela está no `painel.js`) |
+| `os.html` | o endereço antigo do painel: leva para `#/os` |
 | `js/os/painel.js` | o painel de OS (o do artefato v9): abas, filtros, gráficos, a carteira, a folha para imprimir |
 | `js/os/montar.js` | a STJ e a STL viram o painel — o `montar.py` + `pagina.py`, no navegador; e o comparar de um dia para o outro |
 | `js/os/importar.js` | a caixa *Atualizar com o Protheus*: ler, conferir, gravar no bucket |

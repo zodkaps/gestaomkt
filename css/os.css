@@ -1,73 +1,49 @@
-/* O painel de OS do Protheus (os.html). Veio do artefato v9 (05/11/2026) com
-   os próprios tons: a faixa azul-marinho e as cores de dado com um sentido só.
-   O fim do arquivo é o que o site acrescentou: a porta e a caixa de atualizar. */
-/* Layout: faixa azul-marinho com o nome e as abas; a barra de filtros presa no alto, valendo para todas as abas; cada aba numa grade de cartões de 12 colunas. Os tons são os do site da programação (azul da marca, fundo cinza-azulado, cartões brancos). Cada cor de dado tem um sentido só: azul liberada, âmbar pendente de liberação, verde finalizada, roxo programada, laranja não programada, cinza o resto. */
-:root {
-  --fundo: #f3f5f9; --papel: #ffffff; --papel2: #f6f7fb; --linha: #e6e9f0; --borda: #d5dae4;
-  --texto: #1f2937; --fraco: #5b6474; --muito-fraco: #737d8e;
-  --marca: #2563eb; --marca-clara: #e8efff; --marca-texto: #ffffff;
-  --faixa: #1b2340; --faixa-texto: #ffffff; --faixa-fraco: #aab3cf; --faixa-on: rgba(255, 255, 255, .12);
-  --liberada: #2a78d6; --pendente: #eda100; --finalizada: #1baf7a; --fech-depois: #9ad8bd; --prog: #7b61d9; --nprog: #eb6834; --ctx: #c4c9d2; --alerta: #d03b3b; --pend1: #f9e08c; --pend2: #eda100; --pend3: #a35f00; --nova: #9cc3f0;
+/* O painel de OS do Protheus, dentro do site (09/11/2026). A tela OS Makro (js/tela/os.js) o põe numa área
+   isolada (shadow DOM): os estilos daqui não vazam para o site, nem os do site para cá. As cores de base —
+   fundo, papel, linhas, texto, o azul da marca — e a fonte vêm do site, que decide o claro e o escuro (a tela
+   copia a escolha para `data-tema` do anfitrião). Aqui ficam só as cores de dado, cada uma com um sentido só:
+   azul liberada, âmbar aguardando liberação, verde finalizada, roxo programada, laranja não programada, cinza
+   o resto. Os pares que ficam encostados foram medidos para daltonismo, no claro e no escuro. */
+:host {
+  display: block; color: var(--texto); font-size: 14px; line-height: 1.45;
+  --marca-texto: #ffffff;
+  --liberada: #2a78d6; --pendente: #eda100; --finalizada: #1baf7a; --fech-depois: #9ad8bd; --prog: #7b61d9; --nprog: #eb6834; --ctx: #c4c9d2; --alerta: #d03b3b;
+  --pend1: #f9e08c; --pend2: #eda100; --pend3: #a35f00; --nova: #9cc3f0;
   --liberada-f: #e7efff; --liberada-t: #1d4ed8; --pendente-f: #fff4d6; --pendente-t: #92400e;
   --finalizada-f: #e3f6ec; --finalizada-t: #166534; --alerta-f: #fde8e7; --alerta-t: #b42318;
-  --dica: #ffffff; --sombra: 0 1px 2px rgba(16, 24, 40, .04), 0 2px 10px rgba(16, 24, 40, .05);
-  --fonte: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --dica: var(--papel);
   --mono: ui-monospace, "Cascadia Mono", "SF Mono", Menlo, Consolas, monospace;
 }
-@media (prefers-color-scheme: dark) {
-  :root:not([data-theme="light"]) {
-    color-scheme: dark;
-    --fundo: #0e1117; --papel: #171a21; --papel2: #1e222b; --linha: #262b35; --borda: #353c4a;
-    --texto: #e7e9ee; --fraco: #b3b9c6; --muito-fraco: #8d94a3;
-    --marca: #5b8def; --marca-clara: #1c2740; --marca-texto: #0e1117;
-    --faixa: #111a33; --faixa-texto: #ffffff; --faixa-fraco: #9aa5c4; --faixa-on: rgba(255, 255, 255, .1);
-    --liberada: #3987e5; --pendente: #c98500; --finalizada: #0fb885; --fech-depois: #2f7a5f; --prog: #7d6ae6; --nprog: #d95926; --ctx: #4a4f5a; --alerta: #e5534b; --pend1: #6b4c10; --pend2: #c98500; --pend3: #f3bb52; --nova: #2b5487;
-    --liberada-f: #1a2a45; --liberada-t: #9cc2ff; --pendente-f: #3a2e12; --pendente-t: #ffd27a;
-    --finalizada-f: #15301e; --finalizada-t: #8fe0a8; --alerta-f: #3a1a1c; --alerta-t: #ffa39e;
-    --dica: #1e222b; --sombra: 0 1px 2px rgba(0, 0, 0, .45);
-  }
-}
-:root[data-theme="dark"] {
+:host([data-tema="escuro"]) {
   color-scheme: dark;
-  --fundo: #0e1117; --papel: #171a21; --papel2: #1e222b; --linha: #262b35; --borda: #353c4a;
-  --texto: #e7e9ee; --fraco: #b3b9c6; --muito-fraco: #8d94a3;
-  --marca: #5b8def; --marca-clara: #1c2740; --marca-texto: #0e1117;
-  --faixa: #111a33; --faixa-texto: #ffffff; --faixa-fraco: #9aa5c4; --faixa-on: rgba(255, 255, 255, .1);
-  --liberada: #3987e5; --pendente: #c98500; --finalizada: #0fb885; --fech-depois: #2f7a5f; --prog: #7d6ae6; --nprog: #d95926; --ctx: #4a4f5a; --alerta: #e5534b; --pend1: #6b4c10; --pend2: #c98500; --pend3: #f3bb52; --nova: #2b5487;
+  --marca-texto: #0e1117;
+  --liberada: #3987e5; --pendente: #c98500; --finalizada: #0fb885; --fech-depois: #2f7a5f; --prog: #7d6ae6; --nprog: #d95926; --ctx: #4a4f5a; --alerta: #e5534b;
+  --pend1: #6b4c10; --pend2: #c98500; --pend3: #f3bb52; --nova: #2b5487;
   --liberada-f: #1a2a45; --liberada-t: #9cc2ff; --pendente-f: #3a2e12; --pendente-t: #ffd27a;
   --finalizada-f: #15301e; --finalizada-t: #8fe0a8; --alerta-f: #3a1a1c; --alerta-t: #ffa39e;
-  --dica: #1e222b; --sombra: 0 1px 2px rgba(0, 0, 0, .45);
+  --dica: var(--papel2);
 }
 
 [hidden] { display: none !important; }
 * { box-sizing: border-box; }
-body { background: var(--fundo); color: var(--texto); font-family: var(--fonte); font-size: 14px; line-height: 1.45; }
-body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-area-inset-top, 0px); z-index: 30; background: var(--fundo); }
-.gutter { padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
-.larg { max-width: 92rem; margin-inline: auto; }
 button, input, select { font: inherit; color: inherit; }
 :focus-visible { outline: 2px solid var(--marca); outline-offset: 2px; }
 @media (prefers-reduced-motion: reduce) { * { transition: none !important; scroll-behavior: auto !important; } }
 
-/* ── a faixa do alto ── */
-.faixa { background: var(--faixa); color: var(--faixa-texto); }
-.faixa-in { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 24px; padding-block: 14px 0; }
-.marca { display: flex; align-items: center; gap: 12px; min-width: 0; padding-bottom: 12px; }
-.marca svg { width: 38px; height: 38px; flex: none; }
-.marca h1 { margin: 0; font-size: 18px; font-weight: 700; letter-spacing: -.01em; text-wrap: balance; }
-.marca p { margin: 1px 0 0; font-size: 12.5px; color: var(--faixa-fraco); }
-.abas { display: flex; gap: 4px; margin-left: auto; overflow-x: auto; scrollbar-width: none; align-self: flex-end; }
+/* ── o alto: de quando são os dados, o botão de atualizar e as abas (como as do site) ── */
+.os-cab { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 16px; margin: 0 0 4px; }
+.os-cab p { margin: 0; font-size: 13px; color: var(--muito-fraco); }
+.abas { display: flex; gap: 2px; border-bottom: 1px solid var(--borda); overflow-x: auto; scrollbar-width: none; }
 .abas::-webkit-scrollbar { display: none; }
-.aba { border: 0; background: transparent; color: var(--faixa-fraco); padding: 9px 14px 11px; border-radius: 10px 10px 0 0; cursor: pointer;
-  font-size: 14px; font-weight: 600; white-space: nowrap; display: inline-flex; align-items: center; gap: 7px; }
-.aba:hover { color: var(--faixa-texto); background: var(--faixa-on); }
-.aba[aria-selected="true"] { background: var(--fundo); color: var(--texto); }
-.aba .n { font-size: 11px; font-weight: 700; padding: 0 7px; border-radius: 999px; background: var(--faixa-on); color: inherit; font-variant-numeric: tabular-nums; }
+.aba { border: 0; border-bottom: 2px solid transparent; margin-bottom: -1px; background: transparent; padding: 10px 14px 9px; color: var(--fraco); cursor: pointer;
+  font-size: 14px; font-weight: 650; white-space: nowrap; display: inline-flex; align-items: center; gap: 7px; }
+.aba:hover { color: var(--texto); }
+.aba[aria-selected="true"] { color: var(--marca); border-bottom-color: var(--marca); }
+.aba .n { font-size: 11px; font-weight: 700; padding: 0 7px; border-radius: 999px; background: var(--papel2); color: var(--fraco); font-variant-numeric: tabular-nums; }
 .aba[aria-selected="true"] .n { background: var(--marca-clara); color: var(--marca); }
-@media (max-width: 760px) { .abas { margin-left: 0; width: 100%; } }
 
 /* ── a barra de filtros ── */
-.barra { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 20; background: var(--fundo); padding-block: 12px 4px; }
+.barra { position: sticky; top: var(--topo, 0px); z-index: 20; background: var(--fundo); padding-block: 12px 4px; }
 @media (max-width: 760px) { .barra { position: static; } }
 .barra-cartao { background: var(--papel); border: 1px solid var(--linha); border-radius: 14px; box-shadow: var(--sombra); padding: 10px 12px; display: grid; gap: 10px; }
 .f-linha, .f-mais { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 10px 12px; }
@@ -125,15 +101,37 @@ h2 { margin: 0; font-size: 15px; font-weight: 700; text-wrap: balance; }
 /* v8 (05/11/2026): a coluna sob o mouse fica em destaque e as outras recuam */
 .graf svg .col { transition: opacity .12s; }
 .graf svg:has(.col:hover) .col:not(:hover) { opacity: .42; }
-/* as barras deitadas (09/11/2026): a linha sob o mouse ganha um fundo, as outras recuam */
-.graf svg .lin .fundo { fill: transparent; transition: fill .12s; }
-.graf svg .lin .fundo.marcado { fill: var(--marca-clara); }
-.graf svg .lin.clica:hover .fundo, .graf svg .lin:focus-visible .fundo { fill: var(--papel2); }
-.graf svg .lin:focus { outline: none; }
-.graf svg .lin:focus-visible .fundo { stroke: var(--marca); stroke-width: 1.5; }
-.graf svg .lin path { transition: opacity .12s; }
-.graf svg:has(.lin:hover) .lin:not(:hover) path { opacity: .45; }
-.ver-todas { display: block; margin-top: 8px; border: 1px solid var(--borda); background: var(--papel); color: var(--marca); border-radius: 999px;
+/* a rosca (09/11/2026): parte do todo — o desenho e, ao lado, cada fatia com o número e a % */
+.rosca { display: flex; flex-wrap: wrap; align-items: center; gap: 12px 20px; }
+.rosca svg { flex: none; }
+.rosca .fatia { transition: opacity .12s; }
+.rosca svg:has(.fatia:hover) .fatia:not(:hover) { opacity: .45; }
+.rosca-leg { display: grid; gap: 4px; flex: 1 1 10rem; min-width: 0; font-size: 13px; }
+.rosca-item { display: grid; grid-template-columns: 10px minmax(0, 1fr) auto 2.6rem; gap: 8px; align-items: center; padding: 5px 6px; border: 0; border-radius: 8px;
+  background: transparent; color: var(--texto); text-align: left; font: inherit; font-size: 13px; }
+button.rosca-item { cursor: pointer; }
+button.rosca-item:hover { background: var(--papel2); }
+.rosca-item b { font-variant-numeric: tabular-nums; text-align: right; }
+.rosca-item small { color: var(--muito-fraco); text-align: right; font-variant-numeric: tabular-nums; }
+.rosca-item.zero { opacity: .55; }
+/* os indicadores (09/11/2026): quatro grupos, cada cartão com a regra escrita e a comparação */
+.ind-grupo { display: grid; gap: 8px; padding-top: 12px; border-top: 1px solid var(--linha); }
+.ind-grupo:first-of-type { border-top: 0; padding-top: 4px; }
+.ind-cab { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 10px; }
+.ind-cab h3 { margin: 0; font-size: 12px; font-weight: 750; text-transform: uppercase; letter-spacing: .06em; color: var(--fraco); }
+.ind-cab span { font-size: 12px; color: var(--muito-fraco); }
+.ind-cartoes { display: grid; gap: 10px; grid-template-columns: repeat(auto-fit, minmax(min(100%, 11.5rem), 1fr)); }
+.kpi.ind { box-shadow: none; background: var(--papel2); gap: 4px; text-align: left; font: inherit; color: inherit; }
+.kpi.ind .val { font-size: 25px; }
+.kpi.ind .regra { font-size: 12px; color: var(--muito-fraco); line-height: 1.35; }
+.kpi.ind .comp { font-size: 12px; color: var(--fraco); }
+.kpi.ind .comp b { font-weight: 700; }
+.kpi.ind .comp.bom b { color: var(--finalizada-t); }
+.kpi.ind .comp.ruim b { color: var(--alerta-t); }
+button.kpi.ind .regra::after { content: " →"; }
+.roscas { display: grid; grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr)); gap: 14px 22px; }
+.rosca-tit { margin: 0 0 6px; font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; color: var(--muito-fraco); }
+.ver-todas { display: block; justify-self: start; margin-top: 8px; border: 1px solid var(--borda); background: var(--papel); color: var(--marca); border-radius: 999px;
   padding: 6px 14px; font-size: 12.5px; font-weight: 650; cursor: pointer; }
 .ver-todas:hover { border-color: var(--marca); background: var(--marca-clara); }
 /* quem não aponta mão de obra há 60 dias: fora do gráfico, com o último dia de cada um */
@@ -468,16 +466,7 @@ select { color-scheme: inherit; }
 .ctl .seg button[aria-pressed="true"] { background: var(--papel); color: var(--texto); box-shadow: 0 1px 2px rgba(16, 24, 40, .12); }
 .ctl select { height: 28px; border: 1px solid var(--linha); border-radius: 8px; background: var(--papel); font-size: 12.5px; padding: 0 6px; }
 
-/* ── o site (05/11/2026): a porta, os links da faixa e a caixa de atualizar ── */
-.faixa-links { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 14px; margin: 4px 0 0; font-size: 12.5px; }
-.faixa-links a, .faixa-links button { color: var(--faixa-fraco); text-decoration: none; background: none; border: 0; padding: 0; font: inherit; cursor: pointer; }
-.faixa-links a:hover, .faixa-links button:hover { color: var(--faixa-texto); text-decoration: underline; }
-.faixa-links button { font-weight: 650; color: var(--faixa-texto); }
-/* a volta para o site com cara de botão: é o caminho para as movimentações e preventivas */
-.faixa-links a.voltar-site { color: var(--faixa-texto); font-weight: 650; padding: 3px 10px; border: 1px solid currentColor; border-radius: 999px; }
-.faixa-links a.voltar-site:hover { text-decoration: none; background: rgba(255, 255, 255, .12); }
-.faixa-links button.tema { display: inline-flex; align-items: center; gap: 5px; font-weight: 500; color: var(--faixa-fraco); }
-.faixa-links button.tema::before { content: ""; width: 12px; height: 12px; border-radius: 50%; border: 1.5px solid currentColor;
+/* ── a porta (sem acesso, sem dados) e a caixa de atualizar ── */
   background: linear-gradient(90deg, currentColor 50%, transparent 50%); flex: none; }
 .porta { padding-block: 48px 64px; }
 .porta-msg { color: var(--fraco); font-size: 14px; }

@@ -89,9 +89,9 @@ async function lerArquivo(f) {
 // ── a caixa ──────────────────────────────────────────────────────────────────
 
 /** Abre a caixa de atualizar. `atual()`: o painel aberto agora (para comparar);
- *  `aoGravar(pacote)`: depois de gravar. */
-export function abrirImportar({ atual, aoGravar }) {
-  const dlg = document.getElementById("os-importar");
+ *  `aoGravar(pacote)`: depois de gravar; `raiz`: onde está a caixa (a área do painel no site). */
+export function abrirImportar({ atual, aoGravar, raiz = document }) {
+  const dlg = raiz.querySelector("#os-importar");
   const lidos = [];                 // { nome, tipo, tabela | semente, linhas, arquivo }
   let pacote = null, sementeGuardada = undefined;
   const status = el("div", { class: "imp-status", "aria-live": "polite" });

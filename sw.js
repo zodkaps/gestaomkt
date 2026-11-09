@@ -7,7 +7,7 @@
 // A estratégia é rede primeiro, cache como rede reserva: assim uma versão nova
 // do site chega sem precisar de truque, e a falta de rede não trava nada.
 
-const VERSAO = "mkt-v47";
+const VERSAO = "mkt-v48";
 const ARQUIVOS = [
   "./",
   "./index.html",
@@ -70,11 +70,11 @@ const ARQUIVOS = [
   // passam por aqui — vêm do bucket privado do Supabase, que é outro endereço.
   "./os.html",
   "./css/os.css",
-  "./js/os/tema.js",
-  "./js/os/inicio.js",
+  "./js/tela/os.js",
   "./js/os/painel.js",
   "./js/os/importar.js",
   "./js/os/montar.js",
+  "./js/os/indicadores.js",
   "./vendor/d3.min.js",
   "./vendor/jspdf.umd.min.js",
   "./vendor/jspdf.plugin.autotable.min.js",

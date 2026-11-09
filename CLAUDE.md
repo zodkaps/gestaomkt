@@ -54,7 +54,7 @@ chat, seguir os mesmos passos e as mesmas regras:
 Editar depois (oficina, prioridade) é um `editada` com `de` e `para`, como o
 botão Editar do site — conferindo antes que ninguém mexeu nelas.
 
-## O painel de OS do Protheus (`os.html`, desde 05/11/2026)
+## O painel de OS do Protheus (tela OS Makro, `#/os`, desde 05/11/2026)
 
 A STJ e a STL do Protheus viram o painel **no site**: o Mateus solta os
 arquivos em *Atualizar com o Protheus* e o site grava no bucket privado
@@ -87,5 +87,8 @@ Mudou arquivo em `js/`? Acrescentar em `sw.js` (lista e versão) — o
 
 - Texto da pessoa entra na tela por `el()` (`textContent`), nunca `innerHTML`.
 - Nada de script dentro do HTML, nem biblioteca ou servidor fora da CSP do
-  `index.html`/`os.html`: o navegador barra, e o teste do navegador falha.
+  `index.html`: o navegador barra, e o teste do navegador falha.
+- O painel de OS mora numa área isolada (shadow DOM, `js/tela/os.js`): o que
+  ele procura é na raiz dele, não no `document`; o que ouve na janela sai no
+  `parar()`. Indicador novo: a conta em `js/os/indicadores.js`, com teste.
 - CSV sai por `celulaCSV` (`js/texto.js`), que não deixa célula virar fórmula.

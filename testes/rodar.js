@@ -1657,6 +1657,41 @@ titulo("liberadas agora, e adiantar até a realização");
   ok("e um arquivo qualquer não passa por base histórica", /não é a base histórica/.test(recusa), recusa);
 }
 
+// ── os indicadores de PCM do painel de OS ───────────────────────────────────
+titulo("os/indicadores.js — cada fórmula com as contas feitas à mão");
+{
+  const IND = await import("../js/os/indicadores.js");
+  // base 09/11/2026 (segunda); período 13/10 a 09/11 = 28 dias = 4 semanas
+  const OS = [
+    { id: "a", abertura: "2026-10-01", sit: "A", dias: 39, grupo: "I", prevEstado: "vencida", tipo: "Corretiva", classe: "N" },
+    { id: "b", abertura: "2026-11-02", sit: "P", dias: 7, grupo: "S", prevEstado: "sem", tipo: "Corretiva", classe: "S" },
+    { id: "c", abertura: "2026-10-20", sit: "F", fim: "2026-10-22", dias: 2, tipo: "Preventiva", classe: "P", progEm: "2026-10-21", horas: 3, liberada: "2026-10-21", grupo: "I" },
+    { id: "d", abertura: "2026-09-01", sit: "F", fim: "2026-10-30", dias: 59, tipo: "Corretiva", classe: "N", progEm: "2026-10-14", horas: 5, liberada: "2026-09-05", grupo: "I" },
+    { id: "e", abertura: "2026-10-25", sit: "F", fim: "2026-10-20", dias: 3, tipo: "Corretiva", classe: "O", horas: 0, lancDepois: 5, grupo: "T" },
+    { id: "f", abertura: "2026-08-01", sit: "A", dias: 100, grupo: "I", prevEstado: "futura", progEm: "2026-11-10", tipo: "Corretiva", classe: "P" },
+    { id: "g", abertura: "2026-11-05", sit: "F", fim: "2026-11-06", dias: 1, tipo: "Preventiva", classe: "P", progEm: "2026-11-03", grupo: "I" },
+  ];
+  const k = IND.indicadores(OS, { desde: "2026-10-13", ate: "2026-11-30", base: "2026-11-09" });
+  igual("carteira, aguardando, fechadas, entraram e saldo", [k.carteira, k.aguardando, k.fechadas, k.entraram, k.saldo], [3, 1, 4, 4, 0]);
+  igual("o período conta até o export: 28 dias, 4 semanas", [k.periodo.ate, k.periodo.dias, k.periodo.semanas], ["2026-11-09", 28, 4]);
+  igual("ritmo 1 por semana, backlog de 3 semanas, atendimento 100%", [k.ritmo, k.backlogSemanas, k.atendimento], [1, 3, 1]);
+  igual("a carteira na véspera do período (abertas e as que fecharam depois)", k.noComeco, 3);
+  igual("tempo para fechar: mediana 2,5 e média 16,25 dias; 75% em até 7 dias", [k.tempoMediana, k.tempoMedia, k.ate7], [2.5, 16.25, 0.75]);
+  igual("idade da carteira: mediana 39 dias, 1 de 3 com mais de 90", [k.idadeMediana, k.nMais90, k.mais90], [39, 1, 1 / 3]);
+  // c (semana de 19 a 25/10) e g (terça 03/11: a semana acabou no domingo 08/11) cumpriram; d (14/10) fechou em 30/10; f é do futuro
+  igual("aderência: das 3 programadas de semana já fechada, 2 finalizadas até o domingo", [k.programadas, k.cumpridas, k.aderencia], [3, 2, 2 / 3]);
+  igual("prevista vencida: 1 das 2 abertas da equipe", [k.nEquipe, k.nVencidas, k.vencida], [2, 1, 0.5]);
+  igual("preventiva 50%; programado 2 de 3 (sem as outras); cobertura 2 de 3", [k.preventiva, k.programado, k.cobertura], [0.5, 2 / 3, 2 / 3]);
+  igual("espera de liberação: mediana 1 dia (só as liberadas no período)", [k.esperaLiberacao, k.nLiberadas], [1, 1]);
+  igual("horas: 8 no período, 4 por OS que apontou; aberta depois do serviço: 1 de 4", [k.horas, k.horasPorOS, k.abertasDepois], [8, 4, 0.25]);
+  const vazio = IND.indicadores([], { desde: "2026-10-13", ate: "2026-11-09", base: "2026-11-09" });
+  igual("sem OS: nada vira divisão por zero", [vazio.ritmo, vazio.backlogSemanas, vazio.atendimento, vazio.tempoMediana, vazio.aderencia], [0, null, null, null, null]);
+  igual("o domingo da semana", [IND.domingoDe("2026-11-09"), IND.domingoDe("2026-11-15")], ["2026-11-15", "2026-11-15"]);
+  igual("o período anterior, do mesmo tamanho", IND.anterior({ desde: "2026-10-13", ate: "2026-11-09", base: "2026-11-09" }), { desde: "2026-09-15", ate: "2026-10-12", base: "2026-11-09" });
+  const pb = IND.porBalde(OS, [{ de: "2026-10-13", ate: "2026-10-19" }, { de: "2026-10-20", ate: "2026-10-26" }], "2026-11-09");
+  igual("por semana: o tempo para fechar e a aderência de cada uma", pb.map((b) => [b.fechadas, b.tempo, b.programadas, b.aderencia]), [[0, null, 1, 0], [2, 2.5, 1, 1]]);
+}
+
 // ── o que vai para o ar ─────────────────────────────────────────────────────
 titulo("sw.js e as páginas — o que funciona sem rede, e o que a página deixa rodar");
 {

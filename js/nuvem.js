@@ -310,6 +310,7 @@ export async function sair() {
  *  lançou sem rede precisa dela para subir. */
 async function esquecerPrivados() {
   await dados.gravarMeta("painel_os", null);
+  await dados.gravarMeta("acesso_os", null);
 }
 
 /** Renova antes de vencer. Sem rede, devolve a sessão velha: o site continua

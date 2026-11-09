@@ -2367,15 +2367,17 @@ ok("e o Diagnóstico não manda rodar SQL por causa de sessão",
   const fRuim = `${PASTA}/qualquer.csv`;
   writeFileSync(fRuim, "Filial;Coisa\n1;2\n");
 
+  // o painel mora numa área isolada (shadow DOM) da tela #/os: os seletores do Playwright atravessam
+  // sozinhos; dentro de um evaluate, é por document.querySelector('.os-host').shadowRoot (sem eval: a CSP barra)
   const ctxL = await nav.newContext({ viewport: { width: 1280, height: 860 } });
   const lu = await ctxL.newPage();
   await lu.goto(site.endereco, { waitUntil: "networkidle" });
   await entrarComo(lu, "Lucas");
-  ok("painel de OS: o Lucas (PCM, sem a marca) não tem o item no menu", !(await lu.isVisible('#menu a[href="os.html"]')));
-  await lu.goto(site.endereco + "os.html", { waitUntil: "networkidle" });
+  ok("painel de OS: o Lucas (PCM, sem a marca) não tem o item no menu", !(await lu.isVisible('#menu a[href="#/os"]')));
+  await lu.goto(site.endereco + "#/os", { waitUntil: "networkidle" });
   await lu.waitForTimeout(1200);
-  ok("e abrindo a página direto, ela diz que não está liberado e não mostra nada",
-    (await lu.textContent("#os-porta")).includes("não está liberado") && await lu.isHidden("main.pg"));
+  ok("e abrindo o endereço direto, a tela diz que não está liberado e não mostra nada",
+    (await lu.textContent("#os-porta")).includes("não está liberado") && await lu.isHidden(".pg"));
   await ctxL.close();
 
   const ctxM = await nav.newContext({ viewport: { width: 1280, height: 860 } });
@@ -2384,12 +2386,12 @@ ok("e o Diagnóstico não manda rodar SQL por causa de sessão",
   vigiarCSP(mt);
   await mt.goto(site.endereco + "os.html", { waitUntil: "networkidle" });
   await mt.waitForTimeout(800);
-  ok("painel de OS: sem entrar, manda entrar no site", (await mt.textContent("#os-porta")).includes("Entre no site primeiro"));
-  await mt.goto(site.endereco, { waitUntil: "networkidle" });
+  ok("o endereço antigo (os.html) leva ao site; sem entrar, é a tela de entrar", /#\/(entrar|os)/.test(mt.url()) && await mt.isVisible('input[type="password"]'), mt.url());
   await entrarComo(mt, "Mateus");
   await mt.waitForTimeout(800);
-  ok("o Mateus tem OS Makro no menu", await mt.isVisible('#menu a[href="os.html"]'));
-  await mt.click('#menu a[href="os.html"]');
+  await mt.waitForSelector('#menu a[href="#/os"]', { timeout: 8000 }).catch(() => {});
+  ok("o Mateus tem OS Makro no menu do site", await mt.isVisible('#menu a[href="#/os"]'));
+  await mt.click('#menu a[href="#/os"]');
   await mt.waitForTimeout(1500);
   if (await mt.isVisible('#os-porta button:has-text("Atualizar com o Protheus")')) await mt.click('#os-porta button:has-text("Atualizar com o Protheus")');
   else await mt.click("#os-atualizar");
@@ -2406,7 +2408,7 @@ ok("e o Diagnóstico não manda rodar SQL por causa de sessão",
   await mt.click('#os-importar li.erro .imp-tira');
   await mt.click('#os-importar li:has-text("STJ_outubro.xlsx") .imp-tira');
   await mt.setInputFiles("#imp-arq", [fSTJ]);
-  await mt.waitForFunction(() => !document.querySelector('#os-importar .imp-acoes .botao.prim').disabled, null, { timeout: 30000 });
+  await mt.waitForFunction(() => !document.querySelector(".os-host").shadowRoot.querySelector("#os-importar .imp-acoes .botao.prim").disabled, null, { timeout: 30000 });
   const res = (await mt.innerText(".imp-resumo")).replace(/\s+/g, " ");
   ok("com a STJ desde janeiro, a STL e a base histórica: o resumo antes de gravar", /2 abertas · 1 liberadas, 1 aguardando/.test(res) && /5 OS em 2 frotas/.test(res), res);
   await mt.click('button:has-text("Gravar no painel")');
@@ -2416,10 +2418,16 @@ ok("e o Diagnóstico não manda rodar SQL por causa de sessão",
   ok("gravou e abriu: 2 abertas, 1 fechada nas 12 semanas", kp[0] === "2" && kp[1] === "1", kp.join(" | "));
   ok("e a aba Não liberadas com 1", (await mt.textContent("#n-pendentes")) === "1");
   // abrir de novo, num aparelho que já tem: vem do guardado, igual
-  await mt.goto(site.endereco + "os.html#executantes", { waitUntil: "networkidle" });
+  await mt.goto(site.endereco + "#/os?aba=executantes", { waitUntil: "networkidle" });
   await mt.waitForTimeout(1500);
-  ok("reabrir: a aba Executantes com a pessoa da STL", (await mt.innerText("#executantes")).includes("Fulano de Teste"));
-  ok("e o link de volta para o site", await mt.isVisible('.faixa-links a[href="./"]'));
+  ok("reabrir pelo endereço: a aba Executantes com a pessoa da STL", (await mt.innerText("#executantes")).includes("Fulano de Teste"));
+  ok("dentro do site: o topo e o menu do site continuam à vista", await mt.isVisible("#topo") && (await mt.textContent("#topo .titulo")) === "OS Makro");
+  // os indicadores (09/11/2026): base 05/11, 12 semanas — entraram 3 (01/10, 20/10, 25/10), fechou 1 (03/11), 2 abertas
+  await mt.click("#aba-indicadores");
+  await mt.waitForTimeout(400);
+  const ind = await mt.$$eval("#indicadores .kpi.ind", (v) => v.map((x) => x.querySelector(".rot").textContent + "=" + x.querySelector(".val").textContent));
+  ok("Indicadores: carteira 2, taxa de atendimento 33% (1 de 3), saldo +2", ["Carteira (abertas)=2", "Taxa de atendimento=33%", "Saldo da carteira=+2"].every((x) => ind.includes(x)), ind.join(" | "));
+  ok("e a aba vai para o endereço", mt.url().endsWith("#/os?aba=indicadores"), mt.url());
   // o avanço: na semana 45 (02 a 08/11, dados de 05/11) tinha 3 para fechar no começo, fechou 1, ficou com 2
   await mt.click("#aba-avanco");
   await mt.waitForSelector(".av-kpis", { timeout: 10000 });
@@ -2449,14 +2457,13 @@ ok("e o Diagnóstico não manda rodar SQL por causa de sessão",
   const kpPer = await mt.$$eval("#kpis .kpi", (v) => v.map((x) => x.innerText.replace(/\s+/g, " ")));
   ok("no calendário, o começo e o fim: só a OS fechada em 03/11 conta como fechada", (await mt.textContent("#f-periodo-txt")) === "02/11/26 a 04/11/26" &&
     /^Fechadas 1 de 02\/11\/2026 a 04\/11\/2026/.test(kpPer[1]), kpPer[1]);
-  ok("o dia depois do export não se escolhe", await mt.evaluate(() => { document.querySelector("#f-periodo").click(); const b = document.querySelector('#pop .cal-dia[data-dia="2026-11-06"]'); return !!b && b.disabled; }));
+  ok("o dia depois do export não se escolhe", await mt.evaluate(() => { const s = document.querySelector(".os-host").shadowRoot; s.querySelector("#f-periodo").click(); const b = s.querySelector('#pop .cal-dia[data-dia="2026-11-06"]'); return !!b && b.disabled; }));
   await mt.keyboard.press("Escape");
-  // as frotas em barras deitadas: uma linha por frota, e o teclado abre a frota
-  ok("o gráfico por frota: uma linha para cada frota com OS", (await mt.$$("#g-frotas svg .lin")).length === 2);
-  await mt.focus('#g-frotas svg .lin[aria-label^="F-617"]');
-  await mt.keyboard.press("Enter");
+  // as frotas em colunas: uma por frota, a das abertas empilhada por liberação; clicar abre a frota
+  ok("o gráfico por frota: um par de colunas para cada frota com OS", (await mt.$$("#g-frotas svg .col")).length === 2);
+  await mt.click("#g-frotas svg .col >> nth=1");
   await mt.waitForTimeout(400);
-  ok("Enter numa frota do gráfico abre a ficha dela", await mt.evaluate(() => location.hash) === "#frotas" && (await mt.innerText("#chips")).includes("F-617"));
+  ok("clicar numa frota do gráfico abre a ficha dela", mt.url().endsWith("#/os?aba=frotas") && (await mt.innerText("#chips")).includes("F-617"), mt.url());
   await mt.click('#chips button[aria-label^="Tirar o filtro Frota"]');
   await mt.click("#f-periodo");
   await mt.click('#pop .per-op:has-text("Últimas 12 semanas")');
@@ -2482,27 +2489,24 @@ ok("e o Diagnóstico não manda rodar SQL por causa de sessão",
   ok("a carteira para imprimir sai em PDF", bPDF.subarray(0, 5).toString() === "%PDF-" && /\.pdf$/.test(dPDF.suggestedFilename()), dPDF.suggestedFilename());
   await mt.keyboard.press("Escape");
   await mt.waitForTimeout(200);
-  // o modo escuro: um botão no alto, e a escolha é a mesma do ◐ do site
-  const tema = () => mt.evaluate(() => document.documentElement.dataset.theme);
-  const antesTema = await tema();
-  await mt.click("#os-tema");
+  // o tema é o do site: o ◐ do alto troca o painel na hora, e a escolha fica
+  const temaOS = () => mt.evaluate(() => document.querySelector(".os-host").dataset.tema);
+  const antesTema = await temaOS();
+  await mt.click("#btema");
   await mt.waitForTimeout(300);
-  const depoisTema = await tema();
-  ok("o botão troca o painel entre claro e escuro", antesTema !== depoisTema && ["light", "dark"].includes(depoisTema), `${antesTema} → ${depoisTema}`);
-  if (depoisTema !== "dark") { await mt.click("#os-tema"); await mt.waitForTimeout(300); }
+  const depoisTema = await temaOS();
+  ok("o ◐ do site troca o painel de OS entre claro e escuro, na hora", antesTema !== depoisTema && ["claro", "escuro"].includes(depoisTema), `${antesTema} → ${depoisTema}`);
   await mt.reload({ waitUntil: "networkidle" });
-  await mt.waitForTimeout(800);
-  ok("escuro continua escuro ao abrir de novo, e o botão oferece voltar", (await tema()) === "dark" && (await mt.textContent("#os-tema")) === "Modo claro");
-  await mt.goto(site.endereco, { waitUntil: "networkidle" });
-  await mt.waitForTimeout(800);
-  ok("e o site abre escuro também (a mesma escolha)", await mt.evaluate(() => document.documentElement.dataset.tema === ""));
+  await mt.waitForSelector(".os-host", { timeout: 10000 });
+  ok("e continua igual ao abrir de novo", (await temaOS()) === depoisTema);
   await mt.click("#btema");
   await mt.waitForTimeout(300);
   // sair: a cópia do painel (dado do Protheus) não fica no aparelho para o próximo que entrar
   const tinhaCopia = await mt.evaluate(async () => !!(await mkt.dados.lerMeta("painel_os", null)));
   await mt.evaluate(async () => { await mkt.pessoas.sair(); });
   const ficouCopia = await mt.evaluate(async () => await mkt.dados.lerMeta("painel_os", null));
-  ok("ao sair, a cópia do painel de OS some deste aparelho", tinhaCopia && ficouCopia === null, `${tinhaCopia} → ${JSON.stringify(ficouCopia)?.slice(0, 40)}`);
+  ok("ao sair, a cópia do painel de OS some deste aparelho (e a lembrança do acesso também)", tinhaCopia && ficouCopia === null &&
+    (await mt.evaluate(async () => await mkt.dados.lerMeta("acesso_os", null))) === null, `${tinhaCopia} → ${JSON.stringify(ficouCopia)?.slice(0, 40)}`);
   await ctxM.close();
 }
 
