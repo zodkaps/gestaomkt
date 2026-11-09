@@ -285,11 +285,22 @@ e preventivas, e **só ele ter acesso**.
   (tempo para fechar, fechadas em até 7 dias, aderência à programação,
   prevista vencida) e *Planejamento e mão de obra* (índice de preventiva,
   trabalho programado, cobertura de mão de obra, horas apontadas, abertas
-  depois do serviço). Cada cartão diz a regra da conta e compara com o
-  período anterior de mesmo tamanho (▲/▼ com *melhor* ou *pior* escrito). As
+  depois do serviço). Cada cartão compara com o período anterior de mesmo
+  tamanho (▲/▼ com *melhor* ou *pior* escrito); a regra de cada conta aparece
+  no botão *Como é calculado*. As
   contas estão em `js/os/indicadores.js` e cada fórmula tem teste com as
   contas feitas à mão (`testes/rodar.js`). Nenhuma meta é inventada: o número
   e a regra; quem decide se está bom é o PCM.
+- **A OS numa caixa no meio da tela** (09/11/2026): clicar numa OS abre uma
+  caixa no centro, com o essencial em quadros — há quantos dias está aberta
+  (ou quanto levou), abertura, liberação, previsão (em vermelho se já passou),
+  programada para, quem fecha e as horas —, a observação, a mão de obra e, em
+  *Mais detalhes* (recolhido), filial, código do serviço, centro de custo,
+  contador, terceiro e especialidade. Esc, o × ou o clique fora fecham; o Tab
+  fica dentro da caixa. A caixa de imprimir a carteira usa a mesma.
+- **Menos texto** (09/11/2026): saíram as dicas de uso ("clique aqui", "passe
+  o mouse") e as notas viraram uma linha; o que explicava a conta ficou no
+  *Como é calculado* dos Indicadores ou ao parar o mouse na nota.
 
 **As telas da oficina saíram do menu, mas nada foi apagado.** Painel, Hoje,
 Programação, Semana, Resultados e Frota continuam no código, e os lançamentos

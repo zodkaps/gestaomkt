@@ -2428,6 +2428,27 @@ ok("e o Diagnóstico não manda rodar SQL por causa de sessão",
   const ind = await mt.$$eval("#indicadores .kpi.ind", (v) => v.map((x) => x.querySelector(".rot").textContent + "=" + x.querySelector(".val").textContent));
   ok("Indicadores: carteira 2, taxa de atendimento 33% (1 de 3), saldo +2", ["Carteira (abertas)=2", "Taxa de atendimento=33%", "Saldo da carteira=+2"].every((x) => ind.includes(x)), ind.join(" | "));
   ok("e a aba vai para o endereço", mt.url().endsWith("#/os?aba=indicadores"), mt.url());
+  const regraVisivel = () => mt.isVisible("#indicadores .kpi.ind .regra >> nth=0");
+  const semRegra = !(await regraVisivel());
+  await mt.click('#indicadores button:has-text("Como é calculado")');
+  ok("a conta de cada indicador fica recolhida até pedir em \"Como é calculado\"", semRegra && await regraVisivel());
+  // a OS abre numa caixa no meio da tela, com o essencial à vista e o resto em "Mais detalhes"
+  await mt.click("#aba-carteira");
+  await mt.waitForSelector("#c-carteira tbody tr", { timeout: 10000 });
+  await mt.click("#c-carteira tbody tr >> nth=0");
+  await mt.waitForTimeout(300);
+  const caixaOS = await mt.$eval("#detalhe", (d) => {
+    const r = d.getBoundingClientRect();
+    return { cx: r.left + r.width / 2, cy: r.top + r.height / 2, w: innerWidth, h: innerHeight, fatos: [...d.querySelectorAll(".det-fato .rot")].map((x) => x.textContent),
+      mais: !!d.querySelector("details.det-mais"), aberto: d.querySelector("details.det-mais")?.open };
+  });
+  ok("clicar numa OS abre a caixa no centro da tela", Math.abs(caixaOS.cx - caixaOS.w / 2) < 4 && Math.abs(caixaOS.cy - caixaOS.h / 2) < 4, JSON.stringify(caixaOS));
+  ok("com o essencial em quadros (idade, abertura, previsão, quem fecha) e o resto recolhido",
+    ["Aberta em", "Prevista para", "Quem fecha"].every((x) => caixaOS.fatos.includes(x)) && caixaOS.fatos.some((x) => x === "Aberta há" || x === "Levou") &&
+    caixaOS.mais && !caixaOS.aberto, JSON.stringify(caixaOS.fatos));
+  await mt.keyboard.press("Escape");
+  await mt.waitForTimeout(200);
+  ok("e o Esc fecha a caixa", await mt.isHidden("#detalhe"));
   // o avanço: na semana 45 (02 a 08/11, dados de 05/11) tinha 3 para fechar no começo, fechou 1, ficou com 2
   await mt.click("#aba-avanco");
   await mt.waitForSelector(".av-kpis", { timeout: 10000 });

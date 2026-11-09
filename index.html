@@ -71,8 +71,7 @@
     <div class="kpis kpis5" id="kpis"></div>
     <div class="grade">
       <article class="cartao c12" id="c-frotas" data-imagem>
-        <div class="cab"><div><h2>OS abertas e fechadas por frota</h2><p class="nota" id="nota-frotas"></p>
-          <p class="nota uso">Cada OS conta uma vez: está nas abertas até ser finalizada no Protheus; finalizada no período, passa para as fechadas. Passe o mouse para ver os números, clique para abrir a frota.</p></div>
+        <div class="cab"><div><h2>OS abertas e fechadas por frota</h2><p class="nota" id="nota-frotas"></p></div>
           <div class="acoes"><div class="ctl" id="ctl-frotas"></div></div></div>
         <div class="legenda" id="leg-frotas"></div>
         <div class="graf rolar-x" id="g-frotas"></div>
@@ -83,23 +82,23 @@
         <div class="graf rolar-x" id="g-fluxo"></div>
       </article>
       <article class="cartao c4" id="c-quem" data-imagem>
-        <div class="cab"><div><h2>Quem vai fechar as abertas</h2><p class="nota">Pela mão de obra da STL</p><p class="nota uso">Clique para ver as OS</p></div><div class="acoes"></div></div>
+        <div class="cab"><div><h2>Quem vai fechar as abertas</h2><p class="nota">Pela mão de obra da STL</p></div><div class="acoes"></div></div>
         <div class="graf" id="g-quem"></div>
       </article>
       <article class="cartao c6" id="c-idade" data-imagem>
-        <div class="cab"><div><h2>Há quanto tempo estão abertas</h2><p class="nota">As abertas, pela data de abertura no Protheus</p><p class="nota uso">Clique numa faixa para ver as OS</p></div><div class="acoes"></div></div>
+        <div class="cab"><div><h2>Há quanto tempo estão abertas</h2><p class="nota">As abertas, pela data de abertura</p></div><div class="acoes"></div></div>
         <div class="graf" id="g-idade"></div>
       </article>
       <article class="cartao c6" id="c-comp" data-imagem>
-        <div class="cab"><div><h2>Programadas e não programadas</h2><p class="nota" id="nota-comp"></p><p class="nota uso">Pela Categoria da OS no Protheus · clique numa parte para filtrar</p></div><div class="acoes"></div></div>
+        <div class="cab"><div><h2>Programadas e não programadas</h2><p class="nota" id="nota-comp"></p></div><div class="acoes"></div></div>
         <div class="legenda" id="leg-comp"></div>
         <div class="graf" id="g-comp"></div>
       </article>
       <article class="cartao c12" id="c-cats" data-imagem>
-        <div class="cab"><div><h2>Categorias</h2><p class="nota">Abertas e fechadas no período, por categoria</p><p class="nota uso">Clique para filtrar</p></div><div class="acoes"></div></div>
+        <div class="cab"><div><h2>Categorias</h2><p class="nota">Abertas e fechadas no período</p></div><div class="acoes"></div></div>
         <div class="legenda" id="leg-cats"></div>
         <div class="graf rolar-x" id="g-cats"></div>
-        <p class="regra" id="regra-prog"></p>
+        <details class="regra-mais"><summary>Quais categorias contam como programadas</summary><p class="regra" id="regra-prog"></p></details>
       </article>
     </div>
   </section>
@@ -122,7 +121,7 @@
     <div class="kpis" id="kpis-exec" style="grid-template-columns: repeat(auto-fit, minmax(min(100%, 9.5rem), 1fr))"></div>
     <article class="cartao" id="c-exec" data-imagem>
       <div class="cab">
-        <div><h2>OS por executante</h2><p class="nota" id="nota-exec"></p><p class="nota uso" id="uso-exec"></p></div>
+        <div><h2>OS por executante</h2><p class="nota" id="nota-exec"></p></div>
         <div class="acoes"><div class="ctl" id="exec-quem"></div></div>
       </div>
       <div class="legenda" id="leg-exec"></div>
@@ -130,7 +129,7 @@
       <div class="fora" id="exec-fora" hidden></div>
     </article>
     <article class="cartao" id="c-exec-num">
-      <div class="cab"><div><h2>Os números de cada pessoa</h2><p class="nota uso">Clique no título de uma coluna para ordenar, ou numa pessoa para ver as OS dela</p></div></div>
+      <div class="cab"><div><h2>Os números de cada pessoa</h2></div></div>
       <div class="bt-rolagem" id="t-exec"></div>
     </article>
   </section>
