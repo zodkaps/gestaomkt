@@ -93,6 +93,9 @@ h2 { margin: 0; font-size: 15px; font-weight: 700; text-wrap: balance; }
 .legenda { display: flex; flex-wrap: wrap; gap: 4px 14px; font-size: 12px; color: var(--fraco); }
 .legenda span { display: inline-flex; align-items: center; gap: 6px; }
 .legenda i, .ponto { width: 10px; height: 10px; border-radius: 3px; display: inline-block; flex: none; }
+.legenda .leg-tit { font-weight: 700; color: var(--texto); }
+.legenda .leg-tit + span { margin-left: -6px; }
+.legenda span + .leg-tit { margin-left: 10px; }
 .graf { position: relative; min-width: 0; }
 .graf svg { display: block; overflow: visible; }
 .rolar-x { overflow-x: auto; overflow-y: hidden; }
@@ -489,7 +492,7 @@ select { color-scheme: inherit; }
 .pg-nav { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 12px 0 10px; }
 .pg-nav .botao.mini { min-width: 32px; justify-content: center; font-size: 15px; }
 .pg-rot { font-size: 17px; letter-spacing: -.01em; min-width: 12rem; text-align: center; }
-.pg-kpis { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+.pg-kpis { grid-template-columns: repeat(5, minmax(0, 1fr)); }
 @media (max-width: 900px) { .pg-kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 .pg-kpis button.kpi { cursor: pointer; }
 /* os controles do gráfico por frota, no canto do cartão */

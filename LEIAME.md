@@ -301,6 +301,17 @@ e preventivas, e **só ele ter acesso**.
 - **Menos texto** (09/11/2026): saíram as dicas de uso ("clique aqui", "passe
   o mouse") e as notas viraram uma linha; o que explicava a conta ficou no
   *Como é calculado* dos Indicadores ou ao parar o mouse na nota.
+- **Programadas × finalizadas** (10/11/2026): por dia, semana ou mês, na
+  Visão geral (cartão *Programadas e finalizadas*) e na aba Programação. Em
+  cada período, duas colunas: à esquerda as **programadas** para ele (pela
+  data programada, o P. In. Man. da STJ — que é o dia da abertura quando
+  ninguém o mudou), divididas em fechadas no período, fechadas depois e
+  abertas; à direita **todas as finalizadas** nele, da programação e de fora
+  dela (programadas para outro período). Embaixo, a % das programadas que
+  fechou. A Programação traz o número das finalizadas no período (o clique
+  abre a carteira com elas) e, na tabela por executante ou frota, a coluna
+  *Finalizadas no período*. As contas estão em `js/os/indicadores.js`
+  (`progFin`), com teste.
 
 **As telas da oficina saíram do menu, mas nada foi apagado.** Painel, Hoje,
 Programação, Semana, Resultados e Frota continuam no código, e os lançamentos

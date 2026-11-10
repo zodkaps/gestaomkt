@@ -107,3 +107,26 @@ export function porBalde(todas, baldes, base) {
     return { ...b, fechadas: fechou.length, tempo: mediana(fechou), programadas: prog.length, cumpridas: ok, aderencia: fracao(ok, prog.length) };
   });
 }
+
+/** Programadas × finalizadas de um período (10/11/2026): `{ de, ate, fechAte? }`.
+ *  Programadas: a data programada (P. In. Man.) dentro do período; delas, as fechadas no período (fim até
+ *  `fechAte`, que é o `ate` — ou o domingo, na semana cortada pelo fim do mês), as fechadas depois e as
+ *  ainda abertas. Finalizadas: todas com o fim dentro do período — as da programação dele e as de fora
+ *  (programadas para outro período, ou sem data programada). */
+export function progFin(lista, { de, ate, fechAte = ate }) {
+  const x = { n: 0, prazo: 0, depois: 0, ab: 0, fin: 0, finProg: 0, finFora: 0 };
+  for (const o of lista) {
+    const prog = !!o.progEm && o.progEm >= de && o.progEm <= ate;
+    if (prog) {
+      x.n++;
+      if (o.sit !== "F") x.ab++;
+      else if (o.fim <= fechAte) x.prazo++;
+      else x.depois++;
+    }
+    if (o.sit === "F" && o.fim && o.fim >= de && o.fim <= ate) {
+      x.fin++;
+      if (prog) x.finProg++; else x.finFora++;
+    }
+  }
+  return x;
+}

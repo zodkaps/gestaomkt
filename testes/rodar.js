@@ -1690,6 +1690,14 @@ titulo("os/indicadores.js — cada fórmula com as contas feitas à mão");
   igual("o período anterior, do mesmo tamanho", IND.anterior({ desde: "2026-10-13", ate: "2026-11-09", base: "2026-11-09" }), { desde: "2026-09-15", ate: "2026-10-12", base: "2026-11-09" });
   const pb = IND.porBalde(OS, [{ de: "2026-10-13", ate: "2026-10-19" }, { de: "2026-10-20", ate: "2026-10-26" }], "2026-11-09");
   igual("por semana: o tempo para fechar e a aderência de cada uma", pb.map((b) => [b.fechadas, b.tempo, b.programadas, b.aderencia]), [[0, null, 1, 0], [2, 2.5, 1, 1]]);
+  // programadas × finalizadas: [programadas, fechadas no período, fechadas depois, abertas, finalizadas, da programação, de fora]
+  const pf = (p) => { const x = IND.progFin(OS, p); return [x.n, x.prazo, x.depois, x.ab, x.fin, x.finProg, x.finFora]; };
+  igual("programadas × finalizadas, outubro: 2 programadas, as 2 fechadas nele; 3 finalizadas, 1 de fora da programação",
+    pf({ de: "2026-10-01", ate: "2026-10-31" }), [2, 2, 0, 0, 3, 2, 1]);
+  igual("semana de 13/10: 1 programada, fechada depois (30/10); nada finalizado nela", pf({ de: "2026-10-13", ate: "2026-10-19" }), [1, 0, 1, 0, 0, 0, 0]);
+  igual("semana de 20/10: a programada fechou nela; a sem data programada conta como de fora", pf({ de: "2026-10-20", ate: "2026-10-26" }), [1, 1, 0, 0, 2, 1, 1]);
+  igual("semana de 09/11: 1 programada, ainda aberta", pf({ de: "2026-11-09", ate: "2026-11-15" }), [1, 0, 0, 1, 0, 0, 0]);
+  igual("com fechAte (a semana cortada pelo mês), fechar até ele ainda conta no período", pf({ de: "2026-10-14", ate: "2026-10-14", fechAte: "2026-10-30" }), [1, 1, 0, 0, 0, 0, 0]);
 }
 
 // ── o que vai para o ar ─────────────────────────────────────────────────────

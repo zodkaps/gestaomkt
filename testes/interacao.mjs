@@ -2449,6 +2449,25 @@ ok("e o Diagnóstico não manda rodar SQL por causa de sessão",
   await mt.keyboard.press("Escape");
   await mt.waitForTimeout(200);
   ok("e o Esc fecha a caixa", await mt.isHidden("#detalhe"));
+  // programadas × finalizadas (10/11/2026): em novembro (dados de 05/11) nada programado, e a 100003
+  // (programada para 25/10, o dia da abertura) finalizada em 03/11 conta como finalizada de fora da programação
+  await mt.click("#aba-geral");
+  await mt.waitForTimeout(300);
+  await mt.click('#ctl-progfin button:has-text("Mês")');
+  await mt.waitForTimeout(300);
+  const notaPF = await mt.textContent("#nota-progfin");
+  ok("Visão geral: as programadas e as finalizadas do mês, por dia, semana ou mês",
+    notaPF.startsWith("Novembro de 2026: 0 programadas") && notaPF.includes("1 finalizada no total"), notaPF);
+  await mt.click("#aba-programacao");
+  await mt.waitForTimeout(300);
+  await mt.click('#programacao .seg button:has-text("Mês")');
+  await mt.waitForTimeout(300);
+  const kFin = await mt.$eval("#programacao .pg-kpis .kpi:last-child", (k) => [k.querySelector(".rot").textContent, k.querySelector(".val").textContent, k.querySelector(".pe").textContent]);
+  ok("Programação: as finalizadas no mês, da programação e de fora", kFin[0] === "Finalizadas no período" && kFin[1] === "1" && kFin[2].startsWith("0 da programação · 1 de fora"), kFin.join(" | "));
+  await mt.click('#programacao button[aria-label="Período anterior"]');
+  await mt.waitForTimeout(300);
+  const kOut = await mt.$$eval("#programacao .pg-kpis .kpi .val", (v) => v.map((x) => x.textContent));
+  ok("e em outubro: as programadas (a 100003 fechou depois, em novembro) e nenhuma finalizada no mês", kOut[2] === "1" && kOut[4] === "0" && Number(kOut[0]) >= 3, kOut.join(" | "));
   // o avanço: na semana 45 (02 a 08/11, dados de 05/11) tinha 3 para fechar no começo, fechou 1, ficou com 2
   await mt.click("#aba-avanco");
   await mt.waitForSelector(".av-kpis", { timeout: 10000 });

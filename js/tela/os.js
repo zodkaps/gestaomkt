@@ -77,10 +77,12 @@ export async function montar(raiz, ctx, params = new URLSearchParams()) {
   const vigia = new MutationObserver(tema);
   vigia.observe(document.documentElement, { attributes: true, attributeFilter: ["data-tema"] });
 
-  let vivo = true, painel = null, atualD = null;
+  // `vez`: cada abertura tem a sua; a que perdeu a vez (tela fechada, ou "Tentar de novo" de novo) para
+  // onde estiver, sem mexer no molde da mais nova
+  let vivo = true, painel = null, atualD = null, vez = 0;
   const $ = (s) => sombra.querySelector(s);
   const parar = () => { if (painel) { painel.parar(); painel = null; } };
-  const tentarDeNovo = () => el("button", { type: "button", class: "botao", text: "Tentar de novo", on: { click: () => comecar() } });
+  const tentarDeNovo = () => el("button", { type: "button", class: "botao", text: "Tentar de novo", on: { click: () => abrir() } });
 
   /** Um molde novo a cada abertura: os ouvintes do painel anterior vão embora com os elementos dele. */
   function novoMolde() {
@@ -104,7 +106,13 @@ export async function montar(raiz, ctx, params = new URLSearchParams()) {
       aoTrocarAba: (aba) => history.replaceState(null, "", "#/os" + (aba && aba !== "geral" ? "?aba=" + aba : "")) });
   }
 
-  async function comecar() {
+  function abrir() {
+    const minha = ++vez;
+    const vale = () => vivo && minha === vez;
+    return comecar(vale).catch((e) => { console.error(e); if (vale()) porta("Não deu para abrir o painel", String((e && e.message) || e), tentarDeNovo()); });
+  }
+
+  async function comecar(vale) {
     novoMolde();
     if (!nuvem.ligada() || !nuvem.autenticado()) {
       return porta("Entre primeiro", "O painel de OS usa o mesmo acesso das movimentações e preventivas.",
@@ -114,19 +122,20 @@ export async function montar(raiz, ctx, params = new URLSearchParams()) {
     const guardado = await dados.lerMeta(GUARDA, null);
     const meu = guardado && guardado.email === email && guardado.D ? guardado : null;
     const pode = await nuvem.veOs();
-    if (!vivo) return;
+    if (!vale()) return;
     if (!nuvem.autenticado()) return porta("Entre de novo", nuvem.motivoDaSaida() || "Sua sessão terminou.", el("a", { class: "botao", href: "#/entrar", text: "Entrar" }));
     if (pode === false) {
       // o banco disse que não: o que houver guardado neste aparelho também sai
       if (guardado) await dados.gravarMeta(GUARDA, null);
+      if (!vale()) return;
       return porta("Este painel não está liberado para o seu acesso",
         "O painel de OS do Protheus é só de quem o PCM liberou. Se você precisa dele, peça ao Mateus.");
     }
     const botaoAtualizar = $("#os-atualizar");
     botaoAtualizar.hidden = false;
     botaoAtualizar.addEventListener("click", () => abrirImportar({ atual: () => atualD, aoGravar: gravouNovo, raiz: sombra }));
-    try { await carregarD3(); } catch (e) { if (vivo) porta("Não deu para abrir o painel", e.message, tentarDeNovo()); return; }
-    if (!vivo) return;
+    try { await carregarD3(); } catch (e) { if (vale()) porta("Não deu para abrir o painel", e.message, tentarDeNovo()); return; }
+    if (!vale()) return;
     if (pode === null) {
       if (meu) return mostrar(meu.D, `Sem conexão com o banco: este é o painel guardado neste aparelho (Protheus de ${br(meu.D.base)}).`);
       return porta("Sem conexão", "Não deu para falar com o banco agora, e este aparelho ainda não tem o painel guardado. Tente de novo quando tiver sinal.", tentarDeNovo());
@@ -137,32 +146,33 @@ export async function montar(raiz, ctx, params = new URLSearchParams()) {
       const lista = await arquivosDoPainel();
       if (lista.has("atual.json.gz")) {
         versao = lista.get("atual.json.gz").versao;
-        if (meu && meu.versao === versao) { if (vivo) mostrar(meu.D); return; }
+        if (meu && meu.versao === versao) { if (vale()) mostrar(meu.D); return; }
         atual = await baixarJSON("atual.json.gz");
       }
     } catch (e) {
-      if (!vivo) return;
+      if (!vale()) return;
       if (meu) return mostrar(meu.D, `Não deu para baixar o painel novo (${e.message}); este é o guardado neste aparelho.`);
       return porta("Não deu para abrir o painel", e.message, tentarDeNovo());
     }
-    if (!vivo) return;
+    if (!vale()) return;
     if (!atual || !atual.D) {
       return porta("O painel ainda não tem dados",
         "Para começar: clique em Atualizar com o Protheus e solte a base histórica (o arquivo historico-os.json.gz, uma vez só) junto com a STJ e a STL de hoje.",
         el("button", { type: "button", class: "botao prim", text: "Atualizar com o Protheus", on: { click: () => botaoAtualizar.click() } }));
     }
     await dados.gravarMeta(GUARDA, { email, versao, D: atual.D });
-    if (vivo) mostrar(atual.D);
+    if (vale()) mostrar(atual.D);
   }
 
   /** Gravou um painel novo: guarda neste aparelho e abre de novo, já com ele. */
   async function gravouNovo(pacote) {
     await dados.gravarMeta(GUARDA, { email: nuvem.emailAtual(), versao: "", D: pacote.D });
-    if (vivo) comecar();
+    if (vivo) abrir();
   }
 
+  // a tela volta logo para o site; o painel abre sozinho quando chegar (e não abre se a tela já fechou)
   await estilo(sombra);
-  if (vivo) await comecar().catch((e) => { console.error(e); if (vivo) porta("Não deu para abrir o painel", String(e && e.message || e), tentarDeNovo()); });
+  if (vivo) abrir();
   return {
     desmontar() {
       vivo = false;
