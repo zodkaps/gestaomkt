@@ -303,15 +303,21 @@ e preventivas, e **só ele ter acesso**.
   *Como é calculado* dos Indicadores ou ao parar o mouse na nota.
 - **Programadas × finalizadas** (10/11/2026): por dia, semana ou mês, na
   Visão geral (cartão *Programadas e finalizadas*) e na aba Programação. Em
-  cada período, duas colunas: à esquerda as **programadas** para ele (pela
-  data programada, o P. In. Man. da STJ — que é o dia da abertura quando
-  ninguém o mudou), divididas em fechadas no período, fechadas depois e
-  abertas; à direita **todas as finalizadas** nele, da programação e de fora
-  dela (programadas para outro período). Embaixo, a % das programadas que
-  fechou. A Programação traz o número das finalizadas no período (o clique
-  abre a carteira com elas) e, na tabela por executante ou frota, a coluna
-  *Finalizadas no período*. As contas estão em `js/os/indicadores.js`
-  (`progFin`), com teste.
+  cada período, duas colunas e três cores, para se ler de uma olhada: as
+  **programadas** para ele (em roxo; pela data programada, o P. In. Man. da
+  STJ — que é o dia da abertura quando ninguém o mudou) e **todas as
+  finalizadas** nele, divididas em **da programação** (verde) e **extra
+  programação** (laranja: finalizadas no período sem estar programadas para
+  ele — programadas para outro período, ou sem data). O número vai dentro de
+  cada parte; embaixo, a aderência (% das programadas que fecharam), ou "a
+  vir" no futuro. A Programação traz o número das finalizadas no período e,
+  na lista, os botões *Todas as fechadas no período* e *Extra programação*;
+  na tabela por executante ou frota, a coluna *Finalizadas no período*. As
+  contas estão em `js/os/indicadores.js` (`progFin`), com teste.
+- **Rankings em barras deitadas** (10/11/2026): o que é "por frota" ou "por
+  pessoa" segue o padrão do backlog — a baixa do backlog no Avanço (baixadas
+  em azul, remanescentes em laranja) e as não liberadas por frota (pela idade).
+  O que é tempo (dia, semana, mês) fica em colunas.
 - **Mandar no grupo** (10/11/2026): cada cartão do painel (gráfico, números
   ou tabela) tem o botão **Enviar**, com o que ele tiver: *Copiar imagem*
   (cola no WhatsApp com Ctrl+V), *Baixar imagem*, *Compartilhar…* (no

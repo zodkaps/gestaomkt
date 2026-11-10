@@ -111,8 +111,9 @@ export function porBalde(todas, baldes, base) {
 /** Programadas × finalizadas de um período (10/11/2026): `{ de, ate, fechAte? }`.
  *  Programadas: a data programada (P. In. Man.) dentro do período; delas, as fechadas no período (fim até
  *  `fechAte`, que é o `ate` — ou o domingo, na semana cortada pelo fim do mês), as fechadas depois e as
- *  ainda abertas. Finalizadas: todas com o fim dentro do período — as da programação dele e as de fora
- *  (programadas para outro período, ou sem data programada). */
+ *  ainda abertas. Finalizadas: todas com o fim dentro do período — as da programação dele e as extra
+ *  programação ("de fora": programadas para outro período, ou sem data programada).
+ */
 export function progFin(lista, { de, ate, fechAte = ate }) {
   const x = { n: 0, prazo: 0, depois: 0, ab: 0, fin: 0, finProg: 0, finFora: 0 };
   for (const o of lista) {

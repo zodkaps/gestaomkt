@@ -727,15 +727,17 @@ export function iniciarPainel(D, { baixar, raiz = document, aba = '', aoTrocarAb
   // pessoa, com as baixadas (fechadas no período) e as pendentes (abertas hoje) na mesma barra, o número
   // dentro de cada parte e o total no fim. As primeiras da ordem; o resto no "Mostrar todas". ──
   const BK = [{ k: 'baix', nome: 'Baixadas (fechadas no período)', cor: 'var(--bk-baixada)' }, { k: 'pend', nome: 'Pendentes (abertas)', cor: 'var(--bk-pendente)' }];
-  const itensBK = () => BK.map((q) => el('span', {}, el('i', { style: 'background:' + q.cor }), q.nome));
+  const itensBK = (partes = BK) => partes.map((q) => el('span', {}, el('i', { style: 'background:' + q.cor }), q.nome));
+  // a baixa do backlog (Avanço): as mesmas cores — baixadas em azul, o que ainda falta em laranja
+  const BK_AV = [{ k: 'fechou', nome: 'Baixadas', cor: 'var(--bk-baixada)' }, { k: 'ainda', nome: 'Remanescentes', cor: 'var(--bk-pendente)' }];
   /** A barra deitada: a ponta (à direita) com 4px redondos; a base reta, no eixo. */
   function barraH(g, x, y, w, h, cor, ponta = true) {
     const r = ponta ? Math.max(0, Math.min(4, h / 2, w)) : 0;
     const d = r ? `M${x},${y}H${x + w - r}A${r},${r} 0 0 1 ${x + w},${y + r}V${y + h - r}A${r},${r} 0 0 1 ${x + w - r},${y + h}H${x}Z` : `M${x},${y}H${x + w}V${y + h}H${x}Z`;
     return g.append('path').attr('d', d).style('fill', cor);
   }
-  function barrasBacklog(caixa, { linhas: todas, titulo, limite = 10, chave = '', quem = ['frota', 'frotas'], aoClicar = null, dica = null, sub = () => '' }) {
-    const tot = (l) => (l.baix || 0) + (l.pend || 0);
+  function barrasBacklog(caixa, { linhas: todas, titulo, limite = 10, chave = '', quem = ['frota', 'frotas'], aoClicar = null, dica = null, sub = () => '', partes = BK }) {
+    const tot = (l) => partes.reduce((s2, q) => s2 + (l[q.k] || 0), 0);
     if (!todas.length || !todas.some(tot)) { vazio(caixa, 'Nada com estes filtros.'); botaoTodas(caixa); return false; }
     const corta = !!limite && todas.length > limite + 2 && !V.tudo[chave];
     const linhas = corta ? todas.slice(0, limite) : todas;
@@ -743,7 +745,7 @@ export function iniciarPainel(D, { baixar, raiz = document, aba = '', aoTrocarAb
     const yFim = topo + linhas.length * LIN, H = yFim + 26;
     const svg = d3.create('svg').attr('width', W).attr('height', H).attr('viewBox', `0 0 ${W} ${H}`).attr('role', 'img').attr('aria-label', titulo);
     caixa.replaceChildren(svg.node());
-    guardarDados(caixa, { titulo, cab: [maiusc(quem[0]), ...BK.map((q) => q.nome), 'Total'], linhas: todas.map((l) => [l.nome || l.rot, l.baix || 0, l.pend || 0, tot(l)]) });
+    guardarDados(caixa, { titulo, cab: [maiusc(quem[0]), ...partes.map((q) => q.nome), 'Total'], linhas: todas.map((l) => [l.nome || l.rot, ...partes.map((q) => l[q.k] || 0), tot(l)]) });
     const medF = medidor(svg, 12.5), medS = medidor(svg, 10.5), medN = medidor(svg, 12);
     const cabe = (x, m, max) => { if (!x || m.w(x) <= max) return x; let y = x; while (y.length > 2 && m.w(y + '…') > max) y = y.slice(0, -1); return y + '…'; };
     const xNome = Math.round(Math.min(W * 0.32, Math.max(64, d3.max(linhas, (l) => Math.max(medF.w(l.rot), Math.min(medS.w(sub(l) || ''), 140))) + 14)));
@@ -760,17 +762,17 @@ export function iniciarPainel(D, { baixar, raiz = document, aba = '', aoTrocarAb
       g.append('rect').attr('x', 0).attr('y', cy - LIN / 2 + 1).attr('width', W).attr('height', LIN - 2).attr('rx', 6).style('fill', 'transparent');
       txt(g, 0, s2 ? cy - 7 : cy, cabe(l.rot, medF, xNome - 10), { cor: 'var(--texto)', peso: 700, tam: 12.5 });
       if (s2) txt(g, 0, cy + 8, cabe(s2, medS, xNome - 10), { cor: 'var(--muito-fraco)', tam: 10.5 });
-      const vis = BK.filter((q) => l[q.k]);
+      const vis = partes.filter((q) => l[q.k]);
       let x = sx(0);
       vis.forEach((q, j) => {
         const w = sx(l[q.k]) - sx(0), wd = Math.max(2, w - (j < vis.length - 1 ? 2 : 0));
         barraH(g, x, cy - barH / 2, wd, barH, q.cor, j === vis.length - 1);
         const n = nf.format(l[q.k]);
-        if (medN.w(n) + 10 <= wd) txt(g, x + wd / 2, cy, n, { anchor: 'middle', cor: '#ffffff', peso: 800, tam: 12 }).style('pointer-events', 'none');
+        if (medN.w(n) + 10 <= wd) txt(g, x + wd / 2, cy, n, { anchor: 'middle', cor: q.tinta || '#ffffff', peso: 800, tam: 12 }).style('pointer-events', 'none');
         x += w;
       });
       txt(g, x + 6, cy, nf.format(tot(l)), { cor: 'var(--fraco)', peso: 700, tam: 12 });
-      g.on('mousemove', (ev) => mostrarDica(ev, l.nome || l.rot, dica ? dica(l) : [...BK.map((q) => [q.nome, nf.format(l[q.k] || 0), q.cor]), ['Total', nf.format(tot(l))]]))
+      g.on('mousemove', (ev) => mostrarDica(ev, l.nome || l.rot, dica ? dica(l) : [...partes.map((q) => [q.nome, nf.format(l[q.k] || 0), q.cor]), ['Total', nf.format(tot(l))]]))
         .on('mouseleave', esconderDica).on('click', () => aoClicar && aoClicar(l));
     });
     medF.fim(); medS.fim(); medN.fim();
@@ -806,13 +808,15 @@ export function iniciarPainel(D, { baixar, raiz = document, aba = '', aoTrocarAb
     const pilha = (g, x, l, ps, corNum, peso) => {
       const t = soma(l, ps);
       if (!t) return;
-      const cima = ps.reduce((u, p, j) => (l[p.k] ? j : u), -1);
+      const cima = ps.reduce((u, p, j) => (l[p.k] ? j : u), -1), vivas = ps.filter((p) => l[p.k]).length;
       let acc = 0, yTopo = base;
       ps.forEach((p, j) => {
         const v = l[p.k] || 0;
         if (!v) return;
         const y0 = acc ? yTopo - 2 : base, y1 = Math.min(sy(acc + v), y0 - 2);
         barra(g, x, y1, bw, y0 - y1, p.cor, j === cima);
+        const n = nf.format(v);
+        if (vivas > 1 && y0 - y1 >= 16 && med.w(n) * 1.15 + 4 <= bw) txt(g, x + bw / 2, (y0 + y1) / 2, n, { anchor: 'middle', cor: p.tinta || '#ffffff', peso: 800, tam: 10.5 }).style('pointer-events', 'none');
         acc += v;
         yTopo = y1;
       });
@@ -1141,7 +1145,7 @@ export function iniciarPainel(D, { baixar, raiz = document, aba = '', aoTrocarAb
     $('#nota-progfin').textContent = `${agora.rot[0].toUpperCase() + agora.rot.slice(1)}: ${plural(agora.n, 'programada', 'programadas')}, ${nf.format(agora.prazo)} já fechadas (${pctDe(agora.prazo, agora.n)})` +
       ` · ${plural(agora.fin, 'finalizada', 'finalizadas')} no total`;
     $('#leg-progfin').replaceChildren(...itensPF());
-    grafProgFin($('#g-progfin'), jan, { titulo: 'Programadas e finalizadas', rotulo: (l) => [l.curto, pctDe(l.prazo, l.n)], marcado: (l) => l.chave === agora.chave,
+    grafProgFin($('#g-progfin'), jan, { titulo: 'Programadas e finalizadas', rotulo: (l) => [l.curto, l.de > D.base ? 'a vir' : pctDe(l.prazo, l.n)], marcado: (l) => l.chave === agora.chave,
       aoClicar: (l) => verProgramadas(esc, l.de) });
 
     // entrada e saída: o número de cada coluna aparece ao passar o mouse; o saldo vai escrito
@@ -1330,21 +1334,21 @@ export function iniciarPainel(D, { baixar, raiz = document, aba = '', aoTrocarAb
   const contaProg = (lista, p) => ({ ...p, ...IND.progFin(lista, p) });
   const doPeriodo = (lista, p) => lista.filter((o) => o.progEm && o.progEm >= p.de && o.progEm <= p.ate);
   // programadas × finalizadas (10/11/2026): em cada período, à esquerda as programadas para ele (fechadas
-  // no período, fechadas depois, abertas) e à direita todas as finalizadas nele (da programação e de fora)
+  // no período, fechadas depois, abertas) e à direita todas as finalizadas nele (da programação e extra programação)
   const COR_DEPOIS = 'var(--fech-depois)';
-  const PF_ESQ = [{ k: 'prazo', cor: COR.F, nome: 'Programadas: fechadas no período' }, { k: 'depois', cor: COR_DEPOIS, nome: 'Programadas: fechadas depois' },
-    { k: 'ab', cor: COR.A, nome: 'Programadas: abertas' }];
-  const PF_DIR = [{ k: 'finProg', cor: COR.F, nome: 'Finalizadas: da programação' }, { k: 'finFora', cor: COR.ctx, nome: 'Finalizadas: de fora da programação' }];
+  // (10/11/2026, de uma olhada) as programadas numa cor só; as finalizadas divididas entre as da programação
+  // e as extra programação — a OS finalizada no período sem estar programada para ele
+  const PF_ESQ = [{ k: 'n', cor: COR.prog, nome: 'Programadas' }];
+  const PF_DIR = [{ k: 'finProg', cor: COR.F, nome: 'Finalizadas da programação', tinta: '#1f2937' }, { k: 'finFora', cor: COR.nprog, nome: 'Extra programação', tinta: '#ffffff' }];
   const N_JANELA = { dia: 14, semana: 12, mes: 12 };
   const ESC_ROT = { dia: 'dia a dia', semana: 'semana a semana', mes: 'mês a mês' };
   const pctDe = (a, n) => (n ? pc.format(a / n) : '—');
-  const dicaProg = (l) => [['Programadas', nf.format(l.n)], ['· fechadas no período', `${nf.format(l.prazo)} · ${pctDe(l.prazo, l.n)}`, COR.F],
-    ['· fechadas depois', nf.format(l.depois), COR_DEPOIS], [l.ate < D.base ? '· não fechadas' : '· ainda abertas', nf.format(l.ab), COR.A],
-    ['Finalizadas no período', nf.format(l.fin)], ['· da programação', nf.format(l.finProg), COR.F], ['· de fora da programação', nf.format(l.finFora), COR.ctx]];
+  const dicaProg = (l) => [['Programadas', nf.format(l.n), COR.prog], ['· fechadas no período', `${nf.format(l.prazo)} · ${pctDe(l.prazo, l.n)}`],
+    ['· fechadas depois', nf.format(l.depois)], [l.ate < D.base ? '· não fechadas' : '· ainda abertas', nf.format(l.ab)],
+    ['Finalizadas no período', nf.format(l.fin)], ['· da programação', nf.format(l.finProg), COR.F], ['· extra programação', nf.format(l.finFora), COR.nprog]];
   const itensPF = () => {
     const item = (nome, cor) => el('span', {}, el('i', { style: 'background:' + cor }), nome);
-    return [el('b', { class: 'leg-tit', text: 'Programadas' }), item('Fechadas no período', COR.F), item('Fechadas depois', COR_DEPOIS), item('Abertas', COR.A),
-      el('b', { class: 'leg-tit', text: 'Finalizadas' }), item('Da programação', COR.F), item('De fora da programação', COR.ctx)];
+    return [item('Programadas', COR.prog), item('Finalizadas da programação', COR.F), item('Extra programação', COR.nprog)];
   };
   const legendaPF = () => el('div', { class: 'legenda' }, ...itensPF());
   /** Os períodos em volta de `ref`: os anteriores, o dele e os 2 seguintes (já programados). */
@@ -1388,7 +1392,7 @@ export function iniciarPainel(D, { baixar, raiz = document, aba = '', aoTrocarAb
       k('Programadas', nf.format(x.n), 'com a data programada no período', 'var(--fraco)', '', () => irLista('prog')),
       k('Fechadas', nf.format(fech), `${pct(fech)} das programadas` + (x.depois ? ` · ${nf.format(x.depois)} depois do prazo` : ''), COR.F, x.n && fech / x.n >= 0.8 ? 'bom' : '', () => irLista('fech')),
       k(rotAb, nf.format(x.ab), `${plural(nA, 'liberada', 'liberadas')} · ${nf.format(nP)} aguardando liberação`, passou && x.ab ? COR.alerta : COR.A, passou && x.ab ? 'ruim' : '', () => irLista('ab')),
-      k('Todas as fechadas no período', nf.format(x.fin), `${nf.format(x.finProg)} programadas para ele · ${nf.format(x.finFora)} de fora`, null, '', () => irLista('fin')));
+      k('Todas as fechadas no período', nf.format(x.fin), `${nf.format(x.finProg)} da programação · ${nf.format(x.finFora)} extra programação`, null, '', () => irLista('fin')));
     // o avanço das programadas numa barra só, como se lê de longe: fechadas, liberadas e aguardando liberação
     const partesAv = [['Fechadas no prazo', x.prazo, COR.F, 'fech', '#ffffff'], ['Fechadas depois do prazo', x.depois, COR_DEPOIS, 'fech', '#1f2937'],
       [rotAb + ': liberadas', nA, COR.A, 'abA', '#ffffff'], [rotAb + ': aguardando liberação', nP, COR.P, 'abP', '#1f2937']];
@@ -1412,7 +1416,7 @@ export function iniciarPainel(D, { baixar, raiz = document, aba = '', aoTrocarAb
     const gSeq = el('div', { class: 'graf rolar-x' });
     const seq = el('article', { class: 'cartao c12', 'data-imagem': true },
       el('div', { class: 'cab' }, el('div', {}, el('h2', { text: 'Programadas e finalizadas · ' + ESC_ROT[pg.esc] }),
-        el('p', { class: 'nota', text: 'À esquerda as programadas, à direita todas as finalizadas · embaixo, a % das programadas que fechou' })), el('div', { class: 'acoes' })),
+        el('p', { class: 'nota', text: 'Em cada período, as programadas e as finalizadas · embaixo, a aderência (% das programadas que fecharam)' })), el('div', { class: 'acoes' })),
       legendaPF(), gSeq);
     // dentro do período: os dias da semana, ou as semanas do mês
     let det = null, gDet = null, subs = [];
@@ -1441,10 +1445,10 @@ export function iniciarPainel(D, { baixar, raiz = document, aba = '', aoTrocarAb
     raiz.replaceChildren(el('div', { class: 'grade' }, topo, lista, seq, det, quem));
     prepararImagem(seq);
     if (det) prepararImagem(det);
-    grafProgFin(gSeq, janela, { titulo: 'Programadas e finalizadas', rotulo: (l) => [l.curto, pctDe(l.prazo, l.n)],
+    grafProgFin(gSeq, janela, { titulo: 'Programadas e finalizadas', rotulo: (l) => [l.curto, l.de > D.base ? 'a vir' : pctDe(l.prazo, l.n)],
       marcado: (l) => l.chave === sel.chave, aoClicar: (l) => ir(l.de) });
     if (det) grafProgFin(gDet, subs, { titulo: det.querySelector('h2').textContent,
-      rotulo: (l) => (pg.esc === 'semana' ? [`${l.sub} ${l.curto}`, pctDe(l.prazo, l.n)] : [l.curto, l.sub]),
+      rotulo: (l) => (pg.esc === 'semana' ? [`${l.sub} ${l.curto}`, l.de > D.base ? 'a vir' : pctDe(l.prazo, l.n)] : [l.curto, l.sub]),
       aoClicar: (l) => { pg.esc = pg.esc === 'semana' ? 'dia' : 'semana'; ir(l.de); } });
     // a tabela por executante ou frota
     const m = new Map();
@@ -1472,7 +1476,8 @@ export function iniciarPainel(D, { baixar, raiz = document, aba = '', aoTrocarAb
         { k: 'abA', rot: 'Liberadas', cor: COR.A, casa: (o) => emProg(o) && o.sit === 'A' },
         { k: 'abP', rot: 'Aguardando liberação', cor: COR.P, casa: (o) => emProg(o) && o.sit === 'P' },
         { k: 'sem', rot: 'Sem executante', cor: COR.alerta, casa: (o) => emProg(o) && o.sit !== 'F' && o.grupo === 'S' },
-        { k: 'fin', rot: 'Todas as fechadas no período', cor: 'var(--fraco)', casa: finP }] });
+        { k: 'fin', rot: 'Todas as fechadas no período', cor: 'var(--fraco)', casa: finP },
+        { k: 'extra', rot: 'Extra programação', cor: COR.nprog, casa: (o) => finP(o) && !emProg(o) }] });
     // veio de um número: a lista vem para a vista
     if (V.rolar === 'pg-lista') { V.rolar = ''; requestAnimationFrame(() => lista.scrollIntoView({ block: 'start', behavior: 'smooth' })); }
   }
@@ -1591,7 +1596,7 @@ export function iniciarPainel(D, { baixar, raiz = document, aba = '', aoTrocarAb
     const cada = el('article', { class: 'cartao c12', 'data-imagem': true },
       el('div', { class: 'cab' }, el('div', {}, el('h2', { text: 'Baixa do backlog ' + (por === 'exec' ? 'por executante' : 'por frota') + ' · ' + sel.rot }), notaCada),
         el('div', { class: 'acoes' }, el('div', { class: 'ctl' }, segPor))),
-      el('div', { class: 'legenda' }, el('span', {}, el('i', { style: 'background:' + COR.F }), 'Baixadas'), el('span', {}, el('i', { style: 'background:' + COR.A }), 'Remanescentes')),
+      el('div', { class: 'legenda' }, ...itensBK(BK_AV), el('span', { text: 'no fim, o backlog inicial' })),
       gCada);
     const tCada = el('div', { class: 'bt-rolagem' });
     const tab = el('article', { class: 'cartao c12', 'data-imagem': true },
@@ -1609,11 +1614,10 @@ export function iniciarPainel(D, { baixar, raiz = document, aba = '', aoTrocarAb
     colunasEmPe(gSeq, { linhas: janela, partes: PARTES_FIM, titulo: `Backlog ao fim de cada ${unid}`, H: 300, passoMin: 46, passoMax: 92,
       nomes: (l) => ({ fortes: [l.curto], fracos: [l.tinha ? pc.format(l.pct) + ' baixado' : '—'] }), dica: dicaAv,
       marcado: (l) => l.chave === sel.chave, aoClicar: (l) => ir(l.de) });
-    const rola = colunasEmPe(gCada, { linhas: noGrafico, titulo: 'Baixa do backlog ' + (por === 'exec' ? 'por executante' : 'por frota'), H: 320, passoMin: por === 'exec' ? 64 : 54, passoMax: 96,
-      limite: 30, chave: 'av-' + por, quem: por === 'exec' ? ['pessoa', 'pessoas'] : ['frota', 'frotas'],
-      partes: [{ k: 'fechou', nome: 'Baixadas', cor: COR.F, texto: 'escuro' }, { k: 'ainda', nome: 'Remanescentes', cor: COR.A, texto: 'claro' }],
-      nomes: (l) => ({ fortes: [por === 'exec' ? curto.get(l.nome) : l.nome], fracos: [(l.pct === null ? '—' : pc.format(l.pct)) + (por === 'exec' && !l.aponta ? ' · não aponta' : '')] }),
-      dica: (l) => [['Backlog inicial', nf.format(l.tinha)], ['Baixadas', `${nf.format(l.fechou)} · ${l.pct === null ? '—' : pc.format(l.pct)}`, COR.F], ['Remanescentes', nf.format(l.ainda), COR.A],
+    const rola = barrasBacklog(gCada, { linhas: noGrafico.map((l) => ({ ...l, rot: por === 'exec' ? curto.get(l.nome) : l.nome })), partes: BK_AV,
+      titulo: 'Baixa do backlog ' + (por === 'exec' ? 'por executante' : 'por frota'), limite: 15, chave: 'av-' + por, quem: por === 'exec' ? ['pessoa', 'pessoas'] : ['frota', 'frotas'],
+      sub: (l) => (l.pct === null ? '' : pc.format(l.pct) + ' baixado') + (por === 'exec' && !l.aponta ? ' · não aponta' : por === 'frota' && eqDe.get(l.chave) ? ' · ' + eqDe.get(l.chave) : ''),
+      dica: (l) => [['Backlog inicial', nf.format(l.tinha)], ['Baixadas', `${nf.format(l.fechou)} · ${l.pct === null ? '—' : pc.format(l.pct)}`, 'var(--bk-baixada)'], ['Remanescentes', nf.format(l.ainda), 'var(--bk-pendente)'],
         ['Abertas no período', `${nf.format(l.entrou)} · ${nf.format(l.entrouFechou)} já baixadas`, 'var(--nova)'], ['Backlog final', nf.format(l.fim)]],
       aoClicar: (l) => aplicar(() => (por === 'frota' ? so('frota', l.chave) : so('exec', l.chave))) });
     notaCada.textContent = noGrafico.length ? `${plural(noGrafico.length, por === 'exec' ? 'pessoa' : 'frota', por === 'exec' ? 'pessoas' : 'frotas')} com backlog no início do período` + (rola ? ' · role para o lado' : '') : '';
@@ -1700,8 +1704,9 @@ export function iniciarPainel(D, { baixar, raiz = document, aba = '', aoTrocarAb
     raiz.replaceChildren(el('div', { class: 'grade' }, topo, cF, cL, cFatos, lista));
     prepararImagem(cF);
     prepararImagem(cL);
-    const rola = colunasEmPe(gF, { linhas: linF, partes: FAIXAS_P, titulo: 'Não liberadas por frota', H: 320, passoMin: 56, passoMax: 92, limite: 30, chave: 'pend', quem: ['frota', 'frotas'],
-      nomes: (l) => ({ fortes: [l.frota], fracos: [eqDe.get(l.frota) || ''] }),
+    const TINTA_P = { claro: '#ffffff', escuro: '#1f2937', tema: 'var(--texto)', inv: 'var(--papel)' };
+    const rola = barrasBacklog(gF, { linhas: linF.map((l) => ({ ...l, rot: l.frota })), partes: FAIXAS_P.map((q) => ({ ...q, tinta: TINTA_P[q.texto] })), titulo: 'Não liberadas por frota',
+      limite: 15, chave: 'pend', quem: ['frota', 'frotas'], sub: (l) => eqDe.get(l.frota) || '',
       dica: (l) => [['Não liberadas', nf.format(totP(l))], ...FAIXAS_P.map((p) => [p.nome, nf.format(l[p.k]), p.cor])],
       aoClicar: (l) => aplicar(() => escolhe('frota', l.chave)) });
     notaF.textContent = n ? `${plural(n, 'OS', 'OS')} em ${plural(linF.length, 'frota', 'frotas')}` + (rola ? ' · role para o lado' : '') : '';
@@ -2206,7 +2211,7 @@ export function iniciarPainel(D, { baixar, raiz = document, aba = '', aoTrocarAb
       `Finalizadas: *${n(dia.fin)}* · entraram: *${n(eDia)}*`, '',
       `*${sem.rot}*`,
       `Programadas: *${n(sem.n)}* · já fechadas: *${n(sem.prazo)}* (${pctDe(sem.prazo, sem.n)})`,
-      `Finalizadas: *${n(sem.fin)}* (${n(sem.finProg)} da programação · ${n(sem.finFora)} de fora)`,
+      `Finalizadas: *${n(sem.fin)}* (${n(sem.finProg)} da programação · ${n(sem.finFora)} extra programação)`,
       `Entraram: *${n(eSem)}*`].join('\n');
     const ruim = (v) => (v ? 'var(--alerta-t)' : null);
     const blocos = [
@@ -2216,11 +2221,11 @@ export function iniciarPainel(D, { baixar, raiz = document, aba = '', aoTrocarAb
         { rot: 'Há mais de 90 dias', val: n(v90), sub: pctDe(v90, ab.length) + ' das abertas', cor: COR.alerta, corVal: ruim(v90) }] },
       { tit: rotDia, itens: [
         { rot: 'Programadas', val: n(dia.n), sub: `${n(dia.prazo)} já fechadas · ${pctDe(dia.prazo, dia.n)}`, cor: 'var(--fraco)' },
-        { rot: 'Finalizadas', val: n(dia.fin), sub: `${n(dia.finProg)} da programação · ${n(dia.finFora)} de fora`, cor: COR.F },
+        { rot: 'Finalizadas', val: n(dia.fin), sub: `${n(dia.finProg)} da programação · ${n(dia.finFora)} extra`, cor: COR.F },
         { rot: 'Entraram', val: n(eDia), sub: 'abertas no Protheus', cor: COR.criadas }] },
       { tit: sem.rot, itens: [
         { rot: 'Programadas', val: n(sem.n), sub: `${n(sem.prazo)} já fechadas · ${pctDe(sem.prazo, sem.n)}`, cor: 'var(--fraco)' },
-        { rot: 'Finalizadas', val: n(sem.fin), sub: `${n(sem.finProg)} da programação · ${n(sem.finFora)} de fora`, cor: COR.F },
+        { rot: 'Finalizadas', val: n(sem.fin), sub: `${n(sem.finProg)} da programação · ${n(sem.finFora)} extra`, cor: COR.F },
         { rot: 'Entraram', val: n(eSem), sub: 'abertas no Protheus', cor: COR.criadas }] }];
     return { titulo, sub: filtros ? 'Com os filtros: ' + filtros : 'Todas as frotas da lista do PCM', texto, blocos };
   }

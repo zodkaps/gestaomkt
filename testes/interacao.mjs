@@ -2479,7 +2479,7 @@ ok("e o Diagnóstico não manda rodar SQL por causa de sessão",
   await mt.click('#programacao .seg button:has-text("Mês")');
   await mt.waitForTimeout(300);
   const kFin = await mt.$eval("#programacao .pg-kpis .kpi:last-child", (k) => [k.querySelector(".rot").textContent, k.querySelector(".val").textContent, k.querySelector(".pe").textContent]);
-  ok("Programação: todas as fechadas no mês, das programadas para ele e de fora", kFin[0] === "Todas as fechadas no período" && kFin[1] === "1" && kFin[2].startsWith("0 programadas para ele · 1 de fora"), kFin.join(" | "));
+  ok("Programação: todas as fechadas no mês, das programadas para ele e de fora", kFin[0] === "Todas as fechadas no período" && kFin[1] === "1" && kFin[2].startsWith("0 da programação · 1 extra programação"), kFin.join(" | "));
   await mt.click("#programacao .pg-kpis .kpi:last-child");
   await mt.waitForTimeout(500);
   const listaFin = await mt.innerText("#pg-lista");
