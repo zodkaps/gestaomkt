@@ -2344,8 +2344,9 @@ ok("e o Diagnóstico não manda rodar SQL por causa de sessão",
   mkdirSync(PASTA, { recursive: true });
   const D = (iso) => { const [y, m, d] = iso.split("-").map(Number); return new Date(y, m - 1, d); };
   const CAB_STJ = ["Filial", "Ordem Serv.", "Plano Manut.", "Dt. Original", "Bem", "Nome do Bem", "Serviço", "Nome Serviço", "Centro Custo", "Contador",
-    "P. In. Man.", "R. In. Man.", "R. Fim Man.", "Término", "Situação", "Terceiro", "Categoria OS", "Obs O.S", "Dt.Liberacao"];
-  const os = (o, bem, ab, term, sit, fim = null) => [ "010101", o, "000000", D(ab), bem, "CAVALO TRATOR", "MC", "TROCAR LONA", "10001", 0, D(ab), null, fim && D(fim), term, sit, "Não", "PROGRAMADA", "", null];
+    "P. In. Man.", "R. In. Man.", "R. Fim Man.", "Término", "Situação", "Terceiro", "Categoria OS", "Obs O.S", "Dt.Liberacao", "Usr Inclusao"];
+  // quem abriu: um CPF inventado
+  const os = (o, bem, ab, term, sit, fim = null) => [ "010101", o, "000000", D(ab), bem, "CAVALO TRATOR", "MC", "TROCAR LONA", "10001", 0, D(ab), null, fim && D(fim), term, sit, "Não", "PROGRAMADA", "", null, "00000000191"];
   const excel = (nome, linhas) => {
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(linhas, { cellDates: true }), "Plan1");
@@ -2459,6 +2460,7 @@ ok("e o Diagnóstico não manda rodar SQL por causa de sessão",
       mais: !!d.querySelector("details.det-mais"), aberto: d.querySelector("details.det-mais")?.open };
   });
   ok("clicar numa OS abre a caixa no centro da tela", Math.abs(caixaOS.cx - caixaOS.w / 2) < 4 && Math.abs(caixaOS.cy - caixaOS.h / 2) < 4, JSON.stringify(caixaOS));
+  ok("a caixa diz quem abriu a OS (o CPF do usuário do Protheus)", (await mt.innerText("#detalhe")).includes("por 000.000.001-91"));
   ok("com o essencial em quadros (idade, abertura, previsão, quem fecha) e o resto recolhido",
     ["Aberta em", "Prevista para", "Quem fecha"].every((x) => caixaOS.fatos.includes(x)) && caixaOS.fatos.some((x) => x === "Aberta há" || x === "Levou") &&
     caixaOS.mais && !caixaOS.aberto, JSON.stringify(caixaOS.fatos));

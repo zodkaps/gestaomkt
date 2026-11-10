@@ -9,9 +9,12 @@
 // base histórica (o que os exports de hoje, só de 2026, não trazem mais).
 // Sai: o mesmo bloco de dados que o painel sempre usou.
 //
-// Duas regras que vêm do Protheus e não se negociam:
-//   - as colunas de usuário ("Usuário Alt.", "Usr Inclusao"…) guardam CPF e
-//     nunca são lidas: aqui só se pega coluna pelo nome, e nenhuma delas;
+// Duas regras que vêm do Protheus:
+//   - as colunas de usuário guardam o CPF de quem mexeu na OS. Só UMA é lida:
+//     a de quem abriu ("Usr Inclusao"), pedido do Mateus em 10/11/2026 para o
+//     painel dizer quem abriu cada OS. Ela vai só para o painel (o bucket
+//     privado), nunca para o repositório; as outras ("Usuário Alt.", "Usr
+//     Altera", "Usuário Ini.", "Usuário Fim") continuam sem ser lidas;
 //   - na observação (texto livre), CPF e telefone digitados viram "[nº omitido]".
 
 // ── a leitura de cada valor, igual à do montar.py ────────────────────────────
@@ -111,6 +114,20 @@ export function tabela(linhas, nomeArq = "") {
 }
 
 /** As colunas pelo nome, para ler cada linha: `g(nome, k)` e `g.tem(nome)`. */
+/** A coluna de quem abriu a OS, pelo nome do export ("Usr Inclusao", com ou sem acento). */
+const colunaDeQuemAbriu = (cab) => cab.find((c) => /^(usr|usu[aá]rio)\.?\s*inclus[aã]o$/i.test(String(c).trim())) || "";
+/** O CPF de quem abriu, como se lê: 000.000.000-00 (o Excel às vezes come o zero da frente).
+ *  O que não for CPF (um login) vem como está. */
+export function quemAbriu(v) {
+  const s = txt(v);
+  const d = s.replace(/\D/g, "");
+  if (/^\d{10,11}$/.test(d) && d.length === s.replace(/[.\-\s]/g, "").length) {
+    const c = d.padStart(11, "0");
+    return `${c.slice(0, 3)}.${c.slice(3, 6)}.${c.slice(6, 9)}-${c.slice(9)}`;
+  }
+  return s.slice(0, 40);
+}
+
 function leitor(t) {
   const pos = new Map();
   t.cab.forEach((n, i) => { if (!pos.has(n)) pos.set(n, []); pos.get(n).push(i); });
@@ -183,6 +200,7 @@ export function montar({ stj, stl, frotas, base, desde = "2024-01-01", ult0 = {}
   for (const t of stl) { const f = COLUNAS.STL.filter((c) => !t.cab.includes(c)); if (f.length) throw new Error(`${t.nome}: faltam as colunas ${f.join(", ")}.`); }
   const nossas = new Set(frotas.map((n) => String(n).padStart(4, "0")));
   const osRows = [], nomesBem = new Map(), vistas = new Set();
+  const colAbriu = new Map(stj.map((t) => [t, colunaDeQuemAbriu(t.cab)]));
   let nStj = 0, repetidas = 0;
   for (const t of stj) for (const g of leitor(t)()) {
     nStj++;
@@ -209,7 +227,8 @@ export function montar({ stj, stl, frotas, base, desde = "2024-01-01", ult0 = {}
       obs: g.tem("Obs O.S") ? semDoc(txt(g("Obs O.S"))).slice(0, 500) : "", servico_cod: txt(g("Serviço")),
       contador: ["0", "1"].includes(txt(g("Contador"))) ? "" : txt(g("Contador")),
       ccusto: txt(g("Centro Custo")), inicio_man: iso(g("R. In. Man.")),
-      prog_em: g.tem("P. In. Man.") ? iso(g("P. In. Man.")) : "" });
+      prog_em: g.tem("P. In. Man.") ? iso(g("P. In. Man.")) : "",
+      aberta_por: colAbriu.get(t) ? quemAbriu(g(colAbriu.get(t))) : "" });
   }
   const chaves = new Set(osRows.map((r) => r.filial + "|" + r.os));
   const gente = new Map();              // "filial|os" -> Map(código -> pessoa)
@@ -301,11 +320,12 @@ export function dadosDoPainel(m, extra = {}) {
     ...extra,
     // [os, filial, frota, equipamento, serviço, abertura, situação A/P/F, fim, tipo C/P, Terceiro na STJ S/N,
     //  índice da categoria, liberada em, observação, código do serviço, contador, centro de custo, início da manutenção,
-    //  insumo Terceiro na STL S/N, especialidade prevista na STL, programada para (P. In. Man. da STJ)]
+    //  insumo Terceiro na STL S/N, especialidade prevista na STL, programada para (P. In. Man. da STJ),
+    //  aberta por (o CPF da Usr Inclusao)]
     os: lista.map((r) => [r.os, r.filial, r.frota, eq.get(r.equipamento), r.servico, r.abertura, SIT[r.situacao],
       r.finalizada_em, r.tipo === "Preventiva" ? "P" : "C", r.terceiro === "Sim" ? "S" : "N",
       ic.get(r.categoria || "Sem categoria"), r.liberada_em || "", r.obs || "", r.servico_cod || "",
-      r.contador || "", r.ccusto || "", r.inicio_man || "", r.terceiro_stl === "Sim" ? "S" : "N", r.especialidade || "", r.prog_em || ""]),
+      r.contador || "", r.ccusto || "", r.inicio_man || "", r.terceiro_stl === "Sim" ? "S" : "N", r.especialidade || "", r.prog_em || "", r.aberta_por || ""]),
     cats,
     classe: cats.map((c) => classe.get(c)),
     equip,

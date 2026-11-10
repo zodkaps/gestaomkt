@@ -1631,6 +1631,18 @@ titulo("liberadas agora, e adiantar até a realização");
     [m.ultimo["Fulano de Teste"], m.ultimo["Ciclano de Outra Filial"], m.ultimo["Beltrano Antigo"]],
     [{ real: "2026-11-03", plan: "" }, { real: "2026-11-02", plan: "" }, { real: "2025-05-01", plan: "" }]);
   ok("e o previsto para depois da data do export não conta como último dia", P.ult["Fulano de Teste"][1] === "");
+  // quem abriu (10/11/2026): só a Usr Inclusao entra (o CPF, formatado); as outras colunas de usuário não. CPFs inventados.
+  {
+    const CAB_U = [...CAB_STJ, "Usr Inclusao", "Usuário Alt.", "Usr Altera", "Usuário Ini.", "Usuário Fim"];
+    const lin = (o, inc) => [...os(o, "0433", "2026-10-01", "Não", "Liberado"), inc, "11122233344", "55566677788", "99900011122", "33344455566"];
+    const tU = M.tabela([CAB_U, lin("200001", 1234567890), lin("200002", "000.000.001-91"), lin("200003", "LOGIN.TESTE")], "STJ_u.xlsx");
+    const PU = M.dadosDoPainel(M.montar({ stj: [tU], stl: [stl], frotas: ["433"], base: "2026-11-05" }));
+    igual("quem abriu: o CPF da Usr Inclusao, formatado (o zero que o Excel come volta); o que não é CPF vem como está",
+      PU.os.map((a) => [a[0], a[20]]), [["200001", "012.345.678-90"], ["200002", "000.000.001-91"], ["200003", "LOGIN.TESTE"]]);
+    const txtU = JSON.stringify(PU);
+    ok("e as outras colunas de usuário (alteração, início, fim) não entram no painel", !["11122233344", "55566677788", "99900011122", "33344455566"].some((x) => txtU.includes(x)));
+    igual("sem a coluna no export, quem abriu fica vazio", P.os.find((a) => a[0] === "100001")[20], "");
+  }
   igual("a lista de frotas do PCM, com o nome do equipamento", m.frotasRows, [{ frota: "F-433", bem: "0433", equipamento: "Cavalo trator" }, { frota: "F-617", bem: "0617", equipamento: "Cavalo trator" }]);
   // comparar: o que mudou de um dia para o outro
   const ontem = JSON.parse(JSON.stringify(P));

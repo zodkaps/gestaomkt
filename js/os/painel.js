@@ -68,7 +68,7 @@ export function iniciarPainel(D, { baixar, raiz = document, aba = '', aoTrocarAb
   const OS = D.os.map((a, i) => ({ i, os: a[0], filial: a[1], frota: a[2], equip: D.equip[a[3]] || '', servico: a[4], abertura: a[5], sit: a[6], fim: a[7],
     tipo: a[8] === 'P' ? 'Preventiva' : 'Corretiva', tercSTJ: a[9] === 'S', cat: CATS[a[10]] || 'Sem categoria', classe: CLS[a[10]] || 'S', liberada: a[11] || '',
     obs: a[12] || '', servCod: a[13] || '', contador: a[14] || '', ccusto: a[15] || '', inicioMan: a[16] || '', tercSTL: a[17] === 'S',
-    espTxt: a[18] || '', espList: a[18] ? a[18].split('; ') : [], progEm: a[19] || '', quem: [] }));
+    espTxt: a[18] || '', espList: a[18] ? a[18].split('; ') : [], progEm: a[19] || '', abertaPor: a[20] || '', quem: [] }));
   for (const [nome, l] of Object.entries(D.exec)) for (const [i, h, hp, prev, real] of l) OS[i].quem.push({ nome, h: h || 0, hp: hp || 0, prev: prev || '', real: real || '' });
   for (const o of OS) {
     o.quem.sort((a, b) => a.nome.localeCompare(b.nome, 'pt'));
@@ -87,7 +87,7 @@ export function iniciarPainel(D, { baixar, raiz = document, aba = '', aoTrocarAb
     o.dias = desde ? Math.max(0, Math.round(((o.sit === 'F' ? t(o.fim) : ref) - t(desde)) / DIA)) : null;
     o.faixa = o.sit === 'F' || o.dias == null ? -1 : o.dias <= 30 ? 0 : o.dias <= 60 ? 1 : o.dias <= 90 ? 2 : 3;
     o.quemTxt = o.grupo === 'T' ? 'Terceirizada' : o.pessoas.map((q) => q.nome).join(', ') || 'Sem executante';
-    o.busca = norm([o.os, o.frota, o.servico, o.equip, o.cat, CLASSE[o.classe], o.tipo, o.quemTxt, o.obs, o.servCod, o.ccusto, o.espTxt].join(' '));
+    o.busca = norm([o.os, o.frota, o.servico, o.equip, o.cat, CLASSE[o.classe], o.tipo, o.quemTxt, o.obs, o.servCod, o.ccusto, o.espTxt, o.abertaPor, o.abertaPor.replace(/\D/g, '')].join(' '));
   }
   const FROTAS = [...new Set([...D.frotas_lista, ...OS.map((o) => o.frota)])].sort((a, b) => a.localeCompare(b, 'pt', { numeric: true }));
   const EQUIPS = [...new Set(OS.map((o) => o.equip).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'pt'));
@@ -928,6 +928,7 @@ export function iniciarPainel(D, { baixar, raiz = document, aba = '', aoTrocarAb
     { k: 'sit', rot: 'Situação', fixa: true, ver: (o) => badge(o), ord: ordSit },
     { k: 'cat', rot: 'Categoria', padrao: true, ver: (o) => categoria(o), ord: (o) => 'PNOS'.indexOf(o.classe) + o.cat },
     { k: 'abertura', rot: 'Aberta em', padrao: true, ver: (o) => br(o.abertura), cls: () => 'data' },
+    { k: 'abertaPor', rot: 'Aberta por', padrao: true, ver: (o) => o.abertaPor || '—', cls: () => 'data' },
     { k: 'liberada', rot: 'Liberada em', padrao: true, ver: (o) => br(o.liberada), cls: () => 'data' },
     { k: 'progEm', rot: 'Programada para', padrao: true, ver: (o) => br(o.progEm), cls: () => 'data' },
     { k: 'prev', rot: 'Prevista na STL', ver: (o) => (o.prev ? el('span', { class: o.prevEstado === 'vencida' ? 'velha' : '', text: br(o.prev), title: o.prevEstado === 'vencida' ? 'A data prevista na STL já passou' : 'Data prevista na mão de obra da STL' }) : '—'), cls: () => 'data' },
@@ -951,6 +952,9 @@ export function iniciarPainel(D, { baixar, raiz = document, aba = '', aoTrocarAb
     try { const l = JSON.parse(localStorage.getItem(GUARDA_COLS) || 'null'); if (Array.isArray(l)) return new Set(l); } catch (e) { /* sem armazenamento */ }
     return new Set(COLS.filter((c) => c.padrao).map((c) => c.k));
   })();
+  // v8 (10/11/2026): a coluna Aberta por (quem abriu a OS) entra para quem já tinha escolhido as colunas
+  try { if (!localStorage.getItem('painel-os-v8-colunas')) { colunasOn.add('abertaPor'); localStorage.setItem('painel-os-v8-colunas', '1');
+    localStorage.setItem(GUARDA_COLS, JSON.stringify([...colunasOn])); } } catch (e) { colunasOn.add('abertaPor'); }
   // v7: a coluna Programada para entra para quem já tinha escolhido as colunas
   try { if (!localStorage.getItem('painel-os-v7-colunas')) { colunasOn.add('progEm'); colunasOn.delete('prev'); localStorage.setItem('painel-os-v7-colunas', '1');
     localStorage.setItem(GUARDA_COLS, JSON.stringify([...colunasOn])); } } catch (e) { colunasOn.add('progEm'); }
@@ -1044,7 +1048,7 @@ export function iniciarPainel(D, { baixar, raiz = document, aba = '', aoTrocarAb
       el('span', { class: 'rot', text: rot }), el('b', { text: val }), sub ? el('small', { text: sub }) : null);
     const fatos = [
       o.dias != null && fato(aberta ? 'Aberta há' : 'Levou', plural(o.dias, 'dia', 'dias'), { cls: aberta && o.dias > 90 ? 'alerta' : '', sub: o.lancDepois ? 'do início da manutenção' : '' }),
-      fato('Aberta em', br(o.abertura) || '—'),
+      fato('Aberta em', br(o.abertura) || '—', { sub: o.abertaPor ? 'por ' + o.abertaPor : '' }),
       aberta ? fato('Liberada em', o.liberada ? br(o.liberada) : 'Aguardando', { cls: o.liberada ? '' : 'espera' }) : fato('Finalizada em', br(o.fim) || '—'),
       aberta && fato('Prevista para', o.prev ? br(o.prev) : 'Sem data', { cls: vencida ? 'alerta' : '', sub: vencida ? 'já passou' : '' }),
       !!o.progEm && fato('Programada para', br(o.progEm)),

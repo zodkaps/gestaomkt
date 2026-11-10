@@ -349,6 +349,15 @@ e preventivas, e **só ele ter acesso**.
   lista. *Todas / Com executante / Sem executante* (Programação e Avanço) vale
   só na aba: antes ligava o filtro Executante da barra, e os números das
   outras abas mudavam sem a pessoa perceber.
+- **Quem abriu cada OS** (10/11/2026, pedido do Mateus): a coluna *Usr
+  Inclusao* da STJ — o usuário do Protheus que abriu a OS, que é o CPF da
+  pessoa — aparece na caixa da OS ("Aberta em 01/10/2026 · por
+  000.000.000-00"), na coluna *Aberta por* da lista e na busca. Das colunas de
+  usuário da STJ, é a única lida: as de alteração, início e fim continuam de
+  fora. O CPF fica só no painel (o bucket privado, para quem tem acesso a
+  ele): não entra no repositório, nem no Resumo do dia, nem nas imagens do
+  Enviar, nem na planilha da lista. As OS da base histórica (2024 e 2025)
+  vêm sem, porque ela não tem a coluna.
 - **Ver não é atualizar** (10/11/2026, `sql/06_painel_os_so_ver.sql`): a marca
   `os_makro` deixa ver o painel; para atualizar (o *Atualizar com o
   Protheus*, que grava no bucket), também `os_makro_atualiza`. Quem só vê não

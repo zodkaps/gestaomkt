@@ -65,6 +65,11 @@ marca. Regras:
 
 - **Dado do Protheus nunca entra no repositório** (é público): nem export, nem
   JSON montado, nem nome de executante no código. Teste usa dado inventado.
+- As colunas de usuário da STJ guardam CPF. **Só a *Usr Inclusao*** (quem abriu
+  a OS) é lida, a pedido do Mateus (10/11/2026), e vai só para o painel — não
+  para o Resumo, as imagens ou a planilha. As outras (Usuário Alt., Usr Altera,
+  Usuário Ini., Usuário Fim) continuam sem ser lidas. O Claude não lê nem
+  mostra CPF de verdade no chat.
 - As regras da montagem estão em `js/os/montar.js` (as mesmas do `montar.py`).
   Mudou regra? Muda lá e no teste de `testes/rodar.js`.
 - Se ele mandar a STJ e a STL no chat, a resposta é: solte em *Atualizar com o
