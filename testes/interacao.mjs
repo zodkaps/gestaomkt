@@ -2517,9 +2517,38 @@ ok("e o Diagnóstico não manda rodar SQL por causa de sessão",
   ok("a lista da carteira sai em CSV para o Excel: cabeçalho e as OS", tCSV.startsWith("\uFEFFOS;Filial;Frota;") && tCSV.includes("100001"), tCSV.slice(0, 80));
   await mt.click("#aba-geral");
   await mt.waitForTimeout(500);
-  const [dPNG] = await Promise.all([mt.waitForEvent("download", { timeout: 8000 }), mt.click("#c-frotas .baixar")]);
+  // mandar no grupo (10/11/2026): o Enviar de cada cartão abre o menu — imagem (copiar, baixar) e os números
+  await mt.click("#c-frotas .baixar");
+  const itensEnv = await mt.$$eval("#c-frotas .menu-env button b", (v) => v.map((x) => x.textContent));
+  ok("o Enviar de um gráfico oferece a imagem e os números", itensEnv.includes("Baixar imagem") && itensEnv.includes("Baixar os números"), itensEnv.join(" | "));
+  const [dPNG] = await Promise.all([mt.waitForEvent("download", { timeout: 8000 }), mt.click('#c-frotas .menu-env button:has-text("Baixar imagem")')]);
   const bPNG = await readFile(await dPNG.path());
   ok("um gráfico sai como imagem PNG", bPNG.subarray(1, 4).toString() === "PNG", dPNG.suggestedFilename());
+  await mt.click("#c-frotas .baixar");
+  const [dNum] = await Promise.all([mt.waitForEvent("download", { timeout: 8000 }), mt.click('#c-frotas .menu-env button:has-text("Baixar os números")')]);
+  const tNum = await readFile(await dNum.path(), "utf8");
+  ok("e os números do gráfico saem em planilha: as frotas e as colunas", tNum.includes("Frota;Abertas: liberadas;Abertas: aguardando liberação;Fechadas no período") && tNum.includes("F-617"), tNum.slice(0, 240));
+  await mt.click("#c-frotas .baixar");
+  await mt.keyboard.press("Escape");
+  ok("o Esc fecha o menu do Enviar", await mt.isHidden("#c-frotas .menu-env"));
+  // o cartão só de números (o Avanço) também sai como imagem
+  await mt.click("#aba-avanco");
+  await mt.waitForSelector(".av-kpis", { timeout: 10000 });
+  await mt.click("#avanco .cartao >> nth=0 >> .baixar");
+  const [dAv] = await Promise.all([mt.waitForEvent("download", { timeout: 8000 }), mt.click('#avanco .menu-env:visible button:has-text("Baixar imagem")')]);
+  ok("o cartão de números do Avanço sai como imagem", (await readFile(await dAv.path())).subarray(1, 4).toString() === "PNG", dAv.suggestedFilename());
+  // o resumo do dia: o texto pronto para o grupo, com o negrito do WhatsApp
+  await mt.click("#os-resumo");
+  await mt.waitForTimeout(300);
+  const resumo = await mt.textContent("#detalhe .resumo-txt");
+  ok("o Resumo do dia traz a carteira, o dia e a semana em texto para o grupo",
+    resumo.startsWith("*OS Makro · Protheus de 05/11/2026*") && resumo.includes("Abertas: *2* (1 liberada · 1 aguardando liberação)") && resumo.includes("*Semana 45"), resumo.slice(0, 300));
+  const [dRes] = await Promise.all([mt.waitForEvent("download", { timeout: 8000 }), mt.click('#detalhe button:has-text("Baixar imagem")')]);
+  ok("e a imagem do resumo", (await readFile(await dRes.path())).subarray(1, 4).toString() === "PNG" && dRes.suggestedFilename() === "resumo-do-dia-2026-11-05.png", dRes.suggestedFilename());
+  await mt.keyboard.press("Escape");
+  await mt.waitForTimeout(200);
+  await mt.click("#aba-geral");
+  await mt.waitForTimeout(300);
   await mt.click("#aba-carteira");
   await mt.waitForTimeout(300);
   await mt.click('#c-carteira button:has-text("Imprimir carteira")');

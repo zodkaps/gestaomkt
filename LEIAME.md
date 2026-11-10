@@ -312,6 +312,15 @@ e preventivas, e **só ele ter acesso**.
   abre a carteira com elas) e, na tabela por executante ou frota, a coluna
   *Finalizadas no período*. As contas estão em `js/os/indicadores.js`
   (`progFin`), com teste.
+- **Mandar no grupo** (10/11/2026): cada cartão do painel (gráfico, números
+  ou tabela) tem o botão **Enviar**, com o que ele tiver: *Copiar imagem*
+  (cola no WhatsApp com Ctrl+V), *Baixar imagem*, *Compartilhar…* (no
+  celular, abre o WhatsApp e os outros) e *Baixar os números* (a planilha
+  com o que está por trás do gráfico ou da tabela, para o Excel). A imagem
+  leva o título, o período, os filtros ligados, os números em quadros e o
+  gráfico. No alto, **Resumo do dia**: o texto pronto para o grupo (com o
+  *negrito* do WhatsApp) — a carteira, o dia do export e a semana — e a
+  mesma coisa em imagem. Nada sai do aparelho sem a pessoa clicar.
 
 **As telas da oficina saíram do menu, mas nada foi apagado.** Painel, Hoje,
 Programação, Semana, Resultados e Frota continuam no código, e os lançamentos

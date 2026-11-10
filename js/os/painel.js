@@ -247,6 +247,10 @@ export function iniciarPainel(D, { baixar, raiz = document, aba = '', aoTrocarAb
   fQ.addEventListener('input', () => { clearTimeout(espera); espera = setTimeout(() => { F.q = fQ.value; zerarPaginas(); desenhar(); }, 220); });
   const nomeDe = (k, v) => { const o = DEF[k].ops().find((x) => x.v === v); return o ? o.rot : v; };
   const fmtFx = (k, v) => (FX[k].tipo === 'date' ? br(v) : nh.format(Number(v)) + (FX[k].un ? ' ' + FX[k].un : ''));
+  /** Os filtros ligados, em texto: "Executante: Sem executante · Frota: F-617". `sem`: um que fica de fora. */
+  const filtrosTxt = (sem = '') => [
+    ...MULTI.filter((k) => k !== sem && F[k].size).map((k) => DEF[k].rot + (F.neg.has(k) ? ' exceto ' : ': ') + [...F[k]].map((v) => nomeDe(k, v)).join(', ')),
+    ...Object.keys(FX).filter(faixaAtiva).map((k) => FX[k].rot + ': ' + textoFaixa(k)), ...(F.q.trim() ? [`busca "${F.q.trim()}"`] : [])].join(' · ');
   const textoFaixa = (k) => { const r = F.r[k]; return r.de !== '' && r.ate !== '' ? (r.de === r.ate ? fmtFx(k, r.de) : `${fmtFx(k, r.de)} a ${fmtFx(k, r.ate)}`) : r.de !== '' ? 'a partir de ' + fmtFx(k, r.de) : 'até ' + fmtFx(k, r.ate); };
   function rotuloPill(k) {
     if (FX[k]) return faixaAtiva(k) ? FX[k].rot + ': ' + textoFaixa(k) : FX[k].rot;
@@ -558,7 +562,10 @@ export function iniciarPainel(D, { baixar, raiz = document, aba = '', aoTrocarAb
   ouvir(window, 'scroll', esconderDica, { passive: true });
   ouvir(document, 'pointerdown', (e) => { const a = alvoDe(e); if (!(a.closest && a.closest('svg'))) esconderDica(); });
   const legenda = (alvo, itens) => $(alvo).replaceChildren(...itens.map(([nome, cor]) => el('span', {}, el('i', { style: 'background:' + cor }), nome)));
-  const vazio = (caixa, s) => caixa.replaceChildren(el('div', { class: 'vazio', text: s }));
+  const vazio = (caixa, s) => { guardarDados(caixa, null); caixa.replaceChildren(el('div', { class: 'vazio', text: s })); };
+  /** Os números por trás de um gráfico ou tabela, para o "Baixar os números": { titulo, cab, linhas }. */
+  const guardarDados = (caixa, d) => { caixa._dados = d; if (d) caixa.dataset.dados = ''; else delete caixa.dataset.dados; };
+  const maiusc = (x) => (x ? x[0].toUpperCase() + x.slice(1) : x);
 
   // ── os gráficos (d3) ──
   const txt = (sel, x, y, s, o = {}) => sel.append('text').attr('x', x).attr('y', y).attr('dy', o.dy ?? '0.32em').attr('text-anchor', o.anchor || 'start')
@@ -579,6 +586,7 @@ export function iniciarPainel(D, { baixar, raiz = document, aba = '', aoTrocarAb
     const W = Math.max(caixa.clientWidth || 640, grupos.length * minLarg);
     const svg = d3.create('svg').attr('width', W).attr('height', H).attr('viewBox', `0 0 ${W} ${H}`).attr('role', 'img').attr('aria-label', titulo);
     caixa.replaceChildren(svg.node());
+    guardarDados(caixa, { titulo, cab: ['Período', ...series.map((s) => s.nome)], linhas: grupos.map((g) => [g.nome || rot(g), ...series.map((s) => g[s.k] || 0)]) });
     const tot = (g) => (empilhar ? d3.sum(series, (s) => g[s.k]) : d3.max(series, (s) => g[s.k]));
     const sy = d3.scaleLinear([0, d3.max(grupos, tot) || 1], [H - 26, 20]).nice();
     const med = medidor(svg, 11);
@@ -632,6 +640,9 @@ export function iniciarPainel(D, { baixar, raiz = document, aba = '', aoTrocarAb
     const tot = (l) => d3.sum(partes, (p) => l[p.k] || 0);
     if (!todas.length || !todas.some(tot)) { vazio(caixa, 'Nada com estes filtros.'); botaoTodas(caixa); return false; }
     const { linhas, corta: cortou, nVis } = recortar(todas, caixa, { limite, chave, passoMin });
+    const nomeCol = (l) => { if (l.nome) return l.nome; const n = nomes(l); return [...(n.fortes || []), ...(n.fracos || [])].filter(Boolean).join(' · '); };
+    const dadosEmPe = { titulo, cab: [quem[0] === 'coluna' ? 'Item' : maiusc(quem[0]), ...partes.map((p) => p.nome), ...(partes.length > 1 && !cem ? ['Total'] : [])],
+      linhas: todas.map((l) => [nomeCol(l), ...partes.map((p) => l[p.k] || 0), ...(partes.length > 1 && !cem ? [tot(l)] : [])]) };
     const disp = Math.max(caixa.clientWidth || 640, 240);
     const passo = Math.max(passoMin, Math.min(passoMax, (disp - 8) / linhas.length));
     const W = Math.max(disp, Math.ceil(passo * linhas.length + 8));
@@ -689,6 +700,7 @@ export function iniciarPainel(D, { baixar, raiz = document, aba = '', aoTrocarAb
         .on('click', (ev) => { const p = ev.target.parte; if (p && aoParte) aoParte(l, p); else if (aoClicar) aoClicar(l); });
     });
     medF.fim(); medf.fim(); medN.fim();
+    guardarDados(caixa, dadosEmPe);
     botaoTodas(caixa, { n: todas.length, nVis, chave, quem, corta: cortou });
     return W > disp + 1;
   }
@@ -716,7 +728,8 @@ export function iniciarPainel(D, { baixar, raiz = document, aba = '', aoTrocarAb
    *  período. `esq`/`dir`: as partes de cada coluna ({ k, cor }); `rotulo`: o nome embaixo e a linha fraca.
    *  As que não cabem ficam para o "Mostrar todas". Devolve se a caixa ficou rolando. */
   function colunasPar(caixa, { linhas: todas, titulo, H = 300, passoMin = 54, passoMax = 96, aoClicar = null, dica = null, limite = 0, chave = '', quem = ['frota', 'frotas'],
-    esq = [{ k: 'A', cor: COR.A }, { k: 'P', cor: COR.P }], dir = [{ k: 'F', cor: COR.F }], rotulo = (l) => [l.chave, l.sub], marcado = null, bwMax = 22 }) {
+    esq = [{ k: 'A', cor: COR.A, nome: 'Abertas: liberadas' }, { k: 'P', cor: COR.P, nome: 'Abertas: aguardando liberação' }], dir = [{ k: 'F', cor: COR.F, nome: 'Fechadas no período' }],
+    rotulo = (l) => [l.chave, l.sub], marcado = null, bwMax = 22 }) {
     const soma = (l, ps) => ps.reduce((s2, p) => s2 + (l[p.k] || 0), 0);
     if (!todas.length || !todas.some((l) => soma(l, esq) + soma(l, dir))) { vazio(caixa, 'Nada com estes filtros.'); botaoTodas(caixa); return false; }
     const { linhas, corta, nVis } = recortar(todas, caixa, { limite, chave, passoMin });
@@ -764,6 +777,8 @@ export function iniciarPainel(D, { baixar, raiz = document, aba = '', aoTrocarAb
         .on('mouseleave', esconderDica).on('click', () => aoClicar && aoClicar(l));
     });
     med.fim();
+    guardarDados(caixa, { titulo, cab: [maiusc(quem[0]), ...esq.map((p) => p.nome), ...dir.map((p) => p.nome)],
+      linhas: todas.map((l) => [l.nome || l.rot || rotulo(l).filter(Boolean).join(' · '), ...esq.map((p) => l[p.k] || 0), ...dir.map((p) => l[p.k] || 0)]) });
     // rolando (no celular): a coluna marcada vem para o meio, e não as primeiras
     const iMarc = marcado ? linhas.findIndex(marc) : -1;
     if (W > disp + 1 && iMarc >= 0) caixa.scrollLeft = Math.max(0, x0 + passo * iMarc + passo / 2 - disp / 2);
@@ -775,6 +790,7 @@ export function iniciarPainel(D, { baixar, raiz = document, aba = '', aoTrocarAb
    *  e a porcentagem. 2px de vão entre as fatias, e cada uma (e a linha dela na legenda) se clica para filtrar. */
   function rosca(caixa, fatias, { titulo, sub = 'OS', aoClicar = null, tam = 168 }) {
     const vivas = fatias.filter((f) => f.valor > 0), total = d3.sum(vivas, (f) => f.valor);
+    guardarDados(caixa, { titulo, cab: ['Parte', 'OS', '%'], linhas: fatias.map((f) => [f.nome, f.valor, total ? pc.format(f.valor / total) : '—']) });
     if (!total) return vazio(caixa, 'Nada com estes filtros.');
     const svg = d3.create('svg').attr('width', tam).attr('height', tam).attr('viewBox', `0 0 ${tam} ${tam}`).attr('role', 'img')
       .attr('aria-label', `${titulo}: ` + vivas.map((f) => `${f.nome} ${nf.format(f.valor)} (${pc.format(f.valor / total)})`).join('; '));
@@ -1151,7 +1167,7 @@ export function iniciarPainel(D, { baixar, raiz = document, aba = '', aoTrocarAb
       on: { click: (e) => { V.regras = !V.regras; raiz.classList.toggle('regras', V.regras); e.currentTarget.setAttribute('aria-pressed', String(V.regras)); } } });
     raiz.classList.toggle('regras', V.regras);
     raiz.replaceChildren(el('div', { class: 'grade' },
-      el('article', { class: 'cartao c12' },
+      el('article', { class: 'cartao c12', 'data-imagem': true },
         el('div', { class: 'cab' }, el('div', {}, el('h2', { text: 'Indicadores de PCM' }),
           el('p', { class: 'nota', text: `${R.p.rot} · comparado com ${nomeAnt}` })),
           el('div', { class: 'acoes' }, botaoRegras())),
@@ -1244,8 +1260,9 @@ export function iniciarPainel(D, { baixar, raiz = document, aba = '', aoTrocarAb
   // programadas × finalizadas (10/11/2026): em cada período, à esquerda as programadas para ele (fechadas
   // no período, fechadas depois, abertas) e à direita todas as finalizadas nele (da programação e de fora)
   const COR_DEPOIS = 'var(--fech-depois)';
-  const PF_ESQ = [{ k: 'prazo', cor: COR.F }, { k: 'depois', cor: COR_DEPOIS }, { k: 'ab', cor: COR.A }];
-  const PF_DIR = [{ k: 'finProg', cor: COR.F }, { k: 'finFora', cor: COR.ctx }];
+  const PF_ESQ = [{ k: 'prazo', cor: COR.F, nome: 'Programadas: fechadas no período' }, { k: 'depois', cor: COR_DEPOIS, nome: 'Programadas: fechadas depois' },
+    { k: 'ab', cor: COR.A, nome: 'Programadas: abertas' }];
+  const PF_DIR = [{ k: 'finProg', cor: COR.F, nome: 'Finalizadas: da programação' }, { k: 'finFora', cor: COR.ctx, nome: 'Finalizadas: de fora da programação' }];
   const N_JANELA = { dia: 14, semana: 12, mes: 12 };
   const ESC_ROT = { dia: 'dia a dia', semana: 'semana a semana', mes: 'mês a mês' };
   const pctDe = (a, n) => (n ? pc.format(a / n) : '—');
@@ -1261,7 +1278,7 @@ export function iniciarPainel(D, { baixar, raiz = document, aba = '', aoTrocarAb
   /** Os períodos em volta de `ref`: os anteriores, o dele e os 2 seguintes (já programados). */
   const janelaProg = (todas, esc, ref) => Array.from({ length: N_JANELA[esc] }, (_, i) => contaProg(todas, periodoDe(esc, andar(esc, ref, i - N_JANELA[esc] + 3))));
   const grafProgFin = (caixa, linhas, { titulo, rotulo, marcado = null, aoClicar }) => colunasPar(caixa, { linhas, titulo, H: 290, passoMin: 58, passoMax: 104, bwMax: 26,
-    esq: PF_ESQ, dir: PF_DIR, rotulo, marcado, aoClicar, dica: dicaProg });
+    esq: PF_ESQ, dir: PF_DIR, rotulo, marcado, aoClicar, dica: dicaProg, quem: ['período', 'períodos'] });
 
   function desenharProg() {
     const raiz = $('#programacao');
@@ -1298,7 +1315,7 @@ export function iniciarPainel(D, { baixar, raiz = document, aba = '', aoTrocarAb
     const segQuais = el('div', { class: 'seg', role: 'group', 'aria-label': 'Quais OS' }, ...[['todas', 'Todas'], ['com', 'Com executante'], ['sem', 'Sem executante']].map(([kk, rot]) =>
       el('button', { type: 'button', 'aria-pressed': String(quais === kk), text: rot,
         on: { click: () => aplicar(() => { if (kk === 'todas') { F.exec.clear(); F.neg.delete('exec'); } else so('exec', ...(kk === 'com' ? ['g:I', 'g:T'] : ['g:S'])); }) } })));
-    const topo = el('article', { class: 'cartao c12' },
+    const topo = el('article', { class: 'cartao c12', 'data-imagem': true },
       el('div', { class: 'cab' }, el('div', {}, el('h2', { text: 'Programação' }),
         el('p', { class: 'nota', text: 'As OS programadas para o período e quantas já fecharam',
           title: 'A data programada é a previsão de início da manutenção no Protheus; quando ninguém a mudou, é o próprio dia da abertura.' })),
@@ -1331,7 +1348,7 @@ export function iniciarPainel(D, { baixar, raiz = document, aba = '', aoTrocarAb
     const segPor = el('div', { class: 'seg', role: 'group', 'aria-label': 'Agrupar por' }, ...[['exec', 'Executante'], ['frota', 'Frota']].map(([kk, rot]) =>
       el('button', { type: 'button', 'aria-pressed': String(por === kk), text: rot, on: { click: () => { pg.por = kk; desenhar(); } } })));
     const tPor = el('div', { class: 'bt-rolagem' });
-    const quem = el('article', { class: 'cartao c12' },
+    const quem = el('article', { class: 'cartao c12', 'data-imagem': true },
       el('div', { class: 'cab' }, el('div', {}, el('h2', { text: 'Por ' + (por === 'exec' ? 'executante' : 'frota') + ' · ' + sel.rot })), el('div', { class: 'acoes' }, el('div', { class: 'ctl' }, segPor))),
       tPor);
     const lista = el('article', { class: 'cartao c12' });
@@ -1442,7 +1459,7 @@ export function iniciarPainel(D, { baixar, raiz = document, aba = '', aoTrocarAb
     const segQuais = el('div', { class: 'seg', role: 'group', 'aria-label': 'Quais OS' }, ...[['todas', 'Todas'], ['com', 'Com executante'], ['sem', 'Sem executante']].map(([kk, rot]) =>
       el('button', { type: 'button', 'aria-pressed': String(quais === kk), text: rot,
         on: { click: () => aplicar(() => { if (kk === 'todas') { F.exec.clear(); F.neg.delete('exec'); } else so('exec', ...(kk === 'com' ? ['g:I', 'g:T'] : ['g:S'])); }) } })));
-    const topo = el('article', { class: 'cartao c12' },
+    const topo = el('article', { class: 'cartao c12', 'data-imagem': true },
       el('div', { class: 'cab' }, el('div', {}, el('h2', { text: 'Avanço do fechamento' }),
         el('p', { class: 'nota', text: 'O que tinha no começo, o que fechou, o que entrou e com quanto ficou',
           title: 'Pelas datas do Protheus (abertura e fim da manutenção) e por quem está na mão de obra da STL hoje.' })),
@@ -1485,8 +1502,8 @@ export function iniciarPainel(D, { baixar, raiz = document, aba = '', aoTrocarAb
       el('div', { class: 'legenda' }, el('span', {}, el('i', { style: 'background:' + COR.F }), 'Fechou'), el('span', {}, el('i', { style: 'background:' + COR.A }), 'Ainda para fechar')),
       gCada);
     const tCada = el('div', { class: 'bt-rolagem' });
-    const tab = el('article', { class: 'cartao c12' },
-      el('div', { class: 'cab' }, el('div', {}, el('h2', { text: 'Os números de ' + (por === 'exec' ? 'cada pessoa' : 'cada frota') + ' · ' + sel.rot }))),
+    const tab = el('article', { class: 'cartao c12', 'data-imagem': true },
+      el('div', { class: 'cab' }, el('div', {}, el('h2', { text: 'Os números de ' + (por === 'exec' ? 'cada pessoa' : 'cada frota') + ' · ' + sel.rot })), el('div', { class: 'acoes' })),
       tCada);
     // a lista: as que fecharam, as que ainda estão para fechar, ou as que entraram
     const qual = av.lista;
@@ -1615,7 +1632,7 @@ export function iniciarPainel(D, { baixar, raiz = document, aba = '', aoTrocarAb
   // Uma linha por frota (ou por pessoa): o nome, o total e as colunas com os números. Clicar no título de
   // uma coluna ordena por ela; clicar na linha abre a frota (ou a pessoa).
   function tabelaNums(alvo, { id, linhas, nome, partes, totalRot, cols, padrao, aoClicar, vazioTxt = 'Nada com estes filtros.' }) {
-    if (!linhas.length) return alvo.replaceChildren(el('div', { class: 'vazio', text: vazioTxt }));
+    if (!linhas.length) return vazio(alvo, vazioTxt);
     const o = V.ord[id] || (V.ord[id] = { ...padrao });
     const total = (l) => partes.reduce((s, p) => s + (l[p.k] || 0), 0);
     const vDe = Object.fromEntries(cols.filter((c) => c.val).map((c) => [c.k, c.val]));
@@ -1625,6 +1642,8 @@ export function iniciarPainel(D, { baixar, raiz = document, aba = '', aoTrocarAb
       const d = typeof x === 'number' ? x - y : String(x).localeCompare(String(y), 'pt', { numeric: true });
       return (o.dir === 'asc' ? d : -d) || total(b) - total(a) || String(a.chave).localeCompare(String(b.chave), 'pt', { numeric: true });
     });
+    guardarDados(alvo, { titulo: '', cab: [nome.rot, totalRot, ...cols.map((c) => c.rot)],
+      linhas: ord.map((l) => [nome.ver(l).filter(Boolean).join(' · '), total(l), ...cols.map((c) => { const v = c.val ? c.val(l) : l[c.k] || 0; return c.fmt ? c.fmt(v) : v; })]) });
     const molde = `minmax(9rem, 1fr) repeat(${cols.length + 1}, minmax(4.2rem, 6.4rem))`;
     const cabeca = (k, rot, esq) => el('button', { type: 'button', class: esq ? 'esq' : null, 'aria-sort': o.k === k ? (o.dir === 'asc' ? 'ascending' : 'descending') : 'none', text: rot,
       title: 'Ordenar por ' + rot.toLowerCase(), on: { click: () => { V.ord[id] = { k, dir: o.k === k && o.dir === 'desc' ? 'asc' : k === '_nome' ? 'asc' : 'desc' }; desenhar(); } } });
@@ -1862,56 +1881,287 @@ export function iniciarPainel(D, { baixar, raiz = document, aba = '', aoTrocarAb
     };
     andar(svg, 1);
   }
-  async function baixarImagem(card, botao, aviso) {
-    const svgs = [...card.querySelectorAll('.graf svg')];
-    if (!svgs.length) { aviso.textContent = 'Este gráfico está vazio.'; return; }
-    botao.disabled = true;
-    aviso.textContent = 'Gerando a imagem…';
-    try {
-      const css = getComputedStyle(raiz.host || document.documentElement);
-      const cor = (v) => css.getPropertyValue(v).trim();
-      const partes = svgs.map((svg) => { const r = svg.getBoundingClientRect(), vb = svg.viewBox.baseVal; const sec = svg.closest('.par > div'); return { svg, w: r.width, h: r.height, k: vb && vb.width ? r.width / vb.width : 1, rot: sec && sec !== card.querySelector('.par > div') ? sec.querySelector('h2').textContent.trim() : '' }; });
-      const leg = [...card.querySelectorAll('.legenda span, .rosca-leg > div')].map((sp) => { const i = sp.querySelector('i'); return [[...sp.children].filter((x) => x !== i).map((x) => x.textContent.trim()).filter(Boolean).join(' · ') || sp.textContent.trim(), i ? getComputedStyle(i).backgroundColor : null]; });
-      const titulo = card.querySelector('h2').textContent.trim();
-      const sub = [$('#chips').textContent.replace(/×/g, ' · ').replace(/Limpar filtros/, '').trim(), 'Protheus de ' + br(D.base)].filter(Boolean).join(' · ');
-      const pad = 28, larg = Math.max(...partes.map((p) => p.w)), W = Math.ceil(Math.max(720, larg + pad * 2));
-      const tela = document.createElement('canvas'), c = tela.getContext('2d');
-      c.font = `12px ${cor('--fonte')}`;
-      const linhasLeg = []; let atual = [], x = 0;
-      for (const [nome, cl] of leg) { const w = (cl ? 16 : 0) + c.measureText(nome).width + 18; if (x + w > W - pad * 2 && atual.length) { linhasLeg.push(atual); atual = []; x = 0; } atual.push([nome, cl, x]); x += w; }
-      if (atual.length) linhasLeg.push(atual);
-      const yLeg = pad + 52, y0 = yLeg + linhasLeg.length * 20 + 12;
-      const H = Math.ceil(y0 + partes.reduce((s, p) => s + p.h + 12 + (p.rot ? 30 : 0), 0) + 36);
-      // o dobro da tela para ficar nítido, menos quando passa do que o celular aguenta num canvas (16 milhões de pixels)
-      const esc = Math.min(2, Math.sqrt(16e6 / (W * H)));
-      tela.width = Math.round(W * esc); tela.height = Math.round(H * esc); c.scale(esc, esc);
-      c.fillStyle = cor('--papel'); c.fillRect(0, 0, W, H);
-      c.fillStyle = cor('--texto'); c.font = `700 18px ${cor('--fonte')}`; c.fillText(titulo, pad, pad + 16);
-      c.fillStyle = cor('--muito-fraco'); c.font = `12px ${cor('--fonte')}`; c.fillText(sub, pad, pad + 38, W - pad * 2);
-      linhasLeg.forEach((l, i) => { const y = yLeg + i * 20; for (const [nome, cl, lx] of l) { if (cl) { c.fillStyle = cl; c.fillRect(pad + lx, y + 1, 10, 10); } c.fillStyle = cor(cl ? '--fraco' : '--muito-fraco'); c.fillText(nome, pad + lx + (cl ? 16 : 0), y + 10); } });
-      let y = y0;
-      for (const p of partes) {
-        if (p.rot) { y += 8; c.fillStyle = cor('--texto'); c.font = `700 15px ${cor('--fonte')}`; c.fillText(p.rot, pad, y + 12); y += 22; }
-        c.save(); c.translate(pad, y); c.scale(p.k, p.k); pintarSVG(c, p.svg); c.restore(); y += p.h + 12;
+  // ── mandar no grupo (10/11/2026): a imagem de um cartão (o título, o período, os filtros, os números em
+  // quadros, a legenda e o gráfico), para copiar e colar no WhatsApp, baixar ou compartilhar; e os números ──
+  // as cores da página e a fonte do site (o painel herda a dele: não há --fonte; sem fonte válida o canvas
+  // escreveria tudo em 10px)
+  const corCss = () => { const css = getComputedStyle(raiz.host || document.documentElement); return (v) => (v === '--fonte' ? css.fontFamily || 'sans-serif' : css.getPropertyValue(v).trim()); };
+  /** O texto em até `max` linhas que caibam em `larg`; a última, se sobrar, com reticências. */
+  function quebrarTxt(c, s, larg, max = 2) {
+    const out = [];
+    let cur = '';
+    for (const w of String(s || '').split(/\s+/).filter(Boolean)) { const t2 = cur ? cur + ' ' + w : w; if (!cur || c.measureText(t2).width <= larg) cur = t2; else { out.push(cur); cur = w; } }
+    if (cur) out.push(cur);
+    if (out.length > max) { out.length = max; let u = out[max - 1]; while (u.length > 1 && c.measureText(u + '…').width > larg) u = u.slice(0, -1); out[max - 1] = u + '…'; }
+    return out;
+  }
+  const retRedondo = (c, x, y, w, h, r) => { c.beginPath(); if (c.roundRect) c.roundRect(x, y, w, h, r); else c.rect(x, y, w, h); c.fill(); };
+  /** Os números em quadros: `blocos` = [{ tit, itens: [{ rot, val, sub, cor, corVal }] }]. Com `pintar` falso só
+   *  mede. Devolve a altura. */
+  function quadros(c, cor, blocos, x0, y0, larg, { cols: colsMax = 4, pintar = true } = {}) {
+    const f = cor('--fonte'), gap = 10, pq = 12;
+    const rc = (v) => (v && v.startsWith('var(') ? cor(v.slice(4, -1)) : v);
+    let y = y0;
+    for (const b of blocos) {
+      if (b.tit) { if (pintar) { c.fillStyle = cor('--fraco'); c.font = `700 12px ${f}`; c.fillText(b.tit.toUpperCase(), x0, y + 12); } y += 24; }
+      const cols = Math.max(1, Math.min(colsMax, b.itens.length)), w = (larg - gap * (cols - 1)) / cols;
+      for (let i = 0; i < b.itens.length; i += cols) {
+        const fila = b.itens.slice(i, i + cols).map((q) => {
+          c.font = `600 12px ${f}`;
+          const rot = quebrarTxt(c, q.rot, w - pq * 2 - (q.cor ? 15 : 0), 2);
+          c.font = `11.5px ${f}`;
+          return { q, rot, sub: quebrarTxt(c, q.sub, w - pq * 2, 2) };
+        });
+        const nR = d3.max(fila, (z) => z.rot.length) || 1, nS = d3.max(fila, (z) => z.sub.length) || 0;
+        const h = pq + nR * 15 + 26 + 8 + nS * 14 + pq;
+        if (pintar) fila.forEach(({ q, rot, sub }, k) => {
+          const x = x0 + k * (w + gap), yVal = y + pq + nR * 15 + 26;
+          c.fillStyle = cor('--papel2'); retRedondo(c, x, y, w, h, 10);
+          if (q.cor) { c.fillStyle = rc(q.cor); retRedondo(c, x + pq, y + pq + 2, 9, 9, 2); }
+          c.fillStyle = cor('--fraco'); c.font = `600 12px ${f}`;
+          rot.forEach((l, n) => c.fillText(l, x + pq + (q.cor ? 15 : 0), y + pq + 11 + n * 15));
+          c.fillStyle = rc(q.corVal) || cor('--texto'); c.font = `800 26px ${f}`; c.fillText(q.val, x + pq, yVal, w - pq * 2);
+          c.fillStyle = cor('--muito-fraco'); c.font = `11.5px ${f}`;
+          sub.forEach((l, n) => c.fillText(l, x + pq, yVal + 18 + n * 14));
+        });
+        y += h + gap;
       }
-      c.fillStyle = cor('--muito-fraco'); c.font = `11px ${cor('--fonte')}`; c.fillText('Painel de OS · Makro', pad, H - 14);
-      const blob = await new Promise((ok, erro) => tela.toBlob((bl) => (bl ? ok(bl) : erro(new Error('sem imagem'))), 'image/png'));
+      y += 4;
+    }
+    return y - y0;
+  }
+  /** Os números de um cartão, como estão na tela (nos Indicadores, em grupos). */
+  function kpisDoCartao(card) {
+    const de = (k) => {
+      const v = k.querySelector('.val'), pt = k.querySelector('.ponto');
+      return { rot: (k.querySelector('.rot') || k).textContent.trim(), val: v ? v.textContent.trim() : '', sub: ((k.querySelector('.pe') || k.querySelector('.comp') || {}).textContent || '').trim(),
+        cor: pt ? getComputedStyle(pt).backgroundColor : null, corVal: v ? getComputedStyle(v).color : null };
+    };
+    const grupos = [...card.querySelectorAll('.ind-grupo')];
+    if (grupos.length) return grupos.map((g) => ({ tit: (g.querySelector('h3') || {}).textContent || '', itens: [...g.querySelectorAll('.kpi')].map(de) }));
+    const ks = [...card.querySelectorAll('.kpi')];
+    return ks.length ? [{ tit: '', itens: ks.map(de) }] : [];
+  }
+  /** Um canvas no dobro da tela (nítido no celular), sem passar do que o celular aguenta (16 milhões de pixels). */
+  function novaTela(W, H, cor) {
+    const tela = document.createElement('canvas'), c = tela.getContext('2d');
+    const esc = Math.min(2, Math.sqrt(16e6 / (W * H)));
+    tela.width = Math.round(W * esc); tela.height = Math.round(H * esc); c.scale(esc, esc);
+    c.fillStyle = cor('--papel'); c.fillRect(0, 0, W, H);
+    return { tela, c };
+  }
+  const paraPNG = (tela) => new Promise((ok, erro) => tela.toBlob((bl) => (bl ? ok(bl) : erro(new Error('sem imagem'))), 'image/png'));
+  function cabecalhoImg(c, cor, titulo, subL, pad, W, H) {
+    const f = cor('--fonte');
+    c.fillStyle = cor('--texto'); c.font = `700 19px ${f}`; c.fillText(titulo, pad, pad + 16, W - pad * 2);
+    c.fillStyle = cor('--muito-fraco'); c.font = `12px ${f}`; subL.forEach((l, i) => c.fillText(l, pad, pad + 38 + i * 16));
+    c.font = `11px ${f}`; c.fillText('Painel de OS · Makro', pad, H - 14);
+  }
+  async function imagemDoCartao(card) {
+    const cor = corCss(), f = cor('--fonte');
+    const svgs = [...card.querySelectorAll('.graf svg')].filter((x) => x.getClientRects().length);
+    const blocos = kpisDoCartao(card);
+    if (!svgs.length && !blocos.length) throw new Error('vazio');
+    const partes = svgs.map((svg) => { const r = svg.getBoundingClientRect(), vb = svg.viewBox.baseVal; const sec = svg.closest('.par > div'); return { svg, w: r.width, h: r.height, k: vb && vb.width ? r.width / vb.width : 1, rot: sec && sec !== card.querySelector('.par > div') ? sec.querySelector('h2').textContent.trim() : '' }; });
+    const leg = svgs.length ? [...card.querySelectorAll('.legenda > span, .legenda > .leg-tit, .rosca-leg > div')].map((sp) => { const i = sp.querySelector('i'); return [[...sp.children].filter((x) => x !== i).map((x) => x.textContent.trim()).filter(Boolean).join(' · ') || sp.textContent.trim(), i ? getComputedStyle(i).backgroundColor : null]; }) : [];
+    const titulo = card.querySelector('h2').textContent.trim();
+    const quando = card.querySelector('.pg-rot');
+    const sub = [quando ? quando.textContent.trim() : '', filtrosTxt(), 'Protheus de ' + br(D.base)].filter(Boolean).join(' · ');
+    const pad = 28, larg = Math.max(0, ...partes.map((p) => p.w)), W = Math.ceil(Math.max(760, larg + pad * 2));
+    const med = document.createElement('canvas').getContext('2d');
+    med.font = `12px ${f}`;
+    const subL = quebrarTxt(med, sub, W - pad * 2, 3);
+    const linhasLeg = []; let atual = [], x = 0;
+    for (const [nome, cl] of leg) { const w = (cl ? 16 : 0) + med.measureText(nome).width + 18; if (x + w > W - pad * 2 && atual.length) { linhasLeg.push(atual); atual = []; x = 0; } atual.push([nome, cl, x]); x += w; }
+    if (atual.length) linhasLeg.push(atual);
+    const yQ = pad + 38 + subL.length * 16;
+    const hQ = blocos.length ? quadros(med, cor, blocos, pad, yQ, W - pad * 2, { pintar: false, cols: W >= 900 ? 5 : 4 }) : 0;
+    const yLeg = yQ + hQ + (blocos.length ? 4 : 0), y0 = yLeg + linhasLeg.length * 20 + (linhasLeg.length ? 12 : 0);
+    const H = Math.ceil(y0 + partes.reduce((s2, p) => s2 + p.h + 12 + (p.rot ? 30 : 0), 0) + 36);
+    const { tela, c } = novaTela(W, H, cor);
+    cabecalhoImg(c, cor, titulo, subL, pad, W, H);
+    if (blocos.length) quadros(c, cor, blocos, pad, yQ, W - pad * 2, { cols: W >= 900 ? 5 : 4 });
+    c.font = `12px ${f}`;
+    linhasLeg.forEach((l, i) => { const y = yLeg + i * 20; for (const [nome, cl, lx] of l) { if (cl) { c.fillStyle = cl; c.fillRect(pad + lx, y + 1, 10, 10); } c.fillStyle = cor(cl ? '--fraco' : '--texto'); c.font = `${cl ? 400 : 700} 12px ${f}`; c.fillText(nome, pad + lx + (cl ? 16 : 0), y + 10); } });
+    let y = y0;
+    for (const p of partes) {
+      if (p.rot) { y += 8; c.fillStyle = cor('--texto'); c.font = `700 15px ${f}`; c.fillText(p.rot, pad, y + 12); y += 22; }
+      c.save(); c.translate(pad, y); c.scale(p.k, p.k); pintarSVG(c, p.svg); c.restore(); y += p.h + 12;
+    }
+    return { blob: await paraPNG(tela), nome: `${slug(titulo)}-${D.base}.png`, titulo };
+  }
+
+  // copiar a imagem (cola no WhatsApp com Ctrl+V), baixar ou compartilhar (no celular abre o WhatsApp)
+  const podeCopiarImagem = () => !!(navigator.clipboard && navigator.clipboard.write && typeof ClipboardItem !== 'undefined');
+  const podeCompartilhar = () => { try { return !!(navigator.canShare && navigator.canShare({ files: [new File([''], 'x.png', { type: 'image/png' })] })); } catch (e) { return false; } };
+  async function usarImagem(como, fazer, aviso, texto = '') {
+    aviso.textContent = como === 'copiar' ? 'Copiando…' : 'Gerando a imagem…';
+    try {
+      if (como === 'copiar') {
+        await navigator.clipboard.write([new ClipboardItem({ 'image/png': fazer().then((r) => r.blob) })]);
+        aviso.textContent = 'Imagem copiada: cole no grupo (Ctrl+V).';
+        return;
+      }
+      const r = await fazer();
+      if (como === 'compartilhar') {
+        await navigator.share({ files: [new File([r.blob], r.nome, { type: 'image/png' })], title: r.titulo, ...(texto ? { text: texto } : {}) });
+        aviso.textContent = '';
+        return;
+      }
       const d = await downloadsP;
       if (!d) throw { code: 'unavailable' };
-      await d.save({ filename: `${slug(titulo)}-${D.base}.png`, data: blob });
+      await d.save({ filename: r.nome, data: r.blob });
       aviso.textContent = 'Imagem salva.';
-    } catch (e) { tratarErro(e, aviso); } finally { botao.disabled = false; }
+    } catch (e) {
+      if (e && e.name === 'AbortError') aviso.textContent = '';   // desistiu de compartilhar
+      else if (e && e.message === 'vazio') aviso.textContent = 'Este cartão está vazio.';
+      else if (como === 'copiar') aviso.textContent = 'O navegador não deixou copiar a imagem: use Baixar imagem.';
+      else tratarErro(e, aviso);
+    }
   }
+  /** Os números de um cartão em planilha (.csv para o Excel): os quadros e o que está por trás de cada gráfico ou tabela. */
+  function dadosDoCartao(card) {
+    const linhas = [];
+    const ks = kpisDoCartao(card);
+    if (ks.length) {
+      linhas.push(['Indicador', 'Valor', 'Detalhe']);
+      for (const b of ks) for (const q of b.itens) linhas.push([b.tit ? `${b.tit}: ${q.rot}` : q.rot, q.val, q.sub]);
+    }
+    const fontes = [...card.querySelectorAll('[data-dados]')].filter((e2) => e2._dados && e2.getClientRects().length);
+    for (const e2 of fontes) {
+      const d = e2._dados;
+      if (linhas.length) linhas.push([]);
+      if (fontes.length > 1 || ks.length) linhas.push([d.titulo || card.querySelector('h2').textContent.trim()]);
+      linhas.push(d.cab, ...d.linhas.map((l) => l.map((v) => (typeof v === 'number' && !Number.isInteger(v) ? String(Math.round(v * 10) / 10).replace('.', ',') : v))));
+    }
+    return linhas;
+  }
+  async function baixarDados(card, aviso) {
+    const linhas = dadosDoCartao(card);
+    if (!linhas.length) { aviso.textContent = 'Este cartão está vazio.'; return; }
+    const titulo = card.querySelector('h2').textContent.trim();
+    const quando = card.querySelector('.pg-rot'), filtros = filtrosTxt();
+    const topo = [[titulo], [['Protheus de ' + br(D.base), quando ? quando.textContent.trim() : '', filtros ? 'Filtros: ' + filtros : ''].filter(Boolean).join(' · ')], []];
+    try {
+      const blob = new Blob(['﻿' + [...topo, ...linhas].map((l) => l.map(celulaCSV).join(';')).join('\r\n')], { type: 'text/csv;charset=utf-8' });
+      const d = await downloadsP;
+      if (!d) throw { code: 'unavailable' };
+      await d.save({ filename: `${slug(titulo)}-${D.base}.csv`, data: blob });
+      aviso.textContent = 'Números salvos.';
+    } catch (e) { tratarErro(e, aviso); }
+  }
+  // o menu do Enviar: um aberto por vez; fecha no clique fora e no Esc
+  let menuAberto = null;
+  const fecharMenu = () => { if (!menuAberto) return; menuAberto.menu.hidden = true; menuAberto.botao.setAttribute('aria-expanded', 'false'); menuAberto = null; };
+  ouvir(document, 'pointerdown', (e) => { if (menuAberto && !(e.composedPath ? e.composedPath() : [e.target]).includes(menuAberto.caixa)) fecharMenu(); });
+  ouvir(window, 'keydown', (e) => { if (e.key === 'Escape' && menuAberto) { const b = menuAberto.botao; fecharMenu(); b.focus(); } });
+  const ICONE_ENVIAR = '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 10V2.5M5 5.3 8 2.3l3 3M3.5 8.5V13h9V8.5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+  /** O botão Enviar de um cartão (gráfico, números ou tabela): só aparece o que o cartão tem. */
   function prepararImagem(card) {
-    const acoes = card.querySelector('.acoes');
+    const acoes = card.querySelector('.cab .acoes') || card.querySelector('.acoes');
     if (!acoes || acoes.querySelector('.baixar')) return;
     const aviso = el('span', { class: 'aviso-img', 'aria-live': 'polite' });
-    const b = el('button', { class: 'botao mini baixar', type: 'button', hidden: true, title: 'Baixar este gráfico como imagem, para mandar no grupo' });
-    b.innerHTML = ICONE_BAIXAR + '<span>Imagem</span>';
-    b.addEventListener('click', () => baixarImagem(card, b, aviso));
-    acoes.append(aviso, b);
-    downloadsP.then((d) => { if (d) b.hidden = false; });
+    const botao = el('button', { class: 'botao mini baixar', type: 'button', 'aria-haspopup': 'menu', 'aria-expanded': 'false', title: 'Mandar no grupo: a imagem ou os números' });
+    botao.innerHTML = ICONE_ENVIAR + '<span>Enviar</span>';
+    const menu = el('div', { class: 'menu-env', role: 'menu', hidden: true });
+    const caixa = el('span', { class: 'env' }, botao, menu);
+    const fazer = () => imagemDoCartao(card);
+    const item = (rot, sub, fn) => el('button', { type: 'button', role: 'menuitem', on: { click: () => { fecharMenu(); fn(); } } }, el('b', { text: rot }), el('small', { text: sub }));
+    botao.addEventListener('click', () => {
+      const era = menuAberto && menuAberto.menu === menu;
+      fecharMenu();
+      if (era) return;
+      const temImg = !!card.querySelector('.graf svg, .kpi'), temDados = temImg || !!card.querySelector('[data-dados]');
+      menu.replaceChildren(...[
+        temImg && podeCopiarImagem() && item('Copiar imagem', 'e colar no grupo (Ctrl+V)', () => usarImagem('copiar', fazer, aviso)),
+        temImg && item('Baixar imagem', 'PNG, para mandar depois', () => usarImagem('baixar', fazer, aviso)),
+        temImg && podeCompartilhar() && item('Compartilhar…', 'WhatsApp e outros', () => usarImagem('compartilhar', fazer, aviso)),
+        temDados && item('Baixar os números', 'planilha para o Excel', () => baixarDados(card, aviso))].filter(Boolean));
+      menu.style.left = ''; menu.style.right = '0';
+      menu.hidden = false;
+      if (menu.getBoundingClientRect().left < 8) { menu.style.right = 'auto'; menu.style.left = '0'; }
+      botao.setAttribute('aria-expanded', 'true');
+      menuAberto = { menu, botao, caixa };
+      const pri = menu.querySelector('button');
+      if (pri) pri.focus();
+    });
+    acoes.append(aviso, caixa);
   }
+
+  // ── o resumo do dia (10/11/2026): o texto pronto para o grupo (com o *negrito* do WhatsApp) e a imagem ──
+  function dadosDoResumo() {
+    const S = recorte({ sem: 'sit' }), ab = S.abertas;
+    const lib = ab.filter((o) => o.sit === 'A').length, pen = ab.length - lib;
+    const semEx = ab.filter((o) => o.grupo === 'S').length, v90 = ab.filter((o) => o.faixa === 3).length;
+    const dia = contaProg(S.todas, periodoDe('dia', D.base)), sem = contaProg(S.todas, periodoDe('semana', D.base));
+    const entrou = (de, ate) => S.todas.filter((o) => o.abertura >= de && o.abertura <= ate).length;
+    const eDia = entrou(dia.de, dia.ate), eSem = entrou(sem.de, D.base);
+    const filtros = filtrosTxt('sit');
+    const agora = new Date(), hojeL = `${agora.getFullYear()}-${String(agora.getMonth() + 1).padStart(2, '0')}-${String(agora.getDate()).padStart(2, '0')}`;
+    const rotDia = (D.base === hojeL ? 'Hoje · ' : 'No dia do export · ') + dia.rot;
+    const titulo = 'OS Makro · Protheus de ' + br(D.base);
+    const n = (v) => nf.format(v);
+    const texto = [`*${titulo}*`, ...(filtros ? [`_Com os filtros: ${filtros}_`] : []), '',
+      '*Carteira*',
+      `Abertas: *${n(ab.length)}* (${plural(lib, 'liberada', 'liberadas')} · ${n(pen)} aguardando liberação)`,
+      `Sem executante: *${n(semEx)}* (${pctDe(semEx, ab.length)})`,
+      `Há mais de 90 dias: *${n(v90)}* (${pctDe(v90, ab.length)})`, '',
+      `*${rotDia}*`,
+      `Programadas: *${n(dia.n)}* · já fechadas: *${n(dia.prazo)}* (${pctDe(dia.prazo, dia.n)})`,
+      `Finalizadas: *${n(dia.fin)}* · entraram: *${n(eDia)}*`, '',
+      `*${sem.rot}*`,
+      `Programadas: *${n(sem.n)}* · já fechadas: *${n(sem.prazo)}* (${pctDe(sem.prazo, sem.n)})`,
+      `Finalizadas: *${n(sem.fin)}* (${n(sem.finProg)} da programação · ${n(sem.finFora)} de fora)`,
+      `Entraram: *${n(eSem)}*`].join('\n');
+    const ruim = (v) => (v ? 'var(--alerta-t)' : null);
+    const blocos = [
+      { tit: 'Carteira', itens: [
+        { rot: 'Abertas', val: n(ab.length), sub: `${plural(lib, 'liberada', 'liberadas')} · ${n(pen)} aguardando`, cor: COR.A },
+        { rot: 'Sem executante', val: n(semEx), sub: pctDe(semEx, ab.length) + ' das abertas', cor: COR.alerta, corVal: ruim(semEx) },
+        { rot: 'Há mais de 90 dias', val: n(v90), sub: pctDe(v90, ab.length) + ' das abertas', cor: COR.alerta, corVal: ruim(v90) }] },
+      { tit: rotDia, itens: [
+        { rot: 'Programadas', val: n(dia.n), sub: `${n(dia.prazo)} já fechadas · ${pctDe(dia.prazo, dia.n)}`, cor: 'var(--fraco)' },
+        { rot: 'Finalizadas', val: n(dia.fin), sub: `${n(dia.finProg)} da programação · ${n(dia.finFora)} de fora`, cor: COR.F },
+        { rot: 'Entraram', val: n(eDia), sub: 'abertas no Protheus', cor: COR.criadas }] },
+      { tit: sem.rot, itens: [
+        { rot: 'Programadas', val: n(sem.n), sub: `${n(sem.prazo)} já fechadas · ${pctDe(sem.prazo, sem.n)}`, cor: 'var(--fraco)' },
+        { rot: 'Finalizadas', val: n(sem.fin), sub: `${n(sem.finProg)} da programação · ${n(sem.finFora)} de fora`, cor: COR.F },
+        { rot: 'Entraram', val: n(eSem), sub: 'abertas no Protheus', cor: COR.criadas }] }];
+    return { titulo, sub: filtros ? 'Com os filtros: ' + filtros : 'Todas as frotas da lista do PCM', texto, blocos };
+  }
+  async function imagemDoResumo(r) {
+    const cor = corCss(), f = cor('--fonte'), W = 760, pad = 28;
+    const med = document.createElement('canvas').getContext('2d');
+    med.font = `12px ${f}`;
+    const subL = quebrarTxt(med, r.sub, W - pad * 2, 3);
+    const yQ = pad + 44 + subL.length * 16;
+    const H = Math.ceil(yQ + quadros(med, cor, r.blocos, pad, yQ, W - pad * 2, { pintar: false, cols: 3 }) + 30);
+    const { tela, c } = novaTela(W, H, cor);
+    cabecalhoImg(c, cor, r.titulo, subL, pad, W, H);
+    quadros(c, cor, r.blocos, pad, yQ, W - pad * 2, { cols: 3 });
+    return { blob: await paraPNG(tela), nome: `resumo-do-dia-${D.base}.png`, titulo: r.titulo };
+  }
+  function abrirResumo() {
+    voltaFoco = focado();
+    const r = dadosDoResumo(), fazer = () => imagemDoResumo(r);
+    const aviso = el('span', { class: 'aviso-img', 'aria-live': 'polite' });
+    const previa = el('img', { class: 'resumo-img', alt: 'A imagem do resumo, para mandar no grupo' });
+    const b = (rot, fn, prim = false) => el('button', { type: 'button', class: 'botao' + (prim ? ' prim' : ''), text: rot, on: { click: fn } });
+    const copiarTexto = async () => {
+      try { await navigator.clipboard.writeText(r.texto); aviso.textContent = 'Texto copiado: cole no grupo.'; }
+      catch (e) { aviso.textContent = 'O navegador não deixou copiar: selecione o texto e copie.'; }
+    };
+    mostrarDetalhe(
+      cabDetalhe(el('p', { class: 'det-id', text: 'Para mandar no grupo' }), 'Resumo do dia'),
+      el('div', { class: 'resumo-acoes' }, b('Copiar texto', copiarTexto, true),
+        podeCopiarImagem() ? b('Copiar imagem', () => usarImagem('copiar', fazer, aviso)) : null,
+        b('Baixar imagem', () => usarImagem('baixar', fazer, aviso)),
+        podeCompartilhar() ? b('Compartilhar…', () => usarImagem('compartilhar', fazer, aviso, r.texto)) : null, aviso),
+      el('pre', { class: 'resumo-txt', text: r.texto }), previa);
+    fazer().then((x) => { const u = URL.createObjectURL(x.blob); previa.onload = () => URL.revokeObjectURL(u); previa.src = u; }).catch(() => previa.remove());
+  }
+  const bResumo = $('#os-resumo');
+  if (bResumo) { bResumo.hidden = false; bResumo.addEventListener('click', abrirResumo); }
   raiz.querySelectorAll('.cartao[data-imagem]').forEach(prepararImagem);
 
   // ── a carteira para imprimir (05/11/2026) ──
@@ -2131,6 +2381,8 @@ export function iniciarPainel(D, { baixar, raiz = document, aba = '', aoTrocarAb
     $('#n-frotas').textContent = f1 || (F.frota.size ? (F.neg.has('frota') ? 'sem ' : '') + nf.format(F.frota.size) : '');
     $('#n-frotas').hidden = !F.frota.size;
     DESENHO[V.aba](R);
+    fecharMenu();
+    raiz.querySelectorAll('.cartao[data-imagem]').forEach(prepararImagem);
   }
   let redim;
   ouvir(window, 'resize', () => { clearTimeout(redim); redim = setTimeout(desenhar, 150); });
