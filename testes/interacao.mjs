@@ -2498,7 +2498,7 @@ ok("e o Diagnóstico não manda rodar SQL por causa de sessão",
   await mt.waitForSelector(".av-kpis", { timeout: 10000 });
   const av = await mt.$$eval(".av-kpis .kpi .val", v => v.map(x => x.textContent).join("|"));
   ok("aba Avanço: tinha 3, fechou 1, nada entrou, ficou com 2", av === "3|1|0|2", av);
-  await mt.click('.av-kpis button.kpi:has-text("Fecharam")');
+  await mt.click('.av-kpis button.kpi:has-text("Baixadas")');
   await mt.waitForTimeout(400);
   ok("e a lista das que fecharam traz a OS fechada em 03/11", (await mt.innerText("#av-lista")).includes("100003"));
   await mt.click('#avanco .ctl .seg button:has-text("Mês")');

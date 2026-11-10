@@ -1516,7 +1516,7 @@ export function iniciarPainel(D, { baixar, raiz = document, aba = '', aoTrocarAb
     }
     return c;
   }
-  const LISTAS_AV = [['fechou', 'Fecharam'], ['ainda', 'Ainda para fechar'], ['entrou', 'Entraram']];
+  const LISTAS_AV = [['fechou', 'Baixadas'], ['ainda', 'Remanescentes'], ['entrou', 'Abertas no período']];
   function desenharAvanco() {
     const raiz = $('#avanco');
     const av = V.av;
@@ -1543,17 +1543,17 @@ export function iniciarPainel(D, { baixar, raiz = document, aba = '', aoTrocarAb
       el('span', { class: 'rot' }, cor ? el('i', { class: 'ponto', style: 'background:' + cor }) : null, rot), el('span', { class: 'val ' + cls, text: val }), el('span', { class: 'pe', text: pe }));
     const dif = x.fim - x.tinha;
     const kpis = el('div', { class: 'kpis mini av-kpis' },
-      k('Tinham para fechar', nf.format(x.tinha), `no começo: abertas até ${dm(vespera)}`, COR.A, '', () => verLista('ainda')),
-      k('Fecharam', nf.format(x.fechou), x.tinha ? `${pc.format(x.pct)} das que tinham · até ${dm(x.ateReal)}` : 'nada para fechar no começo', COR.F,
+      k('Backlog inicial', nf.format(x.tinha), `OS em aberto em ${dm(vespera)}`, COR.A, '', () => verLista('ainda')),
+      k('Baixadas', nf.format(x.fechou), x.tinha ? `${pc.format(x.pct)} do backlog inicial · até ${dm(x.ateReal)}` : 'sem backlog no início do período', COR.F,
         x.pct !== null && x.pct >= 0.5 ? 'bom' : '', () => verLista('fechou')),
-      k('Entraram', nf.format(x.entrou), `abertas no período · ${nf.format(x.entrouFechou)} já fechadas`, 'var(--nova)', '', () => verLista('entrou')),
-      k(noAtual ? 'Para fechar hoje' : 'Ficaram para fechar', nf.format(x.fim),
-        dif > 0 ? `a carteira cresceu ${nf.format(dif)} no período` : dif < 0 ? `a carteira diminuiu ${nf.format(-dif)} no período` : 'a carteira ficou igual',
+      k('Abertas no período', nf.format(x.entrou), `novas OS · ${nf.format(x.entrouFechou)} já baixadas`, 'var(--nova)', '', () => verLista('entrou')),
+      k(noAtual ? 'Backlog atual' : 'Backlog final', nf.format(x.fim),
+        dif > 0 ? `aumento de ${plural(dif, 'OS', 'OS')} no período` : dif < 0 ? `redução de ${plural(-dif, 'OS', 'OS')} no período` : 'sem variação no período',
         'var(--fraco)', dif > 0 ? 'ruim' : dif < 0 ? 'bom' : ''));
     const segQuais = segQuaisDe(av);
     const topo = el('article', { class: 'cartao c12', 'data-imagem': true },
-      el('div', { class: 'cab' }, el('div', {}, el('h2', { text: 'Avanço do fechamento' }),
-        el('p', { class: 'nota', text: 'O que tinha no começo, o que fechou, o que entrou e com quanto ficou',
+      el('div', { class: 'cab' }, el('div', {}, el('h2', { text: 'Evolução do backlog' }),
+        el('p', { class: 'nota', text: 'Backlog inicial, baixas, novas aberturas e backlog final do período',
           title: 'Pelas datas do Protheus (abertura e fim da manutenção) e por quem está na mão de obra da STL hoje.' })),
         el('div', { class: 'acoes' }, el('div', { class: 'ctl' }, segQuais, seg))),
       nav, kpis);
@@ -1563,14 +1563,14 @@ export function iniciarPainel(D, { baixar, raiz = document, aba = '', aoTrocarAb
     for (let j = 1; j <= 2; j++) { const prox = andar(av.esc, sel.de, j); if (prox <= D.base) fimRef = prox; }
     const janela = [];
     for (let i = -(N - 1); i <= 0; i++) janela.push(contaAvanco(todas, periodoDe(av.esc, andar(av.esc, fimRef, i))));
-    const PARTES_FIM = [{ k: 'ainda', nome: 'Das que já tinha', cor: COR.A, texto: 'claro' }, { k: 'entrouAberta', nome: 'Entraram no período', cor: 'var(--nova)', texto: 'tema' }];
-    const dicaAv = (l) => [['Tinham no começo', nf.format(l.tinha), COR.A], ['Fecharam', `${nf.format(l.fechou)}${l.tinha ? ' · ' + pc.format(l.pct) : ''}`, COR.F],
-      ['Entraram', `${nf.format(l.entrou)} · ${nf.format(l.entrouFechou)} já fechadas`, 'var(--nova)'], ['No fim', nf.format(l.fim)]];
+    const PARTES_FIM = [{ k: 'ainda', nome: 'Remanescente do backlog inicial', cor: COR.A, texto: 'claro' }, { k: 'entrouAberta', nome: 'Abertas no período', cor: 'var(--nova)', texto: 'tema' }];
+    const dicaAv = (l) => [['Backlog inicial', nf.format(l.tinha), COR.A], ['Baixadas', `${nf.format(l.fechou)}${l.tinha ? ' · ' + pc.format(l.pct) : ''}`, COR.F],
+      ['Abertas no período', `${nf.format(l.entrou)} · ${nf.format(l.entrouFechou)} já baixadas`, 'var(--nova)'], ['Backlog final', nf.format(l.fim)]];
     const gSeq = el('div', { class: 'graf rolar-x' });
     const seq = el('article', { class: 'cartao c12', 'data-imagem': true },
-      el('div', { class: 'cab' }, el('div', {}, el('h2', { text: `A carteira no fim de cada ${unid}` }),
-        el('p', { class: 'nota', text: 'Para fechar no fim de cada período · embaixo, a % que fechou do começo' })), el('div', { class: 'acoes' })),
-      el('div', { class: 'legenda' }, ...PARTES_FIM.map((p) => el('span', {}, el('i', { style: 'background:' + p.cor }), p.nome)), el('span', { text: 'o número em cima é o total no fim' })),
+      el('div', { class: 'cab' }, el('div', {}, el('h2', { text: `Backlog ao fim de cada ${unid}` }),
+        el('p', { class: 'nota', text: 'OS em aberto ao fim de cada período · embaixo, o percentual do backlog inicial baixado' })), el('div', { class: 'acoes' })),
+      el('div', { class: 'legenda' }, ...PARTES_FIM.map((p) => el('span', {}, el('i', { style: 'background:' + p.cor }), p.nome)), el('span', { text: 'no topo, o backlog final' })),
       gSeq);
     // cada pessoa (ou frota): das que tinha no começo, quantas fechou
     const m = new Map();
@@ -1589,13 +1589,13 @@ export function iniciarPainel(D, { baixar, raiz = document, aba = '', aoTrocarAb
     const curto = por === 'exec' ? curtos(noGrafico.map((y) => y.nome)) : null;
     const gCada = el('div', { class: 'graf rolar-x' }), notaCada = el('p', { class: 'nota' });
     const cada = el('article', { class: 'cartao c12', 'data-imagem': true },
-      el('div', { class: 'cab' }, el('div', {}, el('h2', { text: (por === 'exec' ? 'Cada pessoa da equipe' : 'Cada frota') + ' · ' + sel.rot }), notaCada),
+      el('div', { class: 'cab' }, el('div', {}, el('h2', { text: 'Baixa do backlog ' + (por === 'exec' ? 'por executante' : 'por frota') + ' · ' + sel.rot }), notaCada),
         el('div', { class: 'acoes' }, el('div', { class: 'ctl' }, segPor))),
-      el('div', { class: 'legenda' }, el('span', {}, el('i', { style: 'background:' + COR.F }), 'Fechou'), el('span', {}, el('i', { style: 'background:' + COR.A }), 'Ainda para fechar')),
+      el('div', { class: 'legenda' }, el('span', {}, el('i', { style: 'background:' + COR.F }), 'Baixadas'), el('span', {}, el('i', { style: 'background:' + COR.A }), 'Remanescentes')),
       gCada);
     const tCada = el('div', { class: 'bt-rolagem' });
     const tab = el('article', { class: 'cartao c12', 'data-imagem': true },
-      el('div', { class: 'cab' }, el('div', {}, el('h2', { text: 'Os números de ' + (por === 'exec' ? 'cada pessoa' : 'cada frota') + ' · ' + sel.rot })), el('div', { class: 'acoes' })),
+      el('div', { class: 'cab' }, el('div', {}, el('h2', { text: 'Backlog ' + (por === 'exec' ? 'por executante' : 'por frota') + ' · ' + sel.rot })), el('div', { class: 'acoes' })),
       tCada);
     // a lista: as que fecharam, as que ainda estão para fechar, ou as que entraram
     const qual = av.lista;
@@ -1606,28 +1606,28 @@ export function iniciarPainel(D, { baixar, raiz = document, aba = '', aoTrocarAb
     raiz.replaceChildren(el('div', { class: 'grade' }, topo, seq, cada, tab, lista));
     prepararImagem(seq);
     prepararImagem(cada);
-    colunasEmPe(gSeq, { linhas: janela, partes: PARTES_FIM, titulo: `A carteira no fim de cada ${unid}`, H: 300, passoMin: 46, passoMax: 92,
-      nomes: (l) => ({ fortes: [l.curto], fracos: [l.tinha ? 'fechou ' + pc.format(l.pct) : '—'] }), dica: dicaAv,
+    colunasEmPe(gSeq, { linhas: janela, partes: PARTES_FIM, titulo: `Backlog ao fim de cada ${unid}`, H: 300, passoMin: 46, passoMax: 92,
+      nomes: (l) => ({ fortes: [l.curto], fracos: [l.tinha ? pc.format(l.pct) + ' baixado' : '—'] }), dica: dicaAv,
       marcado: (l) => l.chave === sel.chave, aoClicar: (l) => ir(l.de) });
-    const rola = colunasEmPe(gCada, { linhas: noGrafico, titulo: 'Avanço de ' + (por === 'exec' ? 'cada pessoa' : 'cada frota'), H: 320, passoMin: por === 'exec' ? 64 : 54, passoMax: 96,
+    const rola = colunasEmPe(gCada, { linhas: noGrafico, titulo: 'Baixa do backlog ' + (por === 'exec' ? 'por executante' : 'por frota'), H: 320, passoMin: por === 'exec' ? 64 : 54, passoMax: 96,
       limite: 30, chave: 'av-' + por, quem: por === 'exec' ? ['pessoa', 'pessoas'] : ['frota', 'frotas'],
-      partes: [{ k: 'fechou', nome: 'Fechou', cor: COR.F, texto: 'escuro' }, { k: 'ainda', nome: 'Ainda para fechar', cor: COR.A, texto: 'claro' }],
+      partes: [{ k: 'fechou', nome: 'Baixadas', cor: COR.F, texto: 'escuro' }, { k: 'ainda', nome: 'Remanescentes', cor: COR.A, texto: 'claro' }],
       nomes: (l) => ({ fortes: [por === 'exec' ? curto.get(l.nome) : l.nome], fracos: [(l.pct === null ? '—' : pc.format(l.pct)) + (por === 'exec' && !l.aponta ? ' · não aponta' : '')] }),
-      dica: (l) => [['Tinha no começo', nf.format(l.tinha)], ['Fechou', `${nf.format(l.fechou)} · ${l.pct === null ? '—' : pc.format(l.pct)}`, COR.F], ['Ainda para fechar', nf.format(l.ainda), COR.A],
-        ['Entraram no período', `${nf.format(l.entrou)} · ${nf.format(l.entrouFechou)} já fechadas`, 'var(--nova)'], ['Para fechar no fim', nf.format(l.fim)]],
+      dica: (l) => [['Backlog inicial', nf.format(l.tinha)], ['Baixadas', `${nf.format(l.fechou)} · ${l.pct === null ? '—' : pc.format(l.pct)}`, COR.F], ['Remanescentes', nf.format(l.ainda), COR.A],
+        ['Abertas no período', `${nf.format(l.entrou)} · ${nf.format(l.entrouFechou)} já baixadas`, 'var(--nova)'], ['Backlog final', nf.format(l.fim)]],
       aoClicar: (l) => aplicar(() => (por === 'frota' ? so('frota', l.chave) : so('exec', l.chave))) });
-    notaCada.textContent = noGrafico.length ? `${plural(noGrafico.length, por === 'exec' ? 'pessoa' : 'frota', por === 'exec' ? 'pessoas' : 'frotas')} com OS para fechar no começo` + (rola ? ' · role para o lado' : '') : '';
-    tabelaNums(tCada, { id: 'av-' + por, linhas, totalRot: 'Tinha no começo', padrao: { k: '_tot', dir: 'desc' },
+    notaCada.textContent = noGrafico.length ? `${plural(noGrafico.length, por === 'exec' ? 'pessoa' : 'frota', por === 'exec' ? 'pessoas' : 'frotas')} com backlog no início do período` + (rola ? ' · role para o lado' : '') : '';
+    tabelaNums(tCada, { id: 'av-' + por, linhas, totalRot: 'Backlog inicial', padrao: { k: '_tot', dir: 'desc' },
       nome: { rot: por === 'exec' ? 'Executante' : 'Frota', ver: (l) => [l.nome, por === 'frota' ? eqDe.get(l.chave) || '' : grupoDe[l.chave] ? 'ninguém da equipe na STL' : l.aponta ? '' : foraTxt(l.nome)] },
       partes: [{ k: 'tinha' }],
-      cols: [{ k: 'fechou', rot: 'Fechou' }, { k: 'pct', rot: '% fechado', val: (l) => (l.pct === null ? -1 : l.pct), fmt: (v) => (v < 0 ? '—' : pc.format(v)) },
-        { k: 'ainda', rot: 'Ainda para fechar' }, { k: 'entrou', rot: 'Entraram' }, { k: 'fim', rot: noAtual ? 'Para fechar hoje' : 'Ficaram para fechar' }],
-      vazioTxt: 'Nada para fechar neste período com estes filtros.',
+      cols: [{ k: 'fechou', rot: 'Baixadas' }, { k: 'pct', rot: '% baixado', val: (l) => (l.pct === null ? -1 : l.pct), fmt: (v) => (v < 0 ? '—' : pc.format(v)) },
+        { k: 'ainda', rot: 'Remanescentes' }, { k: 'entrou', rot: 'Abertas no período' }, { k: 'fim', rot: noAtual ? 'Backlog atual' : 'Backlog final' }],
+      vazioTxt: 'Sem backlog neste período com estes filtros.',
       aoClicar: (l) => aplicar(() => (por === 'frota' ? so('frota', l.chave) : so('exec', grupoDe[l.chave] || l.chave))) });
     carteira(lista, itens, itens, { chave: 'av', semSegm: true,
-      titulo: { fechou: 'As que fecharam', ainda: 'As que ainda estão para fechar', entrou: 'As que entraram' }[qual] + ' · ' + sel.rot,
-      nota: { fechou: `Das que estavam para fechar no começo, as finalizadas até ${dm(x.ateReal)}`, ainda: `Das que estavam para fechar no começo, as que não fecharam até ${dm(x.ateReal)}`,
-        entrou: 'Abertas no Protheus dentro do período, já fechadas ou não' }[qual] });
+      titulo: { fechou: 'OS baixadas do backlog inicial', ainda: 'OS remanescentes do backlog inicial', entrou: 'OS abertas no período' }[qual] + ' · ' + sel.rot,
+      nota: { fechou: `Do backlog inicial, as finalizadas no Protheus até ${dm(x.ateReal)}`, ainda: `Do backlog inicial, as não finalizadas até ${dm(x.ateReal)}`,
+        entrou: 'Abertas no Protheus dentro do período, baixadas ou não' }[qual] });
     lista.querySelector('.cab .acoes').prepend(el('div', { class: 'ctl' }, el('div', { class: 'seg', role: 'group', 'aria-label': 'Quais OS' }, ...LISTAS_AV.map(([kk, rot]) =>
       el('button', { type: 'button', 'aria-pressed': String(qual === kk), text: `${rot} · ${nf.format(conta[kk])}`, on: { click: () => { av.lista = kk; zerarPaginas(); desenhar(); } } })))));
   }
