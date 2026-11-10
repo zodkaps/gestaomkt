@@ -5,6 +5,8 @@
    azul liberada, âmbar aguardando liberação, verde finalizada, roxo programada, laranja não programada, cinza
    o resto. Os pares que ficam encostados foram medidos para daltonismo, no claro e no escuro. */
 :host {
+  /* o backlog no padrão do PCM: baixadas em azul, pendentes em laranja (medidos para daltonismo) */
+  --bk-baixada: #4472c4; --bk-pendente: #d4661a;
   display: block; color: var(--texto); font-size: 14px; line-height: 1.45;
   --marca-texto: #ffffff;
   --liberada: #2a78d6; --pendente: #eda100; --finalizada: #1baf7a; --fech-depois: #9ad8bd; --prog: #7b61d9; --nprog: #eb6834; --ctx: #c4c9d2; --alerta: #d03b3b;
@@ -15,6 +17,7 @@
   --mono: ui-monospace, "Cascadia Mono", "SF Mono", Menlo, Consolas, monospace;
 }
 :host([data-tema="escuro"]) {
+  --bk-baixada: #4f7fd6; --bk-pendente: #d26d22;
   color-scheme: dark;
   --marca-texto: #0e1117;
   --liberada: #3987e5; --pendente: #c98500; --finalizada: #0fb885; --fech-depois: #2f7a5f; --prog: #7d6ae6; --nprog: #d95926; --ctx: #4a4f5a; --alerta: #e5534b;
@@ -492,7 +495,7 @@ select { color-scheme: inherit; }
 .pg-nav { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 12px 0 10px; }
 .pg-nav .botao.mini { min-width: 32px; justify-content: center; font-size: 15px; }
 .pg-rot { font-size: 17px; letter-spacing: -.01em; min-width: 12rem; text-align: center; }
-.pg-kpis { grid-template-columns: repeat(5, minmax(0, 1fr)); }
+.pg-kpis { grid-template-columns: repeat(4, minmax(0, 1fr)); }
 @media (max-width: 900px) { .pg-kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 .pg-kpis button.kpi { cursor: pointer; }
 /* os controles do gráfico por frota, no canto do cartão */
@@ -576,3 +579,13 @@ li.erro .imp-nome small { color: var(--alerta-t); }
 .resumo-acoes { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
 .resumo-txt { margin: 0; padding: 12px 14px; border-radius: 10px; background: var(--papel2); font-family: inherit; font-size: 13px; line-height: 1.5; white-space: pre-wrap; overflow-wrap: anywhere; max-height: 15rem; overflow: auto; }
 .resumo-img { width: 100%; height: auto; border-radius: 10px; border: 1px solid var(--linha); }
+
+/* ── a semana da Programação (10/11/2026): o avanço numa barra só e a lista logo abaixo ── */
+.pg-avanco { display: grid; gap: 8px; padding-top: 4px; }
+.pg-avanco-tit { margin: 0; font-size: 14px; }
+.pg-avanco-barra { display: flex; gap: 2px; height: 32px; border-radius: 8px; overflow: hidden; background: var(--papel2); }
+.pg-parte { border: 0; padding: 0; min-width: 4px; font: inherit; font-size: 13px; font-weight: 800; cursor: pointer; font-variant-numeric: tabular-nums; }
+.pg-parte:hover { filter: brightness(1.08); }
+.pg-parte:focus-visible { outline: 2px solid var(--texto); outline-offset: -2px; }
+.pg-avanco .legenda b { color: var(--texto); }
+#pg-lista { scroll-margin-top: calc(var(--topo, 0px) + 150px); }

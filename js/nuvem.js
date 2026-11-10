@@ -449,6 +449,21 @@ export async function veOs() {
   }
 }
 
+/** Este acesso também ATUALIZA o painel de OS (grava no bucket)? Ver não basta
+ *  (sql/06_painel_os_so_ver.sql): quem só vê não tem o botão, e o banco recusa
+ *  a gravação de qualquer jeito. Sem a migração 06 (a função não existe), vale o
+ *  ve_os(), como antes; sem rede, `false` — atualizar pede rede. */
+export async function atualizaOs() {
+  if (!autenticado()) return false;
+  try {
+    const r = await chamar("rpc/atualiza_os", { method: "POST", headers: cabecalhos(), body: "{}", semErro404: true });
+    if (r === null) return (await veOs()) === true;
+    return (await r.json()) === true;
+  } catch (e) {
+    return false;
+  }
+}
+
 /** Um arquivo do bucket, como Blob; `null` se não existe (ou não é seu). */
 export async function baixarArquivo(bucket, caminho) {
   const r = await chamar(`object/authenticated/${bucket}/${caminho}`,

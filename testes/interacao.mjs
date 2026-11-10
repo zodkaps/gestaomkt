@@ -2422,6 +2422,22 @@ ok("e o Diagnóstico não manda rodar SQL por causa de sessão",
   await mt.waitForTimeout(1500);
   ok("reabrir pelo endereço: a aba Executantes com a pessoa da STL", (await mt.innerText("#executantes")).includes("Fulano de Teste"));
   ok("dentro do site: o topo e o menu do site continuam à vista", await mt.isVisible("#topo") && (await mt.textContent("#topo .titulo")) === "OS Makro");
+  ok("quem atualiza (o Mateus) tem o Atualizar com o Protheus", await mt.isVisible("#os-atualizar"));
+  // ver não é atualizar (10/11/2026): a Mayra tem a marca de ver, não a de atualizar
+  {
+    const ctxM = await nav.newContext({ viewport: { width: 1280, height: 860 } });
+    const my = await ctxM.newPage();
+    await my.goto(site.endereco, { waitUntil: "networkidle" });
+    await entrarComo(my, "Mayra");
+    await my.waitForTimeout(800);
+    await my.goto(site.endereco + "#/os", { waitUntil: "networkidle" });
+    await my.waitForSelector("#kpis .kpi", { timeout: 15000 }).catch(() => {});
+    ok("quem só vê (a Mayra) abre o painel com os mesmos dados", (await my.$$("#kpis .kpi")).length > 0 && (await my.textContent("#sub")).includes("STJ e STL"));
+    ok("e não tem o Atualizar com o Protheus", await my.isHidden("#os-atualizar"));
+    const gravou = await my.evaluate(async () => { try { await mkt.nuvem.subirArquivo("painel-os", "atual.json.gz", new Blob(["x"], { type: "application/gzip" })); return "gravou"; } catch (e) { return "recusou"; } });
+    ok("e o banco recusa a gravação dela, mesmo por fora do botão", gravou === "recusou", gravou);
+    await ctxM.close();
+  }
   // os indicadores (09/11/2026): base 05/11, 12 semanas — entraram 3 (01/10, 20/10, 25/10), fechou 1 (03/11), 2 abertas
   await mt.click("#aba-indicadores");
   await mt.waitForTimeout(400);
@@ -2463,11 +2479,20 @@ ok("e o Diagnóstico não manda rodar SQL por causa de sessão",
   await mt.click('#programacao .seg button:has-text("Mês")');
   await mt.waitForTimeout(300);
   const kFin = await mt.$eval("#programacao .pg-kpis .kpi:last-child", (k) => [k.querySelector(".rot").textContent, k.querySelector(".val").textContent, k.querySelector(".pe").textContent]);
-  ok("Programação: as finalizadas no mês, da programação e de fora", kFin[0] === "Finalizadas no período" && kFin[1] === "1" && kFin[2].startsWith("0 da programação · 1 de fora"), kFin.join(" | "));
+  ok("Programação: todas as fechadas no mês, das programadas para ele e de fora", kFin[0] === "Todas as fechadas no período" && kFin[1] === "1" && kFin[2].startsWith("0 programadas para ele · 1 de fora"), kFin.join(" | "));
+  await mt.click("#programacao .pg-kpis .kpi:last-child");
+  await mt.waitForTimeout(500);
+  const listaFin = await mt.innerText("#pg-lista");
+  ok("e o clique mostra quais, na lista logo abaixo, sem ligar filtro na barra", listaFin.includes("100003") && (await mt.innerText("#chips")).trim() === "", listaFin.slice(0, 120));
   await mt.click('#programacao button[aria-label="Período anterior"]');
   await mt.waitForTimeout(300);
   const kOut = await mt.$$eval("#programacao .pg-kpis .kpi .val", (v) => v.map((x) => x.textContent));
-  ok("e em outubro: as programadas (a 100003 fechou depois, em novembro) e nenhuma finalizada no mês", kOut[2] === "1" && kOut[4] === "0" && Number(kOut[0]) >= 3, kOut.join(" | "));
+  ok("e em outubro: as programadas (a 100003 fechou depois, em novembro) e nenhuma fechada no mês", kOut[1] === "1" && kOut[3] === "0" && Number(kOut[0]) >= 3, kOut.join(" | "));
+  await mt.click("#programacao .pg-kpis .kpi >> nth=0");
+  await mt.waitForTimeout(500);
+  const listaOut = await mt.innerText("#pg-lista");
+  ok("Programadas: a lista traz quais são (a 100001 e a 100002, programadas para outubro)", listaOut.includes("100001") && listaOut.includes("100002"), listaOut.slice(0, 160));
+  ok("e o avanço das programadas numa barra só", await mt.isVisible("#programacao .pg-avanco-barra"));
   // o avanço: na semana 45 (02 a 08/11, dados de 05/11) tinha 3 para fechar no começo, fechou 1, ficou com 2
   await mt.click("#aba-avanco");
   await mt.waitForSelector(".av-kpis", { timeout: 10000 });
@@ -2500,7 +2525,7 @@ ok("e o Diagnóstico não manda rodar SQL por causa de sessão",
   ok("o dia depois do export não se escolhe", await mt.evaluate(() => { const s = document.querySelector(".os-host").shadowRoot; s.querySelector("#f-periodo").click(); const b = s.querySelector('#pop .cal-dia[data-dia="2026-11-06"]'); return !!b && b.disabled; }));
   await mt.keyboard.press("Escape");
   // as frotas em colunas: uma por frota, a das abertas empilhada por liberação; clicar abre a frota
-  ok("o gráfico por frota: um par de colunas para cada frota com OS", (await mt.$$("#g-frotas svg .col")).length === 2);
+  ok("o backlog por frota (padrão do PCM): uma barra deitada para cada frota com OS", (await mt.$$("#g-frotas svg .col")).length === 2);
   await mt.click("#g-frotas svg .col >> nth=1");
   await mt.waitForTimeout(400);
   ok("clicar numa frota do gráfico abre a ficha dela", mt.url().endsWith("#/os?aba=frotas") && (await mt.innerText("#chips")).includes("F-617"), mt.url());
@@ -2527,7 +2552,7 @@ ok("e o Diagnóstico não manda rodar SQL por causa de sessão",
   await mt.click("#c-frotas .baixar");
   const [dNum] = await Promise.all([mt.waitForEvent("download", { timeout: 8000 }), mt.click('#c-frotas .menu-env button:has-text("Baixar os números")')]);
   const tNum = await readFile(await dNum.path(), "utf8");
-  ok("e os números do gráfico saem em planilha: as frotas e as colunas", tNum.includes("Frota;Abertas: liberadas;Abertas: aguardando liberação;Fechadas no período") && tNum.includes("F-617"), tNum.slice(0, 240));
+  ok("e os números do gráfico saem em planilha: as frotas e as colunas", tNum.includes("Frota;Baixadas (fechadas no período);Pendentes (abertas);Total") && tNum.includes("F-617"), tNum.slice(0, 240));
   await mt.click("#c-frotas .baixar");
   await mt.keyboard.press("Escape");
   ok("o Esc fecha o menu do Enviar", await mt.isHidden("#c-frotas .menu-env"));

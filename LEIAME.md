@@ -321,6 +321,32 @@ e preventivas, e **só ele ter acesso**.
   gráfico. No alto, **Resumo do dia**: o texto pronto para o grupo (com o
   *negrito* do WhatsApp) — a carteira, o dia do export e a semana — e a
   mesma coisa em imagem. Nada sai do aparelho sem a pessoa clicar.
+- **Backlog no padrão do PCM** (10/11/2026, o painel de backlog de um colega
+  da empresa): por frota (Visão geral e Frotas) e por executante, uma barra
+  deitada e grossa por linha — **Baixadas** (fechadas no período, em azul) e
+  **Pendentes** (abertas hoje, em laranja), o número dentro de cada parte e o
+  total no fim. As primeiras da ordem (10 na Visão geral) e o resto em
+  *Mostrar todas*. A imagem do Enviar traz a data de atualização no alto, à
+  direita, como no painel dele. O que é tempo (semanas, dias) segue em
+  colunas. A situação P do Protheus aparece como **Não liberada** (como a aba),
+  para "pendente" não querer dizer duas coisas.
+- **A semana na Programação** (10/11/2026): quatro números — *Programadas*,
+  *Fechadas* (das programadas), *Abertas* (liberadas × aguardando liberação) e
+  *Todas as fechadas no período* —, o avanço numa barra só e, logo abaixo, a
+  lista das OS com os botões dela: programadas, fechadas, abertas, liberadas,
+  aguardando liberação, sem executante e todas as fechadas no período. Clicar
+  num número ou num pedaço da barra abre a lista certa e não liga filtro
+  nenhum na barra. Quando nenhuma fechou, a nota lembra que só conta como
+  fechada a OS finalizada no Protheus — e diz quantas das abertas aguardam
+  liberação e quantas estão sem executante. *Programadas nesta semana* (Visão
+  geral) e as colunas do cartão *Programadas e finalizadas* abrem direto essa
+  lista. *Todas / Com executante / Sem executante* (Programação e Avanço) vale
+  só na aba: antes ligava o filtro Executante da barra, e os números das
+  outras abas mudavam sem a pessoa perceber.
+- **Ver não é atualizar** (10/11/2026, `sql/06_painel_os_so_ver.sql`): a marca
+  `os_makro` deixa ver o painel; para atualizar (o *Atualizar com o
+  Protheus*, que grava no bucket), também `os_makro_atualiza`. Quem só vê não
+  tem o botão, e o banco recusa a gravação de qualquer jeito.
 
 **As telas da oficina saíram do menu, mas nada foi apagado.** Painel, Hoje,
 Programação, Semana, Resultados e Frota continuam no código, e os lançamentos

@@ -175,10 +175,15 @@ createServer(async (req, res) => {
   const eu = falha === "sem_pessoa" ? null : PESSOAS.find(p => p.email === email);
 
   // ── o painel de OS: a pergunta e o bucket privado ──
-  const veOs = !!(eu && eu.os_makro);
+  const veOs = !!(eu && eu.os_makro), atualizaOs = veOs && !!eu.os_makro_atualiza;
   if (u.pathname === "/rest/v1/rpc/ve_os") {
     if (falha === "tabela") return json(res, 404, { code: "PGRST202", message: "Could not find the function public.ve_os" });
     return json(res, 200, veOs);
+  }
+  // ver não é atualizar (06): gravar, trocar e apagar pedem a segunda marca
+  if (u.pathname === "/rest/v1/rpc/atualiza_os") {
+    if (falha === "tabela") return json(res, 404, { code: "PGRST202", message: "Could not find the function public.atualiza_os" });
+    return json(res, 200, atualizaOs);
   }
   if (u.pathname.startsWith("/storage/v1/object/")) {
     const nega = (cod) => json(res, cod === 404 ? 400 : 403, cod === 404 ? { statusCode: "404", error: "not_found", message: "Object not found" }
@@ -206,7 +211,7 @@ createServer(async (req, res) => {
     if (req.method === "POST" || req.method === "PUT") {
       const k = u.pathname.replace("/storage/v1/object/", "");
       const dados = await bruto(req);
-      if (!veOs) return nega(403);
+      if (!atualizaOs) return nega(403);
       if (!k.startsWith("painel-os/")) return json(res, 400, { statusCode: "404", error: "Bucket not found", message: "Bucket not found" });
       if ((req.headers["content-type"] || "") !== "application/gzip") return json(res, 415, { statusCode: "415", error: "invalid_mime_type", message: "mime type not supported" });
       if (arquivos.has(k) && req.headers["x-upsert"] !== "true") return json(res, 400, { statusCode: "409", error: "Duplicate", message: "The resource already exists" });
@@ -223,7 +228,7 @@ createServer(async (req, res) => {
     if (falha === "permissao") {
       return json(res, 403, { code: "42501", message: "permission denied for table pessoas" });
     }
-    return json(res, 200, eu ? PESSOAS.map(({ os_makro, ...p }) => p) : []);
+    return json(res, 200, eu ? PESSOAS.map(({ os_makro, os_makro_atualiza, ...p }) => p) : []);
   }
 
   if (u.pathname.startsWith("/rest/v1/eventos")) {

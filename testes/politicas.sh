@@ -94,6 +94,9 @@ insert into public.pessoas (email, nome, papel) values ('lucas@makroteste.com.br
 SQL
 for vez in 1 2; do psql -h "$D/sock" -U postgres -q -v ON_ERROR_STOP=1 -f "$AQUI/sql/04_painel_os.sql" 2>&1 | grep -v NOTICE || true; done
 psql -h "$D/sock" -U postgres -q -v ON_ERROR_STOP=1 -c "update public.pessoas set os_makro = true where nome = 'Mateus'"
+# ver não é atualizar (06): o Mateus atualiza; o Lucas passa a só ver
+for vez in 1 2; do psql -h "$D/sock" -U postgres -q -v ON_ERROR_STOP=1 -f "$AQUI/sql/06_painel_os_so_ver.sql" 2>&1 | grep -v NOTICE || true; done
+psql -h "$D/sock" -U postgres -q -v ON_ERROR_STOP=1 -c "update public.pessoas set os_makro = true where nome = 'Lucas'"
 os=$(psql -h "$D/sock" -U postgres -q 2>&1 <<'SQL'
 \set ON_ERROR_STOP off
 begin; set local role authenticated; set local request.jwt.claims = '{"email":"mateus@makroteste.com.br"}';
@@ -101,28 +104,36 @@ begin; set local role authenticated; set local request.jwt.claims = '{"email":"m
   select '   → os: Mateus gravou'; commit;
 begin; set local role authenticated; set local request.jwt.claims = '{"email":"mateus@makroteste.com.br"}';
   select '   → os: Mateus viu ' || count(*) from storage.objects where bucket_id = 'painel-os';
-  select '   → os: Mateus ve_os ' || public.ve_os(); commit;
+  select '   → os: Mateus ve_os ' || public.ve_os();
+  select '   → os: Mateus atualiza_os ' || public.atualiza_os(); commit;
 begin; set local role authenticated; set local request.jwt.claims = '{"email":"lucas@makroteste.com.br"}';
   select '   → os: Lucas viu ' || count(*) from storage.objects where bucket_id = 'painel-os';
-  select '   → os: Lucas ve_os ' || public.ve_os(); commit;
+  select '   → os: Lucas ve_os ' || public.ve_os();
+  select '   → os: Lucas atualiza_os ' || public.atualiza_os();
+  with t as (update storage.objects set name = 'trocado.json.gz' where bucket_id = 'painel-os' returning 1) select '   → os: Lucas trocou ' || count(*) from t;
+  with a as (delete from storage.objects where bucket_id = 'painel-os' returning 1) select '   → os: Lucas apagou ' || count(*) from a; commit;
+begin; set local role authenticated; set local request.jwt.claims = '{"email":"pedro@makroteste.com.br"}';
+  select '   → os: Pedro viu ' || count(*) from storage.objects where bucket_id = 'painel-os'; commit;
 begin; set local role authenticated; set local request.jwt.claims = '{"email":"lucas@makroteste.com.br"}';
   insert into storage.objects (bucket_id, name) values ('painel-os', 'lucas.json.gz'); rollback;
 begin; set local role authenticated; set local request.jwt.claims = '{"email":"pedro@makroteste.com.br"}';
   insert into storage.objects (bucket_id, name) values ('painel-os', 'pedro.json.gz'); rollback;
 begin; set local role authenticated; set local request.jwt.claims = '{"email":"lucas@makroteste.com.br"}';
-  update public.pessoas set os_makro = true where nome = 'Lucas'; rollback;
+  update public.pessoas set os_makro_atualiza = true where nome = 'Lucas'; rollback;
 begin; set local role anon;
   select count(*) from storage.objects; rollback;
 begin; set local role anon;
   select public.ve_os(); rollback;
+begin; set local role anon;
+  select public.atualiza_os(); rollback;
 select '   → os: bucket público? ' || public from storage.buckets where id = 'painel-os';
 SQL
 )
 echo "$os" | grep -E "→ os:|ERROR" | sed -E 's/^(psql:.*)?ERROR:/   ✓ recusado:/'
-os_ok=$(echo "$os" | grep -cE "Mateus gravou|Mateus viu 1|Mateus ve_os true|Lucas viu 0|Lucas ve_os false|público\? false" || true)
+os_ok=$(echo "$os" | grep -cE "Mateus gravou|Mateus viu 1|Mateus ve_os true|Mateus atualiza_os true|Lucas viu 1|Lucas ve_os true|Lucas atualiza_os false|Lucas trocou 0|Lucas apagou 0|Pedro viu 0|público\? false" || true)
 os_rec=$(echo "$os" | grep -c "ERROR" || true)
-echo "   $os_ok de 6 conferências do painel de OS · $os_rec de 5 proibidas recusadas"
-[ "$os_ok" = "6" ] && [ "$os_rec" = "5" ] || { echo "FALHOU: o painel de OS não está fechado como devia"; exit 1; }
+echo "   $os_ok de 11 conferências do painel de OS · $os_rec de 6 proibidas recusadas"
+[ "$os_ok" = "11" ] && [ "$os_rec" = "6" ] || { echo "FALHOU: o painel de OS não está fechado como devia"; exit 1; }
 
 passou=$(echo "$saida" | grep -c "→ passou" || true)
 recusado=$(( $(echo "$saida" | grep -c "ERROR" || true) + $(echo "$fora_de_ordem" | grep -c "ERROR" || true) ))

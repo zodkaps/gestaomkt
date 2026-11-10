@@ -61,10 +61,12 @@ export function servirCopia({ nuvem, porta = 8125, pasta = "/tmp/mkt-copia-teste
  *  verdade recusa domínio de teste (`.local`, `.test`…) — e o de mentira agora
  *  recusa igual. Nunca saem desta máquina. */
 export const EQUIPE_TESTE = [
-  { email: "mateus@makroteste.com.br", nome: "Mateus", papel: "pcm", os_makro: true },
+  { email: "mateus@makroteste.com.br", nome: "Mateus", papel: "pcm", os_makro: true, os_makro_atualiza: true },
   { email: "lucas@makroteste.com.br", nome: "Lucas", papel: "pcm" },
   { email: "pedro@makroteste.com.br", nome: "Pedro", papel: "operacao" },
   { email: "joao.victor@makroteste.com.br", nome: "João Victor", papel: "operacao" },
+  // vê o painel de OS, mas não atualiza (sql/06_painel_os_so_ver.sql)
+  { email: "mayra@makroteste.com.br", nome: "Mayra", papel: "pcm", os_makro: true },
 ];
 export const emailDoTeste = nome => (EQUIPE_TESTE.find(p => p.nome === nome) || {}).email;
 

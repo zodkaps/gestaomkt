@@ -58,8 +58,10 @@ botão Editar do site — conferindo antes que ninguém mexeu nelas.
 
 A STJ e a STL do Protheus viram o painel **no site**: o Mateus solta os
 arquivos em *Atualizar com o Protheus* e o site grava no bucket privado
-`painel-os` (só quem tem `os_makro = true` em `pessoas` lê ou grava —
-`sql/04_painel_os.sql`). Regras:
+`painel-os`: só quem tem `os_makro = true` em `pessoas` lê, e só quem tem
+também `os_makro_atualiza = true` grava (`sql/04_painel_os.sql` e
+`sql/06_painel_os_so_ver.sql`). Liberar alguém para **ver** é só a primeira
+marca. Regras:
 
 - **Dado do Protheus nunca entra no repositório** (é público): nem export, nem
   JSON montado, nem nome de executante no código. Teste usa dado inventado.

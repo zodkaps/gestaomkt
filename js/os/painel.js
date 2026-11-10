@@ -723,6 +723,61 @@ export function iniciarPainel(D, { baixar, raiz = document, aba = '', aoTrocarAb
       on: { click: () => { V.tudo[chave] = !V.tudo[chave]; desenhar(); } } }));
   }
 
+  // ── o backlog no padrão do PCM (10/11/2026, o painel do colega): uma barra deitada e grossa por frota ou
+  // pessoa, com as baixadas (fechadas no período) e as pendentes (abertas hoje) na mesma barra, o número
+  // dentro de cada parte e o total no fim. As primeiras da ordem; o resto no "Mostrar todas". ──
+  const BK = [{ k: 'baix', nome: 'Baixadas (fechadas no período)', cor: 'var(--bk-baixada)' }, { k: 'pend', nome: 'Pendentes (abertas)', cor: 'var(--bk-pendente)' }];
+  const itensBK = () => BK.map((q) => el('span', {}, el('i', { style: 'background:' + q.cor }), q.nome));
+  /** A barra deitada: a ponta (à direita) com 4px redondos; a base reta, no eixo. */
+  function barraH(g, x, y, w, h, cor, ponta = true) {
+    const r = ponta ? Math.max(0, Math.min(4, h / 2, w)) : 0;
+    const d = r ? `M${x},${y}H${x + w - r}A${r},${r} 0 0 1 ${x + w},${y + r}V${y + h - r}A${r},${r} 0 0 1 ${x + w - r},${y + h}H${x}Z` : `M${x},${y}H${x + w}V${y + h}H${x}Z`;
+    return g.append('path').attr('d', d).style('fill', cor);
+  }
+  function barrasBacklog(caixa, { linhas: todas, titulo, limite = 10, chave = '', quem = ['frota', 'frotas'], aoClicar = null, dica = null, sub = () => '' }) {
+    const tot = (l) => (l.baix || 0) + (l.pend || 0);
+    if (!todas.length || !todas.some(tot)) { vazio(caixa, 'Nada com estes filtros.'); botaoTodas(caixa); return false; }
+    const corta = !!limite && todas.length > limite + 2 && !V.tudo[chave];
+    const linhas = corta ? todas.slice(0, limite) : todas;
+    const W = Math.max(caixa.clientWidth || 640, 300), LIN = 40, barH = 24, topo = 4;
+    const yFim = topo + linhas.length * LIN, H = yFim + 26;
+    const svg = d3.create('svg').attr('width', W).attr('height', H).attr('viewBox', `0 0 ${W} ${H}`).attr('role', 'img').attr('aria-label', titulo);
+    caixa.replaceChildren(svg.node());
+    guardarDados(caixa, { titulo, cab: [maiusc(quem[0]), ...BK.map((q) => q.nome), 'Total'], linhas: todas.map((l) => [l.nome || l.rot, l.baix || 0, l.pend || 0, tot(l)]) });
+    const medF = medidor(svg, 12.5), medS = medidor(svg, 10.5), medN = medidor(svg, 12);
+    const cabe = (x, m, max) => { if (!x || m.w(x) <= max) return x; let y = x; while (y.length > 2 && m.w(y + '…') > max) y = y.slice(0, -1); return y + '…'; };
+    const xNome = Math.round(Math.min(W * 0.32, Math.max(64, d3.max(linhas, (l) => Math.max(medF.w(l.rot), Math.min(medS.w(sub(l) || ''), 140))) + 14)));
+    const xFim = W - 46;   // o lugar do total
+    const sx = d3.scaleLinear([0, d3.max(linhas, tot) || 1], [xNome, xFim]).nice();
+    for (const v of sx.ticks(Math.max(2, Math.min(8, Math.floor((xFim - xNome) / 80))))) {
+      const xv = Math.round(sx(v)) + 0.5;
+      svg.append('line').attr('x1', xv).attr('x2', xv).attr('y1', topo).attr('y2', yFim).style('stroke', v ? 'var(--linha)' : 'var(--borda)');
+      txt(svg, sx(v), yFim + 14, nf.format(v), { anchor: 'middle', cor: 'var(--muito-fraco)', tam: 10 });
+    }
+    linhas.forEach((l, i) => {
+      const cy = topo + i * LIN + LIN / 2, s2 = sub(l);
+      const g = svg.append('g').attr('class', 'col' + (aoClicar ? ' clica' : ''));
+      g.append('rect').attr('x', 0).attr('y', cy - LIN / 2 + 1).attr('width', W).attr('height', LIN - 2).attr('rx', 6).style('fill', 'transparent');
+      txt(g, 0, s2 ? cy - 7 : cy, cabe(l.rot, medF, xNome - 10), { cor: 'var(--texto)', peso: 700, tam: 12.5 });
+      if (s2) txt(g, 0, cy + 8, cabe(s2, medS, xNome - 10), { cor: 'var(--muito-fraco)', tam: 10.5 });
+      const vis = BK.filter((q) => l[q.k]);
+      let x = sx(0);
+      vis.forEach((q, j) => {
+        const w = sx(l[q.k]) - sx(0), wd = Math.max(2, w - (j < vis.length - 1 ? 2 : 0));
+        barraH(g, x, cy - barH / 2, wd, barH, q.cor, j === vis.length - 1);
+        const n = nf.format(l[q.k]);
+        if (medN.w(n) + 10 <= wd) txt(g, x + wd / 2, cy, n, { anchor: 'middle', cor: '#ffffff', peso: 800, tam: 12 }).style('pointer-events', 'none');
+        x += w;
+      });
+      txt(g, x + 6, cy, nf.format(tot(l)), { cor: 'var(--fraco)', peso: 700, tam: 12 });
+      g.on('mousemove', (ev) => mostrarDica(ev, l.nome || l.rot, dica ? dica(l) : [...BK.map((q) => [q.nome, nf.format(l[q.k] || 0), q.cor]), ['Total', nf.format(tot(l))]]))
+        .on('mouseleave', esconderDica).on('click', () => aoClicar && aoClicar(l));
+    });
+    medF.fim(); medS.fim(); medN.fim();
+    botaoTodas(caixa, { n: todas.length, nVis: limite, chave, quem, corta });
+    return false;
+  }
+
   /** Duas colunas por linha, lado a lado, cada uma empilhada de baixo para cima com o total em cima. Por
    *  padrão, a das frotas: as abertas (liberadas embaixo, aguardando liberação em cima) e as fechadas no
    *  período. `esq`/`dir`: as partes de cada coluna ({ k, cor }); `rotulo`: o nome embaixo e a linha fraca.
@@ -815,12 +870,11 @@ export function iniciarPainel(D, { baixar, raiz = document, aba = '', aoTrocarAb
     for (const o of R.base) { const x = de(o.frota); x[o.sit]++; if (o.sit !== 'F') { if (o.faixa === 3) x.v90++; if (o.grupo === 'S') x.sem++; } }
     return [...m.values()];
   }
-  const ORD_FROTA = { ab: ['Abertas', (a, b) => b.A + b.P - a.A - a.P || b.F - a.F], fe: ['Fechadas', (a, b) => b.F - a.F || b.A + b.P - a.A - a.P],
+  const ORD_FROTA = { ab: ['Pendentes', (a, b) => b.A + b.P - a.A - a.P || b.F - a.F], fe: ['Baixadas', (a, b) => b.F - a.F || b.A + b.P - a.A - a.P],
     tot: ['Total', (a, b) => b.A + b.P + b.F - a.A - a.P - a.F], frota: ['Frota', () => 0] };
   const ordenaFrotas = (l) => [...l].sort((a, b) => ORD_FROTA[V.frotaOrd][1](a, b) || a.frota.localeCompare(b.frota, 'pt', { numeric: true }));
   const dicaFrota = (R) => (l) => [['Abertas', nf.format(l.A + l.P), COR.A], ['· liberadas para execução', nf.format(l.A)], ['· aguardando liberação', nf.format(l.P)],
     ['Fechadas no período', nf.format(l.F), COR.F], ['Abertas há mais de 90 dias', nf.format(l.v90)], ['Abertas sem executante', nf.format(l.sem)]];
-  const LEG_FROTA = [['Abertas: liberadas para execução', COR.A], ['Abertas: aguardando liberação', COR.P], ['Fechadas no período', COR.F]];
   /** Os controles do gráfico por frota: a ordem. */
   function controlesFrota(alvo) {
     const seg = el('div', { class: 'seg', role: 'group', 'aria-label': 'Ordenar as frotas por' }, ...Object.entries(ORD_FROTA).map(([k, [rot]]) =>
@@ -856,7 +910,7 @@ export function iniciarPainel(D, { baixar, raiz = document, aba = '', aoTrocarAb
     if (!l.length) caixa.append(el('div', { class: 'vazio', text: 'Nenhuma OS com estes filtros.' }));
     return l;
   }
-  const badge = (o) => el('span', { class: 'badge b-' + o.sit, text: o.sit === 'F' ? 'Finalizada' : o.sit === 'P' ? 'Pendente' : 'Liberada', title: SIT[o.sit] });
+  const badge = (o) => el('span', { class: 'badge b-' + o.sit, text: o.sit === 'F' ? 'Finalizada' : o.sit === 'P' ? 'Não liberada' : 'Liberada', title: SIT[o.sit] });
   const categoria = (o) => el('span', { class: 'cat c-' + o.classe, title: CLASSE[o.classe], text: o.cat });
   const diasDe = (o) => (o.dias == null ? '—' : o.sit === 'F' ? `levou ${nf.format(o.dias)} d` : `${nf.format(o.dias)} d`);
 
@@ -900,9 +954,19 @@ export function iniciarPainel(D, { baixar, raiz = document, aba = '', aoTrocarAb
   let colunasAbertas = false;
 
   // os botões de situação no alto da carteira mexem no mesmo filtro da barra
-  const SITS = [['todas', 'Todas'], ['abrir', 'Para fechar'], ['A', 'Liberadas'], ['P', 'Pendentes de liberação'], ['F', 'Finalizadas']];
-  function carteira(alvo, lista, semSit, { chave, titulo, nota, semFrota = false, semSegm = false }) {
+  const SITS = [['todas', 'Todas'], ['abrir', 'Para fechar'], ['A', 'Liberadas'], ['P', 'Não liberadas'], ['F', 'Finalizadas']];
+  function carteira(alvo, lista, semSit, { chave, titulo, nota, semFrota = false, semSegm = false, grupos = null }) {
     const est = V.cart[chave] || (V.cart[chave] = { lim: 100 });
+    // `grupos` (a Programação): os botões são desta lista — escolher um não mexe na Situação da barra
+    let segG = null;
+    if (grupos) {
+      const g = grupos.find((x) => x.k === est.g) || grupos[0];
+      est.g = g.k;
+      lista = semSit.filter(g.casa);
+      segG = el('div', { class: 'segm', role: 'group', 'aria-label': 'Quais OS' }, ...grupos.map((x) =>
+        el('button', { type: 'button', 'aria-pressed': String(x === g), on: { click: () => { est.g = x.k; est.lim = 100; desenhar(); } } },
+          x.cor ? el('i', { class: 'ponto', style: 'background:' + x.cor }) : null, x.rot, el('span', { class: 'n', text: nf.format(semSit.filter(x.casa).length) }))));
+    }
     const conta = { todas: semSit.length, abrir: semSit.filter((o) => o.sit !== 'F').length, A: 0, P: 0, F: 0 };
     for (const o of semSit) conta[o.sit]++;
     const ligado = (k) => (k === 'todas' ? !F.sit.size : k === 'abrir' ? F.sit.size === 2 && F.sit.has('A') && F.sit.has('P') : F.sit.has(k));
@@ -931,7 +995,7 @@ export function iniciarPainel(D, { baixar, raiz = document, aba = '', aoTrocarAb
     const pe = el('div', { class: 'tab-pe' });
     alvo.replaceChildren(
       el('div', { class: 'cab' }, el('div', {}, el('h2', { text: titulo }), el('p', { class: 'nota', text: nota })), el('div', { class: 'acoes' }, aviso, baixar, escolha)),
-      ...(semSegm ? [] : [el('div', { class: 'cart-barra' }, segm)]), caixa, pe);
+      ...(semSegm ? [] : [el('div', { class: 'cart-barra' }, segG || segm)]), caixa, pe);
     const cols = COLS.filter((c) => (c.fixa || colunasOn.has(c.k)) && !(semFrota && c.frota));
     const ordenadas = tabela(caixa, { id: 'cart-' + chave, linhas: lista, lim: est.lim, padrao: { k: 'sit', dir: 'asc' }, aoClicar: abrirDetalhe, cols });
     const mais = lista.length - est.lim;
@@ -1059,16 +1123,16 @@ export function iniciarPainel(D, { baixar, raiz = document, aba = '', aoTrocarAb
       kpi('Sem executante', nf.format(sem), ab.length ? `${pc.format(sem / ab.length)} das abertas` : '—', { cls: sem ? 'ruim' : '', cor: COR.alerta, fazer: () => aplicar(() => so('exec', 'g:S'), 'carteira') }),
       kpi('Abertas há mais de 90 dias', nf.format(v90), ab.length ? pc.format(v90 / ab.length) + ' das abertas' : '—', { cls: v90 ? 'ruim' : '', cor: COR.alerta, fazer: () => aplicar(() => so('idade', '3'), 'carteira') }),
       kpi('Programadas nesta semana', nf.format(sem7.n), `${nf.format(sem7.prazo)} já fechadas (${sem7.n ? pc.format(sem7.prazo / sem7.n) : '—'})`,
-        { cor: 'var(--fraco)', fazer: () => { V.pg = { ...V.pg, esc: 'semana', ref: D.base }; irPara('programacao'); } }));
+        { cor: 'var(--fraco)', fazer: () => verProgramadas('semana', D.base) }));
 
     // abertas e fechadas por frota, lado a lado (pedido de 03/11/2026)
     const pf = ordenaFrotas(porFrota(R));
     controlesFrota($('#ctl-frotas'));
-    legenda('#leg-frotas', LEG_FROTA);
-    const rolaF = colunasPar($('#g-frotas'), { linhas: pf, titulo: 'OS abertas e fechadas por frota', dica: dicaFrota(R), limite: 24, chave: 'geral-frotas',
-      aoClicar: (l) => aplicar(() => so('frota', l.chave), 'frotas') });
-    $('#nota-frotas').textContent = `${plural(ab.length, 'aberta', 'abertas')} e ${plural(fe.length, 'fechada', 'fechadas')} (${R.p.rot.toLowerCase()}) em ${plural(pf.length, 'frota', 'frotas')}` +
-      ` · por ${ORD_FROTA[V.frotaOrd][0].toLowerCase()}` + (rolaF ? ' · role para o lado' : '');
+    $('#leg-frotas').replaceChildren(...itensBK());
+    barrasBacklog($('#g-frotas'), { linhas: pf.map((l) => ({ ...l, rot: l.chave, baix: l.F, pend: l.A + l.P })), titulo: 'Backlog por frota', dica: dicaFrota(R),
+      limite: 10, chave: 'geral-frotas', sub: (l) => l.sub, aoClicar: (l) => aplicar(() => so('frota', l.chave), 'frotas') });
+    $('#nota-frotas').textContent = `${plural(ab.length, 'pendente', 'pendentes')} e ${plural(fe.length, 'baixada', 'baixadas')} (${R.p.rot.toLowerCase()}) em ${plural(pf.length, 'frota', 'frotas')}` +
+      ` · por ${ORD_FROTA[V.frotaOrd][0].toLowerCase()}`;
 
     // programadas × finalizadas (10/11/2026): o dia, a semana ou o mês de hoje e os em volta; a coluna abre a Programação
     const esc = V.pfEsc, jan = janelaProg(semSituacao().todas, esc, D.base), agora = jan[N_JANELA[esc] - 3];
@@ -1078,7 +1142,7 @@ export function iniciarPainel(D, { baixar, raiz = document, aba = '', aoTrocarAb
       ` · ${plural(agora.fin, 'finalizada', 'finalizadas')} no total`;
     $('#leg-progfin').replaceChildren(...itensPF());
     grafProgFin($('#g-progfin'), jan, { titulo: 'Programadas e finalizadas', rotulo: (l) => [l.curto, pctDe(l.prazo, l.n)], marcado: (l) => l.chave === agora.chave,
-      aoClicar: (l) => { V.pg = { ...V.pg, esc, ref: l.de }; irPara('programacao'); } });
+      aoClicar: (l) => verProgramadas(esc, l.de) });
 
     // entrada e saída: o número de cada coluna aparece ao passar o mouse; o saldo vai escrito
     $('#nota-fluxo').textContent = `Por ${unid} · ${R.p.rot.toLowerCase()}: entraram ${nf.format(entrou)} e saíram ${nf.format(fe.length)} — ` +
@@ -1233,6 +1297,14 @@ export function iniciarPainel(D, { baixar, raiz = document, aba = '', aoTrocarAb
     el('div', { class: 'cab' }, el('div', {}, el('h2', { text: tit }), el('p', { class: 'nota', text: nota })), el('div', { class: 'acoes' })),
     el('div', { class: 'graf rolar-x', id: id.replace(/^c-/, 'g-') }));
 
+  /** Abre a Programação no período, já na lista das programadas. */
+  function verProgramadas(esc, ref) {
+    V.pg = { ...V.pg, esc, ref };
+    (V.cart.prog || (V.cart.prog = { lim: 100 })).g = 'prog';
+    V.rolar = 'pg-lista';
+    irPara('programacao');
+  }
+
   // ── Programação: as OS programadas para o dia, a semana ou o mês, e quantas fecharam (04/11/2026) ──
   // A data programada é a previsão de início da manutenção na STJ (P. In. Man.), a mesma da mão de obra
   // prevista na STL. Fechada no período: finalizada até o último dia do período programado; fechada
@@ -1280,10 +1352,16 @@ export function iniciarPainel(D, { baixar, raiz = document, aba = '', aoTrocarAb
   const grafProgFin = (caixa, linhas, { titulo, rotulo, marcado = null, aoClicar }) => colunasPar(caixa, { linhas, titulo, H: 290, passoMin: 58, passoMax: 104, bwMax: 26,
     esq: PF_ESQ, dir: PF_DIR, rotulo, marcado, aoClicar, dica: dicaProg, quem: ['período', 'períodos'] });
 
+  // Todas / Com executante / Sem executante: vale só na aba (não liga o filtro Executante da barra)
+  const QUAIS = { todas: ['Todas', () => true], com: ['Com executante', (o) => o.grupo !== 'S'], sem: ['Sem executante', (o) => o.grupo === 'S'] };
+  const daQuais = (est) => (QUAIS[est.quais] || QUAIS.todas)[1];
+  const segQuaisDe = (est) => el('div', { class: 'seg', role: 'group', 'aria-label': 'Quais OS' }, ...Object.entries(QUAIS).map(([kk, [rot]]) =>
+    el('button', { type: 'button', 'aria-pressed': String((est.quais || 'todas') === kk), text: rot, on: { click: () => { est.quais = kk; zerarPaginas(); desenhar(); } } })));
+
   function desenharProg() {
     const raiz = $('#programacao');
     const pg = V.pg;
-    const todas = semSituacao().todas;
+    const todas = semSituacao().todas.filter(daQuais(pg));
     const sel = periodoDe(pg.esc, pg.ref);
     const x = contaProg(todas, sel);
     const passou = sel.ate < D.base, hoje = periodoDe(pg.esc, D.base).chave === sel.chave;
@@ -1300,27 +1378,35 @@ export function iniciarPainel(D, { baixar, raiz = document, aba = '', aoTrocarAb
     const pct = (v) => pctDe(v, x.n);
     const k = (rot, val, pe, cor, cls = '', fazer = null) => el(fazer ? 'button' : 'div', { class: 'kpi', type: fazer ? 'button' : null, on: fazer ? { click: fazer } : {} },
       el('span', { class: 'rot' }, cor ? el('i', { class: 'ponto', style: 'background:' + cor }) : null, rot), el('span', { class: 'val ' + cls, text: val }), el('span', { class: 'pe', text: pe }));
-    const naLista = (...s) => aplicar(() => so('sit', ...s));
+    // as programadas e o que foi delas; os cliques abrem a lista logo abaixo (sem mexer nos filtros da barra)
+    const progs = doPeriodo(todas, sel);
+    const abertas = progs.filter((o) => o.sit !== 'F'), nA = abertas.filter((o) => o.sit === 'A').length, nP = abertas.length - nA;
+    const nSem = abertas.filter((o) => o.grupo === 'S').length, fech = x.prazo + x.depois;
+    const rotAb = passou ? 'Não fechadas' : 'Abertas';
+    const irLista = (g) => { (V.cart.prog || (V.cart.prog = { lim: 100 })).g = g; V.rolar = 'pg-lista'; desenhar(); };
     const kpis = el('div', { class: 'kpis mini pg-kpis' },
-      k('Programadas', nf.format(x.n), sel.rot, 'var(--fraco)', '', () => aplicar(() => F.sit.clear())),
-      k('Fechadas no período', nf.format(x.prazo), `${pct(x.prazo)} das programadas · até ${dm(sel.ate)}`, COR.F, x.n && x.prazo / x.n >= 0.8 ? 'bom' : '', () => naLista('F')),
-      k('Fechadas depois', nf.format(x.depois), `${pct(x.depois)} · finalizadas após ${dm(sel.ate)}`, COR_DEPOIS, '', () => naLista('F')),
-      k(passou ? 'Não fechadas' : 'Ainda abertas', nf.format(x.ab), passou ? `${pct(x.ab)} · o período já passou` : `${pct(x.ab)} · o período ainda não acabou`,
-        passou && x.ab ? COR.alerta : COR.A, passou && x.ab ? 'ruim' : '', () => naLista('A', 'P')),
-      // todas as finalizadas no período: a lista é a carteira, com o período da barra igual a este
-      k('Finalizadas no período', nf.format(x.fin), `${nf.format(x.finProg)} da programação · ${nf.format(x.finFora)} de fora`, null, '',
-        () => aplicar(() => { so('sit', 'F'); F.periodo = 'livre'; F.per = { desde: sel.de, ate: sel.ate }; }, 'carteira')));
-    // quais: todas, só as com alguém (da equipe ou terceiro) ou só as sem executante — é o filtro Executante
-    const ex = [...F.exec].sort().join(), quais = F.neg.has('exec') ? '' : !ex ? 'todas' : ex === 'g:I,g:T' ? 'com' : ex === 'g:S' ? 'sem' : '';
-    const segQuais = el('div', { class: 'seg', role: 'group', 'aria-label': 'Quais OS' }, ...[['todas', 'Todas'], ['com', 'Com executante'], ['sem', 'Sem executante']].map(([kk, rot]) =>
-      el('button', { type: 'button', 'aria-pressed': String(quais === kk), text: rot,
-        on: { click: () => aplicar(() => { if (kk === 'todas') { F.exec.clear(); F.neg.delete('exec'); } else so('exec', ...(kk === 'com' ? ['g:I', 'g:T'] : ['g:S'])); }) } })));
+      k('Programadas', nf.format(x.n), 'com a data programada no período', 'var(--fraco)', '', () => irLista('prog')),
+      k('Fechadas', nf.format(fech), `${pct(fech)} das programadas` + (x.depois ? ` · ${nf.format(x.depois)} depois do prazo` : ''), COR.F, x.n && fech / x.n >= 0.8 ? 'bom' : '', () => irLista('fech')),
+      k(rotAb, nf.format(x.ab), `${plural(nA, 'liberada', 'liberadas')} · ${nf.format(nP)} aguardando liberação`, passou && x.ab ? COR.alerta : COR.A, passou && x.ab ? 'ruim' : '', () => irLista('ab')),
+      k('Todas as fechadas no período', nf.format(x.fin), `${nf.format(x.finProg)} programadas para ele · ${nf.format(x.finFora)} de fora`, null, '', () => irLista('fin')));
+    // o avanço das programadas numa barra só, como se lê de longe: fechadas, liberadas e aguardando liberação
+    const partesAv = [['Fechadas no prazo', x.prazo, COR.F, 'fech', '#ffffff'], ['Fechadas depois do prazo', x.depois, COR_DEPOIS, 'fech', '#1f2937'],
+      [rotAb + ': liberadas', nA, COR.A, 'abA', '#ffffff'], [rotAb + ': aguardando liberação', nP, COR.P, 'abP', '#1f2937']];
+    const avanco = x.n ? el('div', { class: 'pg-avanco' },
+      el('p', { class: 'pg-avanco-tit' }, el('b', { text: `Avanço das ${plural(x.n, 'programada', 'programadas')}: ${nf.format(fech)} fechadas (${pct(fech)})` })),
+      el('div', { class: 'pg-avanco-barra' }, ...partesAv.filter((q) => q[1]).map(([rot, v, cor, g, tinta]) =>
+        el('button', { type: 'button', class: 'pg-parte', style: `flex:${v} 1 0;background:${cor};color:${tinta}`, title: `${rot}: ${nf.format(v)} — ver na lista`,
+          'aria-label': `${rot}: ${nf.format(v)}`, on: { click: () => irLista(g) } }, v / x.n >= 0.06 ? nf.format(v) : ''))),
+      el('div', { class: 'legenda' }, ...partesAv.map(([rot, v, cor]) => el('span', {}, el('i', { style: 'background:' + cor }), el('span', { text: `${rot}: ` }), el('b', { text: nf.format(v) })))),
+      x.ab ? el('p', { class: 'nota', text: `Das ${plural(x.ab, rotAb.toLowerCase().slice(0, -1), rotAb.toLowerCase())}: ${nf.format(nP)} aguardando liberação no Protheus · ${nf.format(nSem)} sem executante na STL` +
+        (!fech && !passou ? ' · nenhuma fechou ainda: só conta como fechada a OS finalizada no Protheus' : '') }) : null) : null;
+    const segQuais = segQuaisDe(pg);
     const topo = el('article', { class: 'cartao c12', 'data-imagem': true },
       el('div', { class: 'cab' }, el('div', {}, el('h2', { text: 'Programação' }),
         el('p', { class: 'nota', text: 'As OS programadas para o período e quantas já fecharam',
           title: 'A data programada é a previsão de início da manutenção no Protheus; quando ninguém a mudou, é o próprio dia da abertura.' })),
         el('div', { class: 'acoes' }, el('div', { class: 'ctl' }, segQuais, seg))),
-      nav, kpis);
+      nav, kpis, avanco);
     // a sequência: os períodos em volta do escolhido (e os 2 seguintes, já programados)
     const janela = janelaProg(todas, pg.esc, sel.de);
     const gSeq = el('div', { class: 'graf rolar-x' });
@@ -1351,8 +1437,8 @@ export function iniciarPainel(D, { baixar, raiz = document, aba = '', aoTrocarAb
     const quem = el('article', { class: 'cartao c12', 'data-imagem': true },
       el('div', { class: 'cab' }, el('div', {}, el('h2', { text: 'Por ' + (por === 'exec' ? 'executante' : 'frota') + ' · ' + sel.rot })), el('div', { class: 'acoes' }, el('div', { class: 'ctl' }, segPor))),
       tPor);
-    const lista = el('article', { class: 'cartao c12' });
-    raiz.replaceChildren(el('div', { class: 'grade' }, topo, seq, det, quem, lista));
+    const lista = el('article', { class: 'cartao c12', id: 'pg-lista' });
+    raiz.replaceChildren(el('div', { class: 'grade' }, topo, lista, seq, det, quem));
     prepararImagem(seq);
     if (det) prepararImagem(det);
     grafProgFin(gSeq, janela, { titulo: 'Programadas e finalizadas', rotulo: (l) => [l.curto, pctDe(l.prazo, l.n)],
@@ -1361,7 +1447,6 @@ export function iniciarPainel(D, { baixar, raiz = document, aba = '', aoTrocarAb
       rotulo: (l) => (pg.esc === 'semana' ? [`${l.sub} ${l.curto}`, pctDe(l.prazo, l.n)] : [l.curto, l.sub]),
       aoClicar: (l) => { pg.esc = pg.esc === 'semana' ? 'dia' : 'semana'; ir(l.de); } });
     // a tabela por executante ou frota
-    const progs = doPeriodo(todas, sel);
     const m = new Map();
     const linhaDe = (c) => { if (!m.has(c)) m.set(c, { chave: c, nome: c, prazo: 0, depois: 0, ab: 0, fin: 0 }); return m.get(c); };
     const chavesDe = (o) => (por === 'frota' ? [o.frota] : o.pessoas.length ? o.pessoas.map((q) => q.nome) : [GRUPO[o.grupo]]);
@@ -1376,9 +1461,20 @@ export function iniciarPainel(D, { baixar, raiz = document, aba = '', aoTrocarAb
         { k: 'fin', rot: 'Finalizadas no período' }],
       vazioTxt: 'Nada programado para este período com estes filtros.',
       aoClicar: (l) => aplicar(() => (por === 'frota' ? so('frota', l.chave) : so('exec', grupoDe[l.chave] || l.chave))) });
-    // a lista das OS do período (com a situação da barra)
-    carteira(lista, progs.filter((o) => casa('sit', o)), progs, { chave: 'prog', titulo: 'OS programadas · ' + sel.rot,
-      nota: `${plural(progs.length, 'OS programada', 'OS programadas')} para o período, com os filtros · a situação de hoje` });
+    // a lista das OS do período: as programadas e as fechadas nele, com os botões desta lista
+    const emProg = (o) => !!o.progEm && o.progEm >= sel.de && o.progEm <= sel.ate;
+    const finP = (o) => o.sit === 'F' && !!o.fim && o.fim >= sel.de && o.fim <= sel.ate;
+    carteira(lista, null, todas.filter((o) => emProg(o) || finP(o)), { chave: 'prog', titulo: 'As OS · ' + sel.rot,
+      nota: 'A situação de hoje no Protheus, com os filtros da barra', grupos: [
+        { k: 'prog', rot: 'Programadas', casa: emProg },
+        { k: 'fech', rot: 'Fechadas', cor: COR.F, casa: (o) => emProg(o) && o.sit === 'F' },
+        { k: 'ab', rot: rotAb, casa: (o) => emProg(o) && o.sit !== 'F' },
+        { k: 'abA', rot: 'Liberadas', cor: COR.A, casa: (o) => emProg(o) && o.sit === 'A' },
+        { k: 'abP', rot: 'Aguardando liberação', cor: COR.P, casa: (o) => emProg(o) && o.sit === 'P' },
+        { k: 'sem', rot: 'Sem executante', cor: COR.alerta, casa: (o) => emProg(o) && o.sit !== 'F' && o.grupo === 'S' },
+        { k: 'fin', rot: 'Todas as fechadas no período', cor: 'var(--fraco)', casa: finP }] });
+    // veio de um número: a lista vem para a vista
+    if (V.rolar === 'pg-lista') { V.rolar = ''; requestAnimationFrame(() => lista.scrollIntoView({ block: 'start', behavior: 'smooth' })); }
   }
 
   // ── Avanço: o que cada um tinha para fechar no começo do período, quanto fechou e com quanto ficou (06/11/2026) ──
@@ -1424,7 +1520,7 @@ export function iniciarPainel(D, { baixar, raiz = document, aba = '', aoTrocarAb
   function desenharAvanco() {
     const raiz = $('#avanco');
     const av = V.av;
-    const todas = semSituacao().todas;
+    const todas = semSituacao().todas.filter(daQuais(av));
     const sel = periodoDe(av.esc, av.ref);
     const atual = periodoDe(av.esc, D.base), noAtual = atual.chave === sel.chave;
     const x = contaAvanco(todas, sel);
@@ -1454,11 +1550,7 @@ export function iniciarPainel(D, { baixar, raiz = document, aba = '', aoTrocarAb
       k(noAtual ? 'Para fechar hoje' : 'Ficaram para fechar', nf.format(x.fim),
         dif > 0 ? `a carteira cresceu ${nf.format(dif)} no período` : dif < 0 ? `a carteira diminuiu ${nf.format(-dif)} no período` : 'a carteira ficou igual',
         'var(--fraco)', dif > 0 ? 'ruim' : dif < 0 ? 'bom' : ''));
-    // quais: todas, só as com alguém (da equipe ou terceiro) ou só as sem executante — é o filtro Executante
-    const ex = [...F.exec].sort().join(), quais = F.neg.has('exec') ? '' : !ex ? 'todas' : ex === 'g:I,g:T' ? 'com' : ex === 'g:S' ? 'sem' : '';
-    const segQuais = el('div', { class: 'seg', role: 'group', 'aria-label': 'Quais OS' }, ...[['todas', 'Todas'], ['com', 'Com executante'], ['sem', 'Sem executante']].map(([kk, rot]) =>
-      el('button', { type: 'button', 'aria-pressed': String(quais === kk), text: rot,
-        on: { click: () => aplicar(() => { if (kk === 'todas') { F.exec.clear(); F.neg.delete('exec'); } else so('exec', ...(kk === 'com' ? ['g:I', 'g:T'] : ['g:S'])); }) } })));
+    const segQuais = segQuaisDe(av);
     const topo = el('article', { class: 'cartao c12', 'data-imagem': true },
       el('div', { class: 'cab' }, el('div', {}, el('h2', { text: 'Avanço do fechamento' }),
         el('p', { class: 'nota', text: 'O que tinha no começo, o que fechou, o que entrou e com quanto ficou',
@@ -1680,8 +1772,8 @@ export function iniciarPainel(D, { baixar, raiz = document, aba = '', aoTrocarAb
     const soma = linhas.reduce((s, x) => s + x.A + x.P, 0);
     const nota = el('p', { class: 'nota' }), graf = el('div', { class: 'graf rolar-x' }), caixa = el('div', { class: 'bt-rolagem' }), ctl = el('div', { class: 'ctl' });
     const cartao = el('article', { class: 'cartao', 'data-imagem': true },
-      el('div', { class: 'cab' }, el('div', {}, el('h2', { text: 'OS abertas e fechadas por frota' }), nota), el('div', { class: 'acoes' }, ctl)),
-      el('div', { class: 'legenda' }, ...LEG_FROTA.map(([rot, cor]) => el('span', {}, el('i', { style: 'background:' + cor }), rot))),
+      el('div', { class: 'cab' }, el('div', {}, el('h2', { text: 'Backlog por frota' }), nota), el('div', { class: 'acoes' }, ctl)),
+      el('div', { class: 'legenda' }, ...itensBK()),
       graf);
     raiz.replaceChildren(cartao, el('article', { class: 'cartao' },
       el('div', { class: 'cab' }, el('div', {}, el('h2', { text: 'Os números de cada frota' }),
@@ -1690,12 +1782,12 @@ export function iniciarPainel(D, { baixar, raiz = document, aba = '', aoTrocarAb
     prepararImagem(cartao);
     controlesFrota(ctl);
     const comAlgo = ordenaFrotas(linhas.filter((x) => x.A + x.P + x.F));
-    const rola = colunasPar(graf, { linhas: comAlgo, titulo: 'OS abertas e fechadas por frota', H: 330, limite: 30, chave: 'frotas',
+    const rola = barrasBacklog(graf, { linhas: comAlgo.map((l) => ({ ...l, rot: l.frota, baix: l.F, pend: l.A + l.P })), titulo: 'Backlog por frota', limite: 20, chave: 'frotas', sub: (l) => l.equip,
       dica: (l) => [['Abertas', nf.format(l.A + l.P), COR.A], ['· liberadas para execução', nf.format(l.A)], ['· aguardando liberação', nf.format(l.P)],
         ['Fechadas no período', nf.format(l.F), COR.F], ['Há mais de 90 dias', nf.format(l.v90)], ['Programadas', nf.format(l.prog)], ['Não programadas', nf.format(l.nprog)],
         ['Sem executante', nf.format(l.sem)], ['Prevista e vencida', nf.format(l.venc)]],
       aoClicar: (l) => aplicar(() => so('frota', l.frota)) });
-    nota.textContent = `${plural(soma, 'aberta', 'abertas')} (para fechar hoje) e ${plural(linhas.reduce((x, l) => x + l.F, 0), 'fechada', 'fechadas')} (${R.p.rot.toLowerCase()}) em ${plural(comAlgo.length, 'frota', 'frotas')}` +
+    nota.textContent = `${plural(soma, 'pendente', 'pendentes')} (abertas hoje) e ${plural(linhas.reduce((x, l) => x + l.F, 0), 'baixada', 'baixadas')} (${R.p.rot.toLowerCase()}) em ${plural(comAlgo.length, 'frota', 'frotas')}` +
       ` · por ${ORD_FROTA[V.frotaOrd][0].toLowerCase()}` + (rola ? ' · role para o lado' : '');
     tabelaNums(caixa, { id: 'frotas', linhas, totalRot: 'Carteira', padrao: { k: '_tot', dir: 'desc' },
       nome: { rot: 'Frota', ver: (l) => [l.frota, l.equip] },
@@ -1772,14 +1864,13 @@ export function iniciarPainel(D, { baixar, raiz = document, aba = '', aoTrocarAb
         title: kk === 'aponta' ? `Quem apontou mão de obra na STL nos últimos ${DIAS_FORA} dias, em qualquer OS` : kk === 'todos' ? 'Todos com OS nestes filtros, até quem não aponta mais' : 'Os que o PCM acompanha de perto',
         on: { click: () => { V.execQuem = kk; desenhar(); } } }))));
     const somaAb = linhas.reduce((s, x) => s + x.abrir, 0);
-    legenda('#leg-exec', [['Para fechar: já programadas para a pessoa na STL', COR.A], ['Finalizadas no período', COR.F]]);
-    $('#leg-exec').append(el('span', { text: 'o número em cima é o total de OS da pessoa' }));
+    $('#leg-exec').replaceChildren(...itensBK());
+    $('#leg-exec').append(el('span', { text: 'o número no fim é o total de OS da pessoa' }));
     const h = (v) => (v ? nh.format(v) + ' h' : '—');
     const porFechar = [...linhas].sort((a, b) => b.abrir - a.abrir || b.abrir + b.F - a.abrir - a.F || a.nome.localeCompare(b.nome, 'pt'));
     const curto = curtos([...new Set([...todas, ...linhas].map((l) => l.nome))]);
-    const rola = colunasEmPe($('#g-exec'), { linhas: porFechar, titulo: 'OS por executante', H: 360, passoMin: 64, passoMax: 96, limite: 40, chave: 'exec-' + modo, quem: ['pessoa', 'pessoas'],
-      partes: [{ k: 'abrir', nome: 'Para fechar', cor: COR.A, texto: 'claro', sempre: true }, { k: 'F', nome: 'Finalizadas no período', cor: COR.F, texto: 'escuro' }],
-      nomes: (l) => ({ fortes: [curto.get(l.nome)], fracos: [l.aponta ? '' : 'não aponta'] }),
+    const rola = barrasBacklog($('#g-exec'), { linhas: porFechar.map((l) => ({ ...l, rot: curto.get(l.nome), baix: l.F, pend: l.abrir })), titulo: 'Backlog por executante',
+      limite: 15, chave: 'exec-' + modo, quem: ['pessoa', 'pessoas'], sub: (l) => (l.aponta ? '' : 'não aponta'),
       dica: (l) => [['Para fechar', nf.format(l.abrir), COR.A], ['Finalizadas no período', nf.format(l.F), COR.F], ['Total de OS', nf.format(l.abrir + l.F)],
         ['Prevista e vencida', nf.format(l.venc)], ['Há mais de 90 dias', nf.format(l.v90)], ['Horas previstas (para fechar)', h(l.hPrev)], ['Horas apontadas (finalizadas)', h(l.horas)], ['Frotas', nf.format(l.frotas)],
         ...(ULT ? [['Último apontamento na STL', l.ult ? br(l.ult) : '—']] : [])],
@@ -1953,7 +2044,11 @@ export function iniciarPainel(D, { baixar, raiz = document, aba = '', aoTrocarAb
   const paraPNG = (tela) => new Promise((ok, erro) => tela.toBlob((bl) => (bl ? ok(bl) : erro(new Error('sem imagem'))), 'image/png'));
   function cabecalhoImg(c, cor, titulo, subL, pad, W, H) {
     const f = cor('--fonte');
-    c.fillStyle = cor('--texto'); c.font = `700 19px ${f}`; c.fillText(titulo, pad, pad + 16, W - pad * 2);
+    c.fillStyle = cor('--texto'); c.font = `700 19px ${f}`; c.fillText(titulo, pad, pad + 16, W - pad * 2 - 160);
+    c.textAlign = 'right'; c.fillStyle = cor('--alerta-t');
+    c.font = `700 12px ${f}`; c.fillText('Data de atualização', W - pad, pad + 6);
+    c.font = `800 15px ${f}`; c.fillText(br(D.base), W - pad, pad + 24);
+    c.textAlign = 'left';
     c.fillStyle = cor('--muito-fraco'); c.font = `12px ${f}`; subL.forEach((l, i) => c.fillText(l, pad, pad + 38 + i * 16));
     c.font = `11px ${f}`; c.fillText('Painel de OS · Makro', pad, H - 14);
   }

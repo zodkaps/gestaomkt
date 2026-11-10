@@ -121,7 +121,8 @@ export async function montar(raiz, ctx, params = new URLSearchParams()) {
     const email = nuvem.emailAtual();
     const guardado = await dados.lerMeta(GUARDA, null);
     const meu = guardado && guardado.email === email && guardado.D ? guardado : null;
-    const pode = await nuvem.veOs();
+    // ver e atualizar são duas marcas (sql/06): quem só vê não tem o "Atualizar com o Protheus"
+    const [pode, atualiza] = await Promise.all([nuvem.veOs(), nuvem.atualizaOs()]);
     if (!vale()) return;
     if (!nuvem.autenticado()) return porta("Entre de novo", nuvem.motivoDaSaida() || "Sua sessão terminou.", el("a", { class: "botao", href: "#/entrar", text: "Entrar" }));
     if (pode === false) {
@@ -132,8 +133,8 @@ export async function montar(raiz, ctx, params = new URLSearchParams()) {
         "O painel de OS do Protheus é só de quem o PCM liberou. Se você precisa dele, peça ao Mateus.");
     }
     const botaoAtualizar = $("#os-atualizar");
-    botaoAtualizar.hidden = false;
-    botaoAtualizar.addEventListener("click", () => abrirImportar({ atual: () => atualD, aoGravar: gravouNovo, raiz: sombra }));
+    botaoAtualizar.hidden = !(pode && atualiza);
+    if (pode && atualiza) botaoAtualizar.addEventListener("click", () => abrirImportar({ atual: () => atualD, aoGravar: gravouNovo, raiz: sombra }));
     try { await carregarD3(); } catch (e) { if (vale()) porta("Não deu para abrir o painel", e.message, tentarDeNovo()); return; }
     if (!vale()) return;
     if (pode === null) {
@@ -156,6 +157,7 @@ export async function montar(raiz, ctx, params = new URLSearchParams()) {
     }
     if (!vale()) return;
     if (!atual || !atual.D) {
+      if (!atualiza) return porta("O painel ainda não tem dados", "Quem atualiza o painel com o Protheus ainda não carregou os dados. Volte mais tarde.");
       return porta("O painel ainda não tem dados",
         "Para começar: clique em Atualizar com o Protheus e solte a base histórica (o arquivo historico-os.json.gz, uma vez só) junto com a STJ e a STL de hoje.",
         el("button", { type: "button", class: "botao prim", text: "Atualizar com o Protheus", on: { click: () => botaoAtualizar.click() } }));
