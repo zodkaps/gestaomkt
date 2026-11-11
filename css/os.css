@@ -648,3 +648,13 @@ button.aud-n:focus-visible { outline: 2px solid var(--marca); }
 @media (max-width: 900px) { .aud-par { grid-template-columns: 1fr; } }
 .aud-cat { display: grid; gap: 8px; border-top: 1px solid var(--linha); padding-top: 12px; }
 .aud-cat h3 { margin: 0; font-size: 15px; }
+
+/* ── o resumo do período e o comparativo (11/11/2026) ── */
+.veredito { margin: 0; padding: 11px 14px; border-radius: 10px; font-weight: 700; font-size: 14.5px; line-height: 1.45; background: var(--papel2); color: var(--texto); }
+.veredito.bom { background: var(--finalizada-f); color: var(--finalizada-t); }
+.veredito.ruim { background: var(--alerta-f); color: var(--alerta-t); }
+#geral > .grade + .kpis { margin-top: 14px; }
+#geral > .kpis + .grade { margin-top: 14px; }
+.comparativo td.leit { font-weight: 700; color: var(--fraco); white-space: nowrap; }
+.comparativo td.leit.bom { color: var(--finalizada-t); }
+.comparativo td.leit.ruim { color: var(--alerta-t); }

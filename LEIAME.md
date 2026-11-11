@@ -410,6 +410,19 @@ e preventivas, e **só ele ter acesso**.
   linha no índice (`importacoes.json.gz`, no mesmo bucket privado) e a lista
   das canceladas. O que as cópias não provam não é inventado: aparece como
   "sumiu do export" ou "a partir da próxima atualização".
+- **Resumo do período e a evolução** (11/11/2026): a Visão geral abre com o
+  *Resumo do período* — backlog inicial, novas, encerradas (com as antigas),
+  backlog atual e a variação, cada um com o período anterior — e a frase que
+  responde se a carteira andou: *Evoluindo* (caiu), *Só movimentando*
+  (encerrou, mas entrou mais) ou *ficou igual*. Embaixo, a carteira de hoje e a
+  *Evolução do backlog* (o fim de cada semana, dia ou mês, a variação de cada um
+  e o tracejado da tendência — a reta pelos pontos, não uma previsão). Os
+  Indicadores ganharam o *Comparativo com o período anterior* (cada indicador,
+  a diferença — percentuais em pontos percentuais — e *melhor*/*pior*
+  escrito), a evolução do backlog, novas × encerradas, o saldo (para cima a
+  carteira cresceu, em vermelho; para baixo diminuiu, em verde) e encerradas ÷
+  novas com a linha dos 100%. O Avanço tem o *Histórico* de cada período em
+  tabela. Tudo sai no Enviar: a imagem leva a frase do resumo e as tabelas.
 
 **As telas da oficina saíram do menu, mas nada foi apagado.** Painel, Hoje,
 Programação, Semana, Resultados e Frota continuam no código, e os lançamentos

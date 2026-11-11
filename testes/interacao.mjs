@@ -2416,7 +2416,11 @@ ok("e o Diagnóstico não manda rodar SQL por causa de sessão",
   await mt.waitForSelector("#kpis .kpi", { timeout: 30000 });
   await mt.waitForTimeout(600);
   const kp = await mt.$$eval("#kpis .kpi .val", v => v.map(x => x.textContent));
-  ok("gravou e abriu: 2 abertas, 1 fechada na semana (o período de partida)", kp[0] === "2" && kp[1] === "1", kp.join(" | "));
+  const kr = await mt.$$eval("#kpis-resumo .kpi .val", v => v.map(x => x.textContent));
+  ok("gravou e abriu: 2 abertas, e no resumo da semana (o período de partida) 3 no começo, 1 encerrada, 2 no fim", kp[0] === "2" && kr[0] === "3" && kr[2] === "−1" && kr[3] === "2",
+    kp.join(" | ") + " · " + kr.join(" | "));
+  const veredito = await mt.textContent("#veredito");
+  ok("o resumo responde se a carteira andou: caiu de 3 para 2", veredito.startsWith("✓ Evoluindo: a carteira caiu de 3 para 2 OS (−1 OS; −33%)"), veredito);
   ok("o período de partida é a semana atual, e a seta da próxima fica apagada", (await mt.textContent("#f-periodo-txt")).startsWith("Semana atual") && await mt.isDisabled("#f-per-prox"),
     await mt.textContent("#f-periodo-txt"));
   ok("e a aba Não liberadas com 1", (await mt.textContent("#n-pendentes")) === "1");
@@ -2448,6 +2452,10 @@ ok("e o Diagnóstico não manda rodar SQL por causa de sessão",
   const ind = await mt.$$eval("#indicadores .kpi.ind", (v) => v.map((x) => x.querySelector(".rot").textContent + "=" + x.querySelector(".val").textContent));
   ok("Indicadores: backlog no fim 2, taxa de atendimento 33% (1 de 3), saldo +2", ["Backlog no fim do período=2", "Taxa de atendimento=33%", "Saldo da carteira=+2"].every((x) => ind.includes(x)), ind.join(" | "));
   ok("e a aba vai para o endereço", mt.url().endsWith("#/os?aba=indicadores"), mt.url());
+  const comp = await mt.$$eval("#c-ind-comp tbody tr", (v) => v.map((x) => [...x.children].map((c) => c.textContent).join("|")));
+  ok("o comparativo com o período anterior: o backlog no fim, a diferença e a leitura", comp.some((x) => x.startsWith("Backlog no fim|2|")), comp.slice(0, 5).join(" ; "));
+  const grafs = await Promise.all(["#g-ind-backlog svg", "#g-ind-ne svg", "#g-ind-saldo svg", "#g-ind-taxa svg"].map((x) => mt.$$(x).then((l) => l.length)));
+  ok("e os gráficos da evolução: o backlog com a tendência, novas × encerradas, o saldo e encerradas ÷ novas", grafs.every((n) => n === 1), grafs.join(","));
   const regraVisivel = () => mt.isVisible("#indicadores .kpi.ind .regra >> nth=0");
   const semRegra = !(await regraVisivel());
   await mt.click('#indicadores button:has-text("Como é calculado")');
@@ -2533,9 +2541,9 @@ ok("e o Diagnóstico não manda rodar SQL por causa de sessão",
   await mt.click('#pop .cal-dia[data-dia="2026-11-02"]');
   await mt.click('#pop .cal-dia[data-dia="2026-11-04"]');
   await mt.waitForTimeout(300);
-  const kpPer = await mt.$$eval("#kpis .kpi", (v) => v.map((x) => x.innerText.replace(/\s+/g, " ")));
-  ok("no calendário, o começo e o fim: só a OS fechada em 03/11 conta como fechada", (await mt.textContent("#f-periodo-txt")) === "De 02/11/2026 a 04/11/2026" &&
-    /^Fechadas 1 de 02\/11\/2026 a 04\/11\/2026/.test(kpPer[1]), kpPer[1]);
+  const kpPer = await mt.$$eval("#kpis-resumo .kpi", (v) => v.map((x) => x.innerText.replace(/\s+/g, " ")));
+  ok("no calendário, o começo e o fim: só a OS encerrada em 03/11 conta como encerrada", (await mt.textContent("#f-periodo-txt")) === "De 02/11/2026 a 04/11/2026" &&
+    (await mt.textContent("#rot-resumo")) === "De 02/11/2026 a 04/11/2026" && /^Encerradas −1 /.test(kpPer[2]), kpPer[2]);
   ok("o dia depois do export não se escolhe", await mt.evaluate(() => { const s = document.querySelector(".os-host").shadowRoot; s.querySelector("#f-periodo").click(); const b = s.querySelector('#pop .cal-dia[data-dia="2026-11-06"]'); return !!b && b.disabled; }));
   await mt.keyboard.press("Escape");
   // as frotas em colunas: uma por frota, a das abertas empilhada por liberação; clicar abre a frota
@@ -2566,7 +2574,7 @@ ok("e o Diagnóstico não manda rodar SQL por causa de sessão",
   await mt.click("#c-frotas .baixar");
   const [dNum] = await Promise.all([mt.waitForEvent("download", { timeout: 8000 }), mt.click('#c-frotas .menu-env button:has-text("Baixar os números")')]);
   const tNum = await readFile(await dNum.path(), "utf8");
-  ok("e os números do gráfico saem em planilha: as frotas e as colunas", tNum.includes("Frota;Baixadas (fechadas no período);Pendentes (abertas);Total") && tNum.includes("F-617"), tNum.slice(0, 240));
+  ok("e os números do gráfico saem em planilha: as frotas e as colunas", tNum.includes("Frota;Baixadas (encerradas no período);Pendentes (abertas);Total") && tNum.includes("F-617"), tNum.slice(0, 240));
   await mt.click("#c-frotas .baixar");
   await mt.keyboard.press("Escape");
   ok("o Esc fecha o menu do Enviar", await mt.isHidden("#c-frotas .menu-env"));

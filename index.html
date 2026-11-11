@@ -70,8 +70,21 @@
   <p class="aviso" id="aviso" hidden></p>
 
   <section class="vista" id="geral" role="tabpanel" aria-labelledby="aba-geral" hidden>
-    <div class="kpis kpis5" id="kpis"></div>
     <div class="grade">
+      <article class="cartao c12" id="c-resumo" data-imagem>
+        <div class="cab"><div><h2>Resumo do período</h2><p class="nota" id="nota-resumo"></p></div><div class="acoes"></div></div>
+        <b class="pg-rot" id="rot-resumo"></b>
+        <p class="veredito" id="veredito"></p>
+        <div class="kpis mini kpis5" id="kpis-resumo"></div>
+      </article>
+    </div>
+    <div class="kpis kpis4" id="kpis"></div>
+    <div class="grade">
+      <article class="cartao c12" id="c-evolucao" data-imagem>
+        <div class="cab"><div><h2>Evolução do backlog</h2><p class="nota" id="nota-evolucao"></p></div>
+          <div class="acoes"><div class="ctl" id="ctl-evolucao"></div></div></div>
+        <div class="graf rolar-x" id="g-evolucao"></div>
+      </article>
       <article class="cartao c12" id="c-frotas" data-imagem>
         <div class="cab"><div><h2>Backlog por frota</h2><p class="nota" id="nota-frotas"></p></div>
           <div class="acoes"><div class="ctl" id="ctl-frotas"></div></div></div>
@@ -79,7 +92,7 @@
         <div class="graf rolar-x" id="g-frotas"></div>
       </article>
       <article class="cartao c12" id="c-progfin" data-imagem>
-        <div class="cab"><div><h2>Programadas e finalizadas</h2><p class="nota" id="nota-progfin"></p></div>
+        <div class="cab"><div><h2>Programadas e encerradas</h2><p class="nota" id="nota-progfin"></p></div>
           <div class="acoes"><div class="ctl" id="ctl-progfin"></div></div></div>
         <div class="legenda" id="leg-progfin"></div>
         <div class="graf rolar-x" id="g-progfin"></div>
