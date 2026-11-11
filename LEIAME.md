@@ -455,6 +455,17 @@ e preventivas, e **só ele ter acesso**.
   O detalhe (executadas, liberadas, aguardando liberação, antigas encerradas,
   extra programação) aparece só quando um número ou um pedaço da barra o abre.
   As regras de contagem ficam recolhidas em *Como é contado*.
+- **Conferir com a STJ** (11/11/2026, frota 972: 108 encerradas na STJ de 2026
+  × 176 no painel): a STJ exportada por data de abertura só traz as OS abertas
+  no período; o painel conta como encerrada no período a OS que saiu nele pela
+  data de fim, inclusive a aberta antes (as de antes de 2026 vêm da base
+  histórica). As duas contas ficam lado a lado na Auditoria (*Conferir com a
+  STJ*), e as encerradas de cada frota vêm divididas entre *abertas no
+  período* e *abertas antes* (aba Frotas, ficha da frota e a dica do gráfico).
+  A mesma OS com e sem os zeros da frente (o Excel come os zeros: 090001 ×
+  90001) passa a ser uma só (`chaveOS`). A atualização avisa quantas OS em
+  aberto só a base histórica tem — a situação delas é a do dia em que ela foi
+  feita; exportar a STJ e a STL desde 01/01/2024 as mantém em dia.
 
 **As telas da oficina saíram do menu, mas nada foi apagado.** Painel, Hoje,
 Programação, Semana, Resultados e Frota continuam no código, e os lançamentos

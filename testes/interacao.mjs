@@ -2535,6 +2535,9 @@ ok("e o Diagnóstico não manda rodar SQL por causa de sessão",
   const funil = (await mt.innerText("#aud-funil")).replace(/\s+/g, " ");
   ok("Auditoria: do Protheus ao painel, cada linha da STJ contada (as de outra frota ficam de fora, com o motivo)",
     funil.includes("Todas as linhas estão contadas") && /OS no painel 5\b/.test(funil), funil.slice(0, 400));
+  const cSTJ = (await mt.innerText("#aud-stj")).replace(/\s+/g, " ");
+  ok("Conferir com a STJ (outubro): 3 abertas no mês, 1 hoje encerrada e 2 em aberto; nenhuma encerrada no mês pela data de fim",
+    cSTJ.includes("OS abertas no período (Dt. Original) 3 · hoje encerradas (Término = Sim) 1 · hoje em aberto 2 Encerradas no período (pela data de fim) 0"), cSTJ.slice(0, 260));
   ok("e a comparação pede duas cópias (só há a desta atualização)", (await mt.innerText("#aud-comparar")).includes("Só há a cópia de 05/11/2026"), await mt.innerText("#aud-comparar"));
   ok("e o histórico das atualizações tem a linha desta", (await mt.innerText("#aud-historico")).includes("05/11/2026"), (await mt.innerText("#aud-historico")).slice(0, 200));
   // o período das finalizadas no calendário (09/11/2026): um pronto, e depois o começo e o fim clicando

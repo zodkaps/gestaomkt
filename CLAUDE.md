@@ -78,6 +78,10 @@ marca. Regras:
   aparece como divergência (a Conferência e a aba Auditoria) — nunca ajustado.
 - Programada é com executante (`contaComoProgramada`): a data programada no
   período e alguém da equipe ou terceiro na STL. Sem executante não conta.
+- Uma OS é filial + número sem os zeros da frente (`chaveOS`, em `montar.js` e
+  `indicadores.js`): o Excel come os zeros. Conta de encerradas por frota vem
+  dividida entre abertas no período e abertas antes (a STJ de 2026 não tem
+  as de antes de 2026 — essas vêm da base histórica).
 - Se ele mandar a STJ e a STL no chat, a resposta é: solte em *Atualizar com o
   Protheus* no site. A base histórica (`historico-os.json.gz`) é feita fora do
   repositório e mandada a ele em arquivo; nunca vai para o Git.

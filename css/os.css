@@ -667,3 +667,6 @@ button.aud-n:focus-visible { outline: 2px solid var(--marca); }
 .segm-bloco { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
 .segm-rot { font-size: 11px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; color: var(--muito-fraco); }
 .pg-regras summary { font-size: 12.5px; }
+
+/* ── conferir com a STJ (11/11/2026): as linhas de título da conta ── */
+.concil tr.tit th, .concil tr.tit td { color: var(--texto); font-weight: 700; }

@@ -905,15 +905,16 @@ export function iniciarPainel(D, { baixar, raiz = document, aba = '', aoTrocarAb
   /** As frotas do recorte, com as abertas (liberadas e pendentes) e as fechadas no período. */
   function porFrota(R) {
     const m = new Map();
-    const de = (f) => { if (!m.has(f)) m.set(f, { chave: f, frota: f, sub: eqDe.get(f) || '', nome: f + (eqDe.get(f) ? ' · ' + eqDe.get(f) : ''), A: 0, P: 0, F: 0, v90: 0, sem: 0 }); return m.get(f); };
-    for (const o of R.base) { const x = de(o.frota); x[o.sit]++; if (o.sit !== 'F') { if (o.faixa === 3) x.v90++; if (o.grupo === 'S') x.sem++; } }
+    const de = (f) => { if (!m.has(f)) m.set(f, { chave: f, frota: f, sub: eqDe.get(f) || '', nome: f + (eqDe.get(f) ? ' · ' + eqDe.get(f) : ''), A: 0, P: 0, F: 0, Fant: 0, v90: 0, sem: 0 }); return m.get(f); };
+    for (const o of R.base) { const x = de(o.frota); x[o.sit]++; if (o.sit !== 'F') { if (o.faixa === 3) x.v90++; if (o.grupo === 'S') x.sem++; } else if (o.abertura < R.p.desde) x.Fant++; }
     return [...m.values()];
   }
   const ORD_FROTA = { ab: ['Pendentes', (a, b) => b.A + b.P - a.A - a.P || b.F - a.F], fe: ['Baixadas', (a, b) => b.F - a.F || b.A + b.P - a.A - a.P],
     tot: ['Total', (a, b) => b.A + b.P + b.F - a.A - a.P - a.F], frota: ['Frota', () => 0] };
   const ordenaFrotas = (l) => [...l].sort((a, b) => ORD_FROTA[V.frotaOrd][1](a, b) || a.frota.localeCompare(b.frota, 'pt', { numeric: true }));
   const dicaFrota = (R) => (l) => [['Abertas', nf.format(l.A + l.P), COR.A], ['· liberadas para execução', nf.format(l.A)], ['· aguardando liberação', nf.format(l.P)],
-    ['Fechadas no período', nf.format(l.F), COR.F], ['Abertas há mais de 90 dias', nf.format(l.v90)], ['Abertas sem executante', nf.format(l.sem)]];
+    ['Encerradas no período', nf.format(l.F), COR.F], ['· abertas no período', nf.format(l.F - (l.Fant || 0))], ['· abertas antes do período', nf.format(l.Fant || 0)],
+    ['Abertas há mais de 90 dias', nf.format(l.v90)], ['Abertas sem executante', nf.format(l.sem)]];
   /** Os controles do gráfico por frota: a ordem. */
   function controlesFrota(alvo) {
     const seg = el('div', { class: 'seg', role: 'group', 'aria-label': 'Ordenar as frotas por' }, ...Object.entries(ORD_FROTA).map(([k, [rot]]) =>
@@ -2110,8 +2111,29 @@ export function iniciarPainel(D, { baixar, raiz = document, aba = '', aoTrocarAb
     // o histórico das atualizações (o índice)
     const historico = el('article', { class: 'cartao c12', id: 'aud-historico' });
     desenharHistorico(historico, cab);
+    // conferir com a STJ (11/11/2026): a STJ exportada por data de abertura traz as OS abertas no período e a
+    // situação delas hoje; o painel conta a encerrada pela data de fim, inclusive a aberta antes. Lado a lado.
+    const corte = (D.historica && D.historica.corte) || '2026-01-01', feito = D.historica && D.historica.feito_em ? br(String(D.historica.feito_em).slice(0, 10)) : '';
+    const fimP = sel.ate < D.base ? sel.ate : D.base;
+    const abP = todas.filter((o) => o.abertura && o.abertura >= sel.de && o.abertura <= fimP), abPenc = abP.filter((o) => o.sit === 'F').length;
+    const encP = todas.filter((o) => { const sd = IND.saidaDe(o); return !!sd && sd >= sel.de && sd <= fimP; }), encNovas = encP.filter((o) => o.abertura >= sel.de).length;
+    const abHoje = todas.filter((o) => o.sit !== 'F'), abHist = abHoje.filter((o) => (temOrigem ? o.origemHist : !!o.abertura && o.abertura < corte)).length;
+    const conferir = el('article', { class: 'cartao c6', id: 'aud-stj', 'data-imagem': true },
+      cab('Conferir com a STJ', `${sel.rot} · ${filtrosTxt() || 'sem filtros'}`),
+      el('table', { class: 'concil' }, el('tbody', {},
+        linConta('OS abertas no período (Dt. Original)', nf.format(abP.length), 'tit'),
+        linConta('· hoje encerradas (Término = Sim)', nf.format(abPenc)),
+        linConta('· hoje em aberto', nf.format(abP.length - abPenc)),
+        linConta('Encerradas no período (pela data de fim)', nf.format(encP.length), 'tit'),
+        linConta('· abertas no próprio período', nf.format(encNovas)),
+        linConta('· abertas antes do período', nf.format(encP.length - encNovas)),
+        linConta('Em aberto hoje', nf.format(abHoje.length), 'tit'),
+        linConta(temOrigem ? '· só na base histórica (situação antiga)' : `· abertas antes de ${br(corte)} (vêm da base histórica)`, nf.format(abHist)))),
+      el('ul', { class: 'concil-notas' },
+        el('li', { text: 'A STJ exportada por data de abertura só traz as OS abertas no período: o "encerradas" dela é a linha "hoje encerradas". O painel conta como encerrada no período a OS que saiu nele, inclusive a aberta antes — a linha "abertas antes do período", que a STJ do período não traz.' }),
+        el('li', { text: `As OS abertas antes de ${br(corte)} vêm da base histórica${feito ? ', com a situação de ' + feito : ''}, quando a STJ de hoje não as traz: se alguma foi encerrada depois, o painel ainda a conta em aberto. Para atualizá-las, exporte a STJ e a STL desde 01/01/2024.` })));
     const lista = el('article', { class: 'cartao c12', id: 'aud-lista' });
-    raiz.replaceChildren(el('div', { class: 'grade' }, cartaoConferencia(mv, sel), funil, atencao, comparar, historico, lista));
+    raiz.replaceChildren(el('div', { class: 'grade' }, cartaoConferencia(mv, sel), conferir, funil, atencao, comparar, historico, lista));
     const doPonto = PONTOS.filter((q) => !q.sem);
     carteira(lista, null, todas.filter((o) => doPonto.some((q) => q.casa(o))), { chave: 'aud', titulo: 'As OS dos pontos de atenção', nota: 'A situação de hoje no Protheus, com os filtros da barra',
       grupos: doPonto.map((q) => ({ k: q.k, rot: q.rot, casa: q.casa })) });
@@ -2187,11 +2209,11 @@ export function iniciarPainel(D, { baixar, raiz = document, aba = '', aoTrocarAb
           el('ul', { class: 'concil-notas' }, el('li', { text: 'Registrado: as OS em aberto naquele dia segundo a cópia daquele dia. Refeito: as OS em aberto naquele dia segundo as datas da cópia mais nova.' })))));
       if (au.cat && CAT[au.cat]) {
         const [rot, l] = CAT[au.cat];
-        const doPainel = new Map(OS.map((o) => [o.filial + '|' + o.os, o]));
+        const doPainel = new Map(OS.map((o) => [IND.chaveOS(o.filial, o.os), o]));
         const caixaT = el('div', { class: 'tab' });
         filhos.push(el('div', { class: 'aud-cat' }, el('div', { class: 'cab' }, el('div', {}, el('h3', { text: `${rot} · ${plural(l.length, 'OS', 'OS')}` })),
           el('div', { class: 'acoes' }, el('button', { type: 'button', class: 'botao mini', text: 'Fechar', on: { click: ver(au.cat) } }))), caixaT));
-        tabela(caixaT, { id: 'aud-cat', linhas: l, lim: 300, padrao: { k: 'os', dir: 'asc' }, aoClicar: (o) => { const x = doPainel.get(o.filial + '|' + o.os); if (x) abrirDetalhe(x); },
+        tabela(caixaT, { id: 'aud-cat', linhas: l, lim: 300, padrao: { k: 'os', dir: 'asc' }, aoClicar: (o) => { const x = doPainel.get(IND.chaveOS(o.filial, o.os)); if (x) abrirDetalhe(x); },
           cols: [{ k: 'os', rot: 'OS', ord: (o) => o.os, ver: (o) => o.os }, { k: 'frota', rot: 'Frota', ord: (o) => o.frota, ver: (o) => o.frota },
             { k: 'ab', rot: 'Abertura', ord: (o) => o.abertura || '', ver: (o) => (o.abertura ? br(o.abertura) : '—') },
             { k: 'fim', rot: 'Fim', ord: (o) => o.fim || '', ver: (o) => (o.fim ? br(o.fim) : '—') },
@@ -2352,11 +2374,12 @@ export function iniciarPainel(D, { baixar, raiz = document, aba = '', aoTrocarAb
     const nomes = F.frota.size && !F.neg.has('frota') ? [...F.frota]
       : FROTAS.filter((f) => (D.frotas_lista.includes(f) || naBase.has(f)) && !(F.neg.has('frota') && F.frota.has(f)));
     const m = new Map(nomes.map((f) => [f, { chave: f, frota: f, equip: eqDe.get(f) || '', sub: eqDe.get(f) || '', nome: f + (eqDe.get(f) ? ' · ' + eqDe.get(f) : ''),
-      A: 0, P: 0, F: 0, prog: 0, nprog: 0, v90: 0, sem: 0, venc: 0 }]));
+      A: 0, P: 0, F: 0, Fant: 0, prog: 0, nprog: 0, v90: 0, sem: 0, venc: 0 }]));
     for (const o of R.base) {
       const x = m.get(o.frota);
       if (!x) continue;
       x[o.sit]++;
+      if (o.sit === 'F' && o.abertura < R.p.desde) x.Fant++;
       if (o.sit !== 'F') { if (o.classe === 'P') x.prog++; if (o.classe === 'N') x.nprog++; if (o.faixa === 3) x.v90++; if (o.grupo === 'S') x.sem++; if (o.prevEstado === 'vencida') x.venc++; }
     }
     const linhas = [...m.values()];
@@ -2368,14 +2391,16 @@ export function iniciarPainel(D, { baixar, raiz = document, aba = '', aoTrocarAb
       graf);
     raiz.replaceChildren(cartao, el('article', { class: 'cartao' },
       el('div', { class: 'cab' }, el('div', {}, el('h2', { text: 'Os números de cada frota' }),
-        el('p', { class: 'nota', text: `Todas as frotas da lista · finalizadas: ${R.p.rot.toLowerCase()}` })), el('div', { class: 'acoes' }, botaoFolha())),
+        el('p', { class: 'nota', text: `Todas as frotas da lista · encerradas: ${R.p.rot.toLowerCase()}, pela data de fim — inclusive as abertas antes do período, que a STJ exportada por data de abertura não traz` })),
+        el('div', { class: 'acoes' }, botaoFolha())),
       caixa));
     prepararImagem(cartao);
     controlesFrota(ctl);
     const comAlgo = ordenaFrotas(linhas.filter((x) => x.A + x.P + x.F));
     const rola = barrasBacklog(graf, { linhas: comAlgo.map((l) => ({ ...l, rot: l.frota, baix: l.F, pend: l.A + l.P })), titulo: 'Backlog por frota', limite: 20, chave: 'frotas', sub: (l) => l.equip,
       dica: (l) => [['Abertas', nf.format(l.A + l.P), COR.A], ['· liberadas para execução', nf.format(l.A)], ['· aguardando liberação', nf.format(l.P)],
-        ['Fechadas no período', nf.format(l.F), COR.F], ['Há mais de 90 dias', nf.format(l.v90)], ['Programadas', nf.format(l.prog)], ['Não programadas', nf.format(l.nprog)],
+        ['Encerradas no período', nf.format(l.F), COR.F], ['· abertas no período', nf.format(l.F - l.Fant)], ['· abertas antes do período', nf.format(l.Fant)],
+        ['Há mais de 90 dias', nf.format(l.v90)], ['Programadas', nf.format(l.prog)], ['Não programadas', nf.format(l.nprog)],
         ['Sem executante', nf.format(l.sem)], ['Prevista e vencida', nf.format(l.venc)]],
       aoClicar: (l) => aplicar(() => so('frota', l.frota)) });
     nota.textContent = `${plural(soma, 'pendente', 'pendentes')} (abertas hoje) e ${plural(linhas.reduce((x, l) => x + l.F, 0), 'baixada', 'baixadas')} (${R.p.rot.toLowerCase()}) em ${plural(comAlgo.length, 'frota', 'frotas')}` +
@@ -2384,7 +2409,8 @@ export function iniciarPainel(D, { baixar, raiz = document, aba = '', aoTrocarAb
       nome: { rot: 'Frota', ver: (l) => [l.frota, l.equip] },
       partes: [{ k: 'A' }, { k: 'P' }],
       cols: [{ k: 'A', rot: 'Liberadas' }, { k: 'P', rot: 'Pendentes' }, { k: 'v90', rot: '+90 dias', ruim: true }, { k: 'prog', rot: 'Programadas' },
-        { k: 'nprog', rot: 'Não programadas' }, { k: 'sem', rot: 'Sem executante' }, { k: 'venc', rot: 'Prevista vencida', ruim: true }, { k: 'F', rot: 'Finalizadas' }],
+        { k: 'nprog', rot: 'Não programadas' }, { k: 'sem', rot: 'Sem executante' }, { k: 'venc', rot: 'Prevista vencida', ruim: true },
+        { k: 'F', rot: 'Encerradas no período' }, { k: 'Fnov', rot: '· abertas no período', val: (l) => l.F - l.Fant }, { k: 'Fant', rot: '· abertas antes' }],
       aoClicar: (l) => aplicar(() => so('frota', l.frota)) });
   }
 
@@ -2399,7 +2425,7 @@ export function iniciarPainel(D, { baixar, raiz = document, aba = '', aoTrocarAb
         el('div', { class: 'acoes' }, botaoFolha(f), el('button', { type: 'button', class: 'botao', text: '← Todas as frotas', on: { click: () => aplicar(() => F.frota.clear()) } }))),
       el('div', { class: 'kpis mini' },
         k('Carteira (para fechar)', nf.format(ab.length), `${nf.format(lib)} liberadas · ${nf.format(ab.length - lib)} pendentes`, COR.A),
-        k('Finalizadas', nf.format(fe.length), R.p.rot.toLowerCase(), COR.F),
+        k('Encerradas no período', nf.format(fe.length), `${nf.format(fe.filter((o) => o.abertura >= R.p.desde).length)} abertas no período · ${nf.format(fe.filter((o) => o.abertura < R.p.desde).length)} abertas antes`, COR.F),
         k('Programadas para fechar', nf.format(ab.filter((o) => o.classe === 'P').length), `${nf.format(ab.filter((o) => o.classe === 'N').length)} não programadas`, COR.prog),
         k('Há mais de 90 dias', nf.format(ab.filter((o) => o.faixa === 3).length), 'das para fechar', COR.alerta, ab.some((o) => o.faixa === 3) ? 'ruim' : ''),
         k('Prevista e vencida', nf.format(venc), 'data da STL já passou', COR.alerta, venc ? 'ruim' : '')));

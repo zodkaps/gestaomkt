@@ -1651,6 +1651,18 @@ titulo("liberadas agora, e adiantar até a realização");
       igual(`a coluna "${nome}" também é a de quem abriu (e a Usuário Ini. não)`, PN.os[0][20], "000.000.001-91");
     }
   }
+  // (11/11/2026) a mesma OS com e sem os zeros da frente (o Excel come os zeros) é uma só — a de hoje vale — e a STL acha ela
+  {
+    const tHoje = M.tabela([CAB_STJ, os(90001, "0617", "2025-03-01", "Sim", "Liberado", "2026-02-10")], "STJ_numero.xlsx");
+    const tHist = { ...M.tabela([CAB_STJ, os("090001", "0617", "2025-03-01", "Não", "Liberado")], "STJ histórica"), historica: true };
+    const tStl = M.tabela([CAB_STL, ["10101", "090001", "REAL", "Mão de Obra", "000111", "FULANO DE TESTE", 2, D("2026-02-10")]], "STL_z.xlsx");
+    const mz = M.montar({ stj: [tHoje, tHist], stl: [tStl], frotas: ["617"], base: "2026-11-05" }), PZ = M.dadosDoPainel(mz);
+    igual("a OS 90001 (Excel, sem o zero) e a 090001 (base histórica) são a mesma: entra uma vez, encerrada como hoje",
+      [PZ.os.length, PZ.os[0][6], PZ.os[0][7], mz.auditoria.repetidasHist], [1, "F", "2026-02-10", 1]);
+    igual("e a STL com a filial e a OS escritas de outro jeito acha o executante", Object.keys(PZ.exec), ["Fulano de Teste"]);
+    const INDz = await import("../js/os/indicadores.js");
+    igual("a chave das comparações também ignora os zeros", [M.chaveOS("010101", "090001"), INDz.chaveOS("010101", "090001"), INDz.chaveOS(10101, 90001)], ["10101|90001", "10101|90001", "10101|90001"]);
+  }
   igual("o funil do Protheus ao painel: 6 linhas de hoje e 2 da base histórica; 1 de outra frota, 1 cancelada, 1 encerrada antes de 2024, 1 repetida na base",
     (({ linhasHoje, linhasHist, foraDaLista, canceladas, antesDe, repetidasHoje, repetidasHist, semFim, consideradas, daBaseHistorica }) =>
       [linhasHoje, linhasHist, foraDaLista, canceladas, antesDe, repetidasHoje, repetidasHist, semFim, consideradas, daBaseHistorica])(P.auditoria), [6, 2, 1, 1, 1, 0, 1, 0, 4, 1]);

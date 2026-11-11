@@ -19,6 +19,11 @@
 
 // ── a leitura de cada valor, igual à do montar.py ────────────────────────────
 
+/** A chave de uma OS (11/11/2026): filial e número sem os zeros da frente. O Excel guarda o número como número
+ *  e come os zeros ("012345" vira 12345); a base histórica os guarda. Sem isto, a mesma OS seria duas. */
+const semZeros = (s) => s.replace(/^0+(?=\d)/, "");
+export const chaveOS = (filial, os) => semZeros(txt(filial)) + "|" + semZeros(txt(os));
+
 /** O texto da célula, com os espaços juntados. Zero é "0"; vazio é "". */
 export function txt(v) {
   if (v === null || v === undefined || v === "") return "";
@@ -212,7 +217,7 @@ export function montar({ stj, stl, frotas, base, desde = "2024-01-01", ult0 = {}
     if (t.historica) aud.linhasHist++; else aud.linhasHoje++;
     const bem = txt(g("Bem")), equip = txt(g("Nome do Bem"));
     if (!nossas.has(bem)) { aud.foraDaLista++; continue; }
-    const k = txt(g("Filial")) + "|" + txt(g("Ordem Serv."));
+    const k = chaveOS(g("Filial"), g("Ordem Serv."));
     // a de hoje vem primeiro: repetida na base histórica é a mesma OS, que o export de hoje já trouxe
     if (vistas.has(k)) { repetidas++; if (t.historica) aud.repetidasHist++; else aud.repetidasHoje++; continue; }
     vistas.add(k);
@@ -257,7 +262,7 @@ export function montar({ stj, stl, frotas, base, desde = "2024-01-01", ult0 = {}
   aud.daBaseHistorica = osRows.filter((r) => r.origem === "H").length;
   aud.abertasDaBaseHistorica = osRows.filter((r) => r.origem === "H" && r.situacao !== "Finalizada").length;
   aud.desde = desde;
-  const chaves = new Set(osRows.map((r) => r.filial + "|" + r.os));
+  const chaves = new Set(osRows.map((r) => chaveOS(r.filial, r.os)));
   const gente = new Map();              // "filial|os" -> Map(código -> pessoa)
   const tercStl = new Set(), espec = new Map();
   const ultimo = new Map(Object.entries(ult0).map(([n, u]) => [n, { real: u.real || "", plan: u.plan || "" }]));
@@ -265,7 +270,7 @@ export function montar({ stj, stl, frotas, base, desde = "2024-01-01", ult0 = {}
   for (const t of stl) for (const g of leitor(t)()) {
     nStl++;
     const ti = txt(g("Tipo Insumo"));
-    const k = txt(g("Filial")) + "|" + txt(g("Ordem"));
+    const k = chaveOS(g("Filial"), g("Ordem"));
     if ((ti === "Terceiro" || ti === "Especialidade") && chaves.has(k)) {
       if (ti === "Terceiro") tercStl.add(k);
       else { if (!espec.has(k)) espec.set(k, new Set()); espec.get(k).add(frase(txt(g("Nome Insumo"))) || txt(g("Código"))); }
@@ -303,7 +308,7 @@ export function montar({ stj, stl, frotas, base, desde = "2024-01-01", ult0 = {}
       prevista_para: e.prevEm, apontada_em: e.realEm });
   }
   for (const r of osRows) {
-    const k = r.filial + "|" + r.os, ps = gente.get(k);
+    const k = chaveOS(r.filial, r.os), ps = gente.get(k);
     r.executantes = ps ? [...new Set([...ps.values()].map((e) => e.nome))].sort().join("; ") : "";
     r.terceiro_stl = tercStl.has(k) ? "Sim" : "Não";
     r.especialidade = espec.has(k) ? [...espec.get(k)].filter(Boolean).sort().join("; ") : "";
@@ -329,10 +334,10 @@ export function dadosDoPainel(m, extra = {}) {
   for (const r of lista) classe.set(r.categoria || "Sem categoria", r.classe || "S");
   const cats = [...classe.keys()].sort((a, b) => ORDEM_CLASSE.indexOf(classe.get(a)) - ORDEM_CLASSE.indexOf(classe.get(b)) || cmp(a, b));
   const ic = new Map(cats.map((c, i) => [c, i]));
-  const indice = new Map(lista.map((r, i) => [r.filial + "|" + r.os, i]));
+  const indice = new Map(lista.map((r, i) => [chaveOS(r.filial, r.os), i]));
   const quem = new Map();
   for (const e of m.execRows) {
-    const i = indice.get(e.filial + "|" + e.os);
+    const i = indice.get(chaveOS(e.filial, e.os));
     if (i === undefined) continue;
     if (!quem.has(e.executante)) quem.set(e.executante, new Map());
     const l = quem.get(e.executante);
@@ -374,7 +379,7 @@ export function dadosDoPainel(m, extra = {}) {
 /** Antes de gravar: o que sumiu, fechou, abriu, e se alguma OS perdeu o
  *  executante (sinal de STL faltando parte). `antes` e `agora`: blocos D. */
 export function comparar(antes, agora) {
-  const chave = (a) => a[1] + "|" + a[0];
+  const chave = (a) => chaveOS(a[1], a[0]);
   const ka = new Map((antes ? antes.os : []).map((a, i) => [chave(a), [a, i]]));
   const kb = new Map(agora.os.map((a, i) => [chave(a), [a, i]]));
   const aberta = (a) => a[6] !== "F";

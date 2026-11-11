@@ -206,6 +206,12 @@ export function abrirImportar({ atual, aoGravar, raiz = document }) {
     if (qa && qa.stjSemQuemAbriu && qa.stjSemQuemAbriu.length) {
       avisos.push(`${qa.stjSemQuemAbriu.join(", ")}: sem a coluna Usr Inclusao (quem abriu a OS). Sem ela o painel não mostra o CPF de quem abriu — exporte a STJ com essa coluna.`);
     } else if (qa && qa.colunaQuemAbriu && !qa.comQuemAbriu) avisos.push(`A coluna ${qa.colunaQuemAbriu} veio vazia: o painel fica sem quem abriu as OS.`);
+    // (11/11/2026) a OS em aberto que só a base histórica tem fica com a situação do dia em que ela foi feita
+    if (qa && qa.abertasDaBaseHistorica) {
+      const n = qa.abertasDaBaseHistorica, quando = sem.feitoEm ? br(String(sem.feitoEm).slice(0, 10)) : "quando ela foi feita";
+      avisos.push(`${plural(n, "OS em aberto vem", "OS em aberto vêm")} só da base histórica (situação de ${quando}): a STJ de hoje não ${n === 1 ? "a" : "as"} trouxe. ` +
+        `Se alguma foi encerrada depois, o painel ainda a conta em aberto — para atualizá-las, exporte a STJ e a STL desde ${br(DESDE)}.`);
+    }
     const g = c.agora;
     const linhaOS = (a) => el("li", {}, el("b", { text: `${a[2]} · OS ${a[0]}` }), ` ${a[4]} · ${({ A: "liberada", P: "aguardando liberação", F: "finalizada" })[a[6]]} · aberta em ${br(a[5])}`);
     resumo.append(...[

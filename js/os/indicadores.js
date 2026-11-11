@@ -211,10 +211,14 @@ export function progFin(lista, { de, ate, fechAte = ate }) {
 // Cada atualização grava uma cópia do dia no bucket (dias/AAAA-MM-DD.json.gz). Aqui, as contas para
 // comparar duas delas. Trabalham com o bloco D do painel (D.os: as listas de js/os/montar.js).
 
+/** A chave de uma OS: filial e número sem os zeros da frente (a mesma do js/os/montar.js). */
+const semZeros = (s) => String(s ?? "").trim().replace(/^0+(?=\d)/, "");
+export const chaveOS = (filial, os) => semZeros(filial) + "|" + semZeros(os);
+
 /** As OS de um bloco D, só o que a conferência usa: chave "filial|OS" → { os, filial, frota, sit, abertura, fim }. */
 export function osDoBloco(D) {
   const m = new Map();
-  for (const a of D.os) m.set(a[1] + "|" + a[0], { os: a[0], filial: a[1], frota: a[2], sit: a[6], abertura: a[5], fim: a[7] });
+  for (const a of D.os) m.set(chaveOS(a[1], a[0]), { os: a[0], filial: a[1], frota: a[2], sit: a[6], abertura: a[5], fim: a[7] });
   return m;
 }
 
@@ -229,7 +233,7 @@ export function osDoBloco(D) {
  */
 export function compararAtualizacoes(A, B) {
   const a = osDoBloco(A), b = osDoBloco(B);
-  const canc = new Set((B.canceladas || []).map((c) => c[1] + "|" + c[0]));
+  const canc = new Set((B.canceladas || []).map((c) => chaveOS(c[1], c[0])));
   const aberta = (o) => o.sit !== "F";
   const r = { baseA: A.base, baseB: B.base, totalA: a.size, totalB: b.size, backlogA: 0, backlogB: 0,
     novas: [], novasEncerradas: [], reabertas: [], encerradas: [], canceladas: [], sumiram: [], sumiramEncerradas: [],
