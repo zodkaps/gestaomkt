@@ -2416,7 +2416,9 @@ ok("e o Diagnóstico não manda rodar SQL por causa de sessão",
   await mt.waitForSelector("#kpis .kpi", { timeout: 30000 });
   await mt.waitForTimeout(600);
   const kp = await mt.$$eval("#kpis .kpi .val", v => v.map(x => x.textContent));
-  ok("gravou e abriu: 2 abertas, 1 fechada nas 12 semanas", kp[0] === "2" && kp[1] === "1", kp.join(" | "));
+  ok("gravou e abriu: 2 abertas, 1 fechada na semana (o período de partida)", kp[0] === "2" && kp[1] === "1", kp.join(" | "));
+  ok("o período de partida é a semana atual, e a seta da próxima fica apagada", (await mt.textContent("#f-periodo-txt")).startsWith("Semana atual") && await mt.isDisabled("#f-per-prox"),
+    await mt.textContent("#f-periodo-txt"));
   ok("e a aba Não liberadas com 1", (await mt.textContent("#n-pendentes")) === "1");
   // abrir de novo, num aparelho que já tem: vem do guardado, igual
   await mt.goto(site.endereco + "#/os?aba=executantes", { waitUntil: "networkidle" });
@@ -2440,10 +2442,11 @@ ok("e o Diagnóstico não manda rodar SQL por causa de sessão",
     await ctxM.close();
   }
   // os indicadores (09/11/2026): base 05/11, 12 semanas — entraram 3 (01/10, 20/10, 25/10), fechou 1 (03/11), 2 abertas
+  const periodoPronto = async (rot) => { await mt.click("#f-periodo"); await mt.click(`#pop .per-op:has-text("${rot}")`); await mt.waitForTimeout(300); };
   await mt.click("#aba-indicadores");
-  await mt.waitForTimeout(400);
+  await periodoPronto("Últimas 12 semanas");
   const ind = await mt.$$eval("#indicadores .kpi.ind", (v) => v.map((x) => x.querySelector(".rot").textContent + "=" + x.querySelector(".val").textContent));
-  ok("Indicadores: carteira 2, taxa de atendimento 33% (1 de 3), saldo +2", ["Carteira (abertas)=2", "Taxa de atendimento=33%", "Saldo da carteira=+2"].every((x) => ind.includes(x)), ind.join(" | "));
+  ok("Indicadores: backlog no fim 2, taxa de atendimento 33% (1 de 3), saldo +2", ["Backlog no fim do período=2", "Taxa de atendimento=33%", "Saldo da carteira=+2"].every((x) => ind.includes(x)), ind.join(" | "));
   ok("e a aba vai para o endereço", mt.url().endsWith("#/os?aba=indicadores"), mt.url());
   const regraVisivel = () => mt.isVisible("#indicadores .kpi.ind .regra >> nth=0");
   const semRegra = !(await regraVisivel());
@@ -2470,59 +2473,68 @@ ok("e o Diagnóstico não manda rodar SQL por causa de sessão",
   // programadas × finalizadas (10/11/2026): em novembro (dados de 05/11) nada programado, e a 100003
   // (programada para 25/10, o dia da abertura) finalizada em 03/11 conta como finalizada de fora da programação
   await mt.click("#aba-geral");
-  await mt.waitForTimeout(300);
-  await mt.click('#ctl-progfin button:has-text("Mês")');
-  await mt.waitForTimeout(300);
+  await periodoPronto("Mês atual");
   const notaPF = await mt.textContent("#nota-progfin");
-  ok("Visão geral: as programadas e as finalizadas do mês, por dia, semana ou mês",
-    notaPF.startsWith("Novembro de 2026: 0 programadas") && notaPF.includes("1 finalizada no total"), notaPF);
+  ok("Visão geral: as programadas e as encerradas no período da barra (o mês)",
+    notaPF.startsWith("Mês atual") && notaPF.includes("0 programadas") && notaPF.includes("1 encerrada no total (1 extra programação)"), notaPF);
   await mt.click("#aba-programacao");
   await mt.waitForTimeout(300);
-  await mt.click('#programacao .seg button:has-text("Mês")');
-  await mt.waitForTimeout(300);
-  const kFin = await mt.$eval("#programacao .pg-kpis .kpi:last-child", (k) => [k.querySelector(".rot").textContent, k.querySelector(".val").textContent, k.querySelector(".pe").textContent]);
-  ok("Programação: todas as fechadas no mês, das programadas para ele e de fora", kFin[0] === "Todas as fechadas no período" && kFin[1] === "1" && kFin[2].startsWith("0 da programação · 1 extra programação"), kFin.join(" | "));
-  await mt.click("#programacao .pg-kpis .kpi:last-child");
+  const kpiDe = (sel, rot) => mt.$eval(`${sel} .kpi:has(.rot:text-is("${rot}"))`, (k) => [k.querySelector(".val").textContent, k.querySelector(".pe").textContent]).catch(() => ["?", "?"]);
+  const kFin = await kpiDe("#programacao .pg-mov", "Encerradas no período");
+  ok("Programação: as encerradas no mês, separadas das programadas (da programação e extra programação)", kFin[0] === "−1" && kFin[1].startsWith("0 da programação · 1 extra programação"), kFin.join(" | "));
+  await mt.click('#programacao .pg-mov .kpi:has(.rot:text-is("Encerradas no período"))');
   await mt.waitForTimeout(500);
   const listaFin = await mt.innerText("#pg-lista");
   ok("e o clique mostra quais, na lista logo abaixo, sem ligar filtro na barra", listaFin.includes("100003") && (await mt.innerText("#chips")).trim() === "", listaFin.slice(0, 120));
-  await mt.click('#programacao button[aria-label="Período anterior"]');
+  await mt.click("#f-per-ant");
   await mt.waitForTimeout(300);
-  const kOut = await mt.$$eval("#programacao .pg-kpis .kpi .val", (v) => v.map((x) => x.textContent));
-  ok("e em outubro: as programadas (a 100003 fechou depois, em novembro) e nenhuma fechada no mês", kOut[1] === "1" && kOut[3] === "0" && Number(kOut[0]) >= 3, kOut.join(" | "));
+  ok("a seta do período anda um mês inteiro para trás", (await mt.textContent("#f-periodo-txt")) === "Outubro de 2026", await mt.textContent("#f-periodo-txt"));
+  const kOut = await mt.$$eval("#programacao .pg-kpis:not(.pg-mov) .kpi .val", (v) => v.map((x) => x.textContent));
+  const kOutMov = await kpiDe("#programacao .pg-mov", "Encerradas no período");
+  ok("e em outubro: as programadas (a 100003 encerrou depois, em novembro) e nenhuma encerrada no mês", Number(kOut[0]) >= 3 && kOut[2] === "1" && kOutMov[0] === "0",
+    kOut.join(" | ") + " · " + kOutMov.join(" | "));
   await mt.click("#programacao .pg-kpis .kpi >> nth=0");
   await mt.waitForTimeout(500);
   const listaOut = await mt.innerText("#pg-lista");
   ok("Programadas: a lista traz quais são (a 100001 e a 100002, programadas para outubro)", listaOut.includes("100001") && listaOut.includes("100002"), listaOut.slice(0, 160));
   ok("e o avanço das programadas numa barra só", await mt.isVisible("#programacao .pg-avanco-barra"));
-  // o avanço: na semana 45 (02 a 08/11, dados de 05/11) tinha 3 para fechar no começo, fechou 1, ficou com 2
+  // o avanço: na semana 45 (02 a 08/11, dados de 05/11) tinha 3 no começo, nenhuma nova, 1 encerrada, ficou com 2
   await mt.click("#aba-avanco");
+  await periodoPronto("Semana atual");
   await mt.waitForSelector(".av-kpis", { timeout: 10000 });
-  const av = await mt.$$eval(".av-kpis .kpi .val", v => v.map(x => x.textContent).join("|"));
-  ok("aba Avanço: tinha 3, fechou 1, nada entrou, ficou com 2", av === "3|1|0|2", av);
-  await mt.click('.av-kpis button.kpi:has-text("Baixadas")');
+  const av = await mt.$$eval(".av-kpis .kpi .val", v => v.slice(0, 4).map(x => x.textContent).join("|"));
+  ok("aba Avanço: backlog inicial 3, nenhuma nova, 1 encerrada, backlog final 2", av === "3|0|−1|2", av);
+  const concil = await mt.innerText("#av-conferencia");
+  ok("a conferência do backlog: 3 + 0 − 1 − 0 = 2, e a conta fecha", concil.includes("A conta fecha") && /Backlog final calculado\s+2/.test(concil), concil.replace(/\s+/g, " ").slice(0, 300));
+  await mt.click('.av-kpis button.kpi:has-text("Encerradas")');
   await mt.waitForTimeout(400);
-  ok("e a lista das que fecharam traz a OS fechada em 03/11", (await mt.innerText("#av-lista")).includes("100003"));
-  await mt.click('#avanco .ctl .seg button:has-text("Mês")');
-  await mt.waitForTimeout(300);
-  await mt.click('#avanco .pg-nav button[aria-label="Período anterior"]');
-  await mt.waitForTimeout(300);
-  const out = await mt.$$eval(".av-kpis .kpi .val", v => v.map(x => x.textContent).join("|"));
-  ok("em outubro: nada no começo, entraram 3, ficaram 3", out === "0|0|3|3", out);
+  ok("e a lista das encerradas traz a OS encerrada em 03/11", (await mt.innerText("#av-lista")).includes("100003"));
+  await periodoPronto("Mês anterior");
+  const out = await mt.$$eval(".av-kpis .kpi .val", v => v.slice(0, 4).map(x => x.textContent).join("|"));
+  ok("em outubro: nada no começo, entraram 3, nenhuma encerrada, ficaram 3", out === "0|+3|0|3", out);
+  // a auditoria (11/11/2026): o funil do Protheus ao painel, os pontos de atenção e as cópias guardadas
+  await mt.click("#aba-auditoria");
+  await mt.waitForSelector("#aud-funil", { timeout: 10000 });
+  await mt.waitForFunction(() => !/Lendo/.test(document.querySelector(".os-host").shadowRoot.querySelector("#aud-comparar").textContent), null, { timeout: 15000 });
+  const funil = (await mt.innerText("#aud-funil")).replace(/\s+/g, " ");
+  ok("Auditoria: do Protheus ao painel, cada linha da STJ contada (as de outra frota ficam de fora, com o motivo)",
+    funil.includes("Todas as linhas estão contadas") && /OS no painel 5\b/.test(funil), funil.slice(0, 400));
+  ok("e a comparação pede duas cópias (só há a desta atualização)", (await mt.innerText("#aud-comparar")).includes("Só há a cópia de 05/11/2026"), await mt.innerText("#aud-comparar"));
+  ok("e o histórico das atualizações tem a linha desta", (await mt.innerText("#aud-historico")).includes("05/11/2026"), (await mt.innerText("#aud-historico")).slice(0, 200));
   // o período das finalizadas no calendário (09/11/2026): um pronto, e depois o começo e o fim clicando
   await mt.click("#aba-geral");
   await mt.click("#f-periodo");
   await mt.waitForSelector("#pop .cal-dia");
   await mt.click('#pop .per-op:has-text("Em 2026")');
   await mt.waitForTimeout(300);
-  ok("período pronto: entra na barra e a caixa fecha", (await mt.textContent("#f-periodo-txt")) === "Em 2026" && await mt.isHidden("#pop"),
+  ok("período pronto: entra na barra e a caixa fecha", (await mt.textContent("#f-periodo-txt")).startsWith("Em 2026") && await mt.isHidden("#pop"),
     await mt.textContent("#f-periodo-txt"));
   await mt.click("#f-periodo");
   await mt.click('#pop .cal-dia[data-dia="2026-11-02"]');
   await mt.click('#pop .cal-dia[data-dia="2026-11-04"]');
   await mt.waitForTimeout(300);
   const kpPer = await mt.$$eval("#kpis .kpi", (v) => v.map((x) => x.innerText.replace(/\s+/g, " ")));
-  ok("no calendário, o começo e o fim: só a OS fechada em 03/11 conta como fechada", (await mt.textContent("#f-periodo-txt")) === "02/11/26 a 04/11/26" &&
+  ok("no calendário, o começo e o fim: só a OS fechada em 03/11 conta como fechada", (await mt.textContent("#f-periodo-txt")) === "De 02/11/2026 a 04/11/2026" &&
     /^Fechadas 1 de 02\/11\/2026 a 04\/11\/2026/.test(kpPer[1]), kpPer[1]);
   ok("o dia depois do export não se escolhe", await mt.evaluate(() => { const s = document.querySelector(".os-host").shadowRoot; s.querySelector("#f-periodo").click(); const b = s.querySelector('#pop .cal-dia[data-dia="2026-11-06"]'); return !!b && b.disabled; }));
   await mt.keyboard.press("Escape");

@@ -72,6 +72,10 @@ marca. Regras:
   mostra CPF de verdade no chat.
 - As regras da montagem estão em `js/os/montar.js` (as mesmas do `montar.py`).
   Mudou regra? Muda lá e no teste de `testes/rodar.js`.
+- A regra da carteira é uma só (`js/os/indicadores.js`: `movimento`, `saidaDe`,
+  `emAberto`): entra pela abertura, sai pelo fim, nunca antes da abertura.
+  Número novo de backlog usa ela, não conta por conta própria. O que não fecha
+  aparece como divergência (a Conferência e a aba Auditoria) — nunca ajustado.
 - Se ele mandar a STJ e a STL no chat, a resposta é: solte em *Atualizar com o
   Protheus* no site. A base histórica (`historico-os.json.gz`) é feita fora do
   repositório e mandada a ele em arquivo; nunca vai para o Git.

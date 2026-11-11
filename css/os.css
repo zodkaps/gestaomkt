@@ -560,10 +560,15 @@ li.erro .imp-nome small { color: var(--alerta-t); }
 @media (max-width: 560px) {
   .pill-per { width: 100%; min-width: 0; }
   .pill-per select { flex: 1 1 auto; min-width: 0; }
-  .pill-busca { flex: 1 1 100%; min-width: 0; max-width: none; width: 100%; }
+  .pill-busca { flex: 1 1 100%; min-width: 0; max-width: none; width: 100%; box-sizing: border-box; }
+  /* (11/11/2026) as setas do período ficam dentro da linha: o texto do período encolhe */
+  .per-grupo { display: flex; width: 100%; min-width: 0; }
+  .per-grupo .pill-per { flex: 1 1 auto; width: auto; min-width: 0; }
+  .pill-per .per-rot { display: none; }
+  .pill-per .pill-rot { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 }
 /* Avanço (06/11/2026): quatro números numa linha, dois no celular */
-.kpis.mini.av-kpis { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+.kpis.mini.av-kpis { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 @media (max-width: 900px) { .kpis.mini.av-kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 
 /* ── mandar no grupo (10/11/2026): o menu do Enviar e o resumo do dia ── */
@@ -589,3 +594,57 @@ li.erro .imp-nome small { color: var(--alerta-t); }
 .pg-parte:focus-visible { outline: 2px solid var(--texto); outline-offset: -2px; }
 .pg-avanco .legenda b { color: var(--texto); }
 #pg-lista { scroll-margin-top: calc(var(--topo, 0px) + 150px); }
+
+/* ── o período único (11/11/2026): as setas em volta da pílula ── */
+.per-grupo { display: inline-flex; align-items: center; gap: 4px; }
+.per-passo { min-width: 34px; justify-content: center; font-size: 16px; font-weight: 700; padding: 0 10px; }
+.per-passo:disabled { opacity: .35; cursor: default; }
+
+/* ── a conferência do backlog (11/11/2026) ── */
+.concil { width: 100%; border-collapse: collapse; font-size: 13.5px; font-variant-numeric: tabular-nums; }
+.concil th { position: static; background: none; text-transform: none; letter-spacing: normal; font-size: 13.5px; white-space: normal; text-align: left; font-weight: 500; color: var(--fraco); padding: 7px 0; border-bottom: 1px solid var(--linha); }
+.concil td { text-align: right; font-weight: 700; padding: 7px 0 7px 12px; border-bottom: 1px solid var(--linha); white-space: nowrap; }
+.concil tr.mais td { color: var(--liberada-t); }
+.concil tr.menos td { color: var(--finalizada-t); }
+.concil tr.soma th, .concil tr.soma td { border-top: 2px solid var(--borda); color: var(--texto); font-weight: 700; }
+.concil tr.achado th { color: var(--texto); }
+.concil-res { margin: 0; padding: 9px 12px; border-radius: 9px; font-weight: 700; font-size: 13.5px; }
+.concil-res.bom { background: var(--finalizada-f); color: var(--finalizada-t); }
+.concil-res.ruim { background: var(--alerta-f); color: var(--alerta-t); }
+.concil-notas { margin: 0; padding-left: 18px; display: grid; gap: 4px; font-size: 12.5px; color: var(--fraco); }
+.kpi .comp { font-size: 12px; color: var(--fraco); }
+.kpi .comp b { font-weight: 700; }
+.kpi .comp.bom b { color: var(--finalizada-t); }
+.kpi .comp.ruim b { color: var(--alerta-t); }
+
+/* ── a Programação em dois blocos (11/11/2026) ── */
+.kpis-tit { margin: 6px 0 -2px; font-size: 12.5px; font-weight: 700; letter-spacing: .02em; text-transform: uppercase; color: var(--fraco); }
+.pg-limite { margin: 2px 0 0; padding-left: 18px; display: grid; gap: 3px; font-size: 12.5px; color: var(--fraco); }
+.kpis.mini.pg-kpis { grid-template-columns: repeat(5, minmax(0, 1fr)); }
+.kpis.mini.pg-kpis.pg-mov { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+@media (max-width: 1100px) { .kpis.mini.pg-kpis { grid-template-columns: repeat(3, minmax(0, 1fr)); } .kpis.mini.pg-kpis.pg-mov { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 640px) { .kpis.mini.pg-kpis, .kpis.mini.pg-kpis.pg-mov { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+.kpi-grupo { display: grid; gap: 8px; }
+
+/* ── a Auditoria (11/11/2026) ── */
+.concil-ver { all: unset; cursor: pointer; color: var(--liberada-t); font-weight: 600; text-decoration: underline; text-decoration-thickness: 1px; text-underline-offset: 2px; }
+.concil-ver:hover { text-decoration-thickness: 2px; }
+.concil-ver:focus-visible { outline: 2px solid var(--marca); outline-offset: 2px; border-radius: 3px; }
+.aud-pontos { list-style: none; margin: 0; padding: 0; display: grid; gap: 12px 28px; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+@media (max-width: 900px) { .aud-pontos { grid-template-columns: 1fr; } }
+.aud-pontos li { display: grid; grid-template-columns: 64px 1fr; gap: 12px; align-items: start; }
+.aud-pontos li div { display: grid; gap: 2px; font-size: 13px; }
+.aud-pontos li div span { color: var(--fraco); font-size: 12.5px; }
+.aud-n { all: unset; box-sizing: border-box; text-align: center; padding: 6px 4px; border-radius: 9px; background: var(--papel2); font-weight: 750; font-size: 16px; font-variant-numeric: tabular-nums; color: var(--fraco); }
+.aud-n.tem { color: var(--texto); }
+button.aud-n.tem { cursor: pointer; box-shadow: inset 0 0 0 1px var(--borda); }
+button.aud-n.tem:hover { background: var(--marca-clara); }
+button.aud-n:focus-visible { outline: 2px solid var(--marca); }
+.aud-ctl { display: flex; flex-wrap: wrap; gap: 12px; align-items: end; }
+.aud-escolha { display: grid; gap: 4px; font-size: 12px; color: var(--fraco); }
+.aud-escolha select { font: inherit; font-size: 14px; color: var(--texto); background: var(--papel); border: 1px solid var(--borda); border-radius: 9px; padding: 7px 10px; }
+.aud-par { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 24px; }
+.aud-par > div { display: grid; gap: 8px; align-content: start; }
+@media (max-width: 900px) { .aud-par { grid-template-columns: 1fr; } }
+.aud-cat { display: grid; gap: 8px; border-top: 1px solid var(--linha); padding-top: 12px; }
+.aud-cat h3 { margin: 0; font-size: 15px; }

@@ -49,6 +49,38 @@ export async function baixarJSON(caminho) {
   const b = await nuvem.baixarArquivo(BUCKET, caminho);
   return b ? deGz(b) : null;
 }
+/** As cópias de cada dia (dias/AAAA-MM-DD.json.gz): o que há para comparar uma atualização com outra. */
+export async function diasGuardados() {
+  const l = await nuvem.listarArquivos(BUCKET, "dias");
+  return (Array.isArray(l) ? l : []).map((x) => x && x.name && /^(\d{4}-\d{2}-\d{2})\.json\.gz$/.exec(x.name)).filter(Boolean)
+    .map((m) => m[1]).sort();
+}
+/** A cópia de um dia: o pacote gravado (meta e D). */
+export const baixarDia = (dia) => baixarJSON(`dias/${dia}.json.gz`);
+
+// ── o índice das atualizações (11/11/2026) ───────────────────────────────────
+// Uma linha por gravação: o dia do export, quando gravou e as contagens — para a auditoria mostrar o
+// histórico sem baixar todas as cópias. A cópia de cada dia (dias/) segue sendo o registro completo.
+const INDICE = "importacoes.json.gz";
+export async function lerImportacoes() {
+  try { const l = await baixarJSON(INDICE); return Array.isArray(l) ? l : []; } catch (e) { return []; }
+}
+/** A linha do índice de um pacote gravado. `c`: a comparação com o painel anterior (M.comparar). */
+export function linhaDaImportacao(p, c = null) {
+  const n = { A: 0, P: 0, F: 0 };
+  for (const a of p.D.os) n[a[6]]++;
+  return { base: p.meta.base, gerado_em: p.meta.gerado_em, total: p.D.os.length, abertas: n.A + n.P, liberadas: n.A, aguardando: n.P, encerradas: n.F,
+    canceladas: (p.D.canceladas || []).length, desde: c && c.antes ? c.antes.base : "",
+    novas: c && c.antes ? c.novas.length : null, fecharam: c && c.antes ? c.fecharam.length : null, reabertas: c && c.antes ? c.reabertas : null,
+    sumiramAbertas: c && c.antes ? c.sumiramAbertas.length : null };
+}
+async function registrarImportacao(linha) {
+  const l = (await lerImportacoes()).filter((x) => x.base !== linha.base);   // o mesmo dia gravado de novo: vale o último
+  l.push(linha);
+  l.sort((a, b) => (a.base < b.base ? -1 : a.base > b.base ? 1 : 0));
+  await nuvem.subirArquivo(BUCKET, INDICE, await gz(l));
+}
+
 /** O que há na raiz do bucket: nome → { versão (quando mudou e o tamanho) }. */
 export async function arquivosDoPainel() {
   const l = await nuvem.listarArquivos(BUCKET, "");
@@ -158,14 +190,17 @@ export function abrirImportar({ atual, aoGravar, raiz = document }) {
     let m, D;
     try {
       m = M.montar({ stj: [...stj.map((x) => x.tabela), sem.stj], stl: [...stl.map((x) => x.tabela), sem.stl], frotas: sem.frotas, base, desde: DESDE, ult0: sem.ult });
-      D = M.dadosDoPainel(m, sem.principais.length ? { principais: sem.principais } : {});
+      D = M.dadosDoPainel(m, { ...(sem.principais.length ? { principais: sem.principais } : {}),
+        historica: { feito_em: sem.feitoEm || "", corte: sem.corte || "", ate: sem.ate || "" } });
     } catch (e) { status.textContent = ""; resumo.append(el("p", { class: "imp-alerta", text: e.message })); return; }
     status.textContent = "";
     const antes = atual();
     const c = M.comparar(antes, D);
     if (antes && base < antes.base) avisos.push(`A data do export (${br(base)}) é anterior à do painel aberto (${br(antes.base)}).`);
     if (c.perdeuExecutante.length) avisos.push(`${plural(c.perdeuExecutante.length, "OS que tinha executante ficou", "OS que tinham executante ficaram")} sem ninguém (${nf.format(c.perdeuAbertas.length)} abertas) — sinal de que falta parte da STL. Confira as partes antes de gravar.`);
-    if (m.repetidas) avisos.push(`${plural(m.repetidas, "OS veio", "OS vieram")} repetida(s) entre as partes: contou uma vez só.`);
+    // repetida entre as partes de hoje é aviso; a mesma OS na base histórica é o esperado (vale a de hoje)
+    const rep = m.auditoria ? m.auditoria.repetidasHoje : m.repetidas;
+    if (rep) avisos.push(`${plural(rep, "OS veio", "OS vieram")} repetida(s) entre as partes de hoje: contou uma vez só.`);
     const g = c.agora;
     const linhaOS = (a) => el("li", {}, el("b", { text: `${a[2]} · OS ${a[0]}` }), ` ${a[4]} · ${({ A: "liberada", P: "aguardando liberação", F: "finalizada" })[a[6]]} · aberta em ${br(a[5])}`);
     resumo.append(...[
@@ -182,7 +217,7 @@ export function abrirImportar({ atual, aoGravar, raiz = document }) {
       ...avisos.map((t) => el("p", { class: "imp-cuidado", text: t }))].filter(Boolean));
     if (bloqueios.length) return;
     const arquivos = lidos.filter((x) => !x.erro).map((x) => ({ nome: x.nome, tipo: x.tipo, linhas: x.linhas }));
-    pacote = { versao: 1, meta: { gerado_em: new Date().toISOString(), base, arquivos, resumo: g }, D, semente: lidos.find((x) => x.tipo === "HIST") || null };
+    pacote = { versao: 1, meta: { gerado_em: new Date().toISOString(), base, arquivos, resumo: g }, D, semente: lidos.find((x) => x.tipo === "HIST") || null, comparacao: c };
     gravar.disabled = false;
   }
 
@@ -190,12 +225,14 @@ export function abrirImportar({ atual, aoGravar, raiz = document }) {
     if (!pacote) return;
     gravar.disabled = true;
     try {
-      const { semente: sem, ...p } = pacote;
+      const { semente: sem, comparacao, ...p } = pacote;
       if (sem) { aviso.textContent = "Guardando a base histórica…"; await nuvem.subirArquivo(BUCKET, "historico.json.gz", sem.arquivo.name.toLowerCase().endsWith(".gz") ? new Blob([await sem.arquivo.arrayBuffer()], { type: "application/gzip" }) : await gz(JSON.parse(await sem.arquivo.text()))); }
       aviso.textContent = "Gravando o painel…";
       const blob = await gz(p);
       await nuvem.subirArquivo(BUCKET, `dias/${p.meta.base}.json.gz`, blob);
       await nuvem.subirArquivo(BUCKET, "atual.json.gz", blob);
+      // o índice das atualizações: se não der, o painel já está gravado (a cópia do dia é o registro)
+      try { await registrarImportacao(linhaDaImportacao(p, comparacao)); } catch (e) { console.warn("índice das atualizações:", e); }
       aviso.textContent = "Gravado. Abrindo o painel novo…";
       await aoGravar(p);
     } catch (e) {

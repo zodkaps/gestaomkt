@@ -362,6 +362,54 @@ e preventivas, e **só ele ter acesso**.
   `os_makro` deixa ver o painel; para atualizar (o *Atualizar com o
   Protheus*, que grava no bucket), também `os_makro_atualiza`. Quem só vê não
   tem o botão, e o banco recusa a gravação de qualquer jeito.
+- **A regra da carteira** (11/11/2026, revisão pedida pelo Mateus): a OS
+  entra na carteira no dia da abertura e sai no dia do fim da manutenção
+  (encerrada no Protheus) — nunca antes da abertura: a OS aberta no Protheus
+  depois do serviço entra e sai no mesmo dia. *Backlog inicial* é o que estava
+  em aberto na véspera do período; *backlog final*, o que está em aberto no
+  último dia dele (ou no dia do export). Backlog final = inicial + novas −
+  encerradas, conferido OS por OS na **Conferência do backlog**: se um dia não
+  fechar, aparece a divergência e as OS, sem ajuste. O caso que motivou a
+  revisão (1.237 + 73 − 73 ≠ 1.209): o Avanço chamava de *Baixadas* só as
+  encerradas do backlog inicial e deixava as abertas e encerradas na própria
+  semana (28) dentro de *Abertas no período* — saíram 101, não 73. As contas
+  estão em `js/os/indicadores.js` (`movimento`, `saidaDe`, `emAberto`), com os
+  cenários em `testes/rodar.js`.
+- **Um período só** (11/11/2026): o período da barra vale para todas as abas.
+  Prontos: hoje, últimos 7 e 30 dias, semana atual (o de partida), mês atual,
+  mês anterior, 12 semanas, o ano, o ano passado e todo o histórico — ou o
+  calendário; as setas ‹ › andam um período inteiro (o dia, a semana, o mês).
+  Cada número usa o evento dele: entrada pela abertura, saída pelo fim,
+  programada pela data programada. A comparação é com o período anterior nos
+  mesmos dias (a semana até quarta compara com a semana passada até quarta).
+  A *Situação* da barra vale para as listas; os números contam todas.
+- **Avanço** (11/11/2026): backlog inicial, novas OS, encerradas (do backlog
+  inicial e abertas no próprio período), backlog final, variação (OS e %) e
+  encerradas ÷ novas, cada um com o período anterior; a conferência; entradas
+  e saídas na mesma escala, com o saldo; o backlog no fim de cada período;
+  novas e encerradas por período; a baixa por executante ou frota e a lista
+  (backlog inicial, novas, encerradas, backlog final).
+- **Programação** (11/11/2026): três contas que não se misturam — *programada*
+  (a data programada cai no período), *executada* (encerrada no Protheus, ou
+  aberta com o fim real da manutenção lançado — este a partir da atualização
+  seguinte a 11/11) e *encerrada* (Término = Sim). *Conclusão* = encerradas ÷
+  programadas. À parte, a carteira no período: abertas, encerradas (da
+  programação e extra programação) e antigas encerradas. A OS encerrada no
+  período sem a data programada nele é extra programação: nunca conta como
+  programada.
+- **Auditoria** (11/11/2026): a conferência do período; *Do Protheus ao
+  painel* (as linhas da STJ, as que ficaram de fora e por quê — outra frota,
+  repetida, cancelada, encerrada sem fim, encerrada antes de 2024 — e se a
+  conta bate com as OS do painel); os *pontos de atenção* nos dados (lançadas
+  depois do serviço, datas depois do export, abertas que vêm só da base
+  histórica, sem data de abertura, sem executante, canceladas); a comparação de
+  duas atualizações guardadas (o que entrou, encerrou, reabriu, foi cancelado
+  ou sumiu, OS por OS) com o backlog de um dia *registrado* naquela
+  atualização × *refeito* hoje; e o histórico das atualizações. Cada
+  atualização já guardava a cópia do dia (`dias/`); agora grava também uma
+  linha no índice (`importacoes.json.gz`, no mesmo bucket privado) e a lista
+  das canceladas. O que as cópias não provam não é inventado: aparece como
+  "sumiu do export" ou "a partir da próxima atualização".
 
 **As telas da oficina saíram do menu, mas nada foi apagado.** Painel, Hoje,
 Programação, Semana, Resultados e Frota continuam no código, e os lançamentos

@@ -1643,6 +1643,13 @@ titulo("liberadas agora, e adiantar até a realização");
     ok("e as outras colunas de usuário (alteração, início, fim) não entram no painel", !["11122233344", "55566677788", "99900011122", "33344455566"].some((x) => txtU.includes(x)));
     igual("sem a coluna no export, quem abriu fica vazio", P.os.find((a) => a[0] === "100001")[20], "");
   }
+  igual("o funil do Protheus ao painel: 6 linhas de hoje e 2 da base histórica; 1 de outra frota, 1 cancelada, 1 encerrada antes de 2024, 1 repetida na base",
+    (({ linhasHoje, linhasHist, foraDaLista, canceladas, antesDe, repetidasHoje, repetidasHist, semFim, consideradas, daBaseHistorica }) =>
+      [linhasHoje, linhasHist, foraDaLista, canceladas, antesDe, repetidasHoje, repetidasHist, semFim, consideradas, daBaseHistorica])(P.auditoria), [6, 2, 1, 1, 1, 0, 1, 0, 4, 1]);
+  igual("a cancelada vai à parte (fora da carteira), com a abertura", P.canceladas, [["100005", "010101", "F-617", "2026-10-26"]]);
+  igual("a origem: a OS que só veio da base histórica é marcada", [P.os.find((a) => a[0] === "090001")[21], P.os.find((a) => a[0] === "100001")[21]], ["H", ""]);
+  const PF = M.dadosDoPainel(M.montar({ stj: [M.tabela([CAB_STJ, os("300001", "0433", "2026-10-01", "Não", "Liberado", "2026-11-04")], "STJ_f.xlsx")], stl: [stl], frotas: ["433"], base: "2026-11-05" }));
+  igual("a OS aberta com o fim real da manutenção: serviço feito, OS não encerrada", [PF.os[0][6], PF.os[0][7], PF.os[0][22]], ["A", "", "2026-11-04"]);
   igual("a lista de frotas do PCM, com o nome do equipamento", m.frotasRows, [{ frota: "F-433", bem: "0433", equipamento: "Cavalo trator" }, { frota: "F-617", bem: "0617", equipamento: "Cavalo trator" }]);
   // comparar: o que mudou de um dia para o outro
   const ontem = JSON.parse(JSON.stringify(P));
@@ -1710,6 +1717,77 @@ titulo("os/indicadores.js — cada fórmula com as contas feitas à mão");
   igual("semana de 20/10: a programada fechou nela; a sem data programada conta como de fora", pf({ de: "2026-10-20", ate: "2026-10-26" }), [1, 1, 0, 0, 2, 1, 1]);
   igual("semana de 09/11: 1 programada, ainda aberta", pf({ de: "2026-11-09", ate: "2026-11-15" }), [1, 0, 0, 1, 0, 0, 0]);
   igual("com fechAte (a semana cortada pelo mês), fechar até ele ainda conta no período", pf({ de: "2026-10-14", ate: "2026-10-14", fechAte: "2026-10-30" }), [1, 1, 0, 0, 0, 0, 0]);
+  const mvOS = IND.movimento(OS, { de: "2026-10-13", ate: "2026-11-30", base: "2026-11-09" });
+  igual("movimento com as mesmas OS: 3 no começo, 4 entraram, 4 saíram (1 antiga, 3 do período), 3 no fim — e a conta fecha",
+    [mvOS.inicial, mvOS.entradas, mvOS.saidas, mvOS.saidasAntigas, mvOS.saidasNovas, mvOS.final, mvOS.diferenca], [3, 4, 4, 1, 3, 3, 0]);
+}
+
+// ── a regra única da carteira (11/11/2026): os cenários pedidos pelo Mateus ──────────────────────────
+titulo("os/indicadores.js — entrada pela abertura, saída pelo fim, e a conta que fecha");
+{
+  const IND = await import("../js/os/indicadores.js");
+  const base = "2026-11-11", semana = { de: "2026-11-09", ate: "2026-11-15", base };   // semana 46, dados até 11/11
+  const cen = [
+    { id: "aberta e encerrada no período", abertura: "2026-11-09", sit: "F", fim: "2026-11-10" },
+    { id: "antiga encerrada no período", abertura: "2026-10-20", sit: "F", fim: "2026-11-10" },
+    { id: "aberta no período e pendente", abertura: "2026-11-10", sit: "A" },
+    { id: "antiga que segue pendente", abertura: "2026-09-01", sit: "P" },
+    { id: "lançada depois do serviço", abertura: "2026-11-10", sit: "F", fim: "2026-11-05" },
+    { id: "encerrada antes do período", abertura: "2026-10-01", sit: "F", fim: "2026-11-02" },
+    { id: "sem data de abertura", abertura: "", sit: "A" },
+    { id: "encerrada sem data de fim", abertura: "2026-10-01", sit: "F", fim: "" },
+  ];
+  const mv = IND.movimento(cen, semana);
+  igual("backlog inicial: as que estavam em aberto em 08/11 (a antiga encerrada agora e a antiga pendente)", [mv.vespera, mv.inicial], ["2026-11-08", 2]);
+  igual("entradas pela abertura: a aberta e encerrada, a aberta e pendente e a lançada depois", mv.entradas, 3);
+  igual("saídas pelo fim: 1 antiga e 2 do próprio período (uma delas lançada depois do serviço)", [mv.saidas, mv.saidasAntigas, mv.saidasNovas, mv.lancadasDepois], [3, 1, 2, 1]);
+  igual("backlog final em 11/11 (a data do export): a antiga pendente e a nova pendente", [mv.ate, mv.final, mv.antigasAbertas, mv.novasAbertas], ["2026-11-11", 2, 1, 1]);
+  igual("a conferência: 2 + 3 − 3 = 2, diferença zero; variação 0", [mv.esperado, mv.diferenca, mv.variacao], [2, 0, 0]);
+  igual("sem data de abertura e encerrada sem data de fim ficam de fora, contadas à parte", [mv.semAbertura, mv.semFim], [1, 1]);
+  ok("a OS lançada depois sai no dia em que entrou", IND.saidaDe(cen[4]) === "2026-11-10" && IND.saidaDe(cen[0]) === "2026-11-10" && IND.saidaDe(cen[2]) === "");
+  ok("em aberto num dia: a antiga encerrada estava em aberto em 09/11 e não em 10/11", IND.emAberto(cen[1], "2026-11-09") && !IND.emAberto(cen[1], "2026-11-10"));
+  // o caso do Avanço (11/11): 73 baixadas do backlog inicial e 73 abertas, mas 28 delas já encerradas — saíram 101
+  const caso = [];
+  for (let i = 0; i < 1237; i++) caso.push({ abertura: "2026-10-01", sit: i < 73 ? "F" : "A", fim: i < 73 ? "2026-11-10" : "" });
+  for (let i = 0; i < 73; i++) caso.push({ abertura: "2026-11-10", sit: i < 28 ? "F" : "A", fim: i < 28 ? "2026-11-10" : "" });
+  const mc = IND.movimento(caso, semana);
+  igual("o caso do Avanço: 1.237 + 73 − (73 antigas + 28 do período) = 1.209, e a conta fecha",
+    [mc.inicial, mc.entradas, mc.saidasAntigas, mc.saidasNovas, mc.saidas, mc.final, mc.diferenca], [1237, 73, 73, 28, 101, 1209, 0]);
+  igual("programadas: as executadas contam o fim real da manutenção, também das ainda abertas",
+    (({ n, exec, execAbertas, ab }) => [n, exec, execAbertas, ab])(IND.progFin([{ progEm: "2026-11-10", sit: "A", fimReal: "2026-11-10", abertura: "2026-11-01" },
+      { progEm: "2026-11-10", sit: "A", abertura: "2026-11-01" }, { progEm: "2026-11-11", sit: "F", fim: "2026-11-11", abertura: "2026-11-01" }], semana)), [3, 2, 1, 2]);
+
+  // duas atualizações do Protheus: [OS, filial, frota, equipamento, serviço, abertura, situação, fim]
+  const L = (os, ab, sit, fim = "") => [os, "010101", "F-1", 0, "SERVICO", ab, sit, fim];
+  const A = { base: "2026-11-10", os: [L("1", "2026-10-01", "A"), L("2", "2026-09-01", "A"), L("3", "2026-10-05", "F", "2026-11-05"), L("4", "2026-10-03", "P"),
+    L("5", "2026-10-04", "A"), L("9", "2026-10-01", "A"), L("10", "2026-10-02", "A")] };
+  const B = { base: "2026-11-11", canceladas: [["2", "010101", "F-1", "2026-09-01"]],
+    os: [L("1", "2026-10-01", "F", "2026-11-11"), L("3", "2026-10-05", "P"), L("4", "2026-10-03", "A"), L("6", "2026-11-11", "A"), L("7", "2026-10-15", "A"),
+      L("8", "2026-11-01", "F", "2026-11-03"), L("9", "2026-10-01", "F", "2026-11-09"), L("10", "2026-10-02", "F", "2026-11-10")] };
+  const c = IND.compararAtualizacoes(A, B);
+  igual("entre duas atualizações: 6 em aberto antes, 4 depois", [c.backlogA, c.backlogB, c.variacao], [6, 4, -2]);
+  igual("encerradas (1, 9, 10), cancelada (2, que veio como cancelada), reaberta (3), sumiu (5, sem dizer por quê)",
+    [c.encerradas.map((o) => o.os), c.canceladas.map((o) => o.os), c.reabertas.map((o) => o.os), c.sumiram.map((o) => o.os)], [["1", "9", "10"], ["2"], ["3"], ["5"]]);
+  igual("a que aparece nas duas conta uma vez (4: só mudou de aguardando para liberada); novas: 6 e 7 (7 com abertura de antes); 8 entrou já encerrada",
+    [c.liberadas.map((o) => o.os), c.novas.map((o) => o.os), c.novasAntigas.map((o) => o.os), c.novasEncerradas.map((o) => o.os)], [["4"], ["6", "7"], ["7"], ["8"]]);
+  igual("a conciliação: 6 + 2 novas + 1 reaberta − 3 encerradas − 1 cancelada − 1 que sumiu = 4", [c.esperado, c.diferenca], [4, 0]);
+  const rr = IND.registradoReconstruido(A, B);
+  igual("o backlog de 10/11: registrado 6 na atualização de 10/11, refeito 4 com a de 11/11", [rr.registrado, rr.reconstruido, rr.diferenca], [6, 4, -2]);
+  igual("o porquê, OS por OS: encerrada no próprio dia (10), encerrada com fim de antes (9), sumiram (2 e 5); entraram a reaberta (3) e a incluída com abertura antiga (7)",
+    [rr.encerradasNoDia.map((o) => o.os), rr.encerradasAntes.map((o) => o.os), rr.sumiram.map((o) => o.os).sort(), rr.reabertas.map((o) => o.os), rr.incluidasAntes.map((o) => o.os)],
+    [["10"], ["9"], ["2", "5"], ["3"], ["7"]]);
+  igual("e a soma fecha: 6 − 4 + 2 = 4", [rr.registrado - rr.saiu + rr.entrou], [rr.reconstruido]);
+  // a comparação com o período anterior: a semana nos mesmos dias, o mês nos mesmos dias (até o fim dele)
+  const ant = (x) => (({ desde, ate }) => [desde, ate])(IND.anterior(x));
+  igual("a semana de agora (até quarta, o dia do export) compara com segunda a quarta da semana anterior",
+    ant({ desde: "2026-11-09", ate: "2026-11-15", base: "2026-11-11", unidade: "semana" }), ["2026-11-02", "2026-11-04"]);
+  igual("o mês de agora (até o dia 11) compara com os 11 primeiros dias do mês anterior",
+    ant({ desde: "2026-11-01", ate: "2026-11-30", base: "2026-11-11", unidade: "mes" }), ["2026-10-01", "2026-10-11"]);
+  igual("março inteiro compara com fevereiro inteiro (o mês mais curto não passa do fim)",
+    ant({ desde: "2026-03-01", ate: "2026-03-31", base: "2026-04-05", unidade: "mes" }), ["2026-02-01", "2026-02-28"]);
+  igual("janeiro compara com dezembro do ano anterior", ant({ desde: "2026-01-01", ate: "2026-01-31", base: "2026-04-05", unidade: "mes" }), ["2025-12-01", "2025-12-31"]);
+  igual("um período livre compara com o de mesmo tamanho logo antes", ant({ desde: "2026-11-02", ate: "2026-11-04", base: "2026-11-11" }), ["2026-10-30", "2026-11-01"]);
+  igual("a conta OS por OS: nenhuma OS fica fora da soma", [mv.divergentes.length, mc.divergentes.length], [0, 0]);
 }
 
 // ── o que vai para o ar ─────────────────────────────────────────────────────

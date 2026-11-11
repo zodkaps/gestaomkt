@@ -199,23 +199,34 @@ export function montar({ stj, stl, frotas, base, desde = "2024-01-01", ult0 = {}
   for (const t of stj) { const f = COLUNAS.STJ.filter((c) => !t.cab.includes(c)); if (f.length) throw new Error(`${t.nome}: faltam as colunas ${f.join(", ")} — peça o export com elas (todas as filiais).`); }
   for (const t of stl) { const f = COLUNAS.STL.filter((c) => !t.cab.includes(c)); if (f.length) throw new Error(`${t.nome}: faltam as colunas ${f.join(", ")}.`); }
   const nossas = new Set(frotas.map((n) => String(n).padStart(4, "0")));
-  const osRows = [], nomesBem = new Map(), vistas = new Set();
+  const osRows = [], nomesBem = new Map(), vistas = new Set(), canceladas = [];
   const colAbriu = new Map(stj.map((t) => [t, colunaDeQuemAbriu(t.cab)]));
+  // o funil do Protheus ao painel (11/11/2026): cada linha lida e por que ficou de fora
+  const aud = { linhasHoje: 0, linhasHist: 0, foraDaLista: 0, repetidasHoje: 0, repetidasHist: 0, canceladas: 0, semFim: 0, antesDe: 0 };
   let nStj = 0, repetidas = 0;
   for (const t of stj) for (const g of leitor(t)()) {
     nStj++;
+    if (t.historica) aud.linhasHist++; else aud.linhasHoje++;
     const bem = txt(g("Bem")), equip = txt(g("Nome do Bem"));
-    if (!nossas.has(bem)) continue;
+    if (!nossas.has(bem)) { aud.foraDaLista++; continue; }
     const k = txt(g("Filial")) + "|" + txt(g("Ordem Serv."));
-    if (vistas.has(k)) { repetidas++; continue; }
+    // a de hoje vem primeiro: repetida na base histórica é a mesma OS, que o export de hoje já trouxe
+    if (vistas.has(k)) { repetidas++; if (t.historica) aud.repetidasHist++; else aud.repetidasHoje++; continue; }
     vistas.add(k);
     if (equip) nomesBem.set(bem, frase(equip));
     const sit = txt(g("Situação")), term = txt(g("Término"));
-    if (sit === "Cancelado") continue;
+    if (sit === "Cancelado") {
+      aud.canceladas++;
+      canceladas.push({ filial: txt(g("Filial")), os: txt(g("Ordem Serv.")), frota: frota(bem), abertura: iso(g("Dt. Original")) });
+      continue;
+    }
     const fim = iso(g("R. Fim Man."));
     let st;
-    if (term === "Sim") { if (!fim || fim < desde) continue; st = "Finalizada"; }
-    else st = sit === "Liberado" ? "Aberta" : "Pendente";
+    if (term === "Sim") {
+      if (!fim) { aud.semFim++; continue; }          // encerrada sem a data do fim: não há como saber quando saiu
+      if (fim < desde) { aud.antesDe++; continue; }
+      st = "Finalizada";
+    } else st = sit === "Liberado" ? "Aberta" : "Pendente";
     const plano = txt(g("Plano Manut."));
     const [cat, classe] = g.tem("Categoria OS") ? categoria(g("Categoria OS")) : ["Sem categoria", "S"];
     osRows.push({ filial: txt(g("Filial")), os: txt(g("Ordem Serv.")), frota: frota(bem), bem,
@@ -228,8 +239,16 @@ export function montar({ stj, stl, frotas, base, desde = "2024-01-01", ult0 = {}
       contador: ["0", "1"].includes(txt(g("Contador"))) ? "" : txt(g("Contador")),
       ccusto: txt(g("Centro Custo")), inicio_man: iso(g("R. In. Man.")),
       prog_em: g.tem("P. In. Man.") ? iso(g("P. In. Man.")) : "",
-      aberta_por: colAbriu.get(t) ? quemAbriu(g(colAbriu.get(t))) : "" });
+      aberta_por: colAbriu.get(t) ? quemAbriu(g(colAbriu.get(t))) : "",
+      // a OS que só veio da base histórica tem a situação do dia em que ela foi feita
+      origem: t.historica ? "H" : "",
+      // o fim real da manutenção da OS ainda aberta: serviço feito, OS não encerrada no Protheus
+      fim_real: st === "Finalizada" ? "" : fim });
   }
+  aud.consideradas = osRows.length;
+  aud.daBaseHistorica = osRows.filter((r) => r.origem === "H").length;
+  aud.abertasDaBaseHistorica = osRows.filter((r) => r.origem === "H" && r.situacao !== "Finalizada").length;
+  aud.desde = desde;
   const chaves = new Set(osRows.map((r) => r.filial + "|" + r.os));
   const gente = new Map();              // "filial|os" -> Map(código -> pessoa)
   const tercStl = new Set(), espec = new Map();
@@ -283,7 +302,8 @@ export function montar({ stj, stl, frotas, base, desde = "2024-01-01", ult0 = {}
   }
   const frotasRows = [...nossas].map((b) => ({ frota: frota(b), bem: b, equipamento: nomesBem.get(b) || "" }))
     .sort((a, b) => (/^\d+$/.test(a.bem) ? Number(a.bem) : 1e9) - (/^\d+$/.test(b.bem) ? Number(b.bem) : 1e9));
-  return { osRows, execRows, frotasRows, ultimo: Object.fromEntries(ultimo), base, nStj, nStl, repetidas };
+  aud.linhasSTL = nStl;
+  return { osRows, execRows, frotasRows, ultimo: Object.fromEntries(ultimo), base, nStj, nStl, repetidas, canceladas, auditoria: aud };
 }
 
 // ── o bloco de dados do painel (pagina.py) ───────────────────────────────────
@@ -321,17 +341,20 @@ export function dadosDoPainel(m, extra = {}) {
     // [os, filial, frota, equipamento, serviço, abertura, situação A/P/F, fim, tipo C/P, Terceiro na STJ S/N,
     //  índice da categoria, liberada em, observação, código do serviço, contador, centro de custo, início da manutenção,
     //  insumo Terceiro na STL S/N, especialidade prevista na STL, programada para (P. In. Man. da STJ),
-    //  aberta por (o CPF da Usr Inclusao)]
+    //  aberta por (o CPF da Usr Inclusao), origem ("H": só veio da base histórica), fim real da manutenção da aberta]
     os: lista.map((r) => [r.os, r.filial, r.frota, eq.get(r.equipamento), r.servico, r.abertura, SIT[r.situacao],
       r.finalizada_em, r.tipo === "Preventiva" ? "P" : "C", r.terceiro === "Sim" ? "S" : "N",
       ic.get(r.categoria || "Sem categoria"), r.liberada_em || "", r.obs || "", r.servico_cod || "",
-      r.contador || "", r.ccusto || "", r.inicio_man || "", r.terceiro_stl === "Sim" ? "S" : "N", r.especialidade || "", r.prog_em || "", r.aberta_por || ""]),
+      r.contador || "", r.ccusto || "", r.inicio_man || "", r.terceiro_stl === "Sim" ? "S" : "N", r.especialidade || "", r.prog_em || "", r.aberta_por || "", r.origem || "", r.fim_real || ""]),
     cats,
     classe: cats.map((c) => classe.get(c)),
     equip,
     // nome -> [[índice da OS, horas apontadas, horas previstas, prevista para, apontada em], ...]
     exec: Object.fromEntries(nomes.map((n) => [n, [...quem.get(n).entries()].sort((a, b) => a[0] - b[0]).map(([i, x]) => [i, ...x])])),
     frotas_lista: m.frotasRows.map((f) => f.frota),
+    // as canceladas (fora da carteira): [OS, filial, frota, abertura]; e o funil do Protheus ao painel
+    canceladas: (m.canceladas || []).map((c) => [c.os, c.filial, c.frota, c.abertura]),
+    auditoria: m.auditoria || null,
     // nome -> [último dia que apontou (REAL), último dia previsto (PLAN)], em toda a STL
     ult: Object.fromEntries(nomes.map((n) => [n, [(m.ultimo[n] || {}).real || "", (m.ultimo[n] || {}).plan || ""]])),
   };
@@ -373,7 +396,7 @@ export function lerSemente(obj) {
   if (!obj || obj.versao !== 1 || !obj.stj || !obj.stl || !Array.isArray(obj.frotas)) throw new Error("Este arquivo não é a base histórica do painel de OS.");
   return { corte: obj.corte, ate: obj.ate, feitoEm: obj.feito_em, frotas: obj.frotas, ult: obj.ult || {},
     principais: Array.isArray(obj.principais) ? obj.principais : [],
-    stj: { nome: "STJ histórica", cab: obj.stj.cab.map((c) => String(c).trim()), linhas: obj.stj.linhas },
+    stj: { nome: "STJ histórica", historica: true, cab: obj.stj.cab.map((c) => String(c).trim()), linhas: obj.stj.linhas },
     stl: { nome: "STL histórica", cab: obj.stl.cab.map((c) => String(c).trim()), linhas: obj.stl.linhas } };
 }
 

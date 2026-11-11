@@ -48,15 +48,17 @@
       <button class="aba" role="tab" type="button" id="aba-carteira" data-aba="carteira" aria-controls="carteira">Carteira de OS <span class="n" id="n-carteira"></span></button>
       <button class="aba" role="tab" type="button" id="aba-frotas" data-aba="frotas" aria-controls="frotas">Frotas <span class="n" id="n-frotas"></span></button>
       <button class="aba" role="tab" type="button" id="aba-executantes" data-aba="executantes" aria-controls="executantes">Executantes</button>
+      <button class="aba" role="tab" type="button" id="aba-auditoria" data-aba="auditoria" aria-controls="auditoria">Auditoria</button>
     </nav>
 <div class="barra" hidden>
     <div class="barra-cartao" role="search" aria-label="Filtros">
       <div class="pills">
         <div class="pills-multi" id="pills-multi"></div>
-        <button type="button" class="pill pill-per" id="f-periodo" aria-haspopup="dialog" aria-expanded="false" title="O período das finalizadas: um pronto ou escolhido no calendário">
+        <span class="per-grupo"><button type="button" class="pill per-passo" id="f-per-ant" aria-label="Período anterior" title="O período anterior">‹</button>
+        <button type="button" class="pill pill-per" id="f-periodo" aria-haspopup="dialog" aria-expanded="false" title="O período de todos os números: um pronto ou escolhido no calendário">
           <svg viewBox="0 0 16 16" aria-hidden="true"><rect x="2" y="3" width="12" height="11" rx="2.2" fill="none" stroke="currentColor" stroke-width="1.4"/><path d="M2 6.6h12M5.2 1.8v2.6M10.8 1.8v2.6" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>
-          <span class="per-rot">Finalizadas</span><span class="pill-rot" id="f-periodo-txt"></span><span class="seta" aria-hidden="true">▾</span>
-        </button>
+          <span class="per-rot">Período</span><span class="pill-rot" id="f-periodo-txt"></span><span class="seta" aria-hidden="true">▾</span>
+        </button><button type="button" class="pill per-passo" id="f-per-prox" aria-label="Próximo período" title="O período seguinte">›</button></span>
         <input class="pill-busca" id="f-q" type="search" placeholder="Buscar OS, serviço, observação, executante…" aria-label="Buscar" autocomplete="off">
       </div>
       <div class="mais-painel" id="mais-painel" hidden></div>
@@ -122,6 +124,8 @@
   </section>
 
   <section class="vista" id="frotas" role="tabpanel" aria-labelledby="aba-frotas" hidden></section>
+
+  <section class="vista" id="auditoria" role="tabpanel" aria-labelledby="aba-auditoria" hidden></section>
 
   <section class="vista" id="executantes" role="tabpanel" aria-labelledby="aba-executantes" hidden>
     <div class="kpis" id="kpis-exec" style="grid-template-columns: repeat(auto-fit, minmax(min(100%, 9.5rem), 1fr))"></div>

@@ -16,7 +16,7 @@
 import * as dados from "../dados.js";
 import * as nuvem from "../nuvem.js";
 import { iniciarPainel } from "../os/painel.js";
-import { abrirImportar, baixarJSON, arquivosDoPainel } from "../os/importar.js";
+import { abrirImportar, baixarJSON, arquivosDoPainel, diasGuardados, baixarDia, lerImportacoes } from "../os/importar.js";
 
 const GUARDA = "painel_os";
 const br = (iso) => (iso ? iso.slice(8, 10) + "/" + iso.slice(5, 7) + "/" + iso.slice(0, 4) : "");
@@ -97,11 +97,13 @@ export async function montar(raiz, ctx, params = new URLSearchParams()) {
       el("h2", { text: titulo }), texto ? el("p", { text: texto }) : null,
       acoes.length ? el("div", { class: "porta-acoes" }, ...acoes) : null));
   }
-  function mostrar(D, aviso = "") {
+  function mostrar(D, aviso = "", meta = null) {
     atualD = D;
     $("#os-porta").hidden = true;
     for (const s of [".os-cab", ".abas", ".barra", ".pg"]) $(s).hidden = false;
-    painel = iniciarPainel(aviso ? { ...D, aviso } : D, { baixar, raiz: sombra, aba: params.get("aba") || "",
+    painel = iniciarPainel(aviso ? { ...D, aviso } : D, { baixar, raiz: sombra, aba: params.get("aba") || "", meta,
+      // as cópias guardadas de cada atualização: a Auditoria compara duas
+      fontes: { dias: diasGuardados, dia: baixarDia, importacoes: lerImportacoes },
       // a aba vai para o endereço sem trocar de tela (recarregar volta nela)
       aoTrocarAba: (aba) => history.replaceState(null, "", "#/os" + (aba && aba !== "geral" ? "?aba=" + aba : "")) });
   }
@@ -138,7 +140,7 @@ export async function montar(raiz, ctx, params = new URLSearchParams()) {
     try { await carregarD3(); } catch (e) { if (vale()) porta("Não deu para abrir o painel", e.message, tentarDeNovo()); return; }
     if (!vale()) return;
     if (pode === null) {
-      if (meu) return mostrar(meu.D, `Sem conexão com o banco: este é o painel guardado neste aparelho (Protheus de ${br(meu.D.base)}).`);
+      if (meu) return mostrar(meu.D, `Sem conexão com o banco: este é o painel guardado neste aparelho (Protheus de ${br(meu.D.base)}).`, meu.meta);
       return porta("Sem conexão", "Não deu para falar com o banco agora, e este aparelho ainda não tem o painel guardado. Tente de novo quando tiver sinal.", tentarDeNovo());
     }
     porta("Abrindo o painel…", "");
@@ -147,12 +149,12 @@ export async function montar(raiz, ctx, params = new URLSearchParams()) {
       const lista = await arquivosDoPainel();
       if (lista.has("atual.json.gz")) {
         versao = lista.get("atual.json.gz").versao;
-        if (meu && meu.versao === versao) { if (vale()) mostrar(meu.D); return; }
+        if (meu && meu.versao === versao) { if (vale()) mostrar(meu.D, "", meu.meta); return; }
         atual = await baixarJSON("atual.json.gz");
       }
     } catch (e) {
       if (!vale()) return;
-      if (meu) return mostrar(meu.D, `Não deu para baixar o painel novo (${e.message}); este é o guardado neste aparelho.`);
+      if (meu) return mostrar(meu.D, `Não deu para baixar o painel novo (${e.message}); este é o guardado neste aparelho.`, meu.meta);
       return porta("Não deu para abrir o painel", e.message, tentarDeNovo());
     }
     if (!vale()) return;
@@ -162,13 +164,13 @@ export async function montar(raiz, ctx, params = new URLSearchParams()) {
         "Para começar: clique em Atualizar com o Protheus e solte a base histórica (o arquivo historico-os.json.gz, uma vez só) junto com a STJ e a STL de hoje.",
         el("button", { type: "button", class: "botao prim", text: "Atualizar com o Protheus", on: { click: () => botaoAtualizar.click() } }));
     }
-    await dados.gravarMeta(GUARDA, { email, versao, D: atual.D });
-    if (vale()) mostrar(atual.D);
+    await dados.gravarMeta(GUARDA, { email, versao, D: atual.D, meta: atual.meta || null });
+    if (vale()) mostrar(atual.D, "", atual.meta || null);
   }
 
   /** Gravou um painel novo: guarda neste aparelho e abre de novo, já com ele. */
   async function gravouNovo(pacote) {
-    await dados.gravarMeta(GUARDA, { email: nuvem.emailAtual(), versao: "", D: pacote.D });
+    await dados.gravarMeta(GUARDA, { email: nuvem.emailAtual(), versao: "", D: pacote.D, meta: pacote.meta || null });
     if (vivo) abrir();
   }
 
