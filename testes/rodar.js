@@ -1642,6 +1642,14 @@ titulo("liberadas agora, e adiantar até a realização");
     const txtU = JSON.stringify(PU);
     ok("e as outras colunas de usuário (alteração, início, fim) não entram no painel", !["11122233344", "55566677788", "99900011122", "33344455566"].some((x) => txtU.includes(x)));
     igual("sem a coluna no export, quem abriu fica vazio", P.os.find((a) => a[0] === "100001")[20], "");
+    igual("quem abriu: a coluna achada na STJ de hoje e quantas OS têm", [PU.auditoria.colunaQuemAbriu, PU.auditoria.stjSemQuemAbriu.length, PU.auditoria.comQuemAbriu], ["Usr Inclusao", 0, 3]);
+    ok("sem a coluna, o funil diz que a STJ de hoje veio sem ela", P.auditoria.colunaQuemAbriu === "" && P.auditoria.stjSemQuemAbriu.length > 0 && P.auditoria.comQuemAbriu === 0);
+    // (11/11/2026) a mesma coluna com outros nomes do export
+    for (const nome of ["Usuário Inclusão", "Usr. Incl.", "USR_INCLUSAO"]) {
+      const tN = M.tabela([[...CAB_STJ, nome, "Usuário Ini."], [...os("200009", "0433", "2026-10-01", "Não", "Liberado"), "000.000.001-91", "11122233344"]], "STJ_n.xlsx");
+      const PN = M.dadosDoPainel(M.montar({ stj: [tN], stl: [stl], frotas: ["433"], base: "2026-11-05" }));
+      igual(`a coluna "${nome}" também é a de quem abriu (e a Usuário Ini. não)`, PN.os[0][20], "000.000.001-91");
+    }
   }
   igual("o funil do Protheus ao painel: 6 linhas de hoje e 2 da base histórica; 1 de outra frota, 1 cancelada, 1 encerrada antes de 2024, 1 repetida na base",
     (({ linhasHoje, linhasHist, foraDaLista, canceladas, antesDe, repetidasHoje, repetidasHist, semFim, consideradas, daBaseHistorica }) =>
@@ -1788,6 +1796,14 @@ titulo("os/indicadores.js — entrada pela abertura, saída pelo fim, e a conta 
   igual("janeiro compara com dezembro do ano anterior", ant({ desde: "2026-01-01", ate: "2026-01-31", base: "2026-04-05", unidade: "mes" }), ["2025-12-01", "2025-12-31"]);
   igual("um período livre compara com o de mesmo tamanho logo antes", ant({ desde: "2026-11-02", ate: "2026-11-04", base: "2026-11-11" }), ["2026-10-30", "2026-11-01"]);
   igual("a conta OS por OS: nenhuma OS fica fora da soma", [mv.divergentes.length, mc.divergentes.length], [0, 0]);
+  // sem executante não é programada (11/11/2026): a com data e sem ninguém na STL fica à parte; encerrada, é extra programação
+  const pS = IND.progFin([{ progEm: "2026-11-10", sit: "A", abertura: "2026-11-01", grupo: "S" }, { progEm: "2026-11-10", sit: "F", fim: "2026-11-10", abertura: "2026-11-01", grupo: "S" },
+    { progEm: "2026-11-10", sit: "A", abertura: "2026-11-01", grupo: "I" }, { progEm: "2026-11-11", sit: "A", abertura: "2026-11-01", grupo: "T" }], semana);
+  igual("sem executante não conta como programada: 2 programadas (equipe e terceiro), 2 com data sem executante; a encerrada sem executante é extra programação",
+    [pS.n, pS.semExec, pS.fin, pS.finProg, pS.finFora], [2, 2, 1, 0, 1]);
+  const pbS = IND.porBalde([{ progEm: "2026-11-02", sit: "F", fim: "2026-11-03", grupo: "S", abertura: "2026-11-01" },
+    { progEm: "2026-11-02", sit: "F", fim: "2026-11-03", grupo: "I", abertura: "2026-11-01" }], [{ de: "2026-11-02", ate: "2026-11-08" }], "2026-11-11");
+  igual("e a aderência também: só a programada com executante entra", [pbS[0].programadas, pbS[0].cumpridas], [1, 1]);
 }
 
 // ── o que vai para o ar ─────────────────────────────────────────────────────

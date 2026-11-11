@@ -2471,7 +2471,7 @@ ok("e o Diagnóstico não manda rodar SQL por causa de sessão",
       mais: !!d.querySelector("details.det-mais"), aberto: d.querySelector("details.det-mais")?.open };
   });
   ok("clicar numa OS abre a caixa no centro da tela", Math.abs(caixaOS.cx - caixaOS.w / 2) < 4 && Math.abs(caixaOS.cy - caixaOS.h / 2) < 4, JSON.stringify(caixaOS));
-  ok("a caixa diz quem abriu a OS (o CPF do usuário do Protheus)", (await mt.innerText("#detalhe")).includes("por 000.000.001-91"));
+  ok("a caixa diz quem abriu a OS (o CPF do usuário do Protheus), num quadro próprio", caixaOS.fatos.includes("Aberta por") && (await mt.innerText("#detalhe")).includes("000.000.001-91"));
   ok("com o essencial em quadros (idade, abertura, previsão, quem fecha) e o resto recolhido",
     ["Aberta em", "Prevista para", "Quem fecha"].every((x) => caixaOS.fatos.includes(x)) && caixaOS.fatos.some((x) => x === "Aberta há" || x === "Levou") &&
     caixaOS.mais && !caixaOS.aberto, JSON.stringify(caixaOS.fatos));
@@ -2499,12 +2499,17 @@ ok("e o Diagnóstico não manda rodar SQL por causa de sessão",
   ok("a seta do período anda um mês inteiro para trás", (await mt.textContent("#f-periodo-txt")) === "Outubro de 2026", await mt.textContent("#f-periodo-txt"));
   const kOut = await mt.$$eval("#programacao .pg-kpis:not(.pg-mov) .kpi .val", (v) => v.map((x) => x.textContent));
   const kOutMov = await kpiDe("#programacao .pg-mov", "Encerradas no período");
-  ok("e em outubro: as programadas (a 100003 encerrou depois, em novembro) e nenhuma encerrada no mês", Number(kOut[0]) >= 3 && kOut[2] === "1" && kOutMov[0] === "0",
-    kOut.join(" | ") + " · " + kOutMov.join(" | "));
+  const notaSemExec = await mt.textContent("#programacao .pg-semexec").catch(() => "");
+  ok("e em outubro: 2 programadas (a 100003 encerrou depois, em novembro), nenhuma encerrada no mês — a 100002, sem ninguém na STL, não conta",
+    kOut[0] === "2" && kOut[2] === "1" && kOutMov[0] === "0" && notaSemExec.startsWith("1 OS tem a data programada no período e ninguém na STL"),
+    kOut.join(" | ") + " · " + kOutMov.join(" | ") + " · " + notaSemExec);
   await mt.click("#programacao .pg-kpis .kpi >> nth=0");
   await mt.waitForTimeout(500);
   const listaOut = await mt.innerText("#pg-lista");
-  ok("Programadas: a lista traz quais são (a 100001 e a 100002, programadas para outubro)", listaOut.includes("100001") && listaOut.includes("100002"), listaOut.slice(0, 160));
+  ok("Programadas: a lista traz quais são (a 100001 e a 100003, com executante)", listaOut.includes("100001") && listaOut.includes("100003") && !listaOut.includes("100002"), listaOut.slice(0, 160));
+  await mt.click('#pg-lista .segm button:has-text("Com data, sem executante")');
+  await mt.waitForTimeout(400);
+  ok("e a sem executante fica no grupo dela, à parte", (await mt.innerText("#pg-lista tbody")).includes("100002"), (await mt.innerText("#pg-lista tbody")).slice(0, 120));
   ok("e o avanço das programadas numa barra só", await mt.isVisible("#programacao .pg-avanco-barra"));
   // o avanço: na semana 45 (02 a 08/11, dados de 05/11) tinha 3 no começo, nenhuma nova, 1 encerrada, ficou com 2
   await mt.click("#aba-avanco");

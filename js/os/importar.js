@@ -201,6 +201,11 @@ export function abrirImportar({ atual, aoGravar, raiz = document }) {
     // repetida entre as partes de hoje é aviso; a mesma OS na base histórica é o esperado (vale a de hoje)
     const rep = m.auditoria ? m.auditoria.repetidasHoje : m.repetidas;
     if (rep) avisos.push(`${plural(rep, "OS veio", "OS vieram")} repetida(s) entre as partes de hoje: contou uma vez só.`);
+    // quem abriu a OS (11/11/2026): sem a coluna Usr Inclusao, o painel fica sem o CPF de quem abriu
+    const qa = m.auditoria;
+    if (qa && qa.stjSemQuemAbriu && qa.stjSemQuemAbriu.length) {
+      avisos.push(`${qa.stjSemQuemAbriu.join(", ")}: sem a coluna Usr Inclusao (quem abriu a OS). Sem ela o painel não mostra o CPF de quem abriu — exporte a STJ com essa coluna.`);
+    } else if (qa && qa.colunaQuemAbriu && !qa.comQuemAbriu) avisos.push(`A coluna ${qa.colunaQuemAbriu} veio vazia: o painel fica sem quem abriu as OS.`);
     const g = c.agora;
     const linhaOS = (a) => el("li", {}, el("b", { text: `${a[2]} · OS ${a[0]}` }), ` ${a[4]} · ${({ A: "liberada", P: "aguardando liberação", F: "finalizada" })[a[6]]} · aberta em ${br(a[5])}`);
     resumo.append(...[

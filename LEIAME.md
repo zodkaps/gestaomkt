@@ -435,6 +435,20 @@ e preventivas, e **só ele ter acesso**.
   as abas são desenhadas numa largura de página e no tema claro, e os cartões
   viram as mesmas imagens do Enviar — toda imagem diz o período, os filtros e
   o dia do export. Não leva quem abriu a OS.
+- **Programada é com executante** (11/11/2026, pedido do Mateus): a OS só conta
+  como programada se tiver a data programada no período **e** alguém para
+  executar — da equipe ou terceiro na STL. A que tem a data e ninguém na STL
+  não entra em conta nenhuma de programadas (Programação, Visão geral, Resumo
+  do dia, aderência dos Indicadores, Relatório): aparece à parte, em *Com
+  data, sem executante (não contam)*; se for encerrada no período, é extra
+  programação. A regra está em `js/os/indicadores.js` (`contaComoProgramada`).
+- **O CPF de quem abriu à vista** (11/11/2026): a caixa da OS tem o quadro
+  *Aberta por*, e quando não há o CPF diz o porquê (a base histórica não tem a
+  coluna, ou o export da STJ não a trouxe). A coluna é achada também com outros
+  nomes do export (*Usuário Inclusão*, *Usr. Incl.*…); a atualização avisa
+  quando a STJ vem sem ela, e a Auditoria conta as OS sem quem abriu.
+- **Ver × atualizar no banco** (11/11/2026): `sql/06_painel_os_so_ver.sql`
+  aplicado — Lucas e Mayra veem; só o Mateus atualiza.
 
 **As telas da oficina saíram do menu, mas nada foi apagado.** Painel, Hoje,
 Programação, Semana, Resultados e Frota continuam no código, e os lançamentos

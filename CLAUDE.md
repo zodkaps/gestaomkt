@@ -76,6 +76,8 @@ marca. Regras:
   `emAberto`): entra pela abertura, sai pelo fim, nunca antes da abertura.
   Número novo de backlog usa ela, não conta por conta própria. O que não fecha
   aparece como divergência (a Conferência e a aba Auditoria) — nunca ajustado.
+- Programada é com executante (`contaComoProgramada`): a data programada no
+  período e alguém da equipe ou terceiro na STL. Sem executante não conta.
 - Se ele mandar a STJ e a STL no chat, a resposta é: solte em *Atualizar com o
   Protheus* no site. A base histórica (`historico-os.json.gz`) é feita fora do
   repositório e mandada a ele em arquivo; nunca vai para o Git.

@@ -114,8 +114,11 @@ export function tabela(linhas, nomeArq = "") {
 }
 
 /** As colunas pelo nome, para ler cada linha: `g(nome, k)` e `g.tem(nome)`. */
-/** A coluna de quem abriu a OS, pelo nome do export ("Usr Inclusao", com ou sem acento). */
-const colunaDeQuemAbriu = (cab) => cab.find((c) => /^(usr|usu[aá]rio)\.?\s*inclus[aã]o$/i.test(String(c).trim())) || "";
+/** A coluna de quem abriu a OS, pelo nome do export: "Usr Inclusao", "Usuário Inclusão", "Usr. Incl."…
+ *  (11/11/2026: sem acento, ponto nem espaço, começa por usr/usu/usuario e "incl"). As outras colunas de
+ *  usuário (alteração, início, fim) não casam e continuam sem ser lidas. */
+const soLetras = (c) => String(c).normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/[^a-z]/g, "");
+const colunaDeQuemAbriu = (cab) => cab.find((c) => /^(usr|usu|usuario)incl/.test(soLetras(c))) || "";
 /** O CPF de quem abriu, como se lê: 000.000.000-00 (o Excel às vezes come o zero da frente).
  *  O que não for CPF (um login) vem como está. */
 export function quemAbriu(v) {
@@ -246,6 +249,11 @@ export function montar({ stj, stl, frotas, base, desde = "2024-01-01", ult0 = {}
       fim_real: st === "Finalizada" ? "" : fim });
   }
   aud.consideradas = osRows.length;
+  // quem abriu (11/11/2026): o nome da coluna achada na STJ de hoje, as partes que vieram sem ela e quantas OS têm
+  const stjHoje = stj.filter((t) => !t.historica);
+  aud.colunaQuemAbriu = stjHoje.map((t) => colAbriu.get(t)).find(Boolean) || "";
+  aud.stjSemQuemAbriu = stjHoje.filter((t) => !colAbriu.get(t)).map((t) => t.nome);
+  aud.comQuemAbriu = osRows.filter((r) => r.aberta_por).length;
   aud.daBaseHistorica = osRows.filter((r) => r.origem === "H").length;
   aud.abertasDaBaseHistorica = osRows.filter((r) => r.origem === "H" && r.situacao !== "Finalizada").length;
   aud.desde = desde;

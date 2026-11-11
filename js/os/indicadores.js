@@ -130,8 +130,8 @@ export function indicadores(todas, { desde, ate, base }) {
   const ate7 = diasF.filter((d) => d <= 7).length;
   const diasA = abertas.map((o) => o.dias).filter((d) => d != null);
   const v90 = diasA.filter((d) => d > 90).length;
-  // aderência: as programadas para uma semana que já acabou, finalizadas até o domingo dela
-  const elegiveis = todas.filter((o) => no(o.progEm) && domingoDe(o.progEm) < base);
+  // aderência: as programadas (com executante) para uma semana que já acabou, finalizadas até o domingo dela
+  const elegiveis = todas.filter((o) => no(o.progEm) && contaComoProgramada(o) && domingoDe(o.progEm) < base);
   const cumpridas = elegiveis.filter((o) => o.sit === "F" && o.fim && o.fim <= domingoDe(o.progEm)).length;
   const equipe = abertas.filter((o) => o.grupo === "I");
   const vencidas = equipe.filter((o) => o.prevEstado === "vencida").length;
@@ -168,14 +168,19 @@ export function indicadores(todas, { desde, ate, base }) {
 export function porBalde(todas, baldes, base) {
   return baldes.map((b) => {
     const fechou = todas.filter((o) => { const s = saidaDe(o); return s && s >= b.de && s <= b.ate; }).map((o) => o.dias).filter((d) => d != null);
-    const prog = todas.filter((o) => o.progEm && o.progEm >= b.de && o.progEm <= b.ate && domingoDe(o.progEm) < base);
+    const prog = todas.filter((o) => o.progEm && o.progEm >= b.de && o.progEm <= b.ate && contaComoProgramada(o) && domingoDe(o.progEm) < base);
     const ok = prog.filter((o) => o.sit === "F" && o.fim && o.fim <= domingoDe(o.progEm)).length;
     return { ...b, fechadas: fechou.length, tempo: mediana(fechou), programadas: prog.length, cumpridas: ok, aderencia: fracao(ok, prog.length) };
   });
 }
 
+/** Programada (11/11/2026, pedido do Mateus): tem a data programada (P. In. Man.) e quem execute — alguém da
+ *  equipe ou terceiro na STL. A OS sem executante (grupo "S") não conta como programada em conta nenhuma: é
+ *  contada à parte (`semExec`) e, se for encerrada no período, é extra programação. */
+export const contaComoProgramada = (o) => !!o.progEm && o.grupo !== "S";
+
 /** Programadas × finalizadas de um período (10/11/2026; 11/11/2026): `{ de, ate, fechAte? }`.
- *  Programadas: a data programada (P. In. Man.) dentro do período. Delas:
+ *  Programadas: a data programada (P. In. Man.) dentro do período e com executante. Delas:
  *    executadas — com o fim real da manutenção (R. Fim Man.) na STJ: as encerradas e as abertas que já o têm
  *                 (`execAbertas`: serviço feito, OS ainda não encerrada no Protheus);
  *    encerradas — Término = Sim: as no prazo (fim até `fechAte`, que é o `ate` — ou o domingo, na semana
@@ -184,9 +189,10 @@ export function porBalde(todas, baldes, base) {
  *  extra programação (programadas para outro período, ou sem data programada).
  */
 export function progFin(lista, { de, ate, fechAte = ate }) {
-  const x = { n: 0, prazo: 0, depois: 0, ab: 0, exec: 0, execAbertas: 0, fin: 0, finProg: 0, finFora: 0 };
+  const x = { n: 0, prazo: 0, depois: 0, ab: 0, exec: 0, execAbertas: 0, fin: 0, finProg: 0, finFora: 0, semExec: 0 };
   for (const o of lista) {
-    const prog = !!o.progEm && o.progEm >= de && o.progEm <= ate;
+    const naData = !!o.progEm && o.progEm >= de && o.progEm <= ate, prog = naData && contaComoProgramada(o);
+    if (naData && !prog) x.semExec++;
     if (prog) {
       x.n++;
       if (o.sit !== "F") { x.ab++; if (o.fimReal) { x.exec++; x.execAbertas++; } }
