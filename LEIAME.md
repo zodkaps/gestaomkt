@@ -449,6 +449,12 @@ e preventivas, e **só ele ter acesso**.
   quando a STJ vem sem ela, e a Auditoria conta as OS sem quem abriu.
 - **Ver × atualizar no banco** (11/11/2026): `sql/06_painel_os_so_ver.sql`
   aplicado — Lucas e Mayra veem; só o Mateus atualiza.
+- **A lista da Programação enxuta** (11/11/2026, "por que tantas opções?"):
+  seis botões em dois blocos — *Programadas para o período* (programadas,
+  pendentes, encerradas, sem executante) e *Abertas e encerradas no período*.
+  O detalhe (executadas, liberadas, aguardando liberação, antigas encerradas,
+  extra programação) aparece só quando um número ou um pedaço da barra o abre.
+  As regras de contagem ficam recolhidas em *Como é contado*.
 
 **As telas da oficina saíram do menu, mas nada foi apagado.** Painel, Hoje,
 Programação, Semana, Resultados e Frota continuam no código, e os lançamentos

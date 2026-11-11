@@ -2507,7 +2507,10 @@ ok("e o Diagnóstico não manda rodar SQL por causa de sessão",
   await mt.waitForTimeout(500);
   const listaOut = await mt.innerText("#pg-lista");
   ok("Programadas: a lista traz quais são (a 100001 e a 100003, com executante)", listaOut.includes("100001") && listaOut.includes("100003") && !listaOut.includes("100002"), listaOut.slice(0, 160));
-  await mt.click('#pg-lista .segm button:has-text("Com data, sem executante")');
+  const botoesPg = await mt.$$eval("#pg-lista .segm button", (v) => v.map((x) => x.firstChild && x.textContent.replace(/\d+$/, "").trim()));
+  ok("a lista da Programação com 6 botões em dois blocos (o detalhe só quando um número o abre)",
+    /^Programadas\|(Pendentes|Não executadas)\|Encerradas\|Sem executante\|Abertas\|Encerradas$/.test(botoesPg.join("|")), botoesPg.join(" | "));
+  await mt.click('#pg-lista .segm button:has-text("Sem executante")');
   await mt.waitForTimeout(400);
   ok("e a sem executante fica no grupo dela, à parte", (await mt.innerText("#pg-lista tbody")).includes("100002"), (await mt.innerText("#pg-lista tbody")).slice(0, 120));
   ok("e o avanço das programadas numa barra só", await mt.isVisible("#programacao .pg-avanco-barra"));

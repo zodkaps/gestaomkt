@@ -1006,9 +1006,15 @@ export function iniciarPainel(D, { baixar, raiz = document, aba = '', aoTrocarAb
       const g = grupos.find((x) => x.k === est.g) || grupos[0];
       est.g = g.k;
       lista = semSit.filter(g.casa);
-      segG = el('div', { class: 'segm', role: 'group', 'aria-label': 'Quais OS' }, ...grupos.map((x) =>
-        el('button', { type: 'button', 'aria-pressed': String(x === g), on: { click: () => { est.g = x.k; est.lim = 100; desenhar(); } } },
-          x.cor ? el('i', { class: 'ponto', style: 'background:' + x.cor }) : null, x.rot, el('span', { class: 'n', text: nf.format(semSit.filter(x.casa).length) }))));
+      // (11/11/2026) os botões principais à vista, em blocos com nome; o detalhe (`sub`, aberto por um número
+      // ou por um pedaço da barra) aparece só enquanto está escolhido
+      const botao = (x) => el('button', { type: 'button', 'aria-pressed': String(x === g), title: x.dica || null, on: { click: () => { est.g = x.k; est.lim = 100; desenhar(); } } },
+        x.cor ? el('i', { class: 'ponto', style: 'background:' + x.cor }) : null, x.rot, el('span', { class: 'n', text: nf.format(semSit.filter(x.casa).length) }));
+      const vis = grupos.filter((x) => !x.sub || x === g), blocos = [...new Set(vis.map((x) => x.bloco || ''))];
+      segG = blocos.length > 1
+        ? el('div', { class: 'segm-blocos' }, ...blocos.map((b) => el('div', { class: 'segm-bloco' }, b ? el('span', { class: 'segm-rot', text: b }) : null,
+          el('div', { class: 'segm', role: 'group', 'aria-label': b || 'Quais OS' }, ...vis.filter((x) => (x.bloco || '') === b).map(botao)))))
+        : el('div', { class: 'segm', role: 'group', 'aria-label': 'Quais OS' }, ...vis.map(botao));
     }
     const conta = { todas: semSit.length, abrir: semSit.filter((o) => o.sit !== 'F').length, A: 0, P: 0, F: 0 };
     for (const o of semSit) conta[o.sit]++;
@@ -1546,11 +1552,11 @@ export function iniciarPainel(D, { baixar, raiz = document, aba = '', aoTrocarAb
     // as com data no período e sem ninguém na STL: não contam como programadas, mas não somem
     const semExecNota = x.semExec ? el('p', { class: 'nota pg-semexec' }, `${plural(x.semExec, 'OS tem', 'OS têm')} a data programada no período e ninguém na STL (nem da equipe, nem terceiro): ` +
       `${x.semExec === 1 ? 'não conta como programada' : 'não contam como programadas'}. `, el('button', { type: 'button', class: 'concil-ver', text: 'Ver quais', on: { click: () => irLista('semExec') } })) : null;
-    const limite = el('ul', { class: 'pg-limite' },
+    const limite = el('details', { class: 'regra-mais pg-regras' }, el('summary', { text: 'Como é contado' }), el('ul', { class: 'pg-limite' },
       el('li', { text: 'Programada: a data programada (P. In. Man.) cai no período e há quem execute — alguém da equipe ou terceiro na STL. Sem executante, a OS não conta como programada. A OS encerrada no período sem estar programada nele é extra programação.' }),
       el('li', { text: temFimReal ? 'Executada: encerrada no Protheus, ou aberta com o fim real da manutenção (R. Fim Man.) lançado.'
         : 'Executada: por ora, só a encerrada no Protheus. O fim real da manutenção das OS abertas (R. Fim Man.) passa a contar a partir da próxima atualização.' }),
-      el('li', { text: 'Abertas e encerradas no período: pela data de abertura e pela data de fim — a mesma conta do Avanço.' }));
+      el('li', { text: 'Abertas e encerradas no período: pela data de abertura e pela data de fim — a mesma conta do Avanço.' })));
     const topo = el('article', { class: 'cartao c12', id: 'pg-topo', 'data-imagem': true },
       el('div', { class: 'cab' }, el('div', {}, el('h2', { text: 'Programação' }),
         el('p', { class: 'nota', text: `${sel.rot} · comparado com ${rotPP}`, title: 'A data programada é a previsão de início da manutenção no Protheus; quando ninguém a mudou, é o próprio dia da abertura.' })),
@@ -1611,20 +1617,22 @@ export function iniciarPainel(D, { baixar, raiz = document, aba = '', aoTrocarAb
       vazioTxt: 'Nada programado para este período com estes filtros.',
       aoClicar: (l) => aplicar(() => (por === 'frota' ? so('frota', l.chave) : so('exec', grupoDe[l.chave] || l.chave))) });
     // a lista das OS do período: as programadas, as abertas e as encerradas nele, com os botões desta lista
+    const BL_PROG = 'Programadas para o período', BL_PER = 'Abertas e encerradas no período';
     carteira(lista, null, todas.filter((o) => emProg(o) || semExecP(o) || finP(o) || novaP(o)), { chave: 'prog', titulo: 'As OS · ' + sel.rot,
       nota: 'A situação de hoje no Protheus · os botões escolhem o grupo', grupos: [
-        { k: 'prog', rot: 'Programadas', cor: COR.prog, casa: emProg },
-        { k: 'exec', rot: 'Executadas', casa: (o) => emProg(o) && execP(o) },
-        { k: 'fech', rot: 'Encerradas', cor: COR.F, casa: (o) => emProg(o) && o.sit === 'F' },
-        ...(temFimReal ? [{ k: 'execAb', rot: 'Executadas sem encerrar', cor: COR.ctx, casa: (o) => emProg(o) && o.sit !== 'F' && !!o.fimReal }] : []),
-        { k: 'pend', rot: rotPend, casa: (o) => emProg(o) && !execP(o) },
-        { k: 'abA', rot: 'Liberadas', cor: COR.A, casa: (o) => emProg(o) && !execP(o) && o.sit === 'A' },
-        { k: 'abP', rot: 'Aguardando liberação', cor: COR.P, casa: (o) => emProg(o) && !execP(o) && o.sit === 'P' },
-        { k: 'semExec', rot: 'Com data, sem executante (não contam)', cor: COR.alerta, casa: semExecP },
-        { k: 'novas', rot: 'Abertas no período', cor: 'var(--nova)', casa: novaP },
-        { k: 'fin', rot: 'Encerradas no período', cor: 'var(--fraco)', casa: finP },
-        { k: 'antigas', rot: 'Antigas encerradas', casa: (o) => finP(o) && o.abertura < sel.de },
-        { k: 'extra', rot: 'Extra programação', cor: COR.nprog, casa: (o) => finP(o) && !emProg(o) }] });
+        { k: 'prog', rot: 'Programadas', cor: COR.prog, casa: emProg, bloco: BL_PROG },
+        { k: 'pend', rot: passou ? 'Não executadas' : 'Pendentes', casa: (o) => emProg(o) && !execP(o), bloco: BL_PROG },
+        { k: 'fech', rot: 'Encerradas', cor: COR.F, casa: (o) => emProg(o) && o.sit === 'F', bloco: BL_PROG },
+        { k: 'semExec', rot: 'Sem executante', cor: COR.alerta, casa: semExecP, bloco: BL_PROG, dica: 'Com a data no período e ninguém na STL: não contam como programadas' },
+        { k: 'novas', rot: 'Abertas', cor: 'var(--nova)', casa: novaP, bloco: BL_PER, dica: 'Abertas no Protheus dentro do período' },
+        { k: 'fin', rot: 'Encerradas', cor: 'var(--fraco)', casa: finP, bloco: BL_PER, dica: 'Encerradas no Protheus dentro do período, programadas ou não' },
+        // o detalhe: aparece só quando um número (ou um pedaço da barra) o abre
+        { k: 'exec', rot: 'Executadas', casa: (o) => emProg(o) && execP(o), bloco: BL_PROG, sub: true },
+        ...(temFimReal ? [{ k: 'execAb', rot: 'Executadas sem encerrar', cor: COR.ctx, casa: (o) => emProg(o) && o.sit !== 'F' && !!o.fimReal, bloco: BL_PROG, sub: true }] : []),
+        { k: 'abA', rot: 'Pendentes liberadas', cor: COR.A, casa: (o) => emProg(o) && !execP(o) && o.sit === 'A', bloco: BL_PROG, sub: true },
+        { k: 'abP', rot: 'Pendentes aguardando liberação', cor: COR.P, casa: (o) => emProg(o) && !execP(o) && o.sit === 'P', bloco: BL_PROG, sub: true },
+        { k: 'antigas', rot: 'Antigas encerradas', casa: (o) => finP(o) && o.abertura < sel.de, bloco: BL_PER, sub: true },
+        { k: 'extra', rot: 'Extra programação', cor: COR.nprog, casa: (o) => finP(o) && !emProg(o), bloco: BL_PER, sub: true }] });
     // veio de um número: a lista vem para a vista
     if (V.rolar === 'pg-lista') { V.rolar = ''; requestAnimationFrame(() => lista.scrollIntoView({ block: 'start', behavior: 'smooth' })); }
   }
