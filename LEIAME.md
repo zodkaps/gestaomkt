@@ -486,6 +486,14 @@ e preventivas, e **só ele ter acesso**.
   do PCM (com quantas OS cada um). Depois de gravar, o mesmo fica na Auditoria
   (*Por filial*). O *Bem* que o Excel guarda como número (972) é o mesmo da
   lista (0972).
+- **A lista de frotas do PCM na atualização** (11/11/2026, o Mateus mandou as
+  frotas que são do PCM): a lista vinha só da base histórica. Agora, em
+  *Atualizar com o Protheus*, a caixa **Frotas do PCM** mostra a lista em uso
+  e de onde ela vem; colar a lista (um número por linha, ou separados por
+  espaço ou vírgula — o cabeçalho e as repetidas não atrapalham) e clicar em
+  *Usar esta lista* refaz o resumo na hora, dizendo quais entram e quais saem.
+  Ao gravar, ela fica no bucket privado (`frotas.json.gz`) e vale para as
+  próximas atualizações. O número das frotas não entra no repositório.
 
 **As telas da oficina saíram do menu, mas nada foi apagado.** Painel, Hoje,
 Programação, Semana, Resultados e Frota continuam no código, e os lançamentos

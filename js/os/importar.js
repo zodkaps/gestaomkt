@@ -62,6 +62,7 @@ export const baixarDia = (dia) => baixarJSON(`dias/${dia}.json.gz`);
 // Uma linha por gravação: o dia do export, quando gravou e as contagens — para a auditoria mostrar o
 // histórico sem baixar todas as cópias. A cópia de cada dia (dias/) segue sendo o registro completo.
 const INDICE = "importacoes.json.gz";
+const FROTAS = "frotas.json.gz";   // a lista de frotas do PCM colada na atualização (11/11/2026)
 export async function lerImportacoes() {
   try { const l = await baixarJSON(INDICE); return Array.isArray(l) ? l : []; } catch (e) { return []; }
 }
@@ -165,6 +166,46 @@ export function abrirImportar({ atual, aoGravar, raiz = document }) {
     el("b", { text: "Solte aqui os arquivos" }), el("span", {}, "ou ", el("u", { text: "escolha no computador" })),
     el("small", { text: "A STJ e a STL de hoje (.xlsx ou .csv, todas as partes). Na primeira vez, junto, a base histórica (historico-os.json.gz)." }), entrada);
 
+  // as frotas do PCM (11/11/2026): a lista vinha só da base histórica; agora se cola aqui, e ela fica guardada no
+  // bucket privado para as próximas atualizações (número de frota não vai para o repositório)
+  let frotasGuardadas, frotasNovas = null;
+  const frotasInfo = el("span", { class: "imp-frotas-info", text: "…" });
+  const frotasCampo = el("textarea", { class: "imp-frotas-campo", rows: 4, "aria-label": "As frotas do PCM",
+    placeholder: "Cole os números das frotas do PCM: um por linha, ou separados por espaço ou vírgula" });
+  const frotasNota = el("p", { class: "imp-frotas-nota", "aria-live": "polite" });
+  const frotasCaixa = el("details", { class: "imp-frotas" }, el("summary", {}, el("b", { text: "Frotas do PCM: " }), frotasInfo),
+    frotasCampo, el("div", { class: "imp-acoes" }, el("button", { type: "button", class: "botao mini", text: "Usar esta lista", on: { click: () => usarLista() } }), frotasNota));
+  const semZeros = (n) => String(n).replace(/^0+(?=\d)/, "");
+  async function frotasEmUso() {
+    if (frotasNovas) return { frotas: frotasNovas, de: "colada agora — vale ao gravar" };
+    if (frotasGuardadas === undefined) {
+      try { const l = (await arquivosDoPainel()).has(FROTAS) ? await baixarJSON(FROTAS) : null; frotasGuardadas = l && Array.isArray(l.frotas) ? l : null; }
+      catch (e) { frotasGuardadas = null; }
+    }
+    if (frotasGuardadas) return { frotas: frotasGuardadas.frotas, de: "a lista guardada" + (frotasGuardadas.gravado_em ? ` em ${br(String(frotasGuardadas.gravado_em).slice(0, 10))}` : "") };
+    const sem = await semente();
+    return sem ? { frotas: sem.frotas, de: "da base histórica" } : null;
+  }
+  async function pintarFrotas() {
+    const f = await frotasEmUso();
+    frotasInfo.textContent = f ? `${plural(f.frotas.length, "frota", "frotas")} (${f.de})` : "a lista vem com a base histórica";
+    if (f && !frotasCampo.value) frotasCampo.value = f.frotas.map(semZeros).join(" ");
+  }
+  async function usarLista() {
+    const r = M.lerFrotas(frotasCampo.value);
+    if (!r.frotas.length) { frotasNota.textContent = "Nenhum número de frota no texto."; return; }
+    const antes = await frotasEmUso();
+    const A = new Set((antes ? antes.frotas : []).map(semZeros)), B = new Set(r.frotas);
+    const entram = r.frotas.filter((n) => !A.has(n)), saem = [...A].filter((n) => !B.has(n));
+    frotasNovas = r.frotas;
+    frotasNota.textContent = plural(r.frotas.length, "frota", "frotas") + (entram.length ? ` · entram: ${entram.join(", ")}` : "") + (saem.length ? ` · saem: ${saem.join(", ")}` : "") +
+      (!entram.length && !saem.length ? " · as mesmas de antes" : "") + (r.repetidas.length ? ` · repetidas na lista (contam uma vez): ${r.repetidas.join(", ")}` : "") +
+      (r.ignorados.length ? ` · ignorados: ${r.ignorados.join(", ")}` : "") + ". Vale ao gravar.";
+    frotasCampo.value = r.frotas.join(" ");
+    await pintarFrotas();
+    await montarAgora();
+  }
+
   const pintarLista = () => lista.replaceChildren(...lidos.map((x, i) => el("li", { class: x.erro ? "erro" : "" },
     el("span", { class: "imp-tipo t-" + (x.tipo || "x"), text: x.erro ? "!" : x.tipo === "HIST" ? "Histórico" : x.tipo }),
     el("span", { class: "imp-nome" }, el("b", { text: x.nome }), el("small", { text: x.erro ? x.erro : x.tipo === "HIST" ? `base histórica de ${br(x.semente.feitoEm)} · ${nf.format(x.linhas)} linhas` : plural(x.linhas, "linha", "linhas") + (x.linhas >= 49990 ? " · o Protheus parte o export em 50 mil: confira se veio a parte seguinte" : "") })),
@@ -203,6 +244,7 @@ export function abrirImportar({ atual, aoGravar, raiz = document }) {
       return;
     }
     const sem = await semente();
+    await pintarFrotas();
     if (!sem) {
       resumo.append(el("p", { class: "imp-alerta", text: "Falta a base histórica: o arquivo historico-os.json.gz (o que veio antes de 2026). É só uma vez — solte ele junto com a STJ e a STL." }));
       return;
@@ -217,7 +259,8 @@ export function abrirImportar({ atual, aoGravar, raiz = document }) {
     await pausa();
     let m, D;
     try {
-      m = M.montar({ stj: [...stj.map((x) => x.tabela), sem.stj], stl: [...stl.map((x) => x.tabela), sem.stl], frotas: sem.frotas, base, desde: DESDE, ult0: sem.ult });
+      const fr = await frotasEmUso();
+      m = M.montar({ stj: [...stj.map((x) => x.tabela), sem.stj], stl: [...stl.map((x) => x.tabela), sem.stl], frotas: fr ? fr.frotas : sem.frotas, base, desde: DESDE, ult0: sem.ult });
       D = M.dadosDoPainel(m, { ...(sem.principais.length ? { principais: sem.principais } : {}),
         historica: { feito_em: sem.feitoEm || "", corte: sem.corte || "", ate: sem.ate || "" } });
     } catch (e) { status.textContent = ""; resumo.append(el("p", { class: "imp-alerta", text: e.message })); return; }
@@ -273,6 +316,7 @@ export function abrirImportar({ atual, aoGravar, raiz = document }) {
     try {
       const { semente: sem, comparacao, ...p } = pacote;
       if (sem) { aviso.textContent = "Guardando a base histórica…"; await nuvem.subirArquivo(BUCKET, "historico.json.gz", sem.arquivo.name.toLowerCase().endsWith(".gz") ? new Blob([await sem.arquivo.arrayBuffer()], { type: "application/gzip" }) : await gz(JSON.parse(await sem.arquivo.text()))); }
+      if (frotasNovas) { aviso.textContent = "Guardando a lista de frotas…"; await nuvem.subirArquivo(BUCKET, FROTAS, await gz({ versao: 1, frotas: frotasNovas, gravado_em: new Date().toISOString() })); }
       aviso.textContent = "Gravando o painel…";
       const blob = await gz(p);
       await nuvem.subirArquivo(BUCKET, `dias/${p.meta.base}.json.gz`, blob);
@@ -299,7 +343,8 @@ export function abrirImportar({ atual, aoGravar, raiz = document }) {
     el("p", { class: "nota", text: "O site lê os arquivos aqui, neste computador, com as mesmas regras do painel. Nada é gravado até você conferir o resumo e clicar em Gravar — e o que se grava fica no Supabase, só para o seu acesso." }),
     zona,
     el("label", { class: "imp-data" }, "Data do export ", data),
-    lista, status, resumo,
+    frotasCaixa, lista, status, resumo,
     el("div", { class: "imp-acoes" }, gravar, aviso));
   if (!dlg.open) dlg.showModal();
+  pintarFrotas().catch(() => {});
 }

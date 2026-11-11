@@ -418,6 +418,23 @@ export function comparar(antes, agora) {
     sumiram, sumiramAbertas: sumiram.filter(aberta), fecharam, novas, reabertas, perdeuExecutante: perdeu, perdeuAbertas: perdeu.filter(aberta) };
 }
 
+// ── a lista de frotas do PCM (11/11/2026) ────────────────────────────────────
+
+/** A lista de frotas colada pelo PCM: números separados por linha, espaço, vírgula ou ponto e vírgula ("F-972" vale
+ *  972); sem os zeros da frente; a repetida conta uma vez; texto sem número (o cabeçalho "FROTA") fica de fora. */
+export function lerFrotas(texto) {
+  const vistos = new Set(), frotas = [], repetidas = [], ignorados = [];
+  for (const p of String(texto || "").split(/[\s,;]+/).filter(Boolean)) {
+    const x = p.replace(/^F-?(?=\d)/i, "");
+    if (!/^[0-9A-Za-z]+$/.test(x) || !/\d/.test(x)) { ignorados.push(p); continue; }
+    const n = /^\d+$/.test(x) ? x.replace(/^0+(?=\d)/, "") : x.toUpperCase();
+    if (vistos.has(n)) { if (!repetidas.includes(n)) repetidas.push(n); continue; }
+    vistos.add(n);
+    frotas.push(n);
+  }
+  return { frotas, repetidas, ignorados };
+}
+
 // ── a base histórica ─────────────────────────────────────────────────────────
 
 /** A base histórica: a STJ e a STL de antes do corte, a lista de frotas, o

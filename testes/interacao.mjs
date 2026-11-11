@@ -2413,6 +2413,7 @@ ok("e o Diagnóstico não manda rodar SQL por causa de sessão",
   await mt.setInputFiles("#imp-arq", [fSTJ]);
   await mt.waitForFunction(() => !document.querySelector(".os-host").shadowRoot.querySelector("#os-importar .imp-acoes .botao.prim").disabled, null, { timeout: 30000 });
   const res = (await mt.innerText(".imp-resumo")).replace(/\s+/g, " ");
+  ok("as frotas do PCM na atualização: 2, da base histórica", (await mt.textContent(".imp-frotas-info")) === "2 frotas (da base histórica)", await mt.textContent(".imp-frotas-info"));
   ok("com a STJ desde janeiro, a STL e a base histórica: o resumo antes de gravar", /2 abertas · 1 liberadas, 1 aguardando/.test(res) && /5 OS em 2 frotas/.test(res), res);
   await mt.click('button:has-text("Gravar no painel")');
   await mt.waitForSelector("#kpis .kpi", { timeout: 30000 });

@@ -85,6 +85,9 @@ marca. Regras:
 - As preventivas (Plano Manut. ≠ 000000) ficam fora da carteira (pedido do
   Mateus, 11/11/2026): no `painel.js`, `OS` são as corretivas e `OS_PREV` as
   preventivas, com a aba OS preventivas. Conta nova da carteira usa `OS`.
+- A lista de frotas do PCM se cola na caixa *Frotas do PCM* de *Atualizar com
+  o Protheus* e fica no bucket (`frotas.json.gz`); sem ela, vale a da base
+  histórica. Número de frota não vai para o repositório.
 - Se ele mandar a STJ e a STL no chat, a resposta é: solte em *Atualizar com o
   Protheus* no site. A base histórica (`historico-os.json.gz`) é feita fora do
   repositório e mandada a ele em arquivo; nunca vai para o Git.

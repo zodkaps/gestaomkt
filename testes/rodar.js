@@ -1670,6 +1670,8 @@ titulo("liberadas agora, e adiantar até a realização");
   igual("o funil do Protheus ao painel: 6 linhas de hoje e 2 da base histórica; 1 de outra frota, 1 cancelada, 1 encerrada antes de 2024, 1 repetida na base",
     (({ linhasHoje, linhasHist, foraDaLista, canceladas, antesDe, repetidasHoje, repetidasHist, semFim, consideradas, daBaseHistorica }) =>
       [linhasHoje, linhasHist, foraDaLista, canceladas, antesDe, repetidasHoje, repetidasHist, semFim, consideradas, daBaseHistorica])(P.auditoria), [6, 2, 1, 1, 1, 0, 1, 0, 4, 1]);
+  igual("a lista de frotas colada: por linha, espaço ou vírgula; sem os zeros; a repetida uma vez; o cabeçalho fica de fora",
+    (({ frotas, repetidas, ignorados }) => [frotas, repetidas, ignorados])(M.lerFrotas("FROTA\n \n423\n0332, 622;622 F-56\n1060")), [["423", "332", "622", "56", "1060"], ["622"], ["FROTA"]]);
   igual("a cancelada vai à parte (fora da carteira), com a abertura", P.canceladas, [["100005", "010101", "F-617", "2026-10-26"]]);
   igual("por filial: as 6 linhas da STJ de hoje — 1 de bem fora da lista, 1 cancelada, 1 encerrada antes de 2024, 2 corretivas e 1 preventiva no painel",
     P.auditoria.porFilial["010101"], { linhas: 6, fora: 1, repetidas: 0, canceladas: 1, semFim: 0, antesDe: 1, corretivas: 2, preventivas: 1 });
