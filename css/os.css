@@ -670,3 +670,7 @@ button.aud-n:focus-visible { outline: 2px solid var(--marca); }
 
 /* ── conferir com a STJ (11/11/2026): as linhas de título da conta ── */
 .concil tr.tit th, .concil tr.tit td { color: var(--texto); font-weight: 700; }
+
+/* (11/11/2026) com a aba OS preventivas são dez: no computador elas quebram a linha em vez de sumir à direita */
+.aba { padding: 10px 12px 9px; }
+@media (min-width: 900px) { .abas { flex-wrap: wrap; overflow-x: visible; } }

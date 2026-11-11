@@ -2353,7 +2353,9 @@ ok("e o Diagnóstico não manda rodar SQL por causa de sessão",
     writeFileSync(`${PASTA}/${nome}`, XLSX.write(wb, { type: "buffer", bookType: "xlsx" }));
     return `${PASTA}/${nome}`;
   };
-  const linhasSTJ = [os("100001", "0433", "2026-10-01", "Não", "Liberado"), os("100002", "0433", "2026-10-20", "Não", "Pendente"),
+  // (11/11/2026) uma preventiva (Plano Manut. 000777): fica fora da carteira — os números de lá não mudam — e vai para a aba OS preventivas
+  const preventiva = os("100007", "0433", "2026-10-05", "Não", "Liberado"); preventiva[2] = "000777";
+  const linhasSTJ = [preventiva, os("100001", "0433", "2026-10-01", "Não", "Liberado"), os("100002", "0433", "2026-10-20", "Não", "Pendente"),
     os("100003", "0617", "2026-10-25", "Sim", "Liberado", "2026-11-03"), os("100004", "0999", "2026-10-25", "Não", "Liberado")];
   // uma STJ que só começa em outubro deixaria de fora as OS de janeiro a setembro: o site não grava
   const fSTJout = excel("STJ_outubro.xlsx", [["STJ"], CAB_STJ, ...linhasSTJ]);
@@ -2424,6 +2426,8 @@ ok("e o Diagnóstico não manda rodar SQL por causa de sessão",
   ok("o período de partida é a semana atual, e a seta da próxima fica apagada", (await mt.textContent("#f-periodo-txt")).startsWith("Semana atual") && await mt.isDisabled("#f-per-prox"),
     await mt.textContent("#f-periodo-txt"));
   ok("e a aba Não liberadas com 1", (await mt.textContent("#n-pendentes")) === "1");
+  ok("a preventiva fica fora da carteira: a aba OS preventivas com 1", (await mt.textContent("#n-preventivas")) === "1" && (await mt.textContent("#sub")).includes("1 preventiva (à parte)"),
+    await mt.textContent("#sub"));
   // abrir de novo, num aparelho que já tem: vem do guardado, igual
   await mt.goto(site.endereco + "#/os?aba=executantes", { waitUntil: "networkidle" });
   await mt.waitForTimeout(1500);
@@ -2514,6 +2518,11 @@ ok("e o Diagnóstico não manda rodar SQL por causa de sessão",
   await mt.waitForTimeout(400);
   ok("e a sem executante fica no grupo dela, à parte", (await mt.innerText("#pg-lista tbody")).includes("100002"), (await mt.innerText("#pg-lista tbody")).slice(0, 120));
   ok("e o avanço das programadas numa barra só", await mt.isVisible("#programacao .pg-avanco-barra"));
+  // a aba OS preventivas: a 100007, em aberto
+  await mt.click("#aba-preventivas");
+  await mt.waitForSelector("#prev-topo .kpi", { timeout: 10000 });
+  const kPrev = await mt.$$eval("#prev-topo .kpi .val", (v) => v.map((x) => x.textContent));
+  ok("a aba OS preventivas: 1 em aberto, e a lista traz a 100007", kPrev[0] === "1" && (await mt.innerText("#prev-lista")).includes("100007"), kPrev.join(" | "));
   // o avanço: na semana 45 (02 a 08/11, dados de 05/11) tinha 3 no começo, nenhuma nova, 1 encerrada, ficou com 2
   await mt.click("#aba-avanco");
   await periodoPronto("Semana atual");
@@ -2534,7 +2543,7 @@ ok("e o Diagnóstico não manda rodar SQL por causa de sessão",
   await mt.waitForFunction(() => !/Lendo/.test(document.querySelector(".os-host").shadowRoot.querySelector("#aud-comparar").textContent), null, { timeout: 15000 });
   const funil = (await mt.innerText("#aud-funil")).replace(/\s+/g, " ");
   ok("Auditoria: do Protheus ao painel, cada linha da STJ contada (as de outra frota ficam de fora, com o motivo)",
-    funil.includes("Todas as linhas estão contadas") && /OS no painel 5\b/.test(funil), funil.slice(0, 400));
+    funil.includes("Todas as linhas estão contadas") && /OS no painel 6 · corretivas \(a carteira\) 5 · preventivas \(aba OS preventivas\) 1/.test(funil), funil.slice(0, 500));
   const cSTJ = (await mt.innerText("#aud-stj")).replace(/\s+/g, " ");
   ok("Conferir com a STJ (outubro): 3 abertas no mês, 1 hoje encerrada e 2 em aberto; nenhuma encerrada no mês pela data de fim",
     cSTJ.includes("OS abertas no período (Dt. Original) 3 · hoje encerradas (Término = Sim) 1 · hoje em aberto 2 Encerradas no período (pela data de fim) 0"), cSTJ.slice(0, 260));

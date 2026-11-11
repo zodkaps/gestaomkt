@@ -82,6 +82,9 @@ marca. Regras:
   `indicadores.js`): o Excel come os zeros. Conta de encerradas por frota vem
   dividida entre abertas no período e abertas antes (a STJ de 2026 não tem
   as de antes de 2026 — essas vêm da base histórica).
+- As preventivas (Plano Manut. ≠ 000000) ficam fora da carteira (pedido do
+  Mateus, 11/11/2026): no `painel.js`, `OS` são as corretivas e `OS_PREV` as
+  preventivas, com a aba OS preventivas. Conta nova da carteira usa `OS`.
 - Se ele mandar a STJ e a STL no chat, a resposta é: solte em *Atualizar com o
   Protheus* no site. A base histórica (`historico-os.json.gz`) é feita fora do
   repositório e mandada a ele em arquivo; nunca vai para o Git.

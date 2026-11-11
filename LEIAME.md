@@ -466,6 +466,16 @@ e preventivas, e **só ele ter acesso**.
   90001) passa a ser uma só (`chaveOS`). A atualização avisa quantas OS em
   aberto só a base histórica tem — a situação delas é a do dia em que ela foi
   feita; exportar a STJ e a STL desde 01/01/2024 as mantém em dia.
+- **As preventivas fora da carteira** (11/11/2026, pedido do Mateus): a OS com
+  *Plano Manut.* no Protheus (diferente de 000000) não entra em conta nenhuma
+  da carteira — Visão geral, Indicadores, Programação, Avanço, Não liberadas,
+  Carteira, Frotas, Executantes, Auditoria, Resumo do dia e Relatório contam só
+  as corretivas. As preventivas têm a aba **OS preventivas**: em aberto,
+  abertas e encerradas no período, programadas, há mais de 90 dias, por frota
+  e a lista. O *Índice de preventiva* dos Indicadores segue comparando as duas
+  (das encerradas no período, quantas eram preventivas). O filtro *Tipo* saiu
+  da barra. A atualização com o Protheus e a Auditoria mostram as preventivas à
+  parte, e a *Conferir com a STJ* lembra que a STJ traz as duas.
 
 **As telas da oficina saíram do menu, mas nada foi apagado.** Painel, Hoje,
 Programação, Semana, Resultados e Frota continuam no código, e os lançamentos

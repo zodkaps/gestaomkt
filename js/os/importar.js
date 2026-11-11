@@ -213,13 +213,17 @@ export function abrirImportar({ atual, aoGravar, raiz = document }) {
         `Se alguma foi encerrada depois, o painel ainda a conta em aberto — para atualizá-las, exporte a STJ e a STL desde ${br(DESDE)}.`);
     }
     const g = c.agora;
+    // (11/11/2026) as preventivas ficam fora da carteira: o resumo conta as corretivas e diz as preventivas à parte
+    const pv = { A: 0, P: 0, F: 0, n: 0 };
+    for (const a of D.os) if (a[8] === "P") { pv[a[6]]++; pv.n++; }
     const linhaOS = (a) => el("li", {}, el("b", { text: `${a[2]} · OS ${a[0]}` }), ` ${a[4]} · ${({ A: "liberada", P: "aguardando liberação", F: "finalizada" })[a[6]]} · aberta em ${br(a[5])}`);
     resumo.append(...[
       el("div", { class: "imp-num" },
-        el("div", {}, el("small", { text: `Protheus de ${br(base)}` }), el("b", { text: nf.format(g.A + g.P) }), el("span", { text: `abertas · ${nf.format(g.A)} liberadas, ${nf.format(g.P)} aguardando` })),
+        el("div", {}, el("small", { text: `Protheus de ${br(base)}` }), el("b", { text: nf.format(g.A + g.P - pv.A - pv.P) }), el("span", { text: `abertas · ${nf.format(g.A - pv.A)} liberadas, ${nf.format(g.P - pv.P)} aguardando` +
+          (pv.A + pv.P ? ` · + ${plural(pv.A + pv.P, "preventiva aberta", "preventivas abertas")} à parte` : "") })),
         el("div", {}, el("small", { text: antes ? `Desde ${br(antes.base)}` : "Primeira carga" }), el("b", { text: antes ? nf.format(c.fecharam.length) : nf.format(g.F) }), el("span", { text: antes ? "fecharam" : "finalizadas desde 2024" })),
         antes ? el("div", {}, el("small", { text: `Desde ${br(antes.base)}` }), el("b", { text: nf.format(c.novas.length) }), el("span", { text: "abertas novas" + (c.reabertas ? ` · ${nf.format(c.reabertas)} reabertas` : "") })) : null,
-        el("div", {}, el("small", { text: "No painel" }), el("b", { text: nf.format(g.n) }), el("span", { text: `OS em ${plural(D.frotas_lista.length, "frota", "frotas")}` }))),
+        el("div", {}, el("small", { text: "No painel" }), el("b", { text: nf.format(g.n - pv.n) }), el("span", { text: `OS em ${plural(D.frotas_lista.length, "frota", "frotas")}` + (pv.n ? ` · + ${plural(pv.n, "preventiva", "preventivas")} à parte` : "") }))),
       antes && c.sumiram.length ? el("details", { class: "imp-sumiram" },
         el("summary", { text: `${plural(c.sumiram.length, "OS não veio", "OS não vieram")} no export de hoje (${nf.format(c.sumiramAbertas.length)} abertas) — podem ter sido excluídas ou canceladas no Protheus` }),
         el("ul", {}, ...c.sumiram.slice(0, 30).map(linhaOS)), c.sumiram.length > 30 ? el("p", { class: "nota", text: `e mais ${nf.format(c.sumiram.length - 30)}` }) : null) : null,
