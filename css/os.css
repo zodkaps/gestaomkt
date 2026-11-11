@@ -674,3 +674,16 @@ button.aud-n:focus-visible { outline: 2px solid var(--marca); }
 /* (11/11/2026) com a aba OS preventivas são dez: no computador elas quebram a linha em vez de sumir à direita */
 .aba { padding: 10px 12px 9px; }
 @media (min-width: 900px) { .abas { flex-wrap: wrap; overflow-x: visible; } }
+
+/* ── o caminho das linhas da STJ (11/11/2026): na atualização ── */
+.imp-funil { border: 1px solid var(--linha); border-radius: 10px; padding: 10px 12px; font-size: 13px; }
+.imp-funil summary { font-weight: 700; cursor: pointer; }
+.imp-funil-conta { list-style: none; margin: 8px 0 0; padding: 0; display: grid; gap: 3px; }
+.imp-funil-conta li { display: flex; justify-content: space-between; gap: 12px; color: var(--fraco); }
+.imp-funil-conta li b { color: var(--texto); font-variant-numeric: tabular-nums; }
+.imp-funil-tab { margin-top: 10px; width: 100%; border-collapse: collapse; font-size: 12.5px; font-variant-numeric: tabular-nums; }
+.imp-funil-tab th { position: static; text-transform: none; letter-spacing: normal; font-size: 12px; padding: 4px 6px; text-align: right; }
+.imp-funil-tab th:first-child, .imp-funil-tab td:first-child { text-align: left; }
+.imp-funil-tab td { padding: 4px 6px; text-align: right; border-top: 1px solid var(--linha); }
+.imp-funil-bens { margin: 8px 0 0; color: var(--fraco); }
+.aud-bens { display: grid; gap: 4px; }

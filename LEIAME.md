@@ -476,6 +476,16 @@ e preventivas, e **só ele ter acesso**.
   (das encerradas no período, quantas eram preventivas). O filtro *Tipo* saiu
   da barra. A atualização com o Protheus e a Auditoria mostram as preventivas à
   parte, e a *Conferir com a STJ* lembra que a STJ traz as duas.
+- **O caminho das linhas da STJ** (11/11/2026, as 3.894 OS da filial 040101 na
+  STJ × o painel): o painel não conta por filial — traz as OS das frotas da
+  lista do PCM, de qualquer filial (o Mateus confirmou: só a lista). Ao soltar
+  a STJ e a STL em *Atualizar com o Protheus*, antes de gravar aparece "Da STJ
+  de hoje: N linhas → M OS no painel", com o que ficou de fora e por quê (bens
+  fora da lista, canceladas, repetidas, encerradas sem fim ou antes de 2024),
+  as corretivas e as preventivas, a tabela por filial e os bens fora da lista
+  do PCM (com quantas OS cada um). Depois de gravar, o mesmo fica na Auditoria
+  (*Por filial*). O *Bem* que o Excel guarda como número (972) é o mesmo da
+  lista (0972).
 
 **As telas da oficina saíram do menu, mas nada foi apagado.** Painel, Hoje,
 Programação, Semana, Resultados e Frota continuam no código, e os lançamentos

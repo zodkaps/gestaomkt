@@ -2182,10 +2182,29 @@ export function iniciarPainel(D, { baixar, raiz = document, aba = '', aoTrocarAb
         linConta('Preventivas abertas no período (fora da conta)', nf.format(recorte({ sem: 'sit', lista: OS_PREV }).todas.filter((o) => o.abertura && o.abertura >= sel.de && o.abertura <= fimP).length), 'tit'))),
       el('ul', { class: 'concil-notas' },
         el('li', { text: 'A STJ traz também as preventivas (Plano Manut. diferente de 000000): no painel elas ficam na aba OS preventivas. Para comparar com a STJ inteira, some a última linha.' }),
+        el('li', { text: 'O painel não separa por filial: traz as OS dos bens da lista de frotas do PCM, de qualquer filial. Para comparar com a STJ de uma filial, escolha a filial em Mais filtros → Filial; os bens da filial fora da lista não estão no painel (veja Por filial).' }),
         el('li', { text: 'A STJ exportada por data de abertura só traz as OS abertas no período: o "encerradas" dela é a linha "hoje encerradas". O painel conta como encerrada no período a OS que saiu nele, inclusive a aberta antes — a linha "abertas antes do período", que a STJ do período não traz.' }),
         el('li', { text: `As OS abertas antes de ${br(corte)} vêm da base histórica${feito ? ', com a situação de ' + feito : ''}, quando a STJ de hoje não as traz: se alguma foi encerrada depois, o painel ainda a conta em aberto. Para atualizá-las, exporte a STJ e a STL desde 01/01/2024.` })));
+    // por filial (11/11/2026): as linhas da STJ de hoje de cada filial e quantas entraram; os bens fora da lista
+    const filiais = A && A.porFilial ? Object.entries(A.porFilial).sort((x, y) => y[1].linhas - x[1].linhas) : null;
+    const tFil = el('div', { class: 'tab' });
+    const porFil = el('article', { class: 'cartao c6', id: 'aud-filiais', 'data-imagem': true },
+      cab('Por filial', `A STJ de hoje (sem os filtros) · Protheus de ${br(D.base)}`),
+      filiais ? tFil : el('p', { class: 'nota', text: 'As linhas da STJ de cada filial (e os bens fora da lista do PCM) aparecem a partir da próxima atualização com o Protheus.' }),
+      A && A.foraBens && A.foraBens.length ? el('div', { class: 'aud-bens' }, el('h3', { class: 'kpis-tit', text: `Bens fora da lista do PCM · ${plural(A.foraBensTotal, 'bem', 'bens')}` }),
+        el('p', { class: 'nota', text: A.foraBens.slice(0, 15).map((b) => `${b.bem}${b.nome ? ' ' + b.nome.toLowerCase() : ''} (${nf.format(b.n)})`).join(' · ') +
+          (A.foraBensTotal > 15 ? ` · e mais ${plural(A.foraBensTotal - 15, 'bem', 'bens')}` : '') }),
+        el('p', { class: 'nota', text: 'Estes bens têm OS na STJ, mas não estão na lista de frotas do PCM: as OS deles não entram no painel.' })) : null);
     const lista = el('article', { class: 'cartao c12', id: 'aud-lista' });
-    raiz.replaceChildren(el('div', { class: 'grade' }, cartaoConferencia(mv, sel), conferir, funil, atencao, comparar, historico, lista));
+    raiz.replaceChildren(el('div', { class: 'grade' }, cartaoConferencia(mv, sel), conferir, funil, porFil, atencao, comparar, historico, lista));
+    if (filiais) {
+      tabela(tFil, { id: 'aud-fil', linhas: filiais.map(([f, x]) => ({ f, ...x, saidas: x.repetidas + x.semFim + x.antesDe, painel: x.corretivas + x.preventivas })), padrao: { k: 'linhas', dir: 'desc' },
+        cols: [{ k: 'f', rot: 'Filial' }, { k: 'linhas', rot: 'Linhas da STJ', num: true }, { k: 'fora', rot: 'Bens fora da lista', num: true }, { k: 'canceladas', rot: 'Canceladas', num: true },
+          { k: 'saidas', rot: 'Outras saídas', num: true }, { k: 'corretivas', rot: 'Corretivas', num: true }, { k: 'preventivas', rot: 'Preventivas', num: true }] });
+      tFil.querySelector('table').classList.add('img-tabela');
+      guardarDados(tFil, { titulo: 'Por filial', cab: ['Filial', 'Linhas da STJ', 'Bens fora da lista', 'Canceladas', 'Repetidas', 'Encerradas sem fim', 'Encerradas antes de 2024', 'Corretivas', 'Preventivas'],
+        linhas: filiais.map(([f, x]) => [f, x.linhas, x.fora, x.canceladas, x.repetidas, x.semFim, x.antesDe, x.corretivas, x.preventivas]) });
+    }
     const doPonto = PONTOS.filter((q) => !q.sem);
     carteira(lista, null, todas.filter((o) => doPonto.some((q) => q.casa(o))), { chave: 'aud', titulo: 'As OS dos pontos de atenção', nota: 'A situação de hoje no Protheus, com os filtros da barra',
       grupos: doPonto.map((q) => ({ k: q.k, rot: q.rot, casa: q.casa })) });

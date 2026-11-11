@@ -212,30 +212,45 @@ export function montar({ stj, stl, frotas, base, desde = "2024-01-01", ult0 = {}
   // o funil do Protheus ao painel (11/11/2026): cada linha lida e por que ficou de fora
   const aud = { linhasHoje: 0, linhasHist: 0, foraDaLista: 0, repetidasHoje: 0, repetidasHist: 0, canceladas: 0, semFim: 0, antesDe: 0 };
   let nStj = 0, repetidas = 0;
+  // por filial e os bens de fora (11/11/2026): para conferir com a STJ filtrada por filial
+  const porFilial = {}, foraBens = new Map();
+  const naFilial = (t, fil, campo) => {
+    if (t.historica) return;
+    const x = porFilial[fil] || (porFilial[fil] = { linhas: 0, fora: 0, repetidas: 0, canceladas: 0, semFim: 0, antesDe: 0, corretivas: 0, preventivas: 0 });
+    x[campo]++;
+  };
   for (const t of stj) for (const g of leitor(t)()) {
     nStj++;
     if (t.historica) aud.linhasHist++; else aud.linhasHoje++;
-    const bem = txt(g("Bem")), equip = txt(g("Nome do Bem"));
-    if (!nossas.has(bem)) { aud.foraDaLista++; continue; }
+    const fil = txt(g("Filial"));
+    naFilial(t, fil, "linhas");
+    // o Bem que o Excel guardou como número (972) é o mesmo da lista (0972)
+    const bem0 = txt(g("Bem")), bem = /^\d+$/.test(bem0) ? bem0.padStart(4, "0") : bem0, equip = txt(g("Nome do Bem"));
+    if (!nossas.has(bem)) {
+      aud.foraDaLista++; naFilial(t, fil, "fora");
+      if (!t.historica) { const b = foraBens.get(bem) || { bem, nome: equip ? frase(equip) : "", n: 0 }; b.n++; foraBens.set(bem, b); }
+      continue;
+    }
     const k = chaveOS(g("Filial"), g("Ordem Serv."));
     // a de hoje vem primeiro: repetida na base histórica é a mesma OS, que o export de hoje já trouxe
-    if (vistas.has(k)) { repetidas++; if (t.historica) aud.repetidasHist++; else aud.repetidasHoje++; continue; }
+    if (vistas.has(k)) { repetidas++; if (t.historica) aud.repetidasHist++; else aud.repetidasHoje++; naFilial(t, fil, "repetidas"); continue; }
     vistas.add(k);
     if (equip) nomesBem.set(bem, frase(equip));
     const sit = txt(g("Situação")), term = txt(g("Término"));
     if (sit === "Cancelado") {
-      aud.canceladas++;
+      aud.canceladas++; naFilial(t, fil, "canceladas");
       canceladas.push({ filial: txt(g("Filial")), os: txt(g("Ordem Serv.")), frota: frota(bem), abertura: iso(g("Dt. Original")) });
       continue;
     }
     const fim = iso(g("R. Fim Man."));
     let st;
     if (term === "Sim") {
-      if (!fim) { aud.semFim++; continue; }          // encerrada sem a data do fim: não há como saber quando saiu
-      if (fim < desde) { aud.antesDe++; continue; }
+      if (!fim) { aud.semFim++; naFilial(t, fil, "semFim"); continue; }          // encerrada sem a data do fim: não há como saber quando saiu
+      if (fim < desde) { aud.antesDe++; naFilial(t, fil, "antesDe"); continue; }
       st = "Finalizada";
     } else st = sit === "Liberado" ? "Aberta" : "Pendente";
     const plano = txt(g("Plano Manut."));
+    naFilial(t, fil, plano && plano !== "000000" ? "preventivas" : "corretivas");
     const [cat, classe] = g.tem("Categoria OS") ? categoria(g("Categoria OS")) : ["Sem categoria", "S"];
     osRows.push({ filial: txt(g("Filial")), os: txt(g("Ordem Serv.")), frota: frota(bem), bem,
       equipamento: frase(equip), servico: frase(txt(g("Nome Serviço"))),
@@ -254,6 +269,9 @@ export function montar({ stj, stl, frotas, base, desde = "2024-01-01", ult0 = {}
       fim_real: st === "Finalizada" ? "" : fim });
   }
   aud.consideradas = osRows.length;
+  aud.porFilial = porFilial;
+  aud.foraBens = [...foraBens.values()].sort((a, b) => b.n - a.n || a.bem.localeCompare(b.bem, "pt", { numeric: true })).slice(0, 300);
+  aud.foraBensTotal = foraBens.size;
   // quem abriu (11/11/2026): o nome da coluna achada na STJ de hoje, as partes que vieram sem ela e quantas OS têm
   const stjHoje = stj.filter((t) => !t.historica);
   aud.colunaQuemAbriu = stjHoje.map((t) => colAbriu.get(t)).find(Boolean) || "";

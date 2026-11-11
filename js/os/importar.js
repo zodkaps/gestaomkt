@@ -81,6 +81,34 @@ async function registrarImportacao(linha) {
   await nuvem.subirArquivo(BUCKET, INDICE, await gz(l));
 }
 
+/** O caminho das linhas da STJ de hoje até o painel (11/11/2026): quantas vieram, quantas ficaram de fora e por
+ *  quê, quantas entraram (corretivas e preventivas) — no total e por filial — e os bens fora da lista do PCM. */
+export function funilDaSTJ(a, desde) {
+  if (!a || !a.porFilial) return null;
+  const fil = Object.entries(a.porFilial).sort((x, y) => y[1].linhas - x[1].linhas);
+  const soma = (k) => fil.reduce((s, [, x]) => s + x[k], 0);
+  const linha = (rot, v) => el("li", {}, el("span", { text: rot }), el("b", { text: nf.format(v) }));
+  const noPainel = soma("corretivas") + soma("preventivas");
+  return el("details", { class: "imp-funil", open: true },
+    el("summary", { text: `Da STJ de hoje: ${nf.format(soma("linhas"))} linhas → ${nf.format(noPainel)} OS no painel` }),
+    el("ul", { class: "imp-funil-conta" },
+      linha("Linhas da STJ de hoje", soma("linhas")),
+      linha(`− de bens fora da lista do PCM (${plural(a.foraBensTotal || 0, "bem", "bens")})`, soma("fora")),
+      linha("− canceladas", soma("canceladas")),
+      linha("− repetidas", soma("repetidas")),
+      linha("− encerradas sem a data de fim", soma("semFim")),
+      linha(`− encerradas antes de ${br(desde)}`, soma("antesDe")),
+      linha(`= no painel: ${nf.format(soma("corretivas"))} corretivas (a carteira) e ${nf.format(soma("preventivas"))} preventivas`, noPainel),
+      linha("+ da base histórica (OS de antes de 2026)", a.daBaseHistorica || 0)),
+    fil.length > 1 ? el("table", { class: "imp-funil-tab" },
+      el("thead", {}, el("tr", {}, ...["Filial", "Linhas da STJ", "Bens fora da lista", "Canceladas", "Outras saídas", "No painel"].map((x) => el("th", { text: x })))),
+      el("tbody", {}, ...fil.map(([f, x]) => el("tr", {}, el("td", { text: f }), ...[x.linhas, x.fora, x.canceladas, x.repetidas + x.semFim + x.antesDe, x.corretivas + x.preventivas]
+        .map((v) => el("td", { text: nf.format(v) })))))) : null,
+    a.foraBens && a.foraBens.length ? el("p", { class: "imp-funil-bens", text: "Bens fora da lista do PCM (os com mais OS): " +
+      a.foraBens.slice(0, 12).map((b) => `${b.bem}${b.nome ? " " + b.nome.toLowerCase() : ""} (${nf.format(b.n)})`).join(" · ") +
+      (a.foraBensTotal > 12 ? ` · e mais ${plural(a.foraBensTotal - 12, "bem", "bens")}` : "") + ". Para entrarem no painel, eles precisam estar na lista de frotas do PCM." }) : null);
+}
+
 /** O que há na raiz do bucket: nome → { versão (quando mudou e o tamanho) }. */
 export async function arquivosDoPainel() {
   const l = await nuvem.listarArquivos(BUCKET, "");
@@ -212,6 +240,8 @@ export function abrirImportar({ atual, aoGravar, raiz = document }) {
       avisos.push(`${plural(n, "OS em aberto vem", "OS em aberto vêm")} só da base histórica (situação de ${quando}): a STJ de hoje não ${n === 1 ? "a" : "as"} trouxe. ` +
         `Se alguma foi encerrada depois, o painel ainda a conta em aberto — para atualizá-las, exporte a STJ e a STL desde ${br(DESDE)}.`);
     }
+    // (11/11/2026) de onde vem cada número: as linhas da STJ de hoje, o que ficou de fora e por quê, por filial
+    const funil = funilDaSTJ(m.auditoria, DESDE);
     const g = c.agora;
     // (11/11/2026) as preventivas ficam fora da carteira: o resumo conta as corretivas e diz as preventivas à parte
     const pv = { A: 0, P: 0, F: 0, n: 0 };
@@ -224,6 +254,7 @@ export function abrirImportar({ atual, aoGravar, raiz = document }) {
         el("div", {}, el("small", { text: antes ? `Desde ${br(antes.base)}` : "Primeira carga" }), el("b", { text: antes ? nf.format(c.fecharam.length) : nf.format(g.F) }), el("span", { text: antes ? "fecharam" : "finalizadas desde 2024" })),
         antes ? el("div", {}, el("small", { text: `Desde ${br(antes.base)}` }), el("b", { text: nf.format(c.novas.length) }), el("span", { text: "abertas novas" + (c.reabertas ? ` · ${nf.format(c.reabertas)} reabertas` : "") })) : null,
         el("div", {}, el("small", { text: "No painel" }), el("b", { text: nf.format(g.n - pv.n) }), el("span", { text: `OS em ${plural(D.frotas_lista.length, "frota", "frotas")}` + (pv.n ? ` · + ${plural(pv.n, "preventiva", "preventivas")} à parte` : "") }))),
+      funil,
       antes && c.sumiram.length ? el("details", { class: "imp-sumiram" },
         el("summary", { text: `${plural(c.sumiram.length, "OS não veio", "OS não vieram")} no export de hoje (${nf.format(c.sumiramAbertas.length)} abertas) — podem ter sido excluídas ou canceladas no Protheus` }),
         el("ul", {}, ...c.sumiram.slice(0, 30).map(linhaOS)), c.sumiram.length > 30 ? el("p", { class: "nota", text: `e mais ${nf.format(c.sumiram.length - 30)}` }) : null) : null,

@@ -1660,6 +1660,10 @@ titulo("liberadas agora, e adiantar até a realização");
     igual("a OS 90001 (Excel, sem o zero) e a 090001 (base histórica) são a mesma: entra uma vez, encerrada como hoje",
       [PZ.os.length, PZ.os[0][6], PZ.os[0][7], mz.auditoria.repetidasHist], [1, "F", "2026-02-10", 1]);
     igual("e a STL com a filial e a OS escritas de outro jeito acha o executante", Object.keys(PZ.exec), ["Fulano de Teste"]);
+    // o Bem que o Excel guardou como número (617) é o 0617 da lista
+    const mb = M.montar({ stj: [M.tabela([CAB_STJ, os("300009", 617, "2026-10-01", "Não", "Liberado")], "STJ_bem.xlsx")], stl: [], frotas: ["617"], base: "2026-11-05" });
+    const PB = M.dadosDoPainel(mb);
+    igual("o Bem como número (617) é o 0617 da lista: entra no painel", [mb.auditoria.foraDaLista, PB.os.length, PB.os[0][2]], [0, 1, "F-617"]);
     const INDz = await import("../js/os/indicadores.js");
     igual("a chave das comparações também ignora os zeros", [M.chaveOS("010101", "090001"), INDz.chaveOS("010101", "090001"), INDz.chaveOS(10101, 90001)], ["10101|90001", "10101|90001", "10101|90001"]);
   }
@@ -1667,6 +1671,9 @@ titulo("liberadas agora, e adiantar até a realização");
     (({ linhasHoje, linhasHist, foraDaLista, canceladas, antesDe, repetidasHoje, repetidasHist, semFim, consideradas, daBaseHistorica }) =>
       [linhasHoje, linhasHist, foraDaLista, canceladas, antesDe, repetidasHoje, repetidasHist, semFim, consideradas, daBaseHistorica])(P.auditoria), [6, 2, 1, 1, 1, 0, 1, 0, 4, 1]);
   igual("a cancelada vai à parte (fora da carteira), com a abertura", P.canceladas, [["100005", "010101", "F-617", "2026-10-26"]]);
+  igual("por filial: as 6 linhas da STJ de hoje — 1 de bem fora da lista, 1 cancelada, 1 encerrada antes de 2024, 2 corretivas e 1 preventiva no painel",
+    P.auditoria.porFilial["010101"], { linhas: 6, fora: 1, repetidas: 0, canceladas: 1, semFim: 0, antesDe: 1, corretivas: 2, preventivas: 1 });
+  igual("e os bens fora da lista do PCM, com quantas OS", [P.auditoria.foraBens.map((b) => [b.bem, b.n]), P.auditoria.foraBensTotal], [[["0999", 1]], 1]);
   igual("a origem: a OS que só veio da base histórica é marcada", [P.os.find((a) => a[0] === "090001")[21], P.os.find((a) => a[0] === "100001")[21]], ["H", ""]);
   const PF = M.dadosDoPainel(M.montar({ stj: [M.tabela([CAB_STJ, os("300001", "0433", "2026-10-01", "Não", "Liberado", "2026-11-04")], "STJ_f.xlsx")], stl: [stl], frotas: ["433"], base: "2026-11-05" }));
   igual("a OS aberta com o fim real da manutenção: serviço feito, OS não encerrada", [PF.os[0][6], PF.os[0][7], PF.os[0][22]], ["A", "", "2026-11-04"]);
