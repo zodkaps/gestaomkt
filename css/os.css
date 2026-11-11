@@ -658,3 +658,6 @@ button.aud-n:focus-visible { outline: 2px solid var(--marca); }
 .comparativo td.leit { font-weight: 700; color: var(--fraco); white-space: nowrap; }
 .comparativo td.leit.bom { color: var(--finalizada-t); }
 .comparativo td.leit.ruim { color: var(--alerta-t); }
+
+/* ── o relatório gerencial (11/11/2026) ── */
+.rel-info { margin: 0; padding-left: 18px; display: grid; gap: 3px; font-size: 13px; color: var(--fraco); }

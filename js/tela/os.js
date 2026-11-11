@@ -104,6 +104,13 @@ export async function montar(raiz, ctx, params = new URLSearchParams()) {
     painel = iniciarPainel(aviso ? { ...D, aviso } : D, { baixar, raiz: sombra, aba: params.get("aba") || "", meta,
       // as cópias guardadas de cada atualização: a Auditoria compara duas
       fontes: { dias: diasGuardados, dia: baixarDia, importacoes: lerImportacoes },
+      // o relatório sai no tema claro: o site fica claro só enquanto os cartões viram imagem
+      temaClaro: async (fn) => {
+        const antes = document.documentElement.dataset.tema;
+        document.documentElement.dataset.tema = "claro";
+        await new Promise((ok) => setTimeout(ok, 30));
+        try { return await fn(); } finally { if (antes === undefined) delete document.documentElement.dataset.tema; else document.documentElement.dataset.tema = antes; }
+      },
       // a aba vai para o endereço sem trocar de tela (recarregar volta nela)
       aoTrocarAba: (aba) => history.replaceState(null, "", "#/os" + (aba && aba !== "geral" ? "?aba=" + aba : "")) });
   }

@@ -67,7 +67,7 @@ marca. Regras:
   JSON montado, nem nome de executante no código. Teste usa dado inventado.
 - As colunas de usuário da STJ guardam CPF. **Só a *Usr Inclusao*** (quem abriu
   a OS) é lida, a pedido do Mateus (10/11/2026), e vai só para o painel — não
-  para o Resumo, as imagens ou a planilha. As outras (Usuário Alt., Usr Altera,
+  para o Resumo, as imagens, a planilha ou o Relatório. As outras (Usuário Alt., Usr Altera,
   Usuário Ini., Usuário Fim) continuam sem ser lidas. O Claude não lê nem
   mostra CPF de verdade no chat.
 - As regras da montagem estão em `js/os/montar.js` (as mesmas do `montar.py`).

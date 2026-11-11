@@ -2584,6 +2584,22 @@ ok("e o Diagnóstico não manda rodar SQL por causa de sessão",
   await mt.click("#avanco .cartao >> nth=0 >> .baixar");
   const [dAv] = await Promise.all([mt.waitForEvent("download", { timeout: 8000 }), mt.click('#avanco .menu-env:visible button:has-text("Baixar imagem")')]);
   ok("o cartão de números do Avanço sai como imagem", (await readFile(await dAv.path())).subarray(1, 4).toString() === "PNG", dAv.suggestedFilename());
+  // o relatório gerencial (11/11/2026): o PDF com as abas, a imagem para o celular e os dados para o Excel
+  await mt.click("#os-relatorio");
+  await mt.waitForSelector("#detalhe .rel-info", { timeout: 5000 });
+  const [dRel] = await Promise.all([mt.waitForEvent("download", { timeout: 60000 }), mt.click('#detalhe button:has-text("Baixar o PDF")')]);
+  const bRel = await readFile(await dRel.path());
+  const paginas = (bRel.toString("latin1").match(/\/Type\s*\/Page[^s]/g) || []).length;
+  ok("o relatório em PDF: a capa e as abas em imagem, em várias páginas", bRel.subarray(0, 5).toString() === "%PDF-" && paginas >= 3, `${dRel.suggestedFilename()} · ${paginas} páginas`);
+  ok("e o painel volta para a aba em que estava", (await mt.textContent(".aba.on")).trim() === "Avanço", await mt.textContent(".aba.on"));
+  const [dCel] = await Promise.all([mt.waitForEvent("download", { timeout: 30000 }), mt.click('#detalhe button:has-text("Baixar a imagem (celular)")')]);
+  ok("a imagem para o celular (o resumo, a evolução e a conferência numa só)", (await readFile(await dCel.path())).subarray(1, 4).toString() === "PNG", dCel.suggestedFilename());
+  const [dDad] = await Promise.all([mt.waitForEvent("download", { timeout: 10000 }), mt.click('#detalhe button:has-text("Baixar os dados (Excel)")')]);
+  const tDad = await readFile(await dDad.path(), "utf8");
+  ok("os dados do relatório: o resumo, a conferência que fecha, o histórico, o comparativo e as OS do período",
+    ["Resumo do período;No período;No anterior", "= Backlog final calculado;", "Diferença;0", "Comparativo com o período anterior", "As OS que entraram ou saíram no período"].every((x) => tDad.includes(x)),
+    tDad.slice(0, 300));
+  await mt.keyboard.press("Escape");
   // o resumo do dia: o texto pronto para o grupo, com o negrito do WhatsApp
   await mt.click("#os-resumo");
   await mt.waitForTimeout(300);

@@ -20,7 +20,7 @@ import * as IND from "./indicadores.js";
  *  `raiz`: onde o painel mora — a área isolada da tela OS Makro do site (js/tela/os.js), com o molde dele.
  *  `aba`: a aba para abrir; `aoTrocarAba(aba)`: avisa o site, que põe a aba no endereço.
  *  Devolve `{ parar }`: desliga o que o painel ouve na janela, para a tela sair limpa. */
-export function iniciarPainel(D, { baixar, raiz = document, aba = '', aoTrocarAba = null, meta = null, fontes = null } = {}) {
+export function iniciarPainel(D, { baixar, raiz = document, aba = '', aoTrocarAba = null, meta = null, fontes = null, temaClaro = null } = {}) {
   const $ = (s) => raiz.querySelector(s);
   // o que o painel ouve fora dele (janela, documento) sai junto quando a tela fecha
   const fim = new AbortController();
@@ -1271,6 +1271,24 @@ export function iniciarPainel(D, { baixar, raiz = document, aba = '', aoTrocarAb
   const fmtDias = (v) => (v == null ? '—' : plural(Math.round(v * 10) / 10, 'dia', 'dias').replace(/^(\d+)\.(\d)/, '$1,$2'));
   const fmtPc = (v) => (v == null ? '—' : pc.format(v));
   const fmtSem = (v) => (v == null ? '—' : nh.format(v) + (v === 1 ? ' semana' : ' semanas'));
+  /** O comparativo (11/11/2026): cada indicador no período (k) e no anterior (a), a diferença, a variação e a leitura. */
+  function comparativoDe(k, a) {
+    const COMP = [['Backlog no início', k.noComeco, a.noComeco, 'n', null], ['Novas OS', k.entraram, a.entraram, 'n', null], ['Encerradas', k.fechadas, a.fechadas, 'n', 'mais'],
+      ['Backlog no fim', k.carteira, a.carteira, 'n', 'menos'], ['Saldo (novas − encerradas)', k.saldo, a.saldo, 'n', 'menos'],
+      ['Encerradas ÷ novas', k.atendimento, a.atendimento, 'pc', 'mais'], ['Fechadas por semana', k.ritmo, a.ritmo, 'h', 'mais'],
+      ['Tempo para fechar (mediana)', k.tempoMediana, a.tempoMediana, 'd', 'menos'], ['Fechadas em até 7 dias', k.ate7, a.ate7, 'pc', 'mais'],
+      ['Aderência à programação', k.aderencia, a.aderencia, 'pc', 'mais'], ['Índice de preventiva', k.preventiva, a.preventiva, 'pc', 'mais'],
+      ['Trabalho programado', k.programado, a.programado, 'pc', 'mais'], ['Horas apontadas', k.horas, a.horas, 'h', null],
+      ['Abertas depois do serviço', k.abertasDepois, a.abertasDepois, 'pc', 'menos']];
+    const fmtC = (v, tp) => (v == null ? '—' : tp === 'pc' ? pc.format(v) : tp === 'd' ? fmtDias(v) : tp === 'h' ? nh.format(v) : nf.format(v));
+    const difC = (d, tp) => (d == null ? '—' : !d ? '0' : (d > 0 ? '+' : '−') + (tp === 'pc' ? nh.format(Math.abs(d) * 100) + ' p.p.' : tp === 'd' ? fmtDias(Math.abs(d)) : tp === 'h' ? nh.format(Math.abs(d)) : nf.format(Math.abs(d))));
+    const linhasC = COMP.map(([rot, v1, v0, tp, melhor]) => {
+      const d = v1 == null || v0 == null ? null : v1 - v0, bom = d == null || !d || !melhor ? null : melhor === 'mais' ? d > 0 : d < 0;
+      return { rot, tp, n1: v1, n0: v0, v1: fmtC(v1, tp), v0: fmtC(v0, tp), d: difC(d, tp), pct: d == null || tp === 'pc' || !v0 ? '—' : sinalPc(d / Math.abs(v0)),
+        leit: d == null ? '—' : !d ? 'igual' : bom === true ? '▲ melhor' : bom === false ? '▼ pior' : d > 0 ? 'subiu' : 'desceu', bom };
+    });
+    return linhasC;
+  }
   function desenharIndicadores(R) {
     const raiz = $('#indicadores');
     const p = { desde: R.p.desde, ate: R.p.ate, base: D.base }, pa = IND.anterior({ ...p, unidade: unidadeDe(R.p.desde, R.p.ate) });
@@ -1292,20 +1310,7 @@ export function iniciarPainel(D, { baixar, raiz = document, aba = '', aoTrocarAb
     const irSit = (...v) => aplicar(() => so('sit', ...v), 'carteira');
     const selI = periodoSel(), escI = escSerie(selI), unidI = unidDe(escI);
     // o comparativo (11/11/2026): cada indicador no período e no anterior, a diferença e a leitura
-    const COMP = [['Backlog no início', k.noComeco, a.noComeco, 'n', null], ['Novas OS', k.entraram, a.entraram, 'n', null], ['Encerradas', k.fechadas, a.fechadas, 'n', 'mais'],
-      ['Backlog no fim', k.carteira, a.carteira, 'n', 'menos'], ['Saldo (novas − encerradas)', k.saldo, a.saldo, 'n', 'menos'],
-      ['Encerradas ÷ novas', k.atendimento, a.atendimento, 'pc', 'mais'], ['Fechadas por semana', k.ritmo, a.ritmo, 'h', 'mais'],
-      ['Tempo para fechar (mediana)', k.tempoMediana, a.tempoMediana, 'd', 'menos'], ['Fechadas em até 7 dias', k.ate7, a.ate7, 'pc', 'mais'],
-      ['Aderência à programação', k.aderencia, a.aderencia, 'pc', 'mais'], ['Índice de preventiva', k.preventiva, a.preventiva, 'pc', 'mais'],
-      ['Trabalho programado', k.programado, a.programado, 'pc', 'mais'], ['Horas apontadas', k.horas, a.horas, 'h', null],
-      ['Abertas depois do serviço', k.abertasDepois, a.abertasDepois, 'pc', 'menos']];
-    const fmtC = (v, tp) => (v == null ? '—' : tp === 'pc' ? pc.format(v) : tp === 'd' ? fmtDias(v) : tp === 'h' ? nh.format(v) : nf.format(v));
-    const difC = (d, tp) => (d == null ? '—' : !d ? '0' : (d > 0 ? '+' : '−') + (tp === 'pc' ? nh.format(Math.abs(d) * 100) + ' p.p.' : tp === 'd' ? fmtDias(Math.abs(d)) : tp === 'h' ? nh.format(Math.abs(d)) : nf.format(Math.abs(d))));
-    const linhasC = COMP.map(([rot, v1, v0, tp, melhor]) => {
-      const d = v1 == null || v0 == null ? null : v1 - v0, bom = d == null || !d || !melhor ? null : melhor === 'mais' ? d > 0 : d < 0;
-      return { rot, v1: fmtC(v1, tp), v0: fmtC(v0, tp), d: difC(d, tp), pct: d == null || tp === 'pc' || !v0 ? '—' : sinalPc(d / Math.abs(v0)),
-        leit: d == null ? '—' : !d ? 'igual' : bom === true ? '▲ melhor' : bom === false ? '▼ pior' : d > 0 ? 'subiu' : 'desceu', bom };
-    });
+    const linhasC = comparativoDe(k, a);
     const tComp = el('div', { class: 'tab' }, el('table', { class: 'comparativo img-tabela' },
       el('thead', {}, el('tr', {}, ...['Indicador', 'No período', 'No anterior', 'Diferença', 'Variação', 'Leitura'].map((x, ix) => el('th', { class: ix ? 'n' : null, text: x })))),
       el('tbody', {}, ...linhasC.map((l) => el('tr', {}, el('td', { text: l.rot }), el('td', { class: 'n', text: l.v1 }), el('td', { class: 'n', text: l.v0 }), el('td', { class: 'n', text: l.d }),
@@ -1320,7 +1325,7 @@ export function iniciarPainel(D, { baixar, raiz = document, aba = '', aoTrocarAb
       on: { click: (e) => { V.regras = !V.regras; raiz.classList.toggle('regras', V.regras); e.currentTarget.setAttribute('aria-pressed', String(V.regras)); } } });
     raiz.classList.toggle('regras', V.regras);
     raiz.replaceChildren(el('div', { class: 'grade' },
-      el('article', { class: 'cartao c12', 'data-imagem': true },
+      el('article', { class: 'cartao c12', id: 'c-ind-kpis', 'data-imagem': true },
         el('div', { class: 'cab' }, el('div', {}, el('h2', { text: 'Indicadores de PCM' }),
           el('p', { class: 'nota', text: `${R.p.rot} · comparado com ${nomeAnt}` })),
           el('div', { class: 'acoes' }, botaoRegras())),
@@ -1539,7 +1544,7 @@ export function iniciarPainel(D, { baixar, raiz = document, aba = '', aoTrocarAb
       el('li', { text: temFimReal ? 'Executada: encerrada no Protheus, ou aberta com o fim real da manutenção (R. Fim Man.) lançado.'
         : 'Executada: por ora, só a encerrada no Protheus. O fim real da manutenção das OS abertas (R. Fim Man.) passa a contar a partir da próxima atualização.' }),
       el('li', { text: 'Abertas e encerradas no período: pela data de abertura e pela data de fim — a mesma conta do Avanço.' }));
-    const topo = el('article', { class: 'cartao c12', 'data-imagem': true },
+    const topo = el('article', { class: 'cartao c12', id: 'pg-topo', 'data-imagem': true },
       el('div', { class: 'cab' }, el('div', {}, el('h2', { text: 'Programação' }),
         el('p', { class: 'nota', text: `${sel.rot} · comparado com ${rotPP}`, title: 'A data programada é a previsão de início da manutenção no Protheus; quando ninguém a mudou, é o próprio dia da abertura.' })),
         el('div', { class: 'acoes' }, el('div', { class: 'ctl' }, segQuaisDe(pg)))),
@@ -1550,7 +1555,7 @@ export function iniciarPainel(D, { baixar, raiz = document, aba = '', aoTrocarAb
     const esc = escSerie(sel);
     const janela = janelaDe(sel, esc, 2).map((b) => contaProg(todas, b));
     const gSeq = el('div', { class: 'graf rolar-x' });
-    const seq = el('article', { class: 'cartao c12', 'data-imagem': true },
+    const seq = el('article', { class: 'cartao c12', id: 'pg-seq', 'data-imagem': true },
       el('div', { class: 'cab' }, el('div', {}, el('h2', { text: 'Programadas e encerradas · ' + ESC_ROT[esc] }),
         el('p', { class: 'nota', text: 'À esquerda as programadas; à direita as encerradas no período (da programação e extra programação) · embaixo, % das programadas encerradas no período' })),
         el('div', { class: 'acoes' }, el('div', { class: 'ctl' }, segSerie(sel)))),
@@ -1882,15 +1887,15 @@ export function iniciarPainel(D, { baixar, raiz = document, aba = '', aoTrocarAb
       kpiCom('Encerradas ÷ novas', mv.taxaEncerramento == null ? '—' : pc.format(mv.taxaEncerramento),
         mv.taxaEncerramento == null ? 'nenhuma OS nova no período' : mv.taxaEncerramento >= 1 ? 'encerrou mais do que entrou' : 'entrou mais do que encerrou', null,
         { cls: mv.taxaEncerramento == null ? '' : mv.taxaEncerramento >= 1 ? 'bom' : 'ruim', comp: comparacao(mv.taxaEncerramento, mvA.taxaEncerramento, 'mais', (v) => pc.format(v), rotAnt) }));
-    const topo = el('article', { class: 'cartao c12', 'data-imagem': true },
-      el('div', { class: 'cab' }, el('div', {}, el('h2', { text: 'Evolução do backlog' }),
+    const topo = el('article', { class: 'cartao c12', id: 'av-topo', 'data-imagem': true },
+      el('div', { class: 'cab' }, el('div', {}, el('h2', { text: 'Avanço do backlog' }),
         el('p', { class: 'nota', text: `${sel.rot} · comparado com ${rotAnt}`,
           title: 'Pelas datas do Protheus: a OS entra no dia da abertura e sai no dia do fim da manutenção. Cada pessoa: pela mão de obra da STL de hoje.' })),
         el('div', { class: 'acoes' }, el('div', { class: 'ctl' }, segQuaisDe(av)))),
       el('b', { class: 'pg-rot', text: sel.rot }), kpis);
     // entradas × saídas do período, ao lado da conferência
     const gES = el('div', { class: 'graf' });
-    const es = el('article', { class: 'cartao c6', 'data-imagem': true },
+    const es = el('article', { class: 'cartao c6', id: 'av-es', 'data-imagem': true },
       el('div', { class: 'cab' }, el('div', {}, el('h2', { text: 'Entradas e saídas' }), el('p', { class: 'nota', text: sel.rot })), el('div', { class: 'acoes' })),
       el('div', { class: 'legenda' }, el('span', {}, el('i', { style: 'background:var(--nova)' }), 'Novas OS'), el('span', {}, el('i', { style: 'background:' + COR.F }), 'Encerradas do backlog inicial'),
         el('span', {}, el('i', { style: 'background:' + COR_DEPOIS }), 'Encerradas abertas no período')), gES);
@@ -2620,7 +2625,7 @@ export function iniciarPainel(D, { baixar, raiz = document, aba = '', aoTrocarAb
     c.fillStyle = cor('--muito-fraco'); c.font = `12px ${f}`; subL.forEach((l, i) => c.fillText(l, pad, pad + 38 + i * 16));
     c.font = `11px ${f}`; c.fillText('Painel de OS · Makro', pad, H - 14);
   }
-  async function imagemDoCartao(card) {
+  async function imagemDoCartao(card, { minW = 760 } = {}) {
     const cor = corCss(), f = cor('--fonte');
     const svgs = [...card.querySelectorAll('.graf svg')].filter((x) => x.getClientRects().length);
     const blocos = kpisDoCartao(card);
@@ -2638,13 +2643,16 @@ export function iniciarPainel(D, { baixar, raiz = document, aba = '', aoTrocarAb
     const partes = svgs.map((svg) => { const r = svg.getBoundingClientRect(), vb = svg.viewBox.baseVal; const sec = svg.closest('.par > div'); return { svg, w: r.width, h: r.height, k: vb && vb.width ? r.width / vb.width : 1, rot: sec && sec !== card.querySelector('.par > div') ? sec.querySelector('h2').textContent.trim() : '' }; });
     const leg = svgs.length ? [...card.querySelectorAll('.legenda > span, .legenda > .leg-tit, .rosca-leg > div')].map((sp) => { const i = sp.querySelector('i'); return [[...sp.children].filter((x) => x !== i).map((x) => x.textContent.trim()).filter(Boolean).join(' · ') || sp.textContent.trim(), i ? getComputedStyle(i).backgroundColor : null]; }) : [];
     const titulo = card.querySelector('h2').textContent.trim();
-    const quando = card.querySelector('.pg-rot');
-    const sub = [quando ? quando.textContent.trim() : '', filtrosTxt(), 'Protheus de ' + br(D.base)].filter(Boolean).join(' · ');
+    // (11/11/2026) toda imagem diz o que é, de quando e com que filtros: a nota do cartão, o período e os filtros
+    const quando = card.querySelector('.pg-rot'), notaC = card.querySelector('.cab .nota');
+    const sub = [notaC ? notaC.textContent.trim() : '', 'Período: ' + (quando ? quando.textContent.trim() : periodoSel().rot), filtrosTxt() || 'sem filtros',
+      'Protheus de ' + br(D.base)].filter(Boolean).join(' · ');
     const med = document.createElement('canvas').getContext('2d');
     const colW = tabs.map((rows) => { const w = []; rows.forEach((r, ri) => r.forEach((x, j) => { med.font = `${ri ? 400 : 700} 12px ${f}`; w[j] = Math.max(w[j] || 0, med.measureText(x).width + 18); })); return w; });
-    const pad = 28, larg = Math.max(0, ...partes.map((p) => p.w), ...colW.map((w) => d3.sum(w))), W = Math.ceil(Math.max(760, larg + pad * 2));
+    const pad = 28, larg = Math.max(0, ...partes.map((p) => p.w), ...colW.map((w) => d3.sum(w))), W = Math.ceil(Math.max(minW, larg + pad * 2));
+    const colsQ = W >= 900 ? 5 : W >= 640 ? 4 : 2;
     med.font = `12px ${f}`;
-    const subL = quebrarTxt(med, sub, W - pad * 2, 3);
+    const subL = quebrarTxt(med, sub, W - pad * 2, 4);
     med.font = `700 13px ${f}`;
     const verL = verEl ? quebrarTxt(med, verEl.textContent.trim(), W - pad * 2 - 24, 4) : [];
     med.font = `12px ${f}`;
@@ -2653,7 +2661,7 @@ export function iniciarPainel(D, { baixar, raiz = document, aba = '', aoTrocarAb
     if (atual.length) linhasLeg.push(atual);
     const yV = pad + 38 + subL.length * 16, hV = verL.length ? verL.length * 18 + 22 : 0;
     const yQ = yV + hV;
-    const hQ = blocos.length ? quadros(med, cor, blocos, pad, yQ, W - pad * 2, { pintar: false, cols: W >= 900 ? 5 : 4 }) : 0;
+    const hQ = blocos.length ? quadros(med, cor, blocos, pad, yQ, W - pad * 2, { pintar: false, cols: colsQ }) : 0;
     for (const k of contas) k.notasL = k.notas.flatMap((n) => quebrarTxt(med, '• ' + n, W - pad * 2, 4));
     const hConta = contas.reduce((h, k) => h + (k.tit ? 28 : 0) + k.linhas.length * 30 + (k.res ? 46 : 0) + k.notasL.length * 17 + 14, 0);
     const hTabs = tabs.reduce((h, rows) => h + rows.length * 24 + 12, 0);
@@ -2667,7 +2675,7 @@ export function iniciarPainel(D, { baixar, raiz = document, aba = '', aoTrocarAb
       c.fillStyle = cor(bom ? '--finalizada-t' : ruim ? '--alerta-t' : '--texto'); c.font = `700 13px ${f}`;
       verL.forEach((l, ix) => c.fillText(l, pad + 12, yV + 20 + ix * 18));
     }
-    if (blocos.length) quadros(c, cor, blocos, pad, yQ, W - pad * 2, { cols: W >= 900 ? 5 : 4 });
+    if (blocos.length) quadros(c, cor, blocos, pad, yQ, W - pad * 2, { cols: colsQ });
     let yc = yQ + hQ + (blocos.length ? 4 : 0);
     for (const { tit, linhas: conta, res, notasL } of contas) {
       if (tit) { c.fillStyle = cor('--fraco'); c.font = `700 12px ${f}`; c.fillText(tit.toUpperCase(), pad, yc + 18); yc += 28; }
@@ -2883,6 +2891,179 @@ export function iniciarPainel(D, { baixar, raiz = document, aba = '', aoTrocarAb
   }
   const bResumo = $('#os-resumo');
   if (bResumo) { bResumo.hidden = false; bResumo.addEventListener('click', abrirResumo); }
+
+  // ── o relatório gerencial (11/11/2026): o PDF para os gestores, a imagem para o celular e os dados ──
+  // O relatório é o próprio painel: cada aba é desenhada no período e com os filtros da barra, numa largura
+  // de página e no tema claro, e os cartões viram imagem (as mesmas do Enviar). O que vai no PDF é o que
+  // está na tela; os dados para o Excel saem das mesmas contas (js/os/indicadores.js).
+  const REL = [
+    ['geral', 'Visão geral', ['#c-resumo', '#c-evolucao', '#c-fluxo', '#c-progfin']],
+    ['avanco', 'Avanço do backlog', ['#av-topo', '#av-conferencia', '#av-es', '#av-historico']],
+    ['programacao', 'Programação', ['#pg-topo', '#pg-seq']],
+    ['indicadores', 'Indicadores', ['#c-ind-kpis', '#c-ind-comp', '#c-ind-ne', '#c-ind-saldo', '#c-ind-taxa', '#c-ader']]];
+  const REL_CEL = [['geral', 'Visão geral', ['#c-resumo', '#c-evolucao']], ['avanco', 'Avanço do backlog', ['#av-conferencia']]];
+  const quadro = () => new Promise((ok) => requestAnimationFrame(() => ok()));
+  const abrirImagem = (blob) => new Promise((ok, erro) => {
+    const fr = new FileReader();
+    fr.onerror = () => erro(new Error('não leu a imagem'));
+    fr.onload = () => { const im = new Image(); im.onload = () => ok({ url: fr.result, w: im.naturalWidth, h: im.naturalHeight, im }); im.onerror = () => erro(new Error('não abriu a imagem')); im.src = fr.result; };
+    fr.readAsDataURL(blob);
+  });
+  /** Desenha cada aba na largura dada, no tema claro, e guarda a imagem de cada cartão; depois volta tudo como estava. */
+  async function capturar(lista, largura, aviso, minW = 760) {
+    // o tema claro é do site (as cores de base vêm dele): quem abre o painel empresta, só durante a captura
+    return temaClaro ? temaClaro(() => capturarJa(lista, largura, aviso, minW)) : capturarJa(lista, largura, aviso, minW);
+  }
+  async function capturarJa(lista, largura, aviso, minW) {
+    const pg = raiz.querySelector('.pg'), abaAntes = V.aba, y = scrollY, larguraAntes = pg.style.maxWidth;
+    const out = [];
+    pg.style.maxWidth = largura + 'px';
+    try {
+      for (const [aba, secao, sels] of lista) {
+        if (aviso) aviso.textContent = `Montando: ${secao}…`;
+        V.aba = aba;
+        desenhar();
+        await quadro(); await quadro();
+        for (const q of sels) {
+          const card = raiz.querySelector(q);
+          if (!card || !card.getClientRects().length) continue;
+          try { const r = await imagemDoCartao(card, { minW }); out.push({ secao, titulo: r.titulo, ...(await abrirImagem(r.blob)) }); }
+          catch (e) { if (!(e && e.message === 'vazio')) throw e; }
+        }
+      }
+    } finally {
+      pg.style.maxWidth = larguraAntes;
+      V.aba = abaAntes;
+      desenhar();
+      scrollTo({ top: y });
+    }
+    return out;
+  }
+  const rotRelatorio = () => {
+    const sel = periodoSel();
+    return { sel, linhas: [`Período: ${sel.rot}` + (sel.rot.includes('/') ? '' : ` (${br(sel.de)} a ${br(sel.ate)})`),
+      `Dados do Protheus de ${br(D.base)}` + (meta && meta.gerado_em ? ` · atualizado em ${dataHora(meta.gerado_em)}` : '') + ' · STJ e STL',
+      'Filtros: ' + (filtrosTxt() || 'nenhum (todas as OS das frotas da lista do PCM)'), `Gerado em ${new Date().toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' })}`] };
+  };
+  async function relatorioPDF(botao, aviso) {
+    botao.disabled = true;
+    try {
+      const JsPDF = await libPDF();
+      const { sel, linhas } = rotRelatorio();
+      const imgs = await capturar(REL, 860, aviso);
+      if (!imgs.length) throw new Error('nada para pôr no relatório com estes filtros');
+      aviso.textContent = 'Montando o PDF…';
+      const doc = new JsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+      const W = doc.internal.pageSize.getWidth(), H = doc.internal.pageSize.getHeight(), M = 10, larg = W - M * 2;
+      const TINTA = [17, 24, 39], FRACO = [75, 85, 99], MARCA = [37, 99, 235];
+      doc.setFont('helvetica', 'bold'); doc.setFontSize(18); doc.setTextColor(...TINTA);
+      doc.text(pdfTxt('Relatório gerencial das OS'), M, 18);
+      doc.setFont('helvetica', 'normal'); doc.setFontSize(10); doc.setTextColor(...FRACO);
+      let y = 25;
+      for (const l of linhas) for (const parte of doc.splitTextToSize(pdfTxt(l), larg)) { doc.text(parte, M, y); y += 5; }
+      y += 3;
+      let secao = '';
+      for (const im of imgs) {
+        let w = larg, h = (im.h / im.w) * w;
+        if (h > H - 30) { h = H - 30; w = (im.w / im.h) * h; }
+        const nova = im.secao !== secao;
+        if (y + (nova ? 11 : 0) + h > H - 12) { doc.addPage(); y = 14; }
+        if (nova) {
+          secao = im.secao;
+          doc.setFont('helvetica', 'bold'); doc.setFontSize(13); doc.setTextColor(...MARCA);
+          doc.text(pdfTxt(secao), M, y + 4);
+          doc.setDrawColor(...MARCA); doc.setLineWidth(0.5); doc.line(M, y + 6.5, W - M, y + 6.5);
+          y += 11;
+        }
+        doc.addImage(im.url, 'PNG', M + (larg - w) / 2, y, w, h, undefined, 'FAST');
+        y += h + 5;
+      }
+      const n = doc.getNumberOfPages();
+      for (let pg = 1; pg <= n; pg++) {
+        doc.setPage(pg);
+        doc.setFont('helvetica', 'normal'); doc.setFontSize(7.5); doc.setTextColor(120, 128, 140);
+        doc.text(pdfTxt(`Painel de OS · Protheus de ${br(D.base)} · ${sel.rot}`), M, H - 6);
+        doc.text(`página ${pg} de ${n}`, W - M, H - 6, { align: 'right' });
+      }
+      const d = await downloadsP;
+      if (!d) throw { code: 'unavailable' };
+      await d.save({ filename: `relatorio-os-${slug(sel.rot)}-${D.base}.pdf`, data: doc.output('blob') });
+      aviso.textContent = `PDF salvo · ${plural(n, 'página', 'páginas')}.`;
+    } catch (e) { tratarErro(e, aviso); } finally { botao.disabled = false; }
+  }
+  /** A imagem para o celular: o resumo do período, a evolução e a conferência, uma embaixo da outra. */
+  async function relatorioImagem(aviso) {
+    const { sel } = rotRelatorio();
+    const imgs = await capturar(REL_CEL, 430, aviso, 440);
+    if (!imgs.length) throw new Error('vazio');
+    const larg = Math.max(...imgs.map((x) => x.w)), gap = 24, topo = 64;
+    const tela = document.createElement('canvas'), c = tela.getContext('2d');
+    tela.width = larg; tela.height = topo + d3.sum(imgs, (x) => x.h) + gap * imgs.length;
+    c.fillStyle = '#eef1f6'; c.fillRect(0, 0, tela.width, tela.height);
+    c.fillStyle = '#111827'; c.font = `700 30px ${corCss()('--fonte')}`; c.fillText(pdfTxt('Painel de OS').replace(/-/g, '−') + ' · ' + sel.rot, 28, 44);
+    let y = topo;
+    for (const im of imgs) { c.drawImage(im.im, (larg - im.w) / 2, y); y += im.h + gap; }
+    aviso.textContent = '';
+    return { blob: await paraPNG(tela), nome: `resumo-os-${slug(sel.rot)}-${D.base}.png`, titulo: 'Painel de OS · ' + sel.rot };
+  }
+  const pct1 = (v) => (v == null ? '' : String(Math.round(v * 1000) / 10).replace('.', ',') + '%');
+  /** Os dados do relatório para o Excel: o resumo, a conferência, a programação, o histórico, o comparativo e as OS do período. */
+  function dadosDoRelatorio() {
+    const { sel, linhas: cab } = rotRelatorio();
+    const todas = semSituacao().todas, base = D.base;
+    const mv = IND.movimento(todas, { de: sel.de, ate: sel.ate, base });
+    const pa = IND.anterior({ desde: sel.de, ate: sel.ate, base, unidade: sel.unidade });
+    const mvA = IND.movimento(todas, { de: pa.desde, ate: pa.ate, base });
+    const esc = escSerie(sel), serie = serieCarteira(todas, sel, esc), x = contaProg(todas, sel);
+    const k = IND.indicadores(todas, { desde: sel.de, ate: sel.ate, base }), a = IND.indicadores(todas, { desde: pa.desde, ate: pa.ate, base });
+    const fim = sel.ate < base ? sel.ate : base;
+    const osPer = todas.filter((o) => { const sd = IND.saidaDe(o); return (o.abertura && o.abertura >= sel.de && o.abertura <= fim) || (sd && sd >= sel.de && sd <= fim); });
+    const mov = (o) => { const ent = o.abertura >= sel.de, sd = IND.saidaDe(o), saiu = !!sd && sd >= sel.de && sd <= fim; return ent && saiu ? 'Entrou e saiu no período' : ent ? 'Entrou (segue em aberto)' : 'Saiu (do backlog inicial)'; };
+    return [['Relatório gerencial das OS'], ...cab.map((l) => [l]), [`Comparado com: ${br(pa.desde)} a ${br(pa.ate)}`], [],
+      ['Resumo do período', 'No período', 'No anterior'],
+      ['Backlog inicial', mv.inicial, mvA.inicial], ['Novas OS', mv.entradas, mvA.entradas], ['Encerradas', mv.saidas, mvA.saidas],
+      ['· do backlog inicial', mv.saidasAntigas, mvA.saidasAntigas], ['· abertas no próprio período', mv.saidasNovas, mvA.saidasNovas],
+      ['Backlog final', mv.final, mvA.final], ['Variação', mv.variacao, mvA.variacao], ['Variação %', pct1(mv.variacaoPct), pct1(mvA.variacaoPct)],
+      ['Encerradas ÷ novas', pct1(mv.taxaEncerramento), pct1(mvA.taxaEncerramento)], [],
+      ['Conferência do backlog', 'OS'], [`Backlog inicial (em aberto em ${br(mv.vespera)})`, mv.inicial], ['+ Novas OS', mv.entradas], ['− Encerradas do backlog inicial', mv.saidasAntigas],
+      ['− Encerradas abertas no próprio período', mv.saidasNovas], ['= Backlog final calculado', mv.esperado], [`Backlog final encontrado (em aberto em ${br(mv.ate)})`, mv.final], ['Diferença', mv.diferenca], [],
+      ['Programação', 'OS'], ['Programadas', x.n], ['Executadas', x.exec], ['Encerradas', x.prazo + x.depois], ['· no período', x.prazo], ['· depois do período', x.depois],
+      ['Pendentes de execução', x.n - x.exec], ['Encerradas no período (todas)', x.fin], ['· da programação', x.finProg], ['· extra programação', x.finFora], [],
+      [`Histórico · cada ${unidDe(esc)}`, 'De', 'Até', 'Backlog inicial', 'Novas', 'Encerradas', 'Encerradas do inicial', 'Encerradas do período', 'Backlog final', 'Variação', 'Variação %', 'Encerradas ÷ novas'],
+      ...serie.map((l) => [l.rot, br(l.de), br(l.ate), l.inicial, l.entradas, l.saidas, l.saidasAntigas, l.saidasNovas, l.final, l.variacao, pct1(l.variacaoPct), pct1(l.taxaEncerramento)]), [],
+      ['Comparativo com o período anterior', 'No período', 'No anterior', 'Diferença', 'Variação', 'Leitura'],
+      ...comparativoDe(k, a).map((l) => [l.rot, l.v1, l.v0, l.d, l.pct, l.leit]), [],
+      ['As OS que entraram ou saíram no período', 'Filial', 'Frota', 'Equipamento', 'Serviço', 'Aberta em', 'Encerrada em', 'Situação hoje', 'No período'],
+      ...osPer.sort((p1, p2) => (p1.abertura < p2.abertura ? -1 : 1)).map((o) => [o.os, o.filial, o.frota, o.equip, o.servico, br(o.abertura), br(o.fim), SIT[o.sit], mov(o)])];
+  }
+  async function relatorioDados(botao, aviso) {
+    botao.disabled = true;
+    try {
+      const linhas = dadosDoRelatorio();
+      const blob = new Blob(['﻿' + linhas.map((l) => l.map(celulaCSV).join(';')).join('\r\n')], { type: 'text/csv;charset=utf-8' });
+      const d = await downloadsP;
+      if (!d) throw { code: 'unavailable' };
+      await d.save({ filename: `relatorio-os-${slug(periodoSel().rot)}-${D.base}.csv`, data: blob });
+      aviso.textContent = 'Dados salvos (abre no Excel).';
+    } catch (e) { tratarErro(e, aviso); } finally { botao.disabled = false; }
+  }
+  function abrirRelatorio() {
+    voltaFoco = focado();
+    const { linhas } = rotRelatorio();
+    const aviso = el('span', { class: 'aviso-img', 'aria-live': 'polite' });
+    const b = (rot, fn, prim = false) => { const bt = el('button', { type: 'button', class: 'botao' + (prim ? ' prim' : ''), text: rot }); bt.addEventListener('click', () => fn(bt)); return bt; };
+    const fazerImg = () => relatorioImagem(aviso);
+    mostrarDetalhe(
+      cabDetalhe(el('p', { class: 'det-id', text: 'Para os gestores' }), 'Relatório gerencial'),
+      el('ul', { class: 'rel-info' }, ...linhas.slice(0, 3).map((l) => el('li', { text: l }))),
+      el('div', { class: 'resumo-acoes' }, b('Baixar o PDF', (bt) => relatorioPDF(bt, aviso), true),
+        b('Baixar a imagem (celular)', () => usarImagem('baixar', fazerImg, aviso)),
+        podeCompartilhar() ? b('Compartilhar a imagem…', () => usarImagem('compartilhar', fazerImg, aviso)) : null,
+        b('Baixar os dados (Excel)', (bt) => relatorioDados(bt, aviso)), aviso),
+      el('p', { class: 'nota', text: 'O PDF leva a Visão geral (o resumo do período, a evolução, entradas e saídas, programadas e encerradas), o Avanço (os números, a conferência do backlog e o histórico), a Programação e os Indicadores (o comparativo e os gráficos) — no período e com os filtros da barra. A imagem para o celular leva o resumo, a evolução e a conferência. Os dados levam as mesmas contas e a lista das OS que entraram ou saíram no período.' }));
+  }
+  const bRel = $('#os-relatorio');
+  if (bRel) { bRel.hidden = false; bRel.addEventListener('click', abrirRelatorio); }
   raiz.querySelectorAll('.cartao[data-imagem]').forEach(prepararImagem);
 
   // ── a carteira para imprimir (05/11/2026) ──
@@ -2979,7 +3160,7 @@ export function iniciarPainel(D, { baixar, raiz = document, aba = '', aoTrocarAb
     baixar.addEventListener('click', () => gerarPDF(folhas(S, quais()), baixar, aviso));
   }
   // o jsPDF escreve com as fontes do próprio PDF (Latin-1): o que não cabe nelas sai da folha
-  const pdfTxt = (x) => String(x ?? '').replace(/[“”]/g, '"').replace(/[‘’]/g, "'").replace(/[–—]/g, '-').replace(/…/g, '...').replace(/[^\n\x20-\x7e\xa0-\xff]/g, '');
+  const pdfTxt = (x) => String(x ?? '').replace(/[“”]/g, '"').replace(/[‘’]/g, "'").replace(/[–—−]/g, '-').replace(/…/g, '...').replace(/[^\n\x20-\x7e\xa0-\xff]/g, '');
   const LIG_PDF = new Set(['da', 'de', 'do', 'das', 'dos', 'e']);
   const nomePDF = (n) => n.split(' ').filter((w) => !LIG_PDF.has(w.toLowerCase())).slice(0, 2).join(' ');
   const quemPDF = (o) => (o.grupo === 'T' ? 'Terceirizada' : o.grupo === 'S' ? '-' : o.pessoas.map((q) => nomePDF(q.nome) + (aponta(q.nome) ? '' : ' (não aponta)')).join(', '));

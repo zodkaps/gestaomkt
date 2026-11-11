@@ -423,6 +423,18 @@ e preventivas, e **só ele ter acesso**.
   carteira cresceu, em vermelho; para baixo diminuiu, em verde) e encerradas ÷
   novas com a linha dos 100%. O Avanço tem o *Histórico* de cada período em
   tabela. Tudo sai no Enviar: a imagem leva a frase do resumo e as tabelas.
+- **Relatório gerencial** (11/11/2026): o botão **Relatório**, no alto, monta
+  no período e com os filtros da barra: o **PDF** (A4, capa com o período, o
+  dia do export, quando foi atualizado e os filtros; a Visão geral, o Avanço
+  com a conferência do backlog e o histórico, a Programação e os Indicadores
+  com o comparativo e os gráficos; página numerada), a **imagem para o
+  celular** (o resumo, a evolução e a conferência, uma embaixo da outra, na
+  largura do celular) e os **dados para o Excel** (o resumo e o período
+  anterior, a conferência, a programação, o histórico, o comparativo e a lista
+  das OS que entraram ou saíram no período). O relatório é o próprio painel:
+  as abas são desenhadas numa largura de página e no tema claro, e os cartões
+  viram as mesmas imagens do Enviar — toda imagem diz o período, os filtros e
+  o dia do export. Não leva quem abriu a OS.
 
 **As telas da oficina saíram do menu, mas nada foi apagado.** Painel, Hoje,
 Programação, Semana, Resultados e Frota continuam no código, e os lançamentos
