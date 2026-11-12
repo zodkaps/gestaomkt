@@ -88,6 +88,22 @@ marca. Regras:
 - A lista de frotas do PCM se cola na caixa *Frotas do PCM* de *Atualizar com
   o Protheus* e fica no bucket (`frotas.json.gz`); sem ela, vale a da base
   histórica. Número de frota não vai para o repositório.
+- **Publicar é por versão** (12/11/2026, `js/os/publicar.js`): o pacote leva as
+  OS, a lista de frotas usada (`meta.frotas`), a base histórica usada
+  (`meta.historico`, em `historicos/<sha>`) e o índice das atualizações
+  (`meta.importacoes`). Confere antes, reserva (`trava.json.gz`, criada só se
+  não existir), grava `versoes/<id>.json.gz`, confere byte a byte e só então
+  troca o `atual.json.gz` — nunca gravar o `atual.json.gz` direto nem
+  sobrescrever `versoes/` ou `historicos/`. Falhou no meio: o painel fica na
+  versão anterior. Voltar a uma versão é pela Auditoria (vira versão nova).
+  Os arquivos antigos (`historico.json.gz`, `frotas.json.gz`,
+  `importacoes.json.gz`, `dias/`) só se leem.
+- Na ficha da OS o CPF de quem abriu vem mascarado (`***.456.789-**`); o
+  "mostrar" revela só naquela caixa.
+- Não existe `sql/21_rastreio_programacao.sql` (conferido no repositório, na
+  história do Git e no banco em 12/11/2026): as migrações são de 00 a 06, e o
+  JavaScript só usa `eventos`, `pessoas`, `ve_os()`, `atualiza_os()` e o bucket
+  `painel-os`.
 - Se ele mandar a STJ e a STL no chat, a resposta é: solte em *Atualizar com o
   Protheus* no site. A base histórica (`historico-os.json.gz`) é feita fora do
   repositório e mandada a ele em arquivo; nunca vai para o Git.

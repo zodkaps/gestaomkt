@@ -9,7 +9,7 @@
   --bk-baixada: #4472c4; --bk-pendente: #d4661a;
   display: block; color: var(--texto); font-size: 14px; line-height: 1.45;
   --marca-texto: #ffffff;
-  --liberada: #2a78d6; --pendente: #eda100; --finalizada: #1baf7a; --fech-depois: #9ad8bd; --prog: #7b61d9; --nprog: #eb6834; --ctx: #c4c9d2; --alerta: #d03b3b;
+  --liberada: #2a78d6; --pendente: #eda100; --finalizada: #1baf7a; --fech-depois: #9ad8bd; --prog: #7b61d9; --nprog: #eb6834; --ctx: #c4c9d2; --alerta: var(--vermelho-makro, #E4002A);
   --pend1: #f9e08c; --pend2: #eda100; --pend3: #a35f00; --nova: #9cc3f0;
   --liberada-f: #e7efff; --liberada-t: #1d4ed8; --pendente-f: #fff4d6; --pendente-t: #92400e;
   --finalizada-f: #e3f6ec; --finalizada-t: #166534; --alerta-f: #fde8e7; --alerta-t: #b42318;
@@ -695,3 +695,42 @@ button.aud-n:focus-visible { outline: 2px solid var(--marca); }
 .imp-frotas-campo { width: 100%; box-sizing: border-box; margin: 8px 0; font: inherit; font-size: 13px; padding: 8px 10px; border: 1px solid var(--borda); border-radius: 8px;
   background: var(--papel); color: var(--texto); resize: vertical; }
 .imp-frotas-nota { margin: 0; font-size: 12.5px; color: var(--fraco); }
+
+/* ── a publicação por versão (12/11/2026): cada passo numa linha, e o resultado dito com todas as letras ── */
+.imp-etapas { list-style: none; margin: 4px 0 0; padding: 10px 12px; border: 1px solid var(--linha); border-radius: 10px; background: var(--papel2);
+  display: grid; gap: 4px; font-size: 13px; }
+.imp-etapas li { display: flex; align-items: baseline; gap: 8px; color: var(--fraco); }
+.imp-etapas .et-ic { width: 16px; text-align: center; font-weight: 700; flex: none; }
+.imp-etapas .et-ok { color: var(--texto); }
+.imp-etapas .et-ok .et-ic { color: var(--finalizada-t); }
+.imp-etapas .et-faz .et-ic { color: var(--marca); }
+.imp-etapas .et-erro { color: var(--alerta-t); font-weight: 600; }
+.imp-etapas small { font-weight: 400; color: var(--fraco); overflow-wrap: anywhere; }
+.imp-aviso.ok { color: var(--finalizada-t); font-weight: 650; }
+.imp-aviso.erro { display: block; margin-top: 8px; padding: 9px 12px; border-radius: 10px; background: var(--alerta-f); color: var(--alerta-t); font-weight: 600; }
+.imp-versao { margin: 0; padding: 9px 12px; border-radius: 10px; background: var(--liberada-f); color: var(--liberada-t); font-size: 13px; }
+.versao { display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.versao.no-ar { font-weight: 700; color: var(--texto); }
+.no-ar-tag { font-size: 10.5px; font-weight: 700; padding: 1px 7px; border-radius: 999px; background: var(--finalizada-f); color: var(--finalizada-t); }
+span.fraco { color: var(--muito-fraco); font-size: 12px; }
+
+/* (12/11/2026) o rótulo que separa a posição atual (a carteira do último export) da movimentação do período */
+.rot-secao { margin: 18px 0 8px; font-size: 13px; font-weight: 650; color: var(--fraco); }
+
+/* (12/11/2026) as abas em quatro grupos: o nome do grupo em cima, as abas dele embaixo; nenhuma aba saiu */
+.abas { align-items: flex-end; column-gap: 6px; }
+.aba-grupo { display: flex; flex: none; align-items: flex-end; position: relative; padding-top: 18px; }
+.aba-grupo + .aba-grupo { border-left: 1px solid var(--linha); padding-left: 6px; }
+.aba-grupo-rot { position: absolute; top: 2px; left: 0; padding-left: 12px; white-space: nowrap; font-size: 10.5px; font-weight: 700;
+  letter-spacing: .06em; text-transform: uppercase; color: var(--muito-fraco); }
+.aba-grupo + .aba-grupo .aba-grupo-rot { padding-left: 18px; }
+.aba:focus-visible { outline: 2px solid var(--marca); outline-offset: -2px; border-radius: 6px; }
+
+/* (12/11/2026) o CPF de quem abriu, mascarado na ficha, e o "mostrar" */
+.cpf { font-variant-numeric: tabular-nums; }
+.mostrar-cpf { border: 0; background: transparent; color: var(--marca); font-size: 12px; font-weight: 650; padding: 0 2px; cursor: pointer; text-decoration: underline; }
+
+/* (12/11/2026) a identidade da Makro no painel: as cores de base já vêm do site (o azul-marinho na estrutura, o
+   vermelho só no alerta); aqui, a fonte da marca nos títulos, nas abas e nos números grandes. As tabelas ficam na
+   fonte do sistema (algarismos de largura igual). */
+h2, h3, .aba, .kpi .val, .porta-caixa h2 { font-family: var(--fonte-marca, inherit); }

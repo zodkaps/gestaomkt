@@ -14,6 +14,7 @@
 
 import { celulaCSV } from "../texto.js";
 import * as IND from "./indicadores.js";
+import { rotuloDaVersao } from "./publicar.js";
 
 /** Desenha o painel com os dados `D` (o bloco que js/os/montar.js monta).
  *  `baixar`: { save({ filename, data }) }, o download do navegador.
@@ -581,6 +582,19 @@ export function iniciarPainel(D, { baixar, raiz = document, aba = '', aoTrocarAb
     scrollTo({ top: 0 });
   }
   raiz.querySelectorAll('.aba').forEach((b) => b.addEventListener('click', () => irPara(b.dataset.aba)));
+  // o teclado nas abas (12/11/2026), como manda o padrão das abas: a aba aberta é a única no Tab; as setas andam
+  // entre elas (Home e End, a primeira e a última), e Enter ou espaço abre a que estiver com o foco
+  const nav = raiz.querySelector('.abas');
+  if (nav) nav.addEventListener('keydown', (e) => {
+    const abas = [...nav.querySelectorAll('.aba')], i = abas.indexOf(e.target);
+    if (i < 0) return;
+    const j = { ArrowRight: i + 1, ArrowDown: i + 1, ArrowLeft: i - 1, ArrowUp: i - 1, Home: 0, End: abas.length - 1 }[e.key];
+    if (j === undefined) return;
+    e.preventDefault();
+    const alvo = abas[(j + abas.length) % abas.length];
+    alvo.focus();                                   // só o foco anda; a aba aberta continua sendo a do Tab
+    alvo.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+  });
 
   // ── a dica ──
   const dica = $('#dica');
@@ -936,7 +950,8 @@ export function iniciarPainel(D, { baixar, raiz = document, aba = '', aoTrocarAb
     });
     const cab = el('tr', {}, ...cols.map((c) => el('th', { class: [c.num ? 'n' : '', c.esc ? 'esc' : ''].join(' ').trim() || null,
       'aria-sort': c.k === col.k ? (o.dir === 'asc' ? 'ascending' : 'descending') : 'none' },
-      el('button', { type: 'button', text: c.rot, on: { click: () => { V.ord[id] = { k: c.k, dir: o.k === c.k && o.dir === 'desc' ? 'asc' : c.num ? 'desc' : 'asc' }; desenhar(); } } }))));
+      // a coluna sem nome (a de um botão por linha) não ordena: o cabeçalho dela não é botão
+      c.rot ? el('button', { type: 'button', text: c.rot, on: { click: () => { V.ord[id] = { k: c.k, dir: o.k === c.k && o.dir === 'desc' ? 'asc' : c.num ? 'desc' : 'asc' }; desenhar(); } } }) : null)));
     const corpo = el('tbody');
     for (const r of l.slice(0, lim)) {
       const tr = el('tr', { class: aoClicar ? 'clica' : null, tabindex: aoClicar ? '0' : null });
@@ -1088,17 +1103,28 @@ export function iniciarPainel(D, { baixar, raiz = document, aba = '', aoTrocarAb
     voltaFoco = focado();
     const aberta = o.sit !== 'F', vencida = o.prevEstado === 'vencida';
     const fato = (rot, val, { sub = '', cls = '' } = {}) => el('div', { class: 'det-fato' + (cls ? ' ' + cls : '') },
-      el('span', { class: 'rot', text: rot }), el('b', { text: val }), sub ? el('small', { text: sub }) : null);
+      el('span', { class: 'rot', text: rot }), el('b', {}, val), sub ? el('small', { text: sub }) : null);
+    // (12/11/2026) o CPF de quem abriu vem mascarado (***.456.789-**): a ficha aparece em tela compartilhada e em
+    // foto; "mostrar" põe o número inteiro, só nesta caixa
+    const cpf = /^(\d{3})\.(\d{3})\.(\d{3})-(\d{2})$/.exec(o.abertaPor || '');
+    const quemAbriu = !o.abertaPor ? '—' : !cpf ? o.abertaPor : (() => {
+      const v = el('span', { class: 'cpf', text: `***.${cpf[2]}.${cpf[3]}-**` });
+      const b = el('button', { type: 'button', class: 'mostrar-cpf', text: 'mostrar', 'aria-label': 'Mostrar o CPF inteiro',
+        on: { click: () => { v.textContent = o.abertaPor; b.remove(); } } });
+      return el('span', {}, v, ' ', b);
+    })();
+    // na ordem da ficha: quando abriu, quando fechou (ou liberou), há quanto tempo, quem fecha e as horas; depois a
+    // previsão, a programação e quem abriu
     const fatos = [
-      o.dias != null && fato(aberta ? 'Aberta há' : 'Levou', plural(o.dias, 'dia', 'dias'), { cls: aberta && o.dias > 90 ? 'alerta' : '', sub: o.lancDepois ? 'do início da manutenção' : '' }),
       fato('Aberta em', br(o.abertura) || '—'),
-      fato('Aberta por', o.abertaPor || '—', { sub: o.abertaPor ? 'Usr Inclusao no Protheus'
-        : o.origemHist || (o.abertura && o.abertura < ((D.historica && D.historica.corte) || '2026-01-01')) ? 'a base histórica não tem essa coluna' : 'não veio no export da STJ' }),
       aberta ? fato('Liberada em', o.liberada ? br(o.liberada) : 'Aguardando', { cls: o.liberada ? '' : 'espera' }) : fato('Finalizada em', br(o.fim) || '—'),
+      o.dias != null && fato(aberta ? 'Aberta há' : 'Levou', plural(o.dias, 'dia', 'dias'), { cls: aberta && o.dias > 90 ? 'alerta' : '', sub: o.lancDepois ? 'do início da manutenção' : '' }),
+      fato('Quem fecha', GRUPO[o.grupo], { cls: o.grupo === 'S' || o.soFora ? 'alerta' : '', sub: o.soFora ? `ninguém aponta há ${DIAS_FORA} dias` : '' }),
+      !!(o.hPrev || o.horas) && fato('Horas', nh.format(o.horas) + (o.hPrev ? ' de ' + nh.format(o.hPrev) : '') + ' h', { sub: o.hPrev ? 'apontadas de previstas' : 'apontadas' }),
       aberta && fato('Prevista para', o.prev ? br(o.prev) : 'Sem data', { cls: vencida ? 'alerta' : '', sub: vencida ? 'já passou' : '' }),
       !!o.progEm && fato('Programada para', br(o.progEm)),
-      fato('Quem fecha', GRUPO[o.grupo], { cls: o.grupo === 'S' || o.soFora ? 'alerta' : '', sub: o.soFora ? `ninguém aponta há ${DIAS_FORA} dias` : '' }),
-      !!(o.hPrev || o.horas) && fato('Horas', nh.format(o.horas) + (o.hPrev ? ' de ' + nh.format(o.hPrev) : '') + ' h', { sub: o.hPrev ? 'apontadas de previstas' : 'apontadas' })];
+      fato('Aberta por', quemAbriu, { sub: o.abertaPor ? 'Usr Inclusao no Protheus'
+        : o.origemHist || (o.abertura && o.abertura < ((D.historica && D.historica.corte) || '2026-01-01')) ? 'a base histórica não tem essa coluna' : 'não veio no export da STJ' })];
     const mao = o.quem.length ? el('div', { class: 'det-bloco' }, el('h4', { text: 'Mão de obra' }),
       el('div', { class: 'tab' }, el('table', { class: 'mao' },
         el('thead', {}, el('tr', {}, ...['Pessoa', 'Prevista', 'Apontou', 'Horas'].map((x, i) => el('th', { class: i ? 'n' : null, text: x })))),
@@ -1156,6 +1182,7 @@ export function iniciarPainel(D, { baixar, raiz = document, aba = '', aoTrocarAb
     const ab = R.abertas, fe = R.fechadas;
     const lib = ab.filter((o) => o.sit === 'A').length, pen = ab.length - lib;
     const v90 = ab.filter((o) => o.faixa === 3).length, sem = ab.filter((o) => o.grupo === 'S').length;
+    const v60 = ab.filter((o) => o.faixa >= 2).length, v30 = ab.filter((o) => o.faixa >= 1).length;
     const sel = periodoSel(), esc = escSerie(sel), unid = unidDe(esc);
     // o resumo do período (11/11/2026): as cinco perguntas — quanto havia, quanto entrou, quanto saiu (com as
     // antigas), quanto há e se a carteira andou ou só girou —, cada número com o período anterior
@@ -1165,7 +1192,9 @@ export function iniciarPainel(D, { baixar, raiz = document, aba = '', aoTrocarAb
     const rotAnt = pa.desde === pa.ate ? dm(pa.desde) : `${dm(pa.desde)} a ${dm(pa.ate)}`, nf0 = (v) => nf.format(v);
     const pctV = mv.variacaoPct == null || !mv.variacao ? '' : ` (${sinalPc(mv.variacaoPct)})`, pctF = pctV ? `; ${sinalPc(mv.variacaoPct)}` : '';
     $('#rot-resumo').textContent = sel.rot;
-    $('#nota-resumo').textContent = `Pela abertura e pelo fim no Protheus · comparado com ${rotAnt}`;
+    $('#nota-resumo').textContent = `Movimentação no período: entradas pela abertura e saídas pelo fim no Protheus · comparado com ${rotAnt}`;
+    // (12/11/2026) a posição atual não é do período: é a carteira do último export, e o rótulo diz
+    $('#rot-posicao').textContent = `Posição atual · a carteira no Protheus de ${br(D.base)} (não depende do período escolhido)`;
     const [clsV, frase] = mv.variacao < 0
       ? ['bom', `Evoluindo: a carteira caiu de ${nf.format(mv.inicial)} para ${nf.format(mv.final)} OS (${sinal(mv.variacao)} OS${pctF}). Encerrou ${plural(mv.saidas, 'OS', 'OS')} — ${nf.format(mv.saidasAntigas)} do backlog inicial — e entraram ${nf.format(mv.entradas)}.`]
       : mv.variacao > 0 && mv.saidas
@@ -1200,7 +1229,8 @@ export function iniciarPainel(D, { baixar, raiz = document, aba = '', aoTrocarAb
     $('#kpis').replaceChildren(
       kpi('Abertas agora', nf.format(ab.length), `${nf.format(lib)} liberadas · ${nf.format(pen)} aguardando`, { trilho, fazer: () => irSit('A', 'P') }),
       kpi('Sem executante', nf.format(sem), ab.length ? `${pc.format(sem / ab.length)} das abertas` : '—', { cls: sem ? 'ruim' : '', cor: COR.alerta, fazer: () => aplicar(() => so('exec', 'g:S'), 'carteira') }),
-      kpi('Abertas há mais de 90 dias', nf.format(v90), ab.length ? pc.format(v90 / ab.length) + ' das abertas' : '—', { cls: v90 ? 'ruim' : '', cor: COR.alerta, fazer: () => aplicar(() => so('idade', '3'), 'carteira') }),
+      kpi('Abertas há mais de 90 dias', nf.format(v90), ab.length ? `${pc.format(v90 / ab.length)} das abertas · mais de 60 dias: ${nf.format(v60)} · mais de 30: ${nf.format(v30)}` : '—',
+        { cls: v90 ? 'ruim' : '', cor: COR.alerta, fazer: () => aplicar(() => so('idade', '3'), 'carteira') }),
       kpi('Programadas no período', nf.format(sem7.n), `${nf.format(sem7.prazo)} encerradas no período (${sem7.n ? pc.format(sem7.prazo / sem7.n) : '—'})`,
         { cor: COR.prog, fazer: () => { (V.cart.prog || (V.cart.prog = { lim: 100 })).g = 'prog'; V.rolar = 'pg-lista'; irPara('programacao'); } }));
 
@@ -2104,7 +2134,7 @@ export function iniciarPainel(D, { baixar, raiz = document, aba = '', aoTrocarAb
     const A = D.auditoria;
     let funil;
     if (A) {
-      const calc = A.linhasHoje + A.linhasHist - A.foraDaLista - A.repetidasHoje - A.repetidasHist - A.canceladas - A.semFim - A.antesDe;
+      const calc = A.linhasHoje + A.linhasHist - A.foraDaLista - (A.semNumero || 0) - A.repetidasHoje - A.repetidasHist - A.canceladas - A.semFim - A.antesDe;
       const ok = calc === A.consideradas && A.consideradas === D.os.length;
       funil = el('article', { class: 'cartao c6', id: 'aud-funil', 'data-imagem': true },
         cab('Do Protheus ao painel', `O export inteiro (sem os filtros) · Protheus de ${br(D.base)}`),
@@ -2112,6 +2142,7 @@ export function iniciarPainel(D, { baixar, raiz = document, aba = '', aoTrocarAb
           linConta('Linhas da STJ de hoje', nf.format(A.linhasHoje)),
           linConta('+ Linhas da base histórica', mais(A.linhasHist)),
           linConta('− De frotas fora da lista do PCM', menos(A.foraDaLista)),
+          A.semNumero ? linConta('− Sem número de OS (não dá para identificar)', menos(A.semNumero)) : null,
           linConta('− Repetidas no export de hoje', menos(A.repetidasHoje)),
           linConta('− Da base histórica que o export de hoje já trouxe', menos(A.repetidasHist)),
           linConta('− Canceladas no Protheus', menos(A.canceladas)),
@@ -2198,7 +2229,7 @@ export function iniciarPainel(D, { baixar, raiz = document, aba = '', aoTrocarAb
     const lista = el('article', { class: 'cartao c12', id: 'aud-lista' });
     raiz.replaceChildren(el('div', { class: 'grade' }, cartaoConferencia(mv, sel), conferir, funil, porFil, atencao, comparar, historico, lista));
     if (filiais) {
-      tabela(tFil, { id: 'aud-fil', linhas: filiais.map(([f, x]) => ({ f, ...x, saidas: x.repetidas + x.semFim + x.antesDe, painel: x.corretivas + x.preventivas })), padrao: { k: 'linhas', dir: 'desc' },
+      tabela(tFil, { id: 'aud-fil', linhas: filiais.map(([f, x]) => ({ f, ...x, saidas: x.repetidas + x.semFim + x.antesDe + (x.semNumero || 0), painel: x.corretivas + x.preventivas })), padrao: { k: 'linhas', dir: 'desc' },
         cols: [{ k: 'f', rot: 'Filial' }, { k: 'linhas', rot: 'Linhas da STJ', num: true }, { k: 'fora', rot: 'Bens fora da lista', num: true }, { k: 'canceladas', rot: 'Canceladas', num: true },
           { k: 'saidas', rot: 'Outras saídas', num: true }, { k: 'corretivas', rot: 'Corretivas', num: true }, { k: 'preventivas', rot: 'Preventivas', num: true }] });
       tFil.querySelector('table').classList.add('img-tabela');
@@ -2298,7 +2329,7 @@ export function iniciarPainel(D, { baixar, raiz = document, aba = '', aoTrocarAb
   /** O histórico das atualizações: o índice (uma linha por gravação) e as cópias guardadas. */
   function desenharHistorico(caixa, cab) {
     const au = V.aud;
-    const nota = 'Uma linha por atualização com o Protheus: o que o painel registrou naquele dia';
+    const nota = 'Uma linha por publicação: o que o painel registrou naquela versão · a versão no ar está marcada' + (fontes && fontes.voltar ? ', e dá para voltar a uma anterior' : '');
     if (!fontes || au.imp === null || au.imp === 'carregando') return caixa.replaceChildren(cab('Histórico das atualizações', nota), el('p', { class: 'nota', text: fontes ? 'Lendo o histórico…' : 'O histórico não está disponível aqui.' }));
     const dias = Array.isArray(au.dias) ? au.dias : [];
     const l = au.imp;
@@ -2308,11 +2339,21 @@ export function iniciarPainel(D, { baixar, raiz = document, aba = '', aoTrocarAb
       l.length ? caixaT : el('p', { class: 'nota', text: 'O registro começa na próxima atualização com o Protheus (cada uma grava a sua linha). As cópias guardadas acima já podem ser comparadas.' }));
     if (!l.length) return;
     const num = (k, rot) => ({ k, rot, num: true, ord: (x) => (x[k] == null ? -1 : x[k]), ver: (x) => (x[k] == null ? '—' : nf.format(x[k])) });
-    tabela(caixaT, { id: 'aud-hist', linhas: [...l].reverse(), padrao: { k: 'base', dir: 'desc' },
-      cols: [{ k: 'base', rot: 'Export de', ord: (x) => x.base, ver: (x) => br(x.base) }, { k: 'gerado', rot: 'Gravado em', ord: (x) => x.gerado_em || '', ver: (x) => (x.gerado_em ? dataHora(x.gerado_em) : '—') },
+    // (12/11/2026) cada publicação tem o nome da versão; a que está no ar é marcada, e quem atualiza pode voltar a outra
+    const noAr = fontes.versao ? fontes.versao() : '';
+    const colVersao = { k: 'id', rot: 'Versão', ord: (x) => x.publicado_em || x.gerado_em || '', ver: (x) => (x.id
+      ? el('span', { class: 'versao' + (x.id === noAr ? ' no-ar' : ''), title: x.id }, rotuloDaVersao(x.id) + (x.tipo === 'volta' ? ' (volta)' : ''),
+        x.id === noAr ? el('b', { class: 'no-ar-tag', text: 'no ar' }) : null)
+      : el('span', { class: 'fraco', text: 'antes das versões' })) };
+    const colVoltar = fontes.voltar ? [{ k: 'voltar', rot: '', ord: () => 0, ver: (x) => (x.id && x.id !== noAr
+      ? el('button', { type: 'button', class: 'botao mini', text: 'Voltar para esta', on: { click: (e) => { e.stopPropagation(); fontes.voltar(x); } } }) : '') }] : [];
+    tabela(caixaT, { id: 'aud-hist', linhas: [...l].reverse(), padrao: { k: 'id', dir: 'desc' },
+      cols: [colVersao, { k: 'base', rot: 'Export de', ord: (x) => x.base, ver: (x) => br(x.base) },
+        { k: 'gerado', rot: 'Publicada em', ord: (x) => x.publicado_em || x.gerado_em || '', ver: (x) => (x.publicado_em || x.gerado_em ? dataHora(x.publicado_em || x.gerado_em) : '—') },
+        { k: 'quem', rot: 'Por', ord: (x) => x.quem || '', ver: (x) => x.quem || '—' },
         num('total', 'OS'), num('abertas', 'Em aberto'), num('liberadas', 'Liberadas'), num('aguardando', 'Aguardando'), num('encerradas', 'Encerradas'), num('canceladas', 'Canceladas'),
         { k: 'desde', rot: 'Comparada com', ord: (x) => x.desde || '', ver: (x) => (x.desde ? br(x.desde) : '—') },
-        num('novas', 'Novas'), num('fecharam', 'Encerraram'), num('reabertas', 'Reabertas'), num('sumiramAbertas', 'Sumiram')] });
+        num('novas', 'Novas'), num('fecharam', 'Encerraram'), num('reabertas', 'Reabertas'), num('sumiramAbertas', 'Sumiram'), ...colVoltar] });
   }
 
   // ── Não liberadas: as OS abertas no Protheus que ainda aguardam liberação (05/11/2026) ──
@@ -2732,7 +2773,36 @@ export function iniciarPainel(D, { baixar, raiz = document, aba = '', aoTrocarAb
     return { tela, c };
   }
   const paraPNG = (tela) => new Promise((ok, erro) => tela.toBlob((bl) => (bl ? ok(bl) : erro(new Error('sem imagem'))), 'image/png'));
-  function cabecalhoImg(c, cor, titulo, subL, pad, W, H) {
+  // (12/11/2026) o logo da Makro no relatório e nas imagens: o SVG vira um canvas uma vez só (o PDF não lê SVG) e é
+  // conferido antes de entrar no desenho — se o navegador não deixar ler o canvas, fica sem logo, e não sem imagem.
+  // O colorido vai no fundo claro; o branco, no escuro. Sem ele (sem rede e fora do cache), sai tudo igual, sem logo.
+  const logos = {};
+  function logoMakro(branco = false) {
+    const k = branco ? 'makro-branco' : 'makro';
+    if (!logos[k]) {
+      logos[k] = (async () => {
+        const img = new Image();
+        img.src = new URL(`../../img/${k}.svg`, import.meta.url).href;
+        await img.decode();
+        const c = document.createElement('canvas');
+        c.width = 948; c.height = 215;
+        c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
+        c.toDataURL('image/png');
+        return c;
+      })().catch(() => null);
+    }
+    return logos[k];
+  }
+  /** O fundo da imagem é escuro? (para o logo branco) — o canvas devolve a cor em #rrggbb, como quer que o CSS a escreva. */
+  function fundoEscuro(cor) {
+    const t = document.createElement('canvas').getContext('2d');
+    t.fillStyle = '#ffffff'; t.fillStyle = cor('--papel') || '#ffffff';
+    const m = /^#(\w\w)(\w\w)(\w\w)$/.exec(t.fillStyle);
+    if (!m) return false;
+    const [r, g, b] = m.slice(1).map((x) => parseInt(x, 16));
+    return 0.299 * r + 0.587 * g + 0.114 * b < 128;
+  }
+  function cabecalhoImg(c, cor, titulo, subL, pad, W, H, logo = null) {
     const f = cor('--fonte');
     c.fillStyle = cor('--texto'); c.font = `700 19px ${f}`; c.fillText(titulo, pad, pad + 16, W - pad * 2 - 160);
     c.textAlign = 'right'; c.fillStyle = cor('--alerta-t');
@@ -2741,6 +2811,7 @@ export function iniciarPainel(D, { baixar, raiz = document, aba = '', aoTrocarAb
     c.textAlign = 'left';
     c.fillStyle = cor('--muito-fraco'); c.font = `12px ${f}`; subL.forEach((l, i) => c.fillText(l, pad, pad + 38 + i * 16));
     c.font = `11px ${f}`; c.fillText('Painel de OS · Makro', pad, H - 14);
+    if (logo) { const h = 14, w = (h * logo.width) / logo.height; c.drawImage(logo, W - pad - w, H - 14 - h + 3, w, h); }
   }
   async function imagemDoCartao(card, { minW = 760 } = {}) {
     const cor = corCss(), f = cor('--fonte');
@@ -2785,7 +2856,7 @@ export function iniciarPainel(D, { baixar, raiz = document, aba = '', aoTrocarAb
     const yLeg = yQ + hQ + (blocos.length ? 4 : 0) + hConta + hTabs, y0 = yLeg + linhasLeg.length * 20 + (linhasLeg.length ? 12 : 0);
     const H = Math.ceil(y0 + partes.reduce((s2, p) => s2 + p.h + 12 + (p.rot ? 30 : 0), 0) + 36);
     const { tela, c } = novaTela(W, H, cor);
-    cabecalhoImg(c, cor, titulo, subL, pad, W, H);
+    cabecalhoImg(c, cor, titulo, subL, pad, W, H, await logoMakro(fundoEscuro(cor)));
     if (verL.length) {
       const bom = verEl.classList.contains('bom'), ruim = verEl.classList.contains('ruim');
       c.fillStyle = cor(bom ? '--finalizada-f' : ruim ? '--alerta-f' : '--papel2'); retRedondo(c, pad, yV, W - pad * 2, hV - 10, 8);
@@ -2984,7 +3055,7 @@ export function iniciarPainel(D, { baixar, raiz = document, aba = '', aoTrocarAb
     const yQ = pad + 44 + subL.length * 16;
     const H = Math.ceil(yQ + quadros(med, cor, r.blocos, pad, yQ, W - pad * 2, { pintar: false, cols: 3 }) + 30);
     const { tela, c } = novaTela(W, H, cor);
-    cabecalhoImg(c, cor, r.titulo, subL, pad, W, H);
+    cabecalhoImg(c, cor, r.titulo, subL, pad, W, H, await logoMakro(fundoEscuro(cor)));
     quadros(c, cor, r.blocos, pad, yQ, W - pad * 2, { cols: 3 });
     return { blob: await paraPNG(tela), nome: `resumo-do-dia-${D.base}.png`, titulo: r.titulo };
   }
@@ -3074,12 +3145,17 @@ export function iniciarPainel(D, { baixar, raiz = document, aba = '', aoTrocarAb
       aviso.textContent = 'Montando o PDF…';
       const doc = new JsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
       const W = doc.internal.pageSize.getWidth(), H = doc.internal.pageSize.getHeight(), M = 10, larg = W - M * 2;
-      const TINTA = [17, 24, 39], FRACO = [75, 85, 99], MARCA = [37, 99, 235];
-      doc.setFont('helvetica', 'bold'); doc.setFontSize(18); doc.setTextColor(...TINTA);
+      const TINTA = [17, 24, 39], FRACO = [75, 85, 99], MARCA = [19, 22, 78];
+      // o cabeçalho institucional: o logo à direita, o título, o período e a origem, e um fio azul-marinho embaixo
+      const logo = await logoMakro();
+      if (logo) doc.addImage(logo.toDataURL('image/png'), 'PNG', W - M - 38, 10, 38, (38 * logo.height) / logo.width, undefined, 'FAST');
+      doc.setFont('helvetica', 'bold'); doc.setFontSize(18); doc.setTextColor(...MARCA);
       doc.text(pdfTxt('Relatório gerencial das OS'), M, 18);
       doc.setFont('helvetica', 'normal'); doc.setFontSize(10); doc.setTextColor(...FRACO);
       let y = 25;
       for (const l of linhas) for (const parte of doc.splitTextToSize(pdfTxt(l), larg)) { doc.text(parte, M, y); y += 5; }
+      doc.setDrawColor(...MARCA); doc.setLineWidth(0.6); doc.line(M, y - 1, W - M, y - 1);
+      doc.setTextColor(...TINTA);
       y += 3;
       let secao = '';
       for (const im of imgs) {
@@ -3115,11 +3191,16 @@ export function iniciarPainel(D, { baixar, raiz = document, aba = '', aoTrocarAb
     const { sel } = rotRelatorio();
     const imgs = await capturar(REL_CEL, 430, aviso, 440);
     if (!imgs.length) throw new Error('vazio');
-    const larg = Math.max(...imgs.map((x) => x.w)), gap = 24, topo = 64;
+    const larg = Math.max(...imgs.map((x) => x.w)), gap = 24, topo = 76;
     const tela = document.createElement('canvas'), c = tela.getContext('2d');
     tela.width = larg; tela.height = topo + d3.sum(imgs, (x) => x.h) + gap * imgs.length;
     c.fillStyle = '#eef1f6'; c.fillRect(0, 0, tela.width, tela.height);
-    c.fillStyle = '#111827'; c.font = `700 30px ${corCss()('--fonte')}`; c.fillText(pdfTxt('Painel de OS').replace(/-/g, '−') + ' · ' + sel.rot, 28, 44);
+    // o cabeçalho institucional, como o do PDF: o logo à direita, o título em azul-marinho e um fio embaixo
+    const logo = await logoMakro(), hL = 30, wL = logo ? (hL * logo.width) / logo.height : 0;
+    if (logo) c.drawImage(logo, larg - 28 - wL, 20, wL, hL);
+    c.fillStyle = '#13164E'; c.font = `700 30px ${corCss()('--fonte')}`;
+    c.fillText(pdfTxt('Painel de OS').replace(/-/g, '−') + ' · ' + sel.rot, 28, 46, larg - 56 - (wL ? wL + 16 : 0));
+    c.fillRect(28, 62, larg - 56, 2);
     let y = topo;
     for (const im of imgs) { c.drawImage(im.im, (larg - im.w) / 2, y); y += im.h + gap; }
     aviso.textContent = '';
@@ -3394,10 +3475,13 @@ export function iniciarPainel(D, { baixar, raiz = document, aba = '', aoTrocarAb
     sincronizarCampos();
     desenharPills();
     desenharChips();
-    for (const a of ABAS) { $('#' + a).hidden = a !== V.aba; const b = $('#aba-' + a); b.setAttribute('aria-selected', String(a === V.aba)); b.classList.toggle('on', a === V.aba); }
+    for (const a of ABAS) { $('#' + a).hidden = a !== V.aba; const b = $('#aba-' + a); b.setAttribute('aria-selected', String(a === V.aba)); b.classList.toggle('on', a === V.aba);
+      b.tabIndex = a === V.aba ? 0 : -1; }
     // os números e os gráficos contam todas as situações; a Situação da barra vale para as listas (11/11/2026)
     const R = semSituacao(), Rl = recorte();
-    $('#sub').textContent = `${D.base_rotulo || 'Protheus de ' + br(D.base)}` + (meta && meta.gerado_em ? ` · atualizado em ${dataHora(meta.gerado_em)}` : '') +
+    // (12/11/2026) a versão publicada que o painel está mostrando (o nome dela está na Auditoria)
+    $('#sub').textContent = `${D.base_rotulo || 'Protheus de ' + br(D.base)}` + (meta && meta.versao_id ? ` · versão ${rotuloDaVersao(meta.versao_id)}${meta.publicado_por ? ' (' + meta.publicado_por + ')' : ''}`
+      : meta && meta.gerado_em ? ` · atualizado em ${dataHora(meta.gerado_em)}` : '') +
       ` · ${plural(OS.length, 'OS corretiva', 'OS corretivas')} e ${plural(OS_PREV.length, 'preventiva', 'preventivas')} (à parte) da STJ e STL · ${plural(D.frotas_lista.length, 'frota', 'frotas')} da lista do PCM`;
     $('#aviso').hidden = !D.aviso;
     $('#aviso').textContent = D.aviso || '';

@@ -1684,6 +1684,11 @@ titulo("liberadas agora, e adiantar até a realização");
     const mb = M.montar({ stj: [M.tabela([CAB_STJ, os("300009", 617, "2026-10-01", "Não", "Liberado")], "STJ_bem.xlsx")], stl: [], frotas: ["617"], base: "2026-11-05" });
     const PB = M.dadosDoPainel(mb);
     igual("o Bem como número (617) é o 0617 da lista: entra no painel", [mb.auditoria.foraDaLista, PB.os.length, PB.os[0][2]], [0, 1, "F-617"]);
+    // (12/11/2026) a linha sem número de OS não tem como ser identificada: conta à parte (antes caía como repetida)
+    const msn = M.montar({ stj: [M.tabela([CAB_STJ, os("", 617, "2026-10-01", "Não", "Liberado"), os("000000", 617, "2026-10-02", "Não", "Liberado"),
+      os("300010", 617, "2026-10-03", "Não", "Liberado")], "STJ_sn.xlsx")], stl: [], frotas: ["617"], base: "2026-11-05" });
+    igual("a linha sem número de OS (vazio ou só zeros) conta à parte, e não como repetida",
+      [msn.auditoria.semNumero, msn.auditoria.repetidasHoje, M.dadosDoPainel(msn).os.length], [2, 0, 1]);
     const INDz = await import("../js/os/indicadores.js");
     igual("a chave das comparações também ignora os zeros", [M.chaveOS("010101", "090001"), INDz.chaveOS("010101", "090001"), INDz.chaveOS(10101, 90001)], ["10101|90001", "10101|90001", "10101|90001"]);
   }
@@ -1694,7 +1699,7 @@ titulo("liberadas agora, e adiantar até a realização");
     (({ frotas, repetidas, ignorados }) => [frotas, repetidas, ignorados])(M.lerFrotas("FROTA\n \n423\n0332, 622;622 F-56\n1060")), [["423", "332", "622", "56", "1060"], ["622"], ["FROTA"]]);
   igual("a cancelada vai à parte (fora da carteira), com a abertura", P.canceladas, [["100005", "010101", "F-617", "2026-10-26"]]);
   igual("por filial: as 6 linhas da STJ de hoje — 1 de bem fora da lista, 1 cancelada, 1 encerrada antes de 2024, 2 corretivas e 1 preventiva no painel",
-    P.auditoria.porFilial["010101"], { linhas: 6, fora: 1, repetidas: 0, canceladas: 1, semFim: 0, antesDe: 1, corretivas: 2, preventivas: 1 });
+    P.auditoria.porFilial["010101"], { linhas: 6, fora: 1, semNumero: 0, repetidas: 0, canceladas: 1, semFim: 0, antesDe: 1, corretivas: 2, preventivas: 1 });
   igual("e os bens fora da lista do PCM, com quantas OS", [P.auditoria.foraBens.map((b) => [b.bem, b.n]), P.auditoria.foraBensTotal], [[["0999", 1]], 1]);
   igual("a origem: a OS que só veio da base histórica é marcada", [P.os.find((a) => a[0] === "090001")[21], P.os.find((a) => a[0] === "100001")[21]], ["H", ""]);
   const PF = M.dadosDoPainel(M.montar({ stj: [M.tabela([CAB_STJ, os("300001", "0433", "2026-10-01", "Não", "Liberado", "2026-11-04")], "STJ_f.xlsx")], stl: [stl], frotas: ["433"], base: "2026-11-05" }));
@@ -1848,6 +1853,138 @@ titulo("os/indicadores.js — entrada pela abertura, saída pelo fim, e a conta 
 }
 
 // ── o que vai para o ar ─────────────────────────────────────────────────────
+titulo("os/publicar.js — a atualização publica inteira ou não publica (12/11/2026)");
+{
+  const P = await import("../js/os/publicar.js");
+  // o bucket de mentira, em memória: `falhas` faz um envio dar erro (grava), gravar e responder erro (perde),
+  // gravar diferente do enviado (corrompe) ou a leitura dar erro (le)
+  const balde = () => {
+    const arq = new Map(), falhas = { grava: "", perde: "", corrompe: "", le: "" };
+    let n = 0;
+    return { arq, falhas,
+      async subir(c, blob, { substituir = true } = {}) {
+        if (arq.has(c) && !substituir) throw new Error('400 Bad Request — {"statusCode":"409","error":"Duplicate"}');
+        if (falhas.grava && c.includes(falhas.grava)) throw new Error("500 — falha simulada ao gravar " + c);
+        let b = new Uint8Array(await blob.arrayBuffer());
+        if (falhas.corrompe && c.includes(falhas.corrompe)) { b = b.slice(); b[b.length - 5] ^= 1; }
+        arq.set(c, { b, v: ++n });
+        if (falhas.perde && c.includes(falhas.perde)) throw new Error("500 — gravou, mas a resposta se perdeu");
+      },
+      async baixar(c) { if (falhas.le && c.includes(falhas.le)) throw new Error("500 — falha simulada ao ler"); const a = arq.get(c); return a ? new Blob([a.b]) : null; },
+      async apagar(c) { arq.delete(c); },
+      async versaoNoAr() { const a = arq.get(P.ATUAL); return a ? "v" + a.v : ""; } };
+  };
+  const DE = (base, abertas) => ({ base, frotas_lista: ["0617"], canceladas: [],
+    os: [...abertas.map((x, i) => [String(100001 + i), "010101", "F-617", "", "trocar " + x, "2026-11-01", "A", ""]), ["100900", "010101", "F-617", "", "fechada", "2026-10-01", "F", "2026-11-05"]] });
+  let seg = 0;
+  const pacote = async (D, quem = "Mateus") => {
+    const n = { A: 0, P: 0, F: 0 }; for (const a of D.os) n[a[6]]++;
+    const quando = new Date(2026, 10, 12, 14, 3, seg++);
+    const p = { versao: 2, D, meta: { base: D.base, gerado_em: quando.toISOString(), resumo: { n: D.os.length, ...n }, frotas: ["617"], sha_dados: await P.shaDosDados(D),
+      versao_id: P.idDaVersao(D.base, quando, () => 0.5), publicado_em: quando.toISOString(), publicado_por: quem } };
+    p.meta.importacoes = [P.linhaDaVersao(p)];
+    return p;
+  };
+  const noAr = async (io) => { const b = await io.baixar(P.ATUAL); return b ? P.deGz(b) : null; };
+  const tentar = async (fn) => { try { return { ok: await fn() }; } catch (e) { return { erro: e }; } };
+
+  const io = balde(), etapas = [];
+  const p1 = await pacote(DE("2026-11-10", ["a", "b"]));
+  const r1 = await P.publicar({ io, pacote: p1, quem: "Mateus", versaoAberta: "", etapa: (nome, est) => etapas.push(nome + ":" + est) });
+  const a1 = await noAr(io);
+  ok("publicou: o painel no ar é a versão nova, a cópia dela fica em versoes/ e a trava sai",
+    a1.meta.versao_id === r1.id && io.arq.has(P.arquivoDaVersao(r1.id)) && !io.arq.has(P.TRAVA) && r1.id === "2026-11-10_140300_ssss", r1.id);
+  igual("cada passo em ordem, todos ok", etapas.filter((x) => x.endsWith(":ok")).map((x) => x.split(":")[0]),
+    ["conferir", "trava", "no-ar", "versao", "copia", "publicar", "fim"]);
+  ok("o pacote leva a lista de frotas, a impressão digital das OS e o índice", Array.isArray(a1.meta.frotas) && a1.meta.sha_dados === await P.shaDosDados(a1.D) && a1.meta.importacoes.length === 1);
+
+  // cada falha: não publica, o painel continua na versão anterior inteira, e a trava sai
+  const antes = async () => ({ v: await io.versaoNoAr(), sha: await P.sha256(await io.baixar(P.ATUAL)) });
+  const continua = async (x) => { const y = await antes(); return y.v === x.v && y.sha === x.sha && !io.arq.has(P.TRAVA); };
+  for (const [nome, falha, etapa, extra] of [
+    ["a base histórica não grava", { grava: "historicos/" }, "historico", { historico: true }],
+    ["a versão não grava", { grava: "versoes/" }, "versao"],
+    ["a cópia chega diferente do enviado", { corrompe: "versoes/" }, "copia"],
+    ["a troca do painel não grava", { grava: P.ATUAL }, "publicar"],
+    ["a leitura da cópia falha", { le: "versoes/" }, "copia"]]) {
+    const x = await antes();
+    Object.assign(io.falhas, { grava: "", perde: "", corrompe: "", le: "" }, falha);
+    const p = await pacote(DE("2026-11-11", ["a", "b", "c"]));
+    const hist = extra && extra.historico ? { blob: await P.gz({ base: "histórica" }), sha: "" } : null;
+    if (hist) hist.sha = await P.sha256(hist.blob);
+    const t = await tentar(() => P.publicar({ io, pacote: p, historico: hist, quem: "Mateus", versaoAberta: x.v }));
+    ok(`${nome}: não publica (parou em ${etapa}) e o painel continua na versão anterior`, !!t.erro && t.erro.etapa === etapa && await continua(x),
+      t.erro ? t.erro.etapa + " · " + t.erro.message : "publicou");
+  }
+  Object.assign(io.falhas, { grava: "", perde: "", corrompe: "", le: "" });
+
+  // a resposta do envio se perde depois de gravar: a conferência acha a versão nova no ar
+  io.falhas.perde = P.ATUAL;
+  const p2 = await pacote(DE("2026-11-11", ["a", "b", "c"]));
+  const r2 = await tentar(async () => P.publicar({ io, pacote: p2, quem: "Mateus", versaoAberta: await io.versaoNoAr() }));
+  io.falhas.perde = "";
+  ok("o envio dá erro mas gravou: a conferência confirma a versão nova e avisa", r2.ok && (await noAr(io)).meta.versao_id === p2.meta.versao_id &&
+    /respondeu com erro/.test(r2.ok.avisos.join(" ")), r2.erro ? r2.erro.message : JSON.stringify(r2.ok.avisos));
+
+  // outra publicação no meio (a conferência foi feita com a versão de antes): não passa por cima
+  const p3 = await pacote(DE("2026-11-12", ["a"]));
+  const t3 = await tentar(() => P.publicar({ io, pacote: p3, quem: "Mateus", versaoAberta: "v1" }));
+  ok("se o painel mudou depois da conferência, não publica por cima", t3.erro && t3.erro.etapa === "no-ar" && (await noAr(io)).meta.versao_id === p2.meta.versao_id,
+    t3.erro ? t3.erro.message : "publicou");
+
+  // a trava: outra pessoa publicando agora barra; a tentativa que não terminou vence; a da mesma pessoa é dela
+  const agora = () => new Date("2026-11-12T14:10:00Z");
+  const travaDe = async (quem, desde) => io.subir(P.TRAVA, await P.gz({ quem, id: "outra", desde }), { substituir: true });
+  await travaDe("Lucas", "2026-11-12T14:05:00Z");
+  const t4 = await tentar(async () => P.publicar({ io, pacote: await pacote(DE("2026-11-12", ["a"])), quem: "Mateus", versaoAberta: await io.versaoNoAr(), agora }));
+  ok("duas atualizações ao mesmo tempo: a segunda espera (a reserva é de outra pessoa, há 5 min)", t4.erro && t4.erro.etapa === "trava" && /Lucas/.test(t4.erro.message) &&
+    io.arq.has(P.TRAVA), t4.erro ? t4.erro.message : "publicou");
+  await travaDe("Lucas", "2026-11-12T13:50:00Z");
+  const t5 = await tentar(async () => P.publicar({ io, pacote: await pacote(DE("2026-11-12", ["a"])), quem: "Mateus", versaoAberta: await io.versaoNoAr(), agora }));
+  ok("a tentativa interrompida (a janela fechou no meio, há 20 min) não trava para sempre: a reserva vence e publica", !!t5.ok && !io.arq.has(P.TRAVA),
+    t5.erro ? t5.erro.message : "");
+  await travaDe("Mateus", "2026-11-12T14:09:00Z");
+  const t6 = await tentar(async () => P.publicar({ io, pacote: await pacote(DE("2026-11-12", ["a", "b"])), quem: "Mateus", versaoAberta: await io.versaoNoAr(), agora }));
+  ok("a reserva deixada pela mesma pessoa (a tentativa dela que não terminou) é dela: segue", !!t6.ok, t6.erro ? t6.erro.message : "");
+
+  // a mesma versão não se grava duas vezes, e o que está em versoes/ nunca é sobrescrito
+  const v6 = io.arq.get(P.arquivoDaVersao(t6.ok.id)).v;
+  const t7 = await tentar(async () => P.publicar({ io, pacote: (await noAr(io)), quem: "Mateus", versaoAberta: await io.versaoNoAr() }));
+  ok("publicar de novo a mesma versão: recusa, e a cópia guardada fica como estava", t7.erro && t7.erro.etapa === "versao" && io.arq.get(P.arquivoDaVersao(t6.ok.id)).v === v6,
+    t7.erro ? t7.erro.etapa : "publicou");
+
+  // a conferência antes de gravar: o que estiver errado no pacote não chega ao bucket
+  const ruim = await pacote(DE("2026-11-12", ["a"]));
+  ruim.D.os.push([...ruim.D.os[0]]);
+  ruim.D.os.push(["", "010101", "", "", "sem nada", "2026-11-01", "A", ""]);
+  igual("o pacote com OS repetida, sem número e sem frota, e o resumo que não bate: não passa", P.conferirPacote(ruim),
+    ["1 OS sem número", "1 OS sem frota", "1 OS repetida(s) no pacote", "o resumo do pacote não bate com as OS dele"]);
+  const nAntes = io.arq.size;
+  const t8 = await tentar(() => P.publicar({ io, pacote: ruim, quem: "Mateus", versaoAberta: "" }));
+  ok("e não grava nada", t8.erro && t8.erro.etapa === "conferir" && io.arq.size === nAntes);
+
+  // voltar para uma versão anterior: os mesmos dados, publicados como versão nova, com a linha da volta no índice
+  const publicada = await noAr(io);
+  const r9 = await P.voltarPara({ io, id: r1.id, publicada, quem: "Mateus", versaoAberta: await io.versaoNoAr(), agora: () => new Date(2026, 10, 12, 15, 0, 0), sorte: () => 0.1 });
+  const a9 = await noAr(io);
+  ok("voltar para a primeira versão: o painel tem os dados dela de novo, como uma versão nova que diz de onde veio",
+    a9.meta.sha_dados === a1.meta.sha_dados && a9.meta.volta_de === r1.id && r9.id.endsWith("-volta") && a9.meta.importacoes.at(-1).tipo === "volta", r9.id);
+  // a cópia guardada que não confere: não volta para ela
+  const id9 = r9.id, guardada = io.arq.get(P.arquivoDaVersao(r1.id));
+  const adulterada = await P.deGz(new Blob([guardada.b]));
+  adulterada.D.os.pop();
+  io.arq.set(P.arquivoDaVersao(r1.id), { b: new Uint8Array(await (await P.gz(adulterada)).arrayBuffer()), v: 999 });
+  const t10 = await tentar(async () => P.voltarPara({ io, id: r1.id, publicada: await noAr(io), quem: "Mateus", versaoAberta: await io.versaoNoAr() }));
+  ok("a cópia guardada que não confere com a impressão digital: não volta, e o painel fica onde estava",
+    t10.erro && t10.erro.etapa === "buscar" && (await noAr(io)).meta.versao_id === id9, t10.erro ? t10.erro.message : "voltou");
+
+  // o índice: as linhas de antes (sem nome de versão) entram uma vez só
+  const velhas = [{ base: "2026-11-05", gerado_em: "2026-11-05T10:00:00Z", total: 5 }, { base: "2026-11-06", gerado_em: "2026-11-06T10:00:00Z", total: 6 }];
+  const m1 = P.mesclarIndice([], velhas), m2 = P.mesclarIndice([...m1, { id: "x", base: "2026-11-12", publicado_em: "2026-11-12T14:00:00Z" }], velhas);
+  igual("o índice junta as linhas de antes uma vez só, em ordem", m2.map((l) => l.id || l.base), ["2026-11-05", "2026-11-06", "x"]);
+  igual("o nome da versão na tela", [P.rotuloDaVersao("2026-11-12_140312_k3fz"), P.rotuloDaVersao("2026-11-12_140312_k3fz-volta")], ["12/11 14:03", "12/11 14:03"]);
+}
+
 titulo("sw.js e as páginas — o que funciona sem rede, e o que a página deixa rodar");
 {
   const { readdir } = await import("node:fs/promises");

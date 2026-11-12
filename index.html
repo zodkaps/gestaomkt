@@ -40,16 +40,20 @@
 <section class="porta" id="os-porta" aria-live="polite"><p class="porta-msg">Abrindo o painel…</p></section>
 <div class="os-cab" hidden><p id="sub"></p><div class="acoes"><button type="button" class="botao" id="os-relatorio" hidden>Relatório</button><button type="button" class="botao" id="os-resumo" hidden>Resumo do dia</button><button type="button" class="botao" id="os-atualizar" hidden>Atualizar com o Protheus</button></div></div>
 <nav class="abas" role="tablist" aria-label="Partes do painel" hidden>
+      <div class="aba-grupo" role="presentation"><span class="aba-grupo-rot" aria-hidden="true">Gestão</span>
       <button class="aba" role="tab" type="button" id="aba-geral" data-aba="geral" aria-controls="geral">Visão geral</button>
-      <button class="aba" role="tab" type="button" id="aba-indicadores" data-aba="indicadores" aria-controls="indicadores">Indicadores</button>
+      <button class="aba" role="tab" type="button" id="aba-indicadores" data-aba="indicadores" aria-controls="indicadores">Indicadores</button></div>
+      <div class="aba-grupo" role="presentation"><span class="aba-grupo-rot" aria-hidden="true">Planejamento</span>
       <button class="aba" role="tab" type="button" id="aba-programacao" data-aba="programacao" aria-controls="programacao">Programação</button>
-      <button class="aba" role="tab" type="button" id="aba-avanco" data-aba="avanco" aria-controls="avanco">Avanço</button>
+      <button class="aba" role="tab" type="button" id="aba-avanco" data-aba="avanco" aria-controls="avanco">Avanço</button></div>
+      <div class="aba-grupo" role="presentation"><span class="aba-grupo-rot" aria-hidden="true">Execução</span>
       <button class="aba" role="tab" type="button" id="aba-pendentes" data-aba="pendentes" aria-controls="pendentes">Não liberadas <span class="n" id="n-pendentes"></span></button>
-      <button class="aba" role="tab" type="button" id="aba-carteira" data-aba="carteira" aria-controls="carteira">Carteira de OS <span class="n" id="n-carteira"></span></button>
+      <button class="aba" role="tab" type="button" id="aba-carteira" data-aba="carteira" aria-controls="carteira">Carteira de OS <span class="n" id="n-carteira"></span></button></div>
+      <div class="aba-grupo" role="presentation"><span class="aba-grupo-rot" aria-hidden="true">Análise</span>
       <button class="aba" role="tab" type="button" id="aba-preventivas" data-aba="preventivas" aria-controls="preventivas">OS preventivas <span class="n" id="n-preventivas"></span></button>
       <button class="aba" role="tab" type="button" id="aba-frotas" data-aba="frotas" aria-controls="frotas">Frotas <span class="n" id="n-frotas"></span></button>
       <button class="aba" role="tab" type="button" id="aba-executantes" data-aba="executantes" aria-controls="executantes">Executantes</button>
-      <button class="aba" role="tab" type="button" id="aba-auditoria" data-aba="auditoria" aria-controls="auditoria">Auditoria</button>
+      <button class="aba" role="tab" type="button" id="aba-auditoria" data-aba="auditoria" aria-controls="auditoria">Auditoria</button></div>
     </nav>
 <div class="barra" hidden>
     <div class="barra-cartao" role="search" aria-label="Filtros">
@@ -79,6 +83,7 @@
         <div class="kpis mini kpis5" id="kpis-resumo"></div>
       </article>
     </div>
+    <p class="rot-secao" id="rot-posicao"></p>
     <div class="kpis kpis4" id="kpis"></div>
     <div class="grade">
       <article class="cartao c12" id="c-evolucao" data-imagem>

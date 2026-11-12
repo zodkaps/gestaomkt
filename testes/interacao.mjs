@@ -2462,11 +2462,11 @@ ok("e o Diagnóstico não manda rodar SQL por causa de sessão",
   await mt.waitForTimeout(800);
   const soSTJ = await mt.innerText("#os-importar");
   ok("só a STJ: pede a STL, e o arquivo que não é do Protheus aparece com o porquê",
-    /Falta a STL/.test(soSTJ) && /não parece a STJ nem a STL/.test(soSTJ) && await mt.isDisabled('button:has-text("Gravar no painel")'), soSTJ.slice(0, 300));
+    /Falta a STL/.test(soSTJ) && /não parece a STJ nem a STL/.test(soSTJ) && await mt.isDisabled('button:has-text("Publicar no painel")'), soSTJ.slice(0, 300));
   await mt.setInputFiles("#imp-arq", [fSTL, fHist]);
   await mt.waitForSelector(".imp-num", { timeout: 30000 });
   ok("a STJ que começa em outubro: o site explica e não grava",
-    /A STJ começa em 01\/10\/2026, mas a base histórica só vai até 31\/12\/2025/.test(await mt.innerText(".imp-resumo")) && await mt.isDisabled('button:has-text("Gravar no painel")'));
+    /A STJ começa em 01\/10\/2026, mas a base histórica só vai até 31\/12\/2025/.test(await mt.innerText(".imp-resumo")) && await mt.isDisabled('button:has-text("Publicar no painel")'));
   await mt.click('#os-importar li.erro .imp-tira');
   await mt.click('#os-importar li:has-text("STJ_outubro.xlsx") .imp-tira');
   await mt.setInputFiles("#imp-arq", [fSTJ]);
@@ -2474,7 +2474,7 @@ ok("e o Diagnóstico não manda rodar SQL por causa de sessão",
   const res = (await mt.innerText(".imp-resumo")).replace(/\s+/g, " ");
   ok("as frotas do PCM na atualização: 2, da base histórica", (await mt.textContent(".imp-frotas-info")) === "2 frotas (da base histórica)", await mt.textContent(".imp-frotas-info"));
   ok("com a STJ desde janeiro, a STL e a base histórica: o resumo antes de gravar", /2 abertas · 1 liberadas, 1 aguardando/.test(res) && /5 OS em 2 frotas/.test(res), res);
-  await mt.click('button:has-text("Gravar no painel")');
+  await mt.click('button:has-text("Publicar no painel")');
   await mt.waitForSelector("#kpis .kpi", { timeout: 30000 });
   await mt.waitForTimeout(600);
   const kp = await mt.$$eval("#kpis .kpi .val", v => v.map(x => x.textContent));
@@ -2535,13 +2535,40 @@ ok("e o Diagnóstico não manda rodar SQL por causa de sessão",
       mais: !!d.querySelector("details.det-mais"), aberto: d.querySelector("details.det-mais")?.open };
   });
   ok("clicar numa OS abre a caixa no centro da tela", Math.abs(caixaOS.cx - caixaOS.w / 2) < 4 && Math.abs(caixaOS.cy - caixaOS.h / 2) < 4, JSON.stringify(caixaOS));
-  ok("a caixa diz quem abriu a OS (o CPF do usuário do Protheus), num quadro próprio", caixaOS.fatos.includes("Aberta por") && (await mt.innerText("#detalhe")).includes("000.000.001-91"));
+  const cpfAntes = await mt.innerText("#detalhe");
+  ok("a caixa diz quem abriu a OS (o CPF do usuário do Protheus), mascarado, num quadro próprio", caixaOS.fatos.includes("Aberta por") &&
+    cpfAntes.includes("***.000.001-**") && !cpfAntes.includes("000.000.001-91"), cpfAntes.slice(0, 200));
+  await mt.click("#detalhe .mostrar-cpf");
+  ok("e o \"mostrar\" põe o CPF inteiro", (await mt.innerText("#detalhe")).includes("000.000.001-91"));
+  ok("na ordem da ficha: abertura, liberação ou fim, idade, quem fecha", caixaOS.fatos.slice(0, 4).join("|") === "Aberta em|Liberada em|Aberta há|Quem fecha" ||
+    caixaOS.fatos.slice(0, 4).join("|") === "Aberta em|Finalizada em|Levou|Quem fecha", caixaOS.fatos.join("|"));
   ok("com o essencial em quadros (idade, abertura, previsão, quem fecha) e o resto recolhido",
     ["Aberta em", "Prevista para", "Quem fecha"].every((x) => caixaOS.fatos.includes(x)) && caixaOS.fatos.some((x) => x === "Aberta há" || x === "Levou") &&
     caixaOS.mais && !caixaOS.aberto, JSON.stringify(caixaOS.fatos));
   await mt.keyboard.press("Escape");
   await mt.waitForTimeout(200);
   ok("e o Esc fecha a caixa", await mt.isHidden("#detalhe"));
+  // as abas pelo teclado (12/11/2026): só a aberta fica no Tab; setas, Home e End andam; Enter abre
+  const focoAba = () => mt.evaluate(() => document.querySelector(".os-host").shadowRoot.activeElement?.id || "");
+  const tabsZero = await mt.$$eval(".abas .aba", (l) => l.filter((b) => b.tabIndex === 0).map((b) => b.id));
+  await mt.focus("#aba-carteira");
+  await mt.keyboard.press("ArrowRight");
+  const f1 = await focoAba();
+  await mt.keyboard.press("End");
+  const f2 = await focoAba();
+  await mt.keyboard.press("Home");
+  const f3 = await focoAba();
+  await mt.keyboard.press("ArrowLeft");
+  const f4 = await focoAba();
+  await mt.keyboard.press("Enter");
+  await mt.waitForTimeout(300);
+  ok("abas pelo teclado: só a aberta no Tab; seta, End e Home andam (dando a volta), e Enter abre",
+    tabsZero.join() === "aba-carteira" && f1 === "aba-preventivas" && f2 === "aba-auditoria" && f3 === "aba-geral" && f4 === "aba-auditoria" &&
+    (await mt.getAttribute("#aba-auditoria", "aria-selected")) === "true", JSON.stringify({ tabsZero, f1, f2, f3, f4 }));
+  ok("as abas em quatro grupos, as dez à vista", (await mt.$$eval(".abas .aba-grupo-rot", (l) => l.map((x) => x.textContent))).join() === "Gestão,Planejamento,Execução,Análise" &&
+    (await mt.$$(".abas .aba")).length === 10);
+  await mt.click("#aba-carteira");
+  await mt.waitForTimeout(200);
   // programadas × finalizadas (10/11/2026): em novembro (dados de 05/11) nada programado, e a 100003
   // (programada para 25/10, o dia da abertura) finalizada em 03/11 conta como finalizada de fora da programação
   await mt.click("#aba-geral");
@@ -2651,6 +2678,20 @@ ok("e o Diagnóstico não manda rodar SQL por causa de sessão",
   const [dPNG] = await Promise.all([mt.waitForEvent("download", { timeout: 8000 }), mt.click('#c-frotas .menu-env button:has-text("Baixar imagem")')]);
   const bPNG = await readFile(await dPNG.path());
   ok("um gráfico sai como imagem PNG", bPNG.subarray(1, 4).toString() === "PNG", dPNG.suggestedFilename());
+  // (12/11/2026) a identidade nas imagens: o logo da Makro no rodapé (o X vermelho dele, no canto de baixo à direita)
+  const xVermelho = (png, canto) => mt.evaluate(async ([b64, cnt]) => {
+    const bits = Uint8Array.from(atob(b64), (ch) => ch.charCodeAt(0));
+    const im = await createImageBitmap(new Blob([bits], { type: "image/png" }));
+    const c = document.createElement("canvas"); c.width = im.width; c.height = im.height;
+    const g = c.getContext("2d"); g.drawImage(im, 0, 0);
+    const w = Math.round(im.width * cnt.w), h = Math.round(im.height * cnt.h);
+    const px = g.getImageData(im.width - w, cnt.embaixo ? im.height - h : 0, w, h).data;
+    let n = 0;
+    for (let i = 0; i < px.length; i += 4) if (px[i] > 180 && px[i + 1] < 90 && px[i + 2] < 90) n++;
+    return n;
+  }, [png.toString("base64"), canto]);
+  const xCartao = await xVermelho(bPNG, { w: 0.15, h: 0.06, embaixo: true });
+  ok("e leva o logo da Makro no rodapé", xCartao > 20, `${xCartao} pontos do X vermelho`);
   await mt.click("#c-frotas .baixar");
   const [dNum] = await Promise.all([mt.waitForEvent("download", { timeout: 8000 }), mt.click('#c-frotas .menu-env button:has-text("Baixar os números")')]);
   const tNum = await readFile(await dNum.path(), "utf8");
@@ -2673,7 +2714,10 @@ ok("e o Diagnóstico não manda rodar SQL por causa de sessão",
   ok("o relatório em PDF: a capa e as abas em imagem, em várias páginas", bRel.subarray(0, 5).toString() === "%PDF-" && paginas >= 3, `${dRel.suggestedFilename()} · ${paginas} páginas`);
   ok("e o painel volta para a aba em que estava", (await mt.textContent(".aba.on")).trim() === "Avanço", await mt.textContent(".aba.on"));
   const [dCel] = await Promise.all([mt.waitForEvent("download", { timeout: 30000 }), mt.click('#detalhe button:has-text("Baixar a imagem (celular)")')]);
-  ok("a imagem para o celular (o resumo, a evolução e a conferência numa só)", (await readFile(await dCel.path())).subarray(1, 4).toString() === "PNG", dCel.suggestedFilename());
+  const bCel = await readFile(await dCel.path());
+  ok("a imagem para o celular (o resumo, a evolução e a conferência numa só)", bCel.subarray(1, 4).toString() === "PNG", dCel.suggestedFilename());
+  const xCel = await xVermelho(bCel, { w: 0.15, h: 0.03, embaixo: false });
+  ok("com o cabeçalho do relatório: o logo da Makro em cima, à direita", xCel > 20, `${xCel} pontos do X vermelho`);
   const [dDad] = await Promise.all([mt.waitForEvent("download", { timeout: 10000 }), mt.click('#detalhe button:has-text("Baixar os dados (Excel)")')]);
   const tDad = await readFile(await dDad.path(), "utf8");
   ok("os dados do relatório: o resumo, a conferência que fecha, o histórico, o comparativo e as OS do período",
@@ -2701,6 +2745,72 @@ ok("e o Diagnóstico não manda rodar SQL por causa de sessão",
   ok("a carteira para imprimir sai em PDF", bPDF.subarray(0, 5).toString() === "%PDF-" && /\.pdf$/.test(dPDF.suggestedFilename()), dPDF.suggestedFilename());
   await mt.keyboard.press("Escape");
   await mt.waitForTimeout(200);
+
+  // ── a publicação por versão (12/11/2026): inteira ou nada, e dá para voltar ──
+  const falhaArq = (x) => fetch(NUVEM + "/__falha", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(x) });
+  const sub = () => mt.textContent("#sub");
+  const noBucket = () => mt.evaluate(async () => (await mkt.nuvem.listarArquivos("painel-os", "")).map((x) => x.name));
+  const subA = await sub();
+  ok("o painel diz a versão publicada que está mostrando", /Protheus de 05\/11\/2026 · versão \d\d\/\d\d \d\d:\d\d \(Mateus\)/.test(subA), subA);
+  await mt.click("#os-atualizar");
+  await mt.fill("#imp-data", "2026-11-05");
+  await mt.setInputFiles("#imp-arq", [fSTJ, fSTL]);
+  await mt.waitForSelector("#os-importar .imp-resumo .imp-cuidado, #os-importar .imp-versao", { timeout: 30000 });
+  ok("a mesma importação de novo: nada a publicar, e o botão fica apagado",
+    /Nada a publicar: estes dados são os mesmos da versão no ar/.test(await mt.innerText(".imp-resumo")) && await mt.isDisabled('button:has-text("Publicar no painel")'));
+  // outro dia: agora há o que publicar — primeiro com a gravação da versão falhando
+  await mt.fill("#imp-data", "2026-11-06");
+  await mt.dispatchEvent("#imp-data", "change");
+  await mt.waitForFunction(() => !document.querySelector(".os-host").shadowRoot.querySelector("#os-importar .imp-acoes .botao.prim").disabled, null, { timeout: 30000 });
+  ok("antes de publicar, a conferência diz o que muda e que a versão no ar fica guardada",
+    /Ao publicar: o painel passa para os dados do Protheus de 06\/11\/2026; a versão no ar \(\d\d\/\d\d \d\d:\d\d\) fica guardada/.test(await mt.innerText(".imp-versao")),
+    await mt.innerText(".imp-versao"));
+  await falhaArq({ grava: "versoes/" });
+  await mt.click('button:has-text("Publicar no painel")');
+  await mt.waitForSelector("#os-importar .imp-aviso.erro", { timeout: 15000 });
+  const erroPub = await mt.innerText("#os-importar .imp-aviso.erro");
+  const passos = await mt.$$eval("#os-importar .imp-etapas li", (l) => l.map((x) => x.className + ":" + x.querySelector("span:nth-child(2)").textContent));
+  ok("a versão não grava: não publica, diz onde parou e que o painel continua na versão anterior",
+    /^Não publicou: Gravar a versão nova/.test(erroPub) && /O painel continua na versão de/.test(erroPub) && passos.includes("et-erro:Gravar a versão nova") &&
+    !passos.some((x) => x.includes("Publicar no painel")), erroPub + " · " + passos.join(" | "));
+  ok("e a reserva da gravação foi solta (a próxima tentativa não fica presa)", !(await noBucket()).includes("trava.json.gz"));
+  ok("o botão volta a valer para tentar de novo", !(await mt.isDisabled('button:has-text("Publicar no painel")')));
+  await falhaArq({});
+  // outra pessoa publicando ao mesmo tempo: espera
+  await mt.evaluate(async () => {
+    const s = new Blob([JSON.stringify({ quem: "Lucas", id: "outra", desde: new Date().toISOString() })]).stream().pipeThrough(new CompressionStream("gzip"));
+    await mkt.nuvem.subirArquivo("painel-os", "trava.json.gz", new Blob([await new Response(s).arrayBuffer()], { type: "application/gzip" }));
+  });
+  await mt.click('button:has-text("Publicar no painel")');
+  await mt.waitForFunction(() => /Lucas/.test(document.querySelector(".os-host").shadowRoot.querySelector("#os-importar .imp-aviso").textContent), null, { timeout: 15000 });
+  ok("outra pessoa publicando agora: espera e diz quem", /Outra atualização está sendo gravada por Lucas/.test(await mt.innerText("#os-importar .imp-aviso")) &&
+    (await sub()) === subA, await mt.innerText("#os-importar .imp-aviso"));
+  await mt.evaluate(async () => { await mkt.nuvem.apagarArquivo("painel-os", "trava.json.gz"); });
+  await mt.click('button:has-text("Publicar no painel")');
+  await mt.waitForFunction((a) => { const t = document.querySelector(".os-host").shadowRoot.querySelector("#sub"); return t && t.textContent !== a && /06\/11\/2026/.test(t.textContent); }, subA, { timeout: 30000 });
+  const subB = await sub();
+  const arqs = await noBucket();
+  ok("publicou: o painel abre na versão nova (a de 06/11), com o nome dela", /Protheus de 06\/11\/2026 · versão \d\d\/\d\d \d\d:\d\d/.test(subB) && !arqs.includes("trava.json.gz") &&
+    arqs.includes("versoes") && arqs.includes("historicos"), subB + " · " + arqs.join(","));
+  // voltar para a versão de antes, pela Auditoria
+  await mt.click("#aba-auditoria");
+  await mt.waitForSelector("#aud-historico tbody tr", { timeout: 15000 });
+  const hist = await mt.$$eval("#aud-historico tbody tr", (l) => l.map((tr) => tr.textContent.replace(/\s+/g, " ")));
+  const nVoltar = (await mt.$$('#aud-historico tbody tr button:has-text("Voltar para esta")')).length;
+  ok("a Auditoria lista as duas versões, a de agora marcada no ar, e a outra com o Voltar", hist.length >= 2 && hist.some((x) => /no ar/.test(x)) && nVoltar === hist.length - 1,
+    hist.join(" ;; "));
+  await mt.click('#aud-historico tbody tr:has-text("05/11/2026") button:has-text("Voltar para esta")');
+  await mt.waitForSelector('#os-importar button:has-text("Voltar para esta versão")', { timeout: 10000 });
+  ok("a volta diz o que muda antes de confirmar", /passa a mostrar os dados do Protheus de 05\/11\/2026/.test(await mt.innerText("#os-importar")));
+  await mt.click('#os-importar button:has-text("Voltar para esta versão")');
+  await mt.waitForFunction(() => { const t = document.querySelector(".os-host").shadowRoot.querySelector("#sub"); return t && /05\/11\/2026/.test(t.textContent); }, null, { timeout: 30000 });
+  await mt.click("#aba-auditoria");
+  await mt.waitForSelector("#aud-historico tbody tr", { timeout: 15000 });
+  const hist2 = await mt.$$eval("#aud-historico tbody tr", (l) => l.map((tr) => tr.textContent.replace(/\s+/g, " ")));
+  ok("voltou: o painel mostra os dados de 05/11 de novo, e o histórico registra a volta", /Protheus de 05\/11\/2026/.test(await sub()) &&
+    hist2.some((x) => /\(volta\)/.test(x) && /no ar/.test(x)), (await sub()) + " · " + hist2.join(" ;; "));
+  await mt.click("#aba-geral");
+  await mt.waitForTimeout(300);
   // o tema é o do site: o ◐ do alto troca o painel na hora, e a escolha fica
   const temaOS = () => mt.evaluate(() => document.querySelector(".os-host").dataset.tema);
   const antesTema = await temaOS();

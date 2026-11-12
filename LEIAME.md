@@ -83,6 +83,14 @@ A oficina devolver a frota atrasada **não** conta: o que se avalia é a operaç
 - As contas ficam em `js/avaliacao.js` (puras, testadas em `testes/rodar.js`);
   a tela em `js/tela/avaliacao.js`.
 
+- **As cores de referência** (12/11/2026, segunda revisão): o PCM passou o
+  azul-marinho institucional **#13164E** e o vermelho institucional **#E4002A**,
+  que agora são as cores da interface (a estrutura e o alerta, no site, no painel
+  de OS e no relatório). O relatório gerencial (o PDF e a imagem para o celular)
+  ganhou o cabeçalho com o logo, o título em azul-marinho e um fio; as imagens dos
+  cartões e do resumo, o logo no rodapé (o colorido no fundo claro, o branco no
+  escuro). As do arquivo do logo (#1D3C85 e #ED1C24) ficam só no desenho dele
+  (`--azul-logo`, `--vermelho-logo`).
 - **A identidade da Makro** (12/11/2026, com os arquivos que o PCM mandou):
   as cores saíram dos vetores oficiais do logo, não do olho — o **Azul Makro
   #1D3C85** e o **Vermelho Makro #ED1C24** (`--azul-makro`, `--vermelho-makro`
@@ -511,6 +519,44 @@ e preventivas, e **só ele ter acesso**.
   (das encerradas no período, quantas eram preventivas). O filtro *Tipo* saiu
   da barra. A atualização com o Protheus e a Auditoria mostram as preventivas à
   parte, e a *Conferir com a STJ* lembra que a STJ traz as duas.
+- **Publicar é por versão** (12/11/2026). Antes, gravar a atualização eram cinco
+  envios soltos (a base histórica, a lista de frotas, a cópia do dia, o painel e
+  o índice): se um falhasse no meio, o bucket ficava com pedaços de versões
+  diferentes — a lista de frotas nova com o painel velho, a cópia de um dia nunca
+  publicado na comparação, o índice sem a linha (e essa falha nem aparecia). O
+  painel em si nunca misturava (ele lê um arquivo só), mas o que vinha em volta,
+  sim. Agora a atualização é um pacote que leva tudo o que vale junto — as OS, a
+  lista de frotas usada, a base histórica usada e o índice — e publicar é, em
+  ordem: conferir o pacote (OS sem número, sem frota, repetidas, o resumo que não
+  bate: não passa); reservar a gravação (`trava.json.gz`, que o Storage só cria
+  se não existir — duas pessoas ao mesmo tempo, uma espera; a reserva de uma
+  tentativa interrompida vence em 15 minutos, e a da mesma pessoa é dela);
+  conferir que o painel no ar ainda é o que estava aberto; guardar a base
+  histórica nova (pelo conteúdo, `historicos/<sha>`); gravar a versão
+  (`versoes/<id>`, nunca sobrescrita); baixar e conferir byte a byte; e só então
+  trocar o `atual.json.gz` (e conferir de novo). Cada passo aparece na caixa,
+  com onde parou se falhar, e a frase final diz que o painel continua na versão
+  anterior. O botão é **Publicar no painel**; os mesmos dados da versão no ar
+  não se publicam de novo. O painel diz a versão que está mostrando ("versão
+  12/11 14:03 (Mateus)"), e a Auditoria lista as publicações, marca a que está
+  no ar e tem **Voltar para esta** (a volta vira uma versão nova, registrada). Os
+  arquivos de antes (`historico.json.gz`, `frotas.json.gz`, `importacoes.json.gz`,
+  `dias/`) continuam sendo lidos. Os testes simulam cada falha (`testes/rodar.js`,
+  sem rede, e `testes/interacao.mjs`, com o Storage de mentira).
+- **A linha sem número de OS** (12/11/2026) conta à parte no caminho das linhas
+  ("sem número de OS, não dá para identificar"); antes caía como repetida.
+- **A Visão geral separa o que é do período do que é de agora** (12/11/2026): o
+  Resumo é a *movimentação no período*; embaixo, a **Posição atual** é a carteira
+  do último export, que não depende do período. O número das abertas há mais de
+  90 dias traz também as de mais de 60 e de 30.
+- **As abas do painel em quatro grupos** (12/11/2026), sem tirar nenhuma:
+  Gestão (Visão geral, Indicadores), Planejamento (Programação, Avanço),
+  Execução (Não liberadas, Carteira de OS) e Análise (OS preventivas, Frotas,
+  Executantes, Auditoria). Pelo teclado: só a aba aberta fica no Tab; as setas,
+  Home e End andam entre elas, e Enter abre.
+- **A ficha da OS** (12/11/2026) na ordem: abertura, liberação ou fim, idade,
+  quem fecha, horas; depois a previsão, a programação e quem abriu — com o CPF
+  mascarado (`***.456.789-**`) e o "mostrar" para ver inteiro, só ali.
 - **O caminho das linhas da STJ** (11/11/2026, as 3.894 OS da filial 040101 na
   STJ × o painel): o painel não conta por filial — traz as OS das frotas da
   lista do PCM, de qualquer filial (o Mateus confirmou: só a lista). Ao soltar

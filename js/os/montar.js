@@ -210,13 +210,13 @@ export function montar({ stj, stl, frotas, base, desde = "2024-01-01", ult0 = {}
   const osRows = [], nomesBem = new Map(), vistas = new Set(), canceladas = [];
   const colAbriu = new Map(stj.map((t) => [t, colunaDeQuemAbriu(t.cab)]));
   // o funil do Protheus ao painel (11/11/2026): cada linha lida e por que ficou de fora
-  const aud = { linhasHoje: 0, linhasHist: 0, foraDaLista: 0, repetidasHoje: 0, repetidasHist: 0, canceladas: 0, semFim: 0, antesDe: 0 };
+  const aud = { linhasHoje: 0, linhasHist: 0, foraDaLista: 0, semNumero: 0, repetidasHoje: 0, repetidasHist: 0, canceladas: 0, semFim: 0, antesDe: 0 };
   let nStj = 0, repetidas = 0;
   // por filial e os bens de fora (11/11/2026): para conferir com a STJ filtrada por filial
   const porFilial = {}, foraBens = new Map();
   const naFilial = (t, fil, campo) => {
     if (t.historica) return;
-    const x = porFilial[fil] || (porFilial[fil] = { linhas: 0, fora: 0, repetidas: 0, canceladas: 0, semFim: 0, antesDe: 0, corretivas: 0, preventivas: 0 });
+    const x = porFilial[fil] || (porFilial[fil] = { linhas: 0, fora: 0, semNumero: 0, repetidas: 0, canceladas: 0, semFim: 0, antesDe: 0, corretivas: 0, preventivas: 0 });
     x[campo]++;
   };
   for (const t of stj) for (const g of leitor(t)()) {
@@ -231,6 +231,8 @@ export function montar({ stj, stl, frotas, base, desde = "2024-01-01", ult0 = {}
       if (!t.historica) { const b = foraBens.get(bem) || { bem, nome: equip ? frase(equip) : "", n: 0 }; b.n++; foraBens.set(bem, b); }
       continue;
     }
+    // (12/11/2026) sem o número da OS não há como identificá-la: conta à parte (antes caía como "repetida")
+    if (!txt(g("Ordem Serv.")).replace(/^0+/, "")) { aud.semNumero++; naFilial(t, fil, "semNumero"); continue; }
     const k = chaveOS(g("Filial"), g("Ordem Serv."));
     // a de hoje vem primeiro: repetida na base histórica é a mesma OS, que o export de hoje já trouxe
     if (vistas.has(k)) { repetidas++; if (t.historica) aud.repetidasHist++; else aud.repetidasHoje++; naFilial(t, fil, "repetidas"); continue; }

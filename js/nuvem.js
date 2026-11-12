@@ -481,9 +481,16 @@ export async function listarArquivos(bucket, prefixo = "") {
 }
 
 /** Grava (ou troca) um arquivo do bucket. */
-export async function subirArquivo(bucket, caminho, blob, tipo = "application/gzip") {
+export async function subirArquivo(bucket, caminho, blob, tipo = "application/gzip", { substituir = true } = {}) {
+  // substituir: false é "criar só se não existir" — o Storage recusa (409) se já houver: é assim que a trava
+  // e as versões do painel de OS nunca passam por cima de outra (js/os/publicar.js)
   await chamar(`object/${bucket}/${caminho}`, { method: "POST", body: blob,
-    headers: cabecalhos({ "Content-Type": tipo, "x-upsert": "true", "cache-control": "max-age=0" }) }, false, "storage/v1");
+    headers: cabecalhos({ "Content-Type": tipo, "x-upsert": substituir ? "true" : "false", "cache-control": "max-age=0" }) }, false, "storage/v1");
+}
+
+/** Apaga um arquivo do bucket (o painel de OS só apaga a trava da publicação). */
+export async function apagarArquivo(bucket, caminho) {
+  await chamar(`object/${bucket}/${caminho}`, { method: "DELETE", headers: cabecalhos(), semErro404: true }, false, "storage/v1");
 }
 
 /** Quem é quem, direto do banco. O papel deixa de morar no código: é a tabela

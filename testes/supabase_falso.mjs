@@ -30,6 +30,9 @@ const TIPOS_OPERACAO = {
 //                  isto que trancou a equipe inteira para fora do site
 //   projeto_fora → o projeto não responde nada, como num banco pausado
 let falha = "";
+// Falhas do Storage, para a publicação do painel de OS (12/11/2026): o envio cujo caminho tem `grava` dá erro (e
+// não grava); o que tem `perde` grava e responde erro (a resposta perdida); a leitura que tem `le` dá erro.
+let falhaArq = { grava: "", perde: "", le: "" };
 
 const contas = new Map();      // email → senha
 const tokens = new Map();      // token de acesso → email
@@ -77,14 +80,15 @@ createServer(async (req, res) => {
   res.setHeader("Access-Control-Allow-Origin", "*");
   res.setHeader("Access-Control-Allow-Headers", "*");
   res.setHeader("Access-Control-Expose-Headers", "content-range");
-  res.setHeader("Access-Control-Allow-Methods", "GET,POST,PUT,OPTIONS");
+  res.setHeader("Access-Control-Allow-Methods", "GET,POST,PUT,DELETE,OPTIONS");
   if (req.method === "OPTIONS") return res.writeHead(204).end();
 
   if (u.pathname === "/__falha") {
     const b = await corpo(req);
     falha = b.modo || "";
-    process.stderr.write(`[falso] modo de falha: ${falha || "nenhum"}\n`);
-    return json(res, 200, { falha });
+    falhaArq = { grava: b.grava || "", perde: b.perde || "", le: b.le || "" };
+    process.stderr.write(`[falso] modo de falha: ${falha || "nenhum"}${b.grava || b.perde || b.le ? " · arquivos " + JSON.stringify(falhaArq) : ""}\n`);
+    return json(res, 200, { falha, falhaArq });
   }
 
   // Projeto pausado ou fora do ar: nem o Auth responde. É o caso em que o site
@@ -205,8 +209,16 @@ createServer(async (req, res) => {
       const k = u.pathname.replace("/storage/v1/object/authenticated/", "");
       const a = arquivos.get(k);
       if (!a || !veOs) return nega(404);          // sem a marca, como se não existisse
+      if (falhaArq.le && k.includes(falhaArq.le)) return json(res, 500, { statusCode: "500", error: "internal", message: "falha simulada ao ler" });
       res.writeHead(200, { "content-type": a.tipo, "cache-control": "max-age=3600" });
       return res.end(a.dados);
+    }
+    if (req.method === "DELETE") {
+      const k = u.pathname.replace("/storage/v1/object/", "");
+      if (!atualizaOs) return nega(403);
+      arquivos.delete(k);
+      process.stderr.write(`[falso] ${eu.nome}: apagou ${k}\n`);
+      return json(res, 200, [{ name: k }]);
     }
     if (req.method === "POST" || req.method === "PUT") {
       const k = u.pathname.replace("/storage/v1/object/", "");
@@ -215,7 +227,9 @@ createServer(async (req, res) => {
       if (!k.startsWith("painel-os/")) return json(res, 400, { statusCode: "404", error: "Bucket not found", message: "Bucket not found" });
       if ((req.headers["content-type"] || "") !== "application/gzip") return json(res, 415, { statusCode: "415", error: "invalid_mime_type", message: "mime type not supported" });
       if (arquivos.has(k) && req.headers["x-upsert"] !== "true") return json(res, 400, { statusCode: "409", error: "Duplicate", message: "The resource already exists" });
+      if (falhaArq.grava && k.includes(falhaArq.grava)) return json(res, 500, { statusCode: "500", error: "internal", message: "falha simulada ao gravar" });
       arquivos.set(k, { dados, tipo: req.headers["content-type"], em: new Date().toISOString() });
+      if (falhaArq.perde && k.includes(falhaArq.perde)) return json(res, 500, { statusCode: "500", error: "internal", message: "gravou, mas a resposta se perdeu" });
       process.stderr.write(`[falso] ${eu.nome}: arquivo ${k} (${dados.length} bytes)\n`);
       return json(res, 200, { Key: k });
     }

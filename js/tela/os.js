@@ -15,8 +15,10 @@
 
 import * as dados from "../dados.js";
 import * as nuvem from "../nuvem.js";
+import * as pessoas from "../pessoas.js";
 import { iniciarPainel } from "../os/painel.js";
-import { abrirImportar, baixarJSON, arquivosDoPainel, diasGuardados, baixarDia, lerImportacoes } from "../os/importar.js";
+import { abrirImportar, abrirVolta, baixarJSON, arquivosDoPainel, diasGuardados, baixarDia, lerImportacoes } from "../os/importar.js";
+import { mesclarIndice, arquivoDaVersao } from "../os/publicar.js";
 
 const GUARDA = "painel_os";
 const br = (iso) => (iso ? iso.slice(8, 10) + "/" + iso.slice(5, 7) + "/" + iso.slice(0, 4) : "");
@@ -79,7 +81,7 @@ export async function montar(raiz, ctx, params = new URLSearchParams()) {
 
   // `vez`: cada abertura tem a sua; a que perdeu a vez (tela fechada, ou "Tentar de novo" de novo) para
   // onde estiver, sem mexer no molde da mais nova
-  let vivo = true, painel = null, atualD = null, vez = 0;
+  let vivo = true, painel = null, atualD = null, atualMeta = null, versaoAberta = "", avisoDepois = "", vez = 0;
   const $ = (s) => sombra.querySelector(s);
   const parar = () => { if (painel) { painel.parar(); painel = null; } };
   const tentarDeNovo = () => el("button", { type: "button", class: "botao", text: "Tentar de novo", on: { click: () => abrir() } });
@@ -97,13 +99,28 @@ export async function montar(raiz, ctx, params = new URLSearchParams()) {
       el("h2", { text: titulo }), texto ? el("p", { text: texto }) : null,
       acoes.length ? el("div", { class: "porta-acoes" }, ...acoes) : null));
   }
+  // (12/11/2026) o índice das atualizações vem dentro do pacote publicado; as linhas de antes, do importacoes.json.gz.
+  // As cópias para comparar: a versão publicada de cada dia (versoes/) e, antes de 12/11/2026, as de dias/.
+  const indice = async () => mesclarIndice((atualMeta && atualMeta.importacoes) || [], await lerImportacoes());
+  const ultimaDoDia = async (dia) => (await indice()).filter((l) => l.id && l.base === dia && l.tipo !== "volta").pop();
+  const fontes = (podeAtualizar) => ({
+    importacoes: indice,
+    dias: async () => [...new Set([...(await indice()).filter((l) => l.id).map((l) => l.base), ...(await diasGuardados())])].sort(),
+    dia: async (dia) => { const l = await ultimaDoDia(dia); return l ? baixarJSON(arquivoDaVersao(l.id)) : baixarDia(dia); },
+    versao: () => (atualMeta && atualMeta.versao_id) || "",
+    voltar: podeAtualizar ? (linha) => abrirVolta({ linha, publicada: { D: atualD, meta: atualMeta }, versaoAberta, quem: pessoas.nome() || "—",
+      aoGravar: gravouNovo, raiz: sombra }) : null,
+  });
+  let podeAtualizar = false;
   function mostrar(D, aviso = "", meta = null) {
     atualD = D;
+    atualMeta = meta;
+    if (avisoDepois && !aviso) { aviso = avisoDepois; avisoDepois = ""; }
     $("#os-porta").hidden = true;
     for (const s of [".os-cab", ".abas", ".barra", ".pg"]) $(s).hidden = false;
     painel = iniciarPainel(aviso ? { ...D, aviso } : D, { baixar, raiz: sombra, aba: params.get("aba") || "", meta,
       // as cópias guardadas de cada atualização: a Auditoria compara duas
-      fontes: { dias: diasGuardados, dia: baixarDia, importacoes: lerImportacoes },
+      fontes: fontes(podeAtualizar),
       // o relatório sai no tema claro: o site fica claro só enquanto os cartões viram imagem
       temaClaro: async (fn) => {
         const antes = document.documentElement.dataset.tema;
@@ -143,7 +160,9 @@ export async function montar(raiz, ctx, params = new URLSearchParams()) {
     }
     const botaoAtualizar = $("#os-atualizar");
     botaoAtualizar.hidden = !(pode && atualiza);
-    if (pode && atualiza) botaoAtualizar.addEventListener("click", () => abrirImportar({ atual: () => atualD, aoGravar: gravouNovo, raiz: sombra }));
+    podeAtualizar = !!(pode && atualiza);
+    if (pode && atualiza) botaoAtualizar.addEventListener("click", () => abrirImportar({ atual: () => atualD, metaAtual: () => atualMeta, versaoAberta,
+      quem: pessoas.nome() || "—", aoGravar: gravouNovo, raiz: sombra }));
     try { await carregarD3(); } catch (e) { if (vale()) porta("Não deu para abrir o painel", e.message, tentarDeNovo()); return; }
     if (!vale()) return;
     if (pode === null) {
@@ -156,6 +175,7 @@ export async function montar(raiz, ctx, params = new URLSearchParams()) {
       const lista = await arquivosDoPainel();
       if (lista.has("atual.json.gz")) {
         versao = lista.get("atual.json.gz").versao;
+        versaoAberta = versao;
         if (meu && meu.versao === versao) { if (vale()) mostrar(meu.D, "", meu.meta); return; }
         atual = await baixarJSON("atual.json.gz");
       }
@@ -175,9 +195,12 @@ export async function montar(raiz, ctx, params = new URLSearchParams()) {
     if (vale()) mostrar(atual.D, "", atual.meta || null);
   }
 
-  /** Gravou um painel novo: guarda neste aparelho e abre de novo, já com ele. */
-  async function gravouNovo(pacote) {
-    await dados.gravarMeta(GUARDA, { email: nuvem.emailAtual(), versao: "", D: pacote.D, meta: pacote.meta || null });
+  /** Publicou uma versão (ou voltou para uma): abre de novo, já com ela, e diz qual. A volta não traz o pacote:
+   *  o painel baixa o publicado. */
+  async function gravouNovo(pacote, resultado) {
+    if (pacote) await dados.gravarMeta(GUARDA, { email: nuvem.emailAtual(), versao: "", D: pacote.D, meta: pacote.meta || null });
+    else await dados.gravarMeta(GUARDA, null);
+    if (resultado && resultado.avisos && resultado.avisos.length) avisoDepois = resultado.avisos.join(" ");
     if (vivo) abrir();
   }
 

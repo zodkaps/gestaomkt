@@ -8,10 +8,15 @@
 //
 // Os exports de hoje trazem só 2026; o que veio antes (OS de 2024 e 2025 e a
 // mão de obra delas) é a base histórica: um arquivo que vem uma vez só e fica
-// guardado no bucket, como historico.json.gz.
+// guardado no bucket (historicos/<sha>.json.gz desde 12/11/2026; antes, historico.json.gz).
+//
+// Publicar (12/11/2026) é por versão: um pacote só, com as OS, a lista de frotas usada, a base histórica usada e
+// o índice das atualizações — conferido antes, gravado como versão, conferido depois e só então posto no ar
+// (js/os/publicar.js). Falhou no meio: o painel continua na versão anterior, inteira.
 
 import * as nuvem from "../nuvem.js";
 import * as M from "./montar.js";
+import * as P from "./publicar.js";
 import { carregarXLSX } from "../planilha.js";
 
 const BUCKET = "painel-os";
@@ -36,14 +41,14 @@ function el(tag, attrs = {}, ...filhos) {
 
 // ── compactar e o bucket ─────────────────────────────────────────────────────
 
-async function gz(obj) {
-  const s = new Blob([JSON.stringify(obj)]).stream().pipeThrough(new CompressionStream("gzip"));
-  return new Blob([await new Response(s).arrayBuffer()], { type: "application/gzip" });
-}
-async function deGz(blob) {
-  const s = blob.stream().pipeThrough(new DecompressionStream("gzip"));
-  return JSON.parse(await new Response(s).text());
-}
+const { gz, deGz } = P;
+/** O bucket do painel, para a publicação (js/os/publicar.js). */
+export const ioDoBucket = {
+  subir: (caminho, blob, { substituir = true } = {}) => nuvem.subirArquivo(BUCKET, caminho, blob, "application/gzip", { substituir }),
+  baixar: (caminho) => nuvem.baixarArquivo(BUCKET, caminho),
+  apagar: (caminho) => nuvem.apagarArquivo(BUCKET, caminho),
+  versaoNoAr: async () => { const l = await arquivosDoPainel(); return l.has(P.ATUAL) ? l.get(P.ATUAL).versao : ""; },
+};
 /** Um JSON compactado do bucket privado; `null` se ainda não existe. */
 export async function baixarJSON(caminho) {
   const b = await nuvem.baixarArquivo(BUCKET, caminho);
@@ -75,12 +80,8 @@ export function linhaDaImportacao(p, c = null) {
     novas: c && c.antes ? c.novas.length : null, fecharam: c && c.antes ? c.fecharam.length : null, reabertas: c && c.antes ? c.reabertas : null,
     sumiramAbertas: c && c.antes ? c.sumiramAbertas.length : null };
 }
-async function registrarImportacao(linha) {
-  const l = (await lerImportacoes()).filter((x) => x.base !== linha.base);   // o mesmo dia gravado de novo: vale o último
-  l.push(linha);
-  l.sort((a, b) => (a.base < b.base ? -1 : a.base > b.base ? 1 : 0));
-  await nuvem.subirArquivo(BUCKET, INDICE, await gz(l));
-}
+// (12/11/2026) o importacoes.json.gz e o frotas.json.gz deixaram de ser gravados: o índice e a lista de frotas vão
+// dentro do pacote publicado. Os arquivos antigos continuam sendo lidos (as linhas e a lista de antes).
 
 /** O caminho das linhas da STJ de hoje até o painel (11/11/2026): quantas vieram, quantas ficaram de fora e por
  *  quê, quantas entraram (corretivas e preventivas) — no total e por filial — e os bens fora da lista do PCM. */
@@ -96,6 +97,7 @@ export function funilDaSTJ(a, desde) {
       linha("Linhas da STJ de hoje", soma("linhas")),
       linha(`− de bens fora da lista do PCM (${plural(a.foraBensTotal || 0, "bem", "bens")})`, soma("fora")),
       linha("− canceladas", soma("canceladas")),
+      soma("semNumero") ? linha("− sem número de OS (não dá para identificar)", soma("semNumero")) : null,
       linha("− repetidas", soma("repetidas")),
       linha("− encerradas sem a data de fim", soma("semFim")),
       linha(`− encerradas antes de ${br(desde)}`, soma("antesDe")),
@@ -103,7 +105,7 @@ export function funilDaSTJ(a, desde) {
       linha("+ da base histórica (OS de antes de 2026)", a.daBaseHistorica || 0)),
     fil.length > 1 ? el("table", { class: "imp-funil-tab" },
       el("thead", {}, el("tr", {}, ...["Filial", "Linhas da STJ", "Bens fora da lista", "Canceladas", "Outras saídas", "No painel"].map((x) => el("th", { text: x })))),
-      el("tbody", {}, ...fil.map(([f, x]) => el("tr", {}, el("td", { text: f }), ...[x.linhas, x.fora, x.canceladas, x.repetidas + x.semFim + x.antesDe, x.corretivas + x.preventivas]
+      el("tbody", {}, ...fil.map(([f, x]) => el("tr", {}, el("td", { text: f }), ...[x.linhas, x.fora, x.canceladas, x.repetidas + x.semFim + x.antesDe + (x.semNumero || 0), x.corretivas + x.preventivas]
         .map((v) => el("td", { text: nf.format(v) })))))) : null,
     a.foraBens && a.foraBens.length ? el("p", { class: "imp-funil-bens", text: "Bens fora da lista do PCM (os com mais OS): " +
       a.foraBens.slice(0, 12).map((b) => `${b.bem}${b.nome ? " " + b.nome.toLowerCase() : ""} (${nf.format(b.n)})`).join(" · ") +
@@ -149,9 +151,11 @@ async function lerArquivo(f) {
 
 // ── a caixa ──────────────────────────────────────────────────────────────────
 
-/** Abre a caixa de atualizar. `atual()`: o painel aberto agora (para comparar);
- *  `aoGravar(pacote)`: depois de gravar; `raiz`: onde está a caixa (a área do painel no site). */
-export function abrirImportar({ atual, aoGravar, raiz = document }) {
+/** Abre a caixa de atualizar. `atual()`: o painel aberto agora (para comparar); `metaAtual()`: o meta do pacote
+ *  publicado (a lista de frotas, a base histórica e o índice que valem); `versaoAberta`: a versão do atual.json.gz
+ *  aberta (a publicação confere que ninguém publicou no meio); `quem`: quem publica;
+ *  `aoGravar(pacote, resultado)`: depois de publicar; `raiz`: onde está a caixa (a área do painel no site). */
+export function abrirImportar({ atual, metaAtual = () => null, versaoAberta = "", quem = "", aoGravar, raiz = document }) {
   const dlg = raiz.querySelector("#os-importar");
   const lidos = [];                 // { nome, tipo, tabela | semente, linhas, arquivo }
   let pacote = null, sementeGuardada = undefined;
@@ -160,7 +164,8 @@ export function abrirImportar({ atual, aoGravar, raiz = document }) {
   const resumo = el("div", { class: "imp-resumo" });
   const data = el("input", { type: "date", id: "imp-data", value: hojeLocal() });
   const entrada = el("input", { type: "file", id: "imp-arq", multiple: true, accept: ".xlsx,.xls,.csv,.gz,.json", class: "imp-entrada" });
-  const gravar = el("button", { type: "button", class: "botao prim", disabled: true, text: "Gravar no painel" });
+  const gravar = el("button", { type: "button", class: "botao prim", disabled: true, text: "Publicar no painel" });
+  const etapas = el("ol", { class: "imp-etapas", "aria-live": "polite", hidden: true });
   const aviso = el("span", { class: "imp-aviso", "aria-live": "polite" });
   const zona = el("label", { class: "imp-zona", for: "imp-arq" },
     el("b", { text: "Solte aqui os arquivos" }), el("span", {}, "ou ", el("u", { text: "escolha no computador" })),
@@ -177,7 +182,10 @@ export function abrirImportar({ atual, aoGravar, raiz = document }) {
     frotasCampo, el("div", { class: "imp-acoes" }, el("button", { type: "button", class: "botao mini", text: "Usar esta lista", on: { click: () => usarLista() } }), frotasNota));
   const semZeros = (n) => String(n).replace(/^0+(?=\d)/, "");
   async function frotasEmUso() {
-    if (frotasNovas) return { frotas: frotasNovas, de: "colada agora — vale ao gravar" };
+    if (frotasNovas) return { frotas: frotasNovas, de: "colada agora — vale ao publicar" };
+    // a lista que vale é a da versão publicada (12/11/2026); antes dela, o frotas.json.gz
+    const mp = metaAtual();
+    if (mp && Array.isArray(mp.frotas) && mp.frotas.length) return { frotas: mp.frotas, de: "a da versão publicada" };
     if (frotasGuardadas === undefined) {
       try { const l = (await arquivosDoPainel()).has(FROTAS) ? await baixarJSON(FROTAS) : null; frotasGuardadas = l && Array.isArray(l.frotas) ? l : null; }
       catch (e) { frotasGuardadas = null; }
@@ -200,7 +208,7 @@ export function abrirImportar({ atual, aoGravar, raiz = document }) {
     frotasNovas = r.frotas;
     frotasNota.textContent = plural(r.frotas.length, "frota", "frotas") + (entram.length ? ` · entram: ${entram.join(", ")}` : "") + (saem.length ? ` · saem: ${saem.join(", ")}` : "") +
       (!entram.length && !saem.length ? " · as mesmas de antes" : "") + (r.repetidas.length ? ` · repetidas na lista (contam uma vez): ${r.repetidas.join(", ")}` : "") +
-      (r.ignorados.length ? ` · ignorados: ${r.ignorados.join(", ")}` : "") + ". Vale ao gravar.";
+      (r.ignorados.length ? ` · ignorados: ${r.ignorados.join(", ")}` : "") + ". Vale ao publicar.";
     frotasCampo.value = r.frotas.join(" ");
     await pintarFrotas();
     await montarAgora();
@@ -229,8 +237,12 @@ export function abrirImportar({ atual, aoGravar, raiz = document }) {
     if (daqui) return daqui.semente;
     if (sementeGuardada === undefined) {
       status.textContent = "Buscando a base histórica guardada…";
-      try { const obj = (await arquivosDoPainel()).has("historico.json.gz") ? await baixarJSON("historico.json.gz") : null; sementeGuardada = obj ? M.lerSemente(obj) : null; }
-      catch (e) { sementeGuardada = null; }
+      // a que vale é a da versão publicada (12/11/2026); antes dela, o historico.json.gz
+      const mp = metaAtual(), ref = mp && mp.historico && mp.historico.arquivo;
+      try {
+        const obj = ref ? await baixarJSON(ref) : (await arquivosDoPainel()).has("historico.json.gz") ? await baixarJSON("historico.json.gz") : null;
+        sementeGuardada = obj ? M.lerSemente(obj) : null;
+      } catch (e) { sementeGuardada = null; }
       status.textContent = "";
     }
     return sementeGuardada;
@@ -306,30 +318,67 @@ export function abrirImportar({ atual, aoGravar, raiz = document }) {
       ...avisos.map((t) => el("p", { class: "imp-cuidado", text: t }))].filter(Boolean));
     if (bloqueios.length) return;
     const arquivos = lidos.filter((x) => !x.erro).map((x) => ({ nome: x.nome, tipo: x.tipo, linhas: x.linhas }));
-    pacote = { versao: 1, meta: { gerado_em: new Date().toISOString(), base, arquivos, resumo: g }, D, semente: lidos.find((x) => x.tipo === "HIST") || null, comparacao: c };
+    // (12/11/2026) os mesmos dados da versão no ar não se publicam de novo
+    const mp = metaAtual(), shaNovo = await P.shaDosDados(D);
+    const shaNoAr = mp && mp.sha_dados ? mp.sha_dados : antes ? await P.shaDosDados(antes) : "";
+    if (shaNoAr && shaNoAr === shaNovo) {
+      resumo.append(el("p", { class: "imp-cuidado", text: `Nada a publicar: estes dados são os mesmos da versão no ar${mp && mp.versao_id ? ` (${P.rotuloDaVersao(mp.versao_id)})` : ""}.` }));
+      return;
+    }
+    const fr = await frotasEmUso();
+    pacote = { versao: 2, meta: { gerado_em: new Date().toISOString(), base, arquivos, resumo: g, sha_dados: shaNovo, frotas: fr ? fr.frotas : [] },
+      D, semente: lidos.find((x) => x.tipo === "HIST") || null, comparacao: c };
+    resumo.append(el("p", { class: "imp-versao" }, el("b", { text: "Ao publicar: " }),
+      `o painel passa para os dados do Protheus de ${br(base)}` + (mp && mp.versao_id ? `; a versão no ar (${P.rotuloDaVersao(mp.versao_id)}) fica guardada e dá para voltar a ela pela Auditoria.` : ".")));
     gravar.disabled = false;
   }
 
+  // publicar (12/11/2026): uma versão inteira, conferida antes e depois (js/os/publicar.js)
+  let publicando = false;
   gravar.addEventListener("click", async () => {
-    if (!pacote) return;
+    if (!pacote || publicando) return;
+    publicando = true;
     gravar.disabled = true;
+    aviso.className = "imp-aviso";
+    aviso.textContent = "Publicando…";
+    const mp = metaAtual();
     try {
       const { semente: sem, comparacao, ...p } = pacote;
-      if (sem) { aviso.textContent = "Guardando a base histórica…"; await nuvem.subirArquivo(BUCKET, "historico.json.gz", sem.arquivo.name.toLowerCase().endsWith(".gz") ? new Blob([await sem.arquivo.arrayBuffer()], { type: "application/gzip" }) : await gz(JSON.parse(await sem.arquivo.text()))); }
-      if (frotasNovas) { aviso.textContent = "Guardando a lista de frotas…"; await nuvem.subirArquivo(BUCKET, FROTAS, await gz({ versao: 1, frotas: frotasNovas, gravado_em: new Date().toISOString() })); }
-      aviso.textContent = "Gravando o painel…";
-      const blob = await gz(p);
-      await nuvem.subirArquivo(BUCKET, `dias/${p.meta.base}.json.gz`, blob);
-      await nuvem.subirArquivo(BUCKET, "atual.json.gz", blob);
-      // o índice das atualizações: se não der, o painel já está gravado (a cópia do dia é o registro)
-      try { await registrarImportacao(linhaDaImportacao(p, comparacao)); } catch (e) { console.warn("índice das atualizações:", e); }
-      aviso.textContent = "Gravado. Abrindo o painel novo…";
-      await aoGravar(p);
+      const agora = new Date();
+      p.meta = { ...p.meta, versao_id: P.idDaVersao(p.meta.base, agora), publicado_em: agora.toISOString(), publicado_por: quem,
+        anterior: mp && mp.versao_id ? { id: mp.versao_id, base: mp.base } : null };
+      // a base histórica: a nova (se veio) vai pelo conteúdo; senão vale a da versão publicada (ou a antiga)
+      let historico = null;
+      if (sem) {
+        const blob = sem.arquivo.name.toLowerCase().endsWith(".gz") ? new Blob([await sem.arquivo.arrayBuffer()], { type: "application/gzip" }) : await gz(JSON.parse(await sem.arquivo.text()));
+        const sha = await P.sha256(blob);
+        historico = { blob, sha };
+        p.meta.historico = { arquivo: P.arquivoDoHistorico(sha), sha, feito_em: sem.semente.feitoEm || "" };
+      } else p.meta.historico = mp && mp.historico ? mp.historico : { arquivo: "historico.json.gz", sha: "", feito_em: (p.D.historica && p.D.historica.feito_em) || "" };
+      // o índice das atualizações vai dentro do pacote: as linhas de antes e a desta
+      p.meta.importacoes = [...P.mesclarIndice((mp && mp.importacoes) || [], await lerImportacoes()), { ...linhaDaImportacao(p, comparacao), ...P.linhaDaVersao(p) }];
+      const r = await P.publicar({ io: ioDoBucket, pacote: p, historico, quem, versaoAberta, etapa: pintarEtapa });
+      aviso.className = "imp-aviso ok";
+      aviso.textContent = `Publicada a versão ${P.rotuloDaVersao(r.id)} (Protheus de ${br(p.meta.base)}). Abrindo o painel…` + (r.avisos.length ? " " + r.avisos.join(" ") : "");
+      await aoGravar(p, r);
     } catch (e) {
-      aviso.textContent = "Não gravou: " + e.message;
+      aviso.className = "imp-aviso erro";
+      aviso.textContent = P.textoDaFalha(e, mp ? { meta: mp } : null);
       gravar.disabled = false;
-    }
+    } finally { publicando = false; }
   });
+  // cada passo da publicação numa linha: o que está fazendo, o que deu certo e onde parou
+  const ROT_ETAPA = { conferir: "Conferir os dados", trava: "Reservar a gravação", "no-ar": "Conferir a versão no ar", historico: "Guardar a base histórica",
+    versao: "Gravar a versão nova", copia: "Conferir a cópia gravada", publicar: "Publicar no painel", buscar: "Buscar a versão" };
+  function pintarEtapa(nome, estado, texto, erro) {
+    if (nome === "fim") return;
+    etapas.hidden = false;
+    let li = etapas.querySelector(`[data-etapa="${nome}"]`);
+    if (!li) { li = el("li", { "data-etapa": nome }); etapas.append(li); }
+    li.className = "et-" + estado;
+    li.replaceChildren(el("span", { class: "et-ic", "aria-hidden": "true", text: { faz: "…", ok: "✓", erro: "✕", aviso: "!" }[estado] || "" }),
+      el("span", { text: ROT_ETAPA[nome] || texto }), erro ? el("small", { text: " — " + ((erro && erro.message) || erro) }) : null);
+  }
 
   entrada.addEventListener("change", () => { adicionar([...entrada.files]); entrada.value = ""; });
   data.addEventListener("change", () => montarAgora());
@@ -344,7 +393,50 @@ export function abrirImportar({ atual, aoGravar, raiz = document }) {
     zona,
     el("label", { class: "imp-data" }, "Data do export ", data),
     frotasCaixa, lista, status, resumo,
-    el("div", { class: "imp-acoes" }, gravar, aviso));
+    el("div", { class: "imp-acoes" }, gravar, aviso), etapas);
   if (!dlg.open) dlg.showModal();
   pintarFrotas().catch(() => {});
+}
+
+/** Voltar o painel para uma versão publicada antes (12/11/2026): a caixa diz o que muda, pede a confirmação e
+ *  mostra cada passo. `publicada`: { D, meta } no ar agora. */
+export function abrirVolta({ linha, publicada, versaoAberta = "", quem = "", aoGravar, raiz = document }) {
+  const dlg = raiz.querySelector("#os-importar");
+  const etapas = el("ol", { class: "imp-etapas", "aria-live": "polite", hidden: true });
+  const aviso = el("p", { class: "imp-aviso", "aria-live": "polite" });
+  const ROT = { buscar: "Buscar a versão", conferir: "Conferir os dados", trava: "Reservar a gravação", "no-ar": "Conferir a versão no ar",
+    versao: "Gravar a versão nova", copia: "Conferir a cópia gravada", publicar: "Publicar no painel" };
+  const pintarEtapa = (nome, estado, texto, erro) => {
+    if (nome === "fim") return;
+    etapas.hidden = false;
+    let li = etapas.querySelector(`[data-etapa="${nome}"]`);
+    if (!li) { li = el("li", { "data-etapa": nome }); etapas.append(li); }
+    li.className = "et-" + estado;
+    li.replaceChildren(el("span", { class: "et-ic", "aria-hidden": "true", text: { faz: "…", ok: "✓", erro: "✕" }[estado] || "" }),
+      el("span", { text: ROT[nome] || texto }), erro ? el("small", { text: " — " + ((erro && erro.message) || erro) }) : null);
+  };
+  const confirmar = el("button", { type: "button", class: "botao prim", text: "Voltar para esta versão" });
+  confirmar.addEventListener("click", async () => {
+    confirmar.disabled = true;
+    aviso.className = "imp-aviso";
+    aviso.textContent = "Voltando…";
+    try {
+      const r = await P.voltarPara({ io: ioDoBucket, id: linha.id, publicada, quem, versaoAberta, etapa: pintarEtapa });
+      aviso.className = "imp-aviso ok";
+      aviso.textContent = `O painel voltou para os dados da versão ${P.rotuloDaVersao(linha.id)} (publicada como ${P.rotuloDaVersao(r.id)}). Abrindo…`;
+      await aoGravar(null, r);
+    } catch (e) {
+      aviso.className = "imp-aviso erro";
+      aviso.textContent = P.textoDaFalha(e, publicada);
+      confirmar.disabled = false;
+    }
+  });
+  dlg.replaceChildren(
+    el("div", { class: "imp-cab" }, el("h2", { id: "imp-tit", text: `Voltar para a versão ${P.rotuloDaVersao(linha.id)}` }),
+      el("button", { type: "button", class: "botao mini", text: "Fechar", on: { click: () => dlg.close() } })),
+    el("p", { text: `O painel passa a mostrar os dados do Protheus de ${br(linha.base)} (${nf.format(linha.total || 0)} OS, ${nf.format(linha.abertas || 0)} abertas), ` +
+      "para todos que o abrem. A versão no ar agora continua guardada: dá para voltar a ela pela Auditoria." }),
+    el("p", { class: "nota", text: "A volta é publicada como uma versão nova (o índice das atualizações registra quem voltou e de onde)." }),
+    el("div", { class: "imp-acoes" }, confirmar), aviso, etapas);
+  if (!dlg.open) dlg.showModal();
 }
