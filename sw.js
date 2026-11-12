@@ -7,7 +7,7 @@
 // A estratégia é rede primeiro, cache como rede reserva: assim uma versão nova
 // do site chega sem precisar de truque, e a falta de rede não trava nada.
 
-const VERSAO = "mkt-v64";
+const VERSAO = "mkt-v65";
 const ARQUIVOS = [
   "./",
   "./index.html",
@@ -15,6 +15,13 @@ const ARQUIVOS = [
   "./css/mkt.css",
   "./vendor/xlsx.mini.min.js",
   "./vendor/fontes/nunito-latin.woff2",
+  // a identidade da Makro (12/11/2026): a fonte Metropolis e o logo
+  "./vendor/fontes/metropolis-400.woff2",
+  "./vendor/fontes/metropolis-500.woff2",
+  "./vendor/fontes/metropolis-600.woff2",
+  "./vendor/fontes/metropolis-700.woff2",
+  "./img/makro.svg",
+  "./img/makro-branco.svg",
   "./js/app.js",
   "./js/ui.js",
   "./js/dados.js",

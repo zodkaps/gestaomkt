@@ -1,0 +1,12 @@
+Metropolis — fonte de Chris Simpson (Copyright © 2016 by Chris Simpson).
+
+Fonte livre: publicada pelo autor em domínio público (The Unlicense, como no
+repositório original e no Fontsource); alguns sites a listam sob a SIL Open
+Font License 1.1. As duas licenças permitem usar, embutir e distribuir a fonte
+em sites.
+
+Os arquivos daqui são os OTF que a Makro mandou (12/11/2026), só convertidos
+para WOFF2 (pesos 400, 500, 600 e 700), sem mudar o desenho.
+
+A Gotham, que também veio, é da Hoefler&Co. e é paga: não entra no site, que é
+público, sem a licença web dela.

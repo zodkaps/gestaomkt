@@ -911,7 +911,7 @@ export async function montar(raiz, ctx, params) {
         acao: el("div", { class: "tr-acoes" },
           atrasadas.length > 4 ? el("button", { type: "button", class: "mini", onclick: () => {
             estado.vista = "lista"; estado.recorte = "abertas"; pintar(); } }, `Ver as ${atrasadas.length}`) : null,
-          semJ.length ? el("button", { type: "button", class: "mini", onclick: () => { location.hash = "#/avaliacao?a=resolver"; } },
+          semJ.length ? el("button", { type: "button", class: "mini", onclick: () => { location.hash = "#/avaliacao?a=pendencias&v=sem-porque"; } },
             "Justificar") : null) }) : null;
 
     const paraAprovar = todas.filter(M.movimentacaoParaAprovar);

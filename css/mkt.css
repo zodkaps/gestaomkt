@@ -1597,8 +1597,6 @@ tr.cat-bloco .n, .mov-grupo-tit .n { color: var(--fraco); font-weight: 500; }
 .tipo-oc { display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
 .tipo-oc i { width: 8px; height: 8px; border-radius: 2px; display: inline-block; flex: none; }
 .tabela.avaliacao td.num, .tabela.avaliacao th.num { text-align: right; white-space: nowrap; }
-.tabela.avaliacao .acoes-linha { white-space: nowrap; text-align: right; }
-.tabela.avaliacao .acoes-linha button + button { margin-left: 6px; }
 .tabela-rolagem .t-venc { color: var(--vencida); }
 /* a chegada da frota na coluna Parada das Preventivas */
 .grade.prev .chegou { margin-top: 2px; }
@@ -1676,15 +1674,11 @@ tr.cat-bloco .n, .mov-grupo-tit .n { color: var(--fraco); font-weight: 500; }
 .aba .cont { margin-left: 6px; font-size: 11px; font-weight: 700; background: var(--vencida-fundo); color: var(--vencida);
   padding: 1px 7px; border-radius: 999px; }
 
-/* a Avaliação: quatro números e o que pede ação */
+/* os quatro números da Movimentação (a Avaliação tem os dela, em .av: ver 12/11/2026) */
 .kpis.kpis-4 { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
 .kpis-4 .kpi { padding: 14px 16px; }
 .kpis-4 .kpi .k-val { font-size: 30px; }
 @media (max-width: 760px) { .kpis.kpis-4 { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
-.pede-acao { display: flex; align-items: center; gap: 12px; justify-content: space-between; flex-wrap: wrap;
-  background: var(--hoje-fundo); border: 1px solid var(--linha); border-left: 3px solid var(--hoje);
-  border-radius: var(--raio); padding: 10px 14px; margin: 0 0 16px; font-size: 13.5px; }
-.pede-acao .seg { color: var(--fraco); }
 .av-nota { margin: 14px 0 0; }
 
 /* "Buscar frota" (no lugar do "+ Registrar", 03/11/2026): no alto, em toda
@@ -2105,7 +2099,7 @@ input.busca-frota { border-radius: 999px !important; padding-left: 14px; backgro
 input.busca-frota:focus { background-color: var(--papel); }
 
 /* ── 23/10/2026: a logo de calendário e os ícones em linha ──────────────── */
-#menu .marca .logo { width: 30px; height: 30px; flex: 0 0 auto; display: block; filter: drop-shadow(0 2px 6px rgba(37, 99, 235, .35)); }
+/* (12/11/2026) no menu, o logo da Makro no lugar da folha de calendário: ver "a identidade da Makro" */
 .cartao-entrar .logo-img { width: 40px; height: 40px; display: block; flex: none; }
 #menu a b { display: inline-grid; place-items: center; }
 #menu a b .ic { display: block; }
@@ -2202,4 +2196,230 @@ button.mini.ja-feita:hover, button.mini.ja-feita:focus-visible { color: var(--ok
   .prev-filtros .busca { flex: 1 1 100%; max-width: none; }
   .prev-filtros .sub { flex: 1 1 0; min-width: 0; font-size: 12.5px; }
   .prev-filtros .espaco { display: none; }
+}
+
+/* ══ 12/11/2026: a Avaliação em três áreas, no visual da Makro ════════════════
+   Resumo, Pendências e Histórico e análise (js/tela/avaliacao.js). O azul é o
+   do site — o do logo e do app (--marca) —, não uma cor inventada: o projeto
+   não tem paleta oficial da Makro Engenharia. Fundo cinza bem claro, cartão
+   branco de borda suave e sombra quase nenhuma, rótulo em letra normal (não em
+   caixa alta) e poucas cores: vermelho é o que está atrasando, âmbar o que
+   falta justificar, verde e vermelho só na comparação com o período anterior.
+   Abaixo de 1000px (tablet e celular) as tabelas viram cartões e os botões
+   ficam do tamanho do dedo; abaixo de 640px os filtros longos viram uma lista
+   de escolha. Tudo preso em .av: as outras telas não mudam. */
+.av { --av-bom: var(--ev-verde); --av-ruim: var(--ev-verm); --av-falta: var(--ev-amb); --av-falta-f: var(--ev-amb-f); }
+.av .cabec { margin-bottom: 10px; }
+.av .so-leitor { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+.av .av-so-cartao { display: none; }
+
+/* os filtros do alto: período e frota, numa linha */
+.av-filtros { background: var(--papel); border: 1px solid var(--linha); border-radius: var(--raio); padding: 8px;
+  box-shadow: var(--sombra-cartao, none); margin-bottom: 4px; }
+.av-filtros .busca-frota { flex: 0 1 200px; }
+.av .av-seg-cel { display: none; }
+
+/* as três áreas */
+.av-abas { margin: 6px 0 18px; }
+.av-abas .aba { font-size: 14px; padding: 11px 14px 10px; }
+
+/* a frase do período */
+.av-leitura { margin: 0 0 14px; font-size: 15px; line-height: 1.5; color: var(--texto); }
+.av-leitura b { font-weight: 700; }
+.av-leitura.bom b { color: var(--av-bom); }
+.av-leitura.ruim b { color: var(--av-ruim); }
+.av-leitura-det { color: var(--fraco); }
+
+/* os quatro números, cada um com o do período anterior */
+.av .kpis.av-kpis { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; margin: 0 0 16px; }
+.av .kpi { display: flex; flex-direction: column; padding: 14px 16px 12px; min-width: 0; }
+.av .kpi .k-rot { font-size: 13px; font-weight: 650; letter-spacing: 0; text-transform: none; color: var(--fraco); }
+.av .kpi .k-val { font-size: 30px; font-weight: 750; letter-spacing: -.02em; margin-top: 4px; }
+.av .kpi .k-det { font-size: 12.5px; color: var(--fraco); margin-top: 2px; }
+.av .kpi .k-comp { margin-top: auto; padding-top: 10px; font-size: 12.5px; color: var(--muito-fraco); display: flex; flex-wrap: wrap; gap: 2px 8px; }
+.av .k-delta { font-weight: 700; color: var(--fraco); }
+.av .k-comp.bom .k-delta { color: var(--av-bom); }
+.av .k-comp.ruim .k-delta { color: var(--av-ruim); }
+.av .kpi.clicavel:hover { border-color: var(--marca); background: var(--papel); }
+
+/* o que precisa de ação e os principais motivos, lado a lado */
+.av-dupla { display: grid; grid-template-columns: minmax(0, 3fr) minmax(0, 2fr); gap: 12px; margin-bottom: 16px; align-items: start; }
+.av-dupla > :only-child { grid-column: 1 / -1; }
+.av-cartao { background: var(--papel); border: 1px solid var(--linha); border-radius: var(--raio); padding: 14px 16px 8px;
+  box-shadow: var(--sombra-cartao, none); min-width: 0; }
+.av-cartao-cab { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; }
+.av-cartao h2, .av-titulo { font-size: 15px; font-weight: 700; color: var(--texto); }
+.av-cartao-n { font-size: 13px; font-weight: 700; color: var(--av-ruim); white-space: nowrap; }
+.av-cartao-n.neutro { color: var(--fraco); }
+.av-cartao-sub { font-size: 12.5px; color: var(--fraco); margin: 2px 0 8px; }
+.av-ver { border: 0; background: transparent; color: var(--marca); font-weight: 650; padding: 10px 0 6px; font-size: 13px; }
+.av-ver:hover { background: transparent; text-decoration: underline; }
+.av-tudo-ok { margin: 8px 0 10px; color: var(--fraco); }
+.av-tudo-ok b, .av-vazio.ok b { color: var(--av-bom); }
+.av-mini-lista, .av-mot-lista { list-style: none; margin: 0; padding: 0; }
+.av-mini { display: grid; grid-template-columns: 46px minmax(0, 1fr) auto; gap: 12px; align-items: center; padding: 10px 0;
+  border-top: 1px solid var(--linha); cursor: pointer; }
+.av-mini:hover .av-mini-txt > b { color: var(--marca); }
+.av-mini-dias { font-size: 18px; font-weight: 750; text-align: center; font-variant-numeric: tabular-nums; line-height: 1.1; }
+.av-mini-dias small { display: block; font-size: 11px; font-weight: 500; color: var(--muito-fraco); }
+.av-mini-dias.t-venc { color: var(--vencida); }
+.av-mini-txt { min-width: 0; font-size: 13.5px; overflow-wrap: anywhere; }
+.av-mini-txt small { display: block; font-size: 12px; color: var(--fraco); margin-top: 1px; }
+.av-mini-acoes { display: flex; gap: 6px; flex-wrap: wrap; justify-content: flex-end; }
+.av-mini-acoes:empty { display: none; }
+.av-mot { width: 100%; display: grid; grid-template-columns: minmax(0, 1fr) minmax(56px, 90px) 64px; gap: 12px; align-items: center;
+  padding: 9px 0; border: 0; border-top: 1px solid var(--linha); border-radius: 0 !important; background: transparent;
+  text-align: left; white-space: normal; font-size: 13.5px; color: var(--texto); }
+.av-mot:hover { background: transparent; }
+.av-mot:hover .av-mot-nome { color: var(--marca); }
+.av-mot.sem .av-mot-nome { color: var(--fraco); font-style: italic; }
+.av-mot-barra { height: 8px; border-radius: 4px; background: var(--papel3); overflow: hidden; }
+.av-mot-barra i { display: block; height: 100%; border-radius: 4px; background: var(--marca); }
+.av-mot.sem .av-mot-barra i { background: var(--ctx); }
+.av-mot-n { text-align: right; font-weight: 700; font-variant-numeric: tabular-nums; }
+.av-mot-n small { font-weight: 500; color: var(--muito-fraco); }
+
+/* o gráfico e a frase dele */
+.av .bi-grade { margin-bottom: 12px; }
+.av-grafico-nota { margin: 6px 2px 2px; font-size: 12.5px; color: var(--fraco); }
+.av-nota { margin: 6px 0 0; }
+
+/* a barra de cada área: o recorte e a dica */
+.av-barra { display: flex; align-items: center; gap: 8px 14px; flex-wrap: wrap; margin: 0 0 12px; }
+.av-barra .segmentos .seg-op { min-height: 32px; }
+.av-dica { margin: 0; font-size: 12.5px; color: var(--muito-fraco); }
+.av-titulo { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; margin: 4px 0 10px; }
+.av-titulo .n { font-size: 12.5px; font-weight: 500; color: var(--muito-fraco); }
+.av-corpo > .av-titulo ~ .av-titulo { margin-top: 22px; }
+.av-aviso { display: flex; align-items: center; justify-content: space-between; gap: 10px 14px; flex-wrap: wrap;
+  margin: 12px 0 4px; padding: 10px 14px; border: 1px solid var(--linha); border-left: 3px solid var(--hoje);
+  border-radius: var(--raio); background: var(--papel); font-size: 13.5px; }
+.av-vazio { padding: 18px; border: 1px dashed var(--borda); border-radius: var(--raio); color: var(--fraco); background: var(--papel); }
+.av-mais { width: 100%; justify-content: center; margin-top: 10px; min-height: 40px; color: var(--marca); font-weight: 650; }
+.av-filtros-lista { margin-bottom: 12px; }
+.av .motivos { border-radius: var(--raio); }
+.av .mt-cab { font-size: 12px; font-weight: 650; text-transform: none; letter-spacing: 0; color: var(--fraco); }
+.av-tipos { display: contents; }
+
+/* as tabelas: pendências e todos os atrasos */
+.av-tab { font-size: 13px; }
+.av-tab th { font-size: 12px; text-transform: none; letter-spacing: 0; font-weight: 650; color: var(--fraco); padding: 9px 12px; }
+.av-tab td { padding: 11px 12px; vertical-align: top; }
+.av-tab tbody tr { cursor: pointer; }
+.av-tab tbody tr:hover td { background: var(--papel2); }
+.av-tab tbody tr:focus-visible { outline: 2px solid var(--marca); outline-offset: -2px; }
+.av-tab .c-frota { white-space: nowrap; }
+.av-tab .c-frota b { font-size: 13.5px; }
+.av-tab .c-oque { color: var(--fraco); font-size: 12.5px; margin-top: 3px; }
+.av-tab small { display: block; color: var(--muito-fraco); font-size: 12px; margin-top: 2px; }
+.av-tab .c-dias b { font-size: 15px; font-variant-numeric: tabular-nums; }
+.av-tab .c-acoes { white-space: nowrap; text-align: right; width: 1%; vertical-align: middle; }
+.av-tab .c-acoes button + button { margin-left: 6px; }
+.av-tab .c-motivo { overflow-wrap: anywhere; }
+.av-pend tr.atrasando td.c-frota { box-shadow: inset 3px 0 0 var(--vencida); }
+.av-sit { display: inline-flex; align-items: center; gap: 6px; font-size: 12.5px; font-weight: 650; white-space: nowrap; color: var(--texto); }
+.av-sit::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: var(--muito-fraco); flex: none; }
+.av-sit.atrasando { color: var(--av-ruim); }
+.av-sit.atrasando::before { background: var(--vencida); }
+.av-sit.falta { color: var(--av-falta); background: var(--av-falta-f); padding: 2px 9px 2px 8px; border-radius: 999px; }
+.av-sit.falta::before { background: var(--hoje); }
+
+/* tablet e celular: a tabela vira cartões (dois por linha no tablet) */
+@media (max-width: 999px) {
+  .av-dupla { grid-template-columns: minmax(0, 1fr); }
+  .av-tab, .av-tab tbody { display: block; background: transparent; border: 0; box-shadow: none; border-radius: 0; overflow: visible; }
+  .av-tab thead { display: none; }
+  .av-tab tbody { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 340px), 1fr)); gap: 10px; }
+  .av-tab tr { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 5px 12px; align-content: start;
+    background: var(--papel); border: 1px solid var(--linha); border-radius: var(--raio); padding: 12px 14px;
+    box-shadow: var(--sombra-cartao, none); }
+  .av-tab tbody tr:hover td { background: transparent; }
+  .av-tab tbody tr:hover { border-color: var(--borda); }
+  .av-tab td { display: block; padding: 0; border: 0 !important; background: transparent; }
+  .av-tab .c-frota { grid-column: 1; grid-row: 1; }
+  .av-tab .c-frota b { font-size: 15px; }
+  .av-tab .c-dias { grid-column: 2; grid-row: 1; white-space: nowrap; }
+  .av-tab .c-oc, .av-tab .c-sit, .av-tab .c-mot, .av-tab .c-comb, .av-tab .c-acoes { grid-column: 1 / -1; }
+  .av .av-so-cartao { display: inline; margin: 0; font-size: 12.5px; }
+  .av-tab .c-sit small, .av-tab .c-mot small { display: inline; margin-left: 6px; }
+  .av-tab .c-acoes { display: flex; gap: 8px; margin-top: 6px; width: auto; text-align: left; }
+  .av-tab .c-acoes:empty { display: none; }
+  .av-tab .c-acoes button { flex: 1 1 0; justify-content: center; min-height: 40px; font-size: 13.5px; }
+  .av-tab .c-acoes button + button { margin-left: 0; }
+  .av-pend tr.atrasando { box-shadow: inset 3px 0 0 var(--vencida), var(--sombra-cartao, 0 0 0 transparent); }
+  .av-pend tr.atrasando td.c-frota { box-shadow: none; }
+  .av-hist tr { grid-template-columns: auto minmax(0, 1fr) auto; }
+  .av-hist .c-data { grid-column: 1; grid-row: 1; color: var(--muito-fraco); font-size: 12.5px; align-self: center; }
+  .av-hist .c-frota { grid-column: 2; }
+  .av-hist .c-dias { grid-column: 3; }
+  .tabela.avaliacao.av-hist td.c-comb { text-align: left; color: var(--fraco); font-size: 12.5px; }
+}
+
+/* celular: os filtros numa linha (o período vira lista), os números dois a dois, botões do tamanho do dedo */
+@media (max-width: 760px) {
+  .av .kpis.av-kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+}
+@media (max-width: 640px) {
+  .av .av-seg-largo { display: none; }
+  .av .av-seg-cel { display: block; flex: 1 1 0; min-width: 0; width: auto; min-height: 40px; }
+  .av-filtros { flex-wrap: nowrap; }
+  .av-filtros .busca-frota { flex: 1 1 0; min-width: 0; min-height: 40px; }
+  .av-abas { gap: 0; }
+  .av-abas .aba { flex: 1 1 auto; justify-content: center; padding: 11px 6px 10px; }
+  .av-leitura { font-size: 14.5px; }
+  .av-cartao { padding: 12px 14px 6px; }
+  .av-mini { grid-template-columns: 42px minmax(0, 1fr); row-gap: 8px; }
+  .av-mini-acoes { grid-column: 1 / -1; justify-content: stretch; }
+  .av-mini-acoes button { flex: 1 1 0; justify-content: center; min-height: 40px; font-size: 13.5px; }
+  .av-ver { min-height: 40px; }
+  .av-barra .segmentos { display: flex; width: 100%; flex-wrap: nowrap; }
+  .av-barra .segmentos .seg-op { flex: 1 1 auto; justify-content: center; padding: 6px 4px; font-size: 12.5px; min-height: 38px; white-space: normal; text-align: center; line-height: 1.2; }
+  .av-filtros-lista .av-seg-cel, .av-filtros-lista .busca { flex: 1 1 100%; max-width: none; min-height: 40px; }
+}
+@media (max-width: 420px) {
+  .av .kpi { padding: 12px 12px 10px; }
+  .av .kpi .k-val { font-size: 26px; }
+  .av .kpi .k-rot { font-size: 12.5px; }
+}
+
+/* ══ 12/11/2026: a identidade da Makro ═══════════════════════════════════════
+   As cores saíram dos vetores oficiais que a Makro mandou (o PDF do logo), não
+   do olho: o Azul Makro (#1D3C85) e o Vermelho Makro (#ED1C24). No tema claro o
+   azul é a cor do site — o menu lateral (como o logo "fundo azul"), o botão
+   principal, a aba e o item escolhidos, os links e o foco. O vermelho fica no
+   logo: na tela, vermelho continua querendo dizer atraso.
+   A fonte da marca é a Metropolis (livre; a Gotham, que também veio, é paga e
+   não pode ir para um site público). Ela vai nos títulos, nos números grandes e
+   na navegação; o texto corrido, as tabelas e os formulários continuam na fonte
+   do sistema, porque a Metropolis não tem algarismos de largura igual e as
+   colunas de números desalinhariam. O painel de OS (área isolada, css/os.css)
+   ainda não mudou. */
+@font-face { font-family: "Metropolis"; font-style: normal; font-weight: 400; font-display: swap; src: url(../vendor/fontes/metropolis-400.woff2) format("woff2"); }
+@font-face { font-family: "Metropolis"; font-style: normal; font-weight: 500; font-display: swap; src: url(../vendor/fontes/metropolis-500.woff2) format("woff2"); }
+@font-face { font-family: "Metropolis"; font-style: normal; font-weight: 600; font-display: swap; src: url(../vendor/fontes/metropolis-600.woff2) format("woff2"); }
+@font-face { font-family: "Metropolis"; font-style: normal; font-weight: 700; font-display: swap; src: url(../vendor/fontes/metropolis-700.woff2) format("woff2"); }
+:root {
+  --azul-makro: #1D3C85;
+  --vermelho-makro: #ED1C24;
+  --fonte-marca: "Metropolis", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+}
+:root[data-tema="claro"] {
+  --marca: var(--azul-makro);
+  --marca-clara: #E8ECF5;
+  --navy: var(--azul-makro);
+  --navy-txt: #D5DCEC;
+  --navy-fraco: #A9B5D3;
+}
+:root[data-tema="claro"] button.primario { box-shadow: 0 1px 2px rgba(29, 60, 133, .25); }
+h1, h2, h3, #topo .titulo, .kpi .k-val, .g-tit, .abas .aba, #menu nav a, .cartao-entrar .logo,
+.av-leitura b, .av-titulo { font-family: var(--fonte-marca); }
+#topo .titulo { font-weight: 700; }
+
+/* o logo no alto do menu, com o nome do módulo embaixo */
+#menu .marca { flex-direction: column; align-items: flex-start; gap: 6px; padding: 16px 18px 14px; }
+#menu .marca .logo-makro { display: block; width: 118px; height: auto; }
+#menu .marca small { font-size: 11px; letter-spacing: .02em; }
+@media (min-width: 861px) {
+  :root[data-tema="claro"] #menu a:hover { background: rgba(255, 255, 255, .09); }
+  :root[data-tema="claro"] #menu a.ativo { background: rgba(255, 255, 255, .16); color: #fff; font-weight: 650; }
 }

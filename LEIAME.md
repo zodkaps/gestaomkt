@@ -44,22 +44,58 @@ A oficina devolver a frota atrasada **não** conta: o que se avalia é a operaç
   a frota no alto — **qualquer frota se digita**, lançada ou não: "617" acha a
   F-617, um pedaço do número mostra as que têm ele, e a frota que ninguém lançou
   aparece vazia, dizendo que não há nada dela (o mesmo no filtro do Registro).
-  Embaixo, **cinco abas**, um assunto por vez:
-  - **Resumo** — quatro números (movimentações no prazo, frotas no dia da
-    preventiva, liberações remarcadas, atrasando agora), a faixa do que pede
-    ação, e três gráficos: semana a semana, por que atrasou e quem atrasou;
-  - **Para resolver** — o que está atrasando agora e o que falta justificar,
-    cada linha com o botão que resolve (o número da aba é quantos são);
-  - **Motivos** — cada motivo pronto numa linha: quantos atrasos (a barra, nas
-    cores dos tipos), os dias somados e quem atrasou; tocar abre os atrasos dele;
-  - **Análise** — pontualidade por semana, frotas, categoria e tamanho do atraso;
-  - **Todos os atrasos** — a tabela do período, com busca.
+  Embaixo, desde 12/11/2026, **três áreas**, na ordem em que se lê (eram cinco
+  abas — Resumo, Para resolver, Motivos, Análise e Todos os atrasos — com o
+  mesmo histórico em pedaços):
+  - **Resumo** — uma frase que compara com o período anterior ("Atrasos
+    diminuíram: 4 no período, contra 7 de 01/10 a 12/10"), os quatro números de
+    sempre (movimentações no prazo, frotas no dia da preventiva, liberações
+    remarcadas, atrasando agora), cada um com o valor de antes; **Precisa de
+    ação** (quantas pendências e as três mais atrasadas, com os botões); os
+    **principais motivos** (tocar abre os atrasos de cada um); e um gráfico só,
+    a semana a semana, com a semana de mais atrasos dita em palavras;
+  - **Pendências** — o que pede ação, cada coisa uma vez só: o que está
+    atrasando agora e o atraso sem o porquê, de qualquer período, o mais
+    atrasado primeiro, com Frota, Ocorrência, Situação, Dias, Motivo e
+    responsável e o botão que resolve (Concluir, A frota chegou, Justificar —
+    os de sempre, com as mesmas permissões). Recortes: Todas, Atrasando agora,
+    Sem justificativa. Quinze de cada vez; o resto em *Mostrar as outras*;
+  - **Histórico e análise** — *Análise*: os motivos recorrentes (cada motivo
+    com quantos atrasos, os dias e quem atrasou) e os gráficos (pontualidade por
+    semana, frotas com mais atrasos, quem atrasou, categoria e tamanho do
+    atraso); *Todos os atrasos*: a tabela do período, com tipo, busca e motivo.
+  **O período anterior** (`A.periodoAnterior`) é o mesmo trecho do bloco de
+  antes, para comparar igual com igual: os mesmos dias do mês anterior (Este
+  mês), o mês antes do passado, as 4 ou 12 semanas antes (mesmos dias da
+  semana) e o mesmo trecho do ano anterior. As contas são as mesmas; só as
+  datas mudam — e sem registro no período anterior, a tela diz que não há com
+  que comparar, em vez de tirar conclusão.
+  **As pendências não contam em dobro** (`A.pendencias`): a movimentação
+  vencida e sem o porquê estava nas duas listas e a aba somava as duas (21,
+  com o menu dizendo 13). Agora o menu, a aba e a lista dão o mesmo número.
   A pontualidade conta só o que tinha data combinada; o sem prazo aparece à
-  parte. No prazo é cinza nos gráficos: só o atraso tem cor. O número no menu é
-  o que falta justificar.
+  parte. No prazo é cinza nos gráficos: só o atraso tem cor.
+  **No celular e no tablet** (abaixo de 1000px) as tabelas viram cartões, com
+  os botões do tamanho do dedo; no celular o período vira uma lista de escolha
+  e as três áreas cabem numa linha. Os endereços antigos (`?a=resolver`,
+  `motivos`, `analise`, `lista`) caem na área nova; o *Justificar* da
+  Movimentação abre as Pendências já em *Sem justificativa*.
 - As contas ficam em `js/avaliacao.js` (puras, testadas em `testes/rodar.js`);
   a tela em `js/tela/avaliacao.js`.
 
+- **A identidade da Makro** (12/11/2026, com os arquivos que o PCM mandou):
+  as cores saíram dos vetores oficiais do logo, não do olho — o **Azul Makro
+  #1D3C85** e o **Vermelho Makro #ED1C24** (`--azul-makro`, `--vermelho-makro`
+  no `css/mkt.css`). No tema claro o azul é a cor do site: o menu lateral (como
+  o logo "fundo azul"), o botão principal, a aba e o item escolhidos, os links e
+  o foco. O vermelho fica no logo — na tela, vermelho continua querendo dizer
+  atraso. O menu traz o logo MAKRO branco (`img/makro-branco.svg`); o ícone do
+  site e do aplicativo é a estrela da Makro (`logo.svg`). A fonte da marca é a
+  **Metropolis** (livre, em `vendor/fontes/`), nos títulos, nos números grandes
+  e na navegação; o texto, as tabelas e os formulários continuam na fonte do
+  sistema, porque ela não tem algarismos de largura igual. A **Gotham**, que
+  também veio, é paga (Hoefler&Co.) e não entra num site público sem a licença
+  web dela. O painel de OS (área isolada) ainda está com o visual dele.
 - **Buscar frota**, no alto de todas as telas (no celular, a lupa ao lado do
   atualizar; **Ctrl+K** de qualquer lugar). Até 03/11/2026 era o
   **+ Registrar**, que perguntava "o que aconteceu?" e repetia os botões que
@@ -132,9 +168,8 @@ tom bem claro), todos acima de 4,5:1, e sempre levam o texto.
 - **A coluna da direita da agenda termina com o calendário**: no computador ela
   tem a altura dele e rola por dentro, e cada lista longa (o dia, as atrasadas)
   rola dentro do próprio cartão — a página não desce mais só por causa dela.
-- **A logo é um calendário** (`logo.svg`: a folha do mês com o dia marcado e
-  dado por feito), no menu, na tela de entrar, na aba do navegador e no ícone
-  do aplicativo. Os ícones do menu e do "+ Registrar" (hoje Buscar frota) são desenhos em linha
+- **A logo era um calendário** (até 12/11/2026, quando entrou a identidade da
+  Makro: ver abaixo). Os ícones do menu e do "+ Registrar" (hoje Buscar frota) são desenhos em linha
   (`js/icones.js`), não caracteres — a mão do "Para você" virava emoji
   colorido em alguns aparelhos.
 
@@ -1609,7 +1644,8 @@ travas existem de propósito — não tirar sem saber o porquê:
 |---|---|
 | `index.html` | a casca: topo, navegação, `<main>`. Nenhuma lógica. |
 | `css/mkt.css` | estilo único, celular primeiro, claro e escuro |
-| `vendor/fontes/` | a Nunito do tema claro (OFL, `Nunito-OFL.txt`) |
+| `vendor/fontes/` | a Metropolis, fonte da marca (livre, `Metropolis-LICENCA.txt`), e a Nunito antiga (OFL, `Nunito-OFL.txt`) |
+| `img/makro.svg`, `img/makro-branco.svg`, `logo.svg` | o logo da Makro (azul, branco para o menu) e o ícone do site, tirados dos vetores oficiais |
 | `js/app.js` | carrega a fita, escolhe a tela, cuida do aviso de backup |
 | `js/eventos.js` | **a única porta de escrita**: `aplicar`, `reconstruir`, `conferir` |
 | `js/modelo.js` | contas puras: semana ISO, prazo, situação, aderência, mix, backlog |
@@ -1625,7 +1661,7 @@ travas existem de propósito — não tirar sem saber o porquê:
 | `js/tela/*.js` | entrar, operacao, painel, hoje, programacao, semana, resultados, movimentacoes, preventivas, frota, historico, importar, diagnostico |
 | `js/foco.js` | o que o site mostra: sem `?oficina=1`, as telas da oficina ficam fora do menu; a primeira tela de quem entra |
 | `js/avaliacao.js` | as contas da Avaliação da operação: os três atrasos, o que atrasa agora, o que falta justificar, os agrupamentos dos gráficos |
-| `js/tela/avaliacao.js` | a tela Avaliação, em abas: Resumo, Para resolver, Análise e Todos os atrasos |
+| `js/tela/avaliacao.js` | a tela Avaliação, em três áreas: Resumo, Pendências e Histórico e análise |
 | `js/tela/buscarfrota.js` | o Buscar frota (Ctrl+K): a frota digitada e tudo o que ela tem em aberto, abrindo as caixas de sempre |
 | `js/tela/prevlote.js` | as preventivas em lote: a barra das marcadas no Plano e as caixas de liberação, parada, chegada e realizada |
 | `js/decisoes.js` | **o que decidir agora**: as regras do Painel, puras, e a data sugerida para a parada |

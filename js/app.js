@@ -21,8 +21,9 @@ const TELAS = [
     contar: () => contagemOperacao() },
   { id: "avaliacao", icone: "medidor", nome: "Avaliação", grupo: "Operação", papeis: ["pcm", "operacao"], celular: !OFICINA,
     carregar: () => import("./tela/avaliacao.js"),
-    // O número no menu: atraso que ninguém justificou ainda.
-    contar: () => contarSemJustificativa() },
+    // O número no menu: as pendências, o mesmo da área Pendências — o que está
+    // atrasando agora e o atraso sem o porquê, cada um uma vez (12/11/2026).
+    contar: () => contarPendencias() },
   { id: "painel", icone: "painel", nome: "Painel", grupo: "Oficina", papeis: ["pcm"], oficina: true,
     carregar: () => import("./tela/painel.js"),
     // O número no menu: quantas decisões urgentes há.
@@ -80,12 +81,14 @@ function contarUrgentes() {
     podeAprovar: pessoas.pode("aprovar") }).filter(d => d.nivel === 1).length;
 }
 
-// Os atrasos sem justificativa, para o número no menu da Avaliação.
+// As pendências da Avaliação, para o número no menu: o mesmo da área Pendências.
 let avaliacaoMod = null;
 import("./avaliacao.js").then(m => { avaliacaoMod = m; }).catch(() => {});
-function contarSemJustificativa() {
+function contarPendencias() {
   if (!avaliacaoMod) return 0;
-  return avaliacaoMod.semJustificativa(ev.lista("movimentacao"), ev.lista("preventiva"), ev.log, M.hoje()).length;
+  const movs = ev.lista("movimentacao"), prevs = ev.lista("preventiva"), ref = M.hoje();
+  return avaliacaoMod.pendencias(avaliacaoMod.atrasandoAgora({ movs, prevs, ref }),
+    avaliacaoMod.semJustificativa(movs, prevs, ev.log, ref)).length;
 }
 
 function contagemOperacao() {

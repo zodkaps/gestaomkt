@@ -17,7 +17,7 @@ const TIPOS = { ".html": "text/html", ".js": "text/javascript", ".mjs": "text/ja
 export function servirCopia({ nuvem, porta = 8125, pasta = "/tmp/mkt-copia-teste" }) {
   rmSync(pasta, { recursive: true, force: true });
   mkdirSync(pasta, { recursive: true });
-  for (const d of ["index.html", "os.html", "manifest.json", "logo.svg", "css", "js", "vendor", "sql"]) {
+  for (const d of ["index.html", "os.html", "manifest.json", "logo.svg", "img", "css", "js", "vendor", "sql"]) {
     cpSync(join(RAIZ, d), join(pasta, d), { recursive: true });
   }
   // Troca SÓ o endereço, no config de verdade. Escrever um config inteiro aqui

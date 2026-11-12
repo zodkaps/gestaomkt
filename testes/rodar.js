@@ -1402,6 +1402,26 @@ titulo("avaliacao.js — as contas da avaliação da operação");
     "4s": ["2026-09-21", ref], "12s": ["2026-07-27", ref], "ano": ["2026-01-01", ref] });
   igual("em janeiro, o mês passado é dezembro do ano anterior",
     av.periodos("2027-01-05").find(x => x.id === "mes-passado"), { id: "mes-passado", rotulo: "Mês passado", de: "2026-12-01", ate: "2026-12-31" });
+
+  // o período de comparação (12/11/2026): o mesmo trecho do bloco anterior
+  const antes = (p) => { const x = av.periodoAnterior(p); return [x.de, x.ate]; };
+  igual("o período anterior: os mesmos dias do mês antes, o mês antes do passado, as semanas antes (mesmo dia da semana) e o ano antes",
+    Object.fromEntries(av.periodos(ref).map(x => [x.id, antes(x)])), {
+      "mes": ["2026-09-01", "2026-09-13"], "mes-passado": ["2026-08-01", "2026-08-31"],
+      "4s": ["2026-08-24", "2026-09-15"], "12s": ["2026-05-04", "2026-07-21"], "ano": ["2025-01-01", "2025-10-13"] });
+  igual("o dia que o mês anterior não tem vira o último dia dele (31/03 → 28/02; 29/02 → 28/02 do ano antes)",
+    [antes(av.periodos("2026-03-31").find(x => x.id === "mes")), antes({ id: "ano", de: "2028-01-01", ate: "2028-02-29" }),
+      antes(av.periodos("2027-01-05").find(x => x.id === "mes-passado"))],
+    [["2026-02-01", "2026-02-28"], ["2027-01-01", "2027-02-28"], ["2026-11-01", "2026-11-30"]]);
+  igual("período sem nome: o mesmo tamanho, logo antes", antes({ de: "2026-10-10", ate: "2026-10-13" }), ["2026-10-06", "2026-10-09"]);
+
+  // as pendências (12/11/2026): a vencida sem porquê está nas duas listas e conta uma vez
+  const pend = av.pendencias(agora, av.semJustificativa(movs, prevs, log, ref));
+  igual("pendências: cada coisa uma vez, a mais atrasada primeiro, com as marcas de atrasando e de sem o porquê",
+    pend.map(o => [o.tipo, o.id, o.dias, o.atrasando, o.semPorque]),
+    [["mov", "M4", 11, false, true], ["mov", "M7", 10, false, true], ["mov", "M5", 3, true, true],
+      ["entrega", "PC", 3, true, false], ["entrega", "PA", 1, false, true]]);
+  ok("somar as duas listas contaria a M5 duas vezes (6); as pendências são 5", agora.length + av.semJustificativa(movs, prevs, log, ref).length === 6 && pend.length === 5);
 }
 
 // ── a sequência de etapas e os motivos prontos ─────────────────────────────

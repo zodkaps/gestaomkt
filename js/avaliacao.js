@@ -104,6 +104,23 @@ export function semJustificativa(movs = [], prevs = [], _log = [], ref = M.hoje(
   return r.sort((a, b) => b.dias - a.dias);
 }
 
+/** O que pede ação, cada coisa uma vez só (12/11/2026): o que está atrasando
+ *  agora e o atraso que ninguém justificou. A movimentação vencida e sem o
+ *  porquê está nas duas listas e aqui é uma pendência só, com as duas marcas
+ *  (`atrasando` e `semPorque`). A mais atrasada primeiro. Antes a tela somava
+ *  as duas listas e contava essa movimentação duas vezes. */
+export function pendencias(agora = [], semJ = []) {
+  const g = new Map();
+  for (const o of agora) g.set(o.tipo + ":" + o.id, { ...o, atrasando: true, semPorque: false });
+  for (const o of semJ) {
+    const x = g.get(o.tipo + ":" + o.id);
+    if (x) { x.semPorque = true; if (!x.quando) x.quando = o.quando || ""; }
+    else g.set(o.tipo + ":" + o.id, { motivo: "", quem: "", ...o, atrasando: false, semPorque: true });
+  }
+  return [...g.values()].sort((a, b) => b.dias - a.dias || (b.atrasando - a.atrasando) ||
+    a.frota.localeCompare(b.frota, "pt-BR", { numeric: true }));
+}
+
 /** Os números do alto da tela. `pct` é a parte no prazo das que têm prazo:
  *  sem data prometida não dá para dizer se atrasou, e ficam de fora da conta
  *  (aparecem à parte, em `sem_prazo`). */
@@ -242,4 +259,36 @@ export function periodos(ref = M.hoje()) {
     { id: "12s", rotulo: "12 semanas", de: M.somaDias(segunda, -77), ate: ref },
     { id: "ano", rotulo: String(a), de: `${a}-01-01`, ate: ref },
   ];
+}
+
+/** O período de comparação (12/11/2026): o mesmo trecho do bloco anterior,
+ *  para comparar igual com igual — os mesmos dias do mês anterior (Este mês: 1º
+ *  a 12/11 contra 1º a 12/10), o mês antes do passado, as 4 ou 12 semanas antes
+ *  (mesmos dias da semana) e o mesmo trecho do ano anterior. O dia que o mês
+ *  anterior não tem (31/03 → fevereiro) vira o último dia dele. Período sem
+ *  nome: o mesmo tamanho, logo antes. As contas são as mesmas; só as datas
+ *  mudam. */
+export function periodoAnterior(per) {
+  if (!per || !per.de || !per.ate) return null;
+  const fimDoMes = (a, m) => new Date(Date.UTC(a, m, 0)).getUTCDate();      // m de 1 a 12
+  const mesesAntes = (iso, n) => {
+    const [a, m, d] = iso.split("-").map(Number);
+    const t = a * 12 + (m - 1) - n, aa = Math.floor(t / 12), mm = t % 12 + 1;
+    return `${aa}-${String(mm).padStart(2, "0")}-${String(Math.min(d, fimDoMes(aa, mm))).padStart(2, "0")}`;
+  };
+  const semanasAntes = n => ({ de: M.somaDias(per.de, -7 * n), ate: M.somaDias(per.ate, -7 * n) });
+  switch (per.id) {
+    case "mes": return { de: mesesAntes(per.de, 1), ate: mesesAntes(per.ate, 1) };
+    case "mes-passado": {
+      const de = mesesAntes(per.de, 1), [a, m] = de.split("-").map(Number);
+      return { de, ate: de.slice(0, 8) + String(fimDoMes(a, m)).padStart(2, "0") };
+    }
+    case "4s": return semanasAntes(4);
+    case "12s": return semanasAntes(12);
+    case "ano": return { de: mesesAntes(per.de, 12), ate: mesesAntes(per.ate, 12) };
+    default: {
+      const ate = M.somaDias(per.de, -1);
+      return { de: M.somaDias(ate, -((M.difDias(per.de, per.ate) || 0))), ate };
+    }
+  }
 }
