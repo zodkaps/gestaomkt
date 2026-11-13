@@ -64,7 +64,7 @@
           <svg viewBox="0 0 16 16" aria-hidden="true"><rect x="2" y="3" width="12" height="11" rx="2.2" fill="none" stroke="currentColor" stroke-width="1.4"/><path d="M2 6.6h12M5.2 1.8v2.6M10.8 1.8v2.6" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>
           <span class="per-rot">Período</span><span class="pill-rot" id="f-periodo-txt"></span><span class="seta" aria-hidden="true">▾</span>
         </button><button type="button" class="pill per-passo" id="f-per-prox" aria-label="Próximo período" title="O período seguinte">›</button></span>
-        <input class="pill-busca" id="f-q" type="search" placeholder="Buscar OS, serviço, observação, executante…" aria-label="Buscar" autocomplete="off">
+        <input class="pill-busca" id="f-q" type="search" placeholder="Buscar OS, frota, serviço, executante…" aria-label="Buscar" autocomplete="off">
       </div>
       <div class="mais-painel" id="mais-painel" hidden></div>
       <div class="chips" id="chips"></div>
@@ -78,9 +78,11 @@
     <div class="grade">
       <article class="cartao c12" id="c-resumo" data-imagem>
         <div class="cab"><div><h2>Resumo</h2><p class="nota" id="nota-resumo"></p></div><div class="acoes"></div></div>
-        <p class="veredito" id="veredito"></p>
         <div class="kpi-grupo"><h3 class="kpis-tit" id="rot-posicao"></h3><div class="kpis mini kpis3" id="kpis"></div></div>
-        <div class="kpi-grupo"><h3 class="kpis-tit">No período · <b id="rot-resumo"></b></h3><div class="kpis mini kpis4" id="kpis-resumo"></div></div>
+        <div class="resumo-linhas">
+          <p class="veredito" id="veredito"></p>
+          <p class="resumo-prog" id="resumo-prog"></p>
+        </div>
       </article>
       <article class="cartao c12" id="c-evolucao" data-imagem>
         <div class="cab"><div><h2>Evolução do backlog</h2><p class="nota" id="nota-evolucao"></p></div>
@@ -96,21 +98,21 @@
         <div class="cab"><div><h2>Há quanto tempo estão abertas</h2><p class="nota">As abertas, pela data de abertura</p></div><div class="acoes"></div></div>
         <div class="graf" id="g-idade"></div>
       </article>
-      <article class="cartao c12" id="c-frotas" data-imagem>
-        <div class="cab"><div><h2>Backlog por frota</h2><p class="nota" id="nota-frotas"></p></div>
-          <div class="acoes"><div class="ctl" id="ctl-frotas"></div></div></div>
-        <div class="legenda" id="leg-frotas"></div>
-        <div class="graf rolar-x" id="g-frotas"></div>
-      </article>
-      <article class="cartao c12" id="c-progfin" data-imagem>
-        <div class="cab"><div><h2>Programadas e encerradas</h2><p class="nota" id="nota-progfin"></p></div>
-          <div class="acoes"><div class="ctl" id="ctl-progfin"></div></div></div>
-        <div class="legenda" id="leg-progfin"></div>
-        <div class="graf rolar-x" id="g-progfin"></div>
-      </article>
       <section class="mais-analises" data-mais="geral">
         <button type="button" class="mais-bt" aria-controls="mais-geral"></button>
         <div class="grade mais-corpo" id="mais-geral">
+          <article class="cartao c12" id="c-frotas" data-imagem>
+            <div class="cab"><div><h2>Backlog por frota</h2><p class="nota" id="nota-frotas"></p></div>
+              <div class="acoes"><div class="ctl" id="ctl-frotas"></div></div></div>
+            <div class="legenda" id="leg-frotas"></div>
+            <div class="graf rolar-x" id="g-frotas"></div>
+          </article>
+          <article class="cartao c12" id="c-progfin" data-imagem>
+            <div class="cab"><div><h2>Programadas e encerradas</h2><p class="nota" id="nota-progfin"></p></div>
+              <div class="acoes"><div class="ctl" id="ctl-progfin"></div></div></div>
+            <div class="legenda" id="leg-progfin"></div>
+            <div class="graf rolar-x" id="g-progfin"></div>
+          </article>
           <article class="cartao c4" id="c-quem" data-imagem>
             <div class="cab"><div><h2>Quem vai fechar as abertas</h2><p class="nota">Pela mão de obra da STL</p></div><div class="acoes"></div></div>
             <div class="graf" id="g-quem"></div>

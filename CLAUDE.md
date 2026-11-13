@@ -133,4 +133,11 @@ Mudou arquivo em `js/`? Acrescentar em `sw.js` (lista e versão) — o
 - Cartão novo no painel de OS: à vista só se for essencial para a aba; o
   secundário vai para o "Mais análises" dela (`maisAnalises` em
   `js/os/painel.js`), que fica fechado mas montado — o relatório captura de lá.
+  O que abre pelo clique (a lista das OS, os *Detalhes da análise*) usa o mesmo
+  `recolhido`; o clique num número abre a seção (`MAIS[chave] = true`).
+- Cada aba responde uma pergunta e não repete a outra (13/11/2026): a
+  Programação, programei/executei/pendente/% (`IND.progFin`); o Avanço, a conta
+  do backlog (`IND.movimento`); a Visão geral, a carteira de agora; os
+  Indicadores, só o que nenhuma outra aba mostra. Número novo vai para a aba
+  dele, não para três.
 - CSV sai por `celulaCSV` (`js/texto.js`), que não deixa célula virar fórmula.

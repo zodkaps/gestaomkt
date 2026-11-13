@@ -755,3 +755,61 @@ h2, h3, .aba, .kpi .val, .porta-caixa h2 { font-family: var(--fonte-marca, inher
 .mais-corpo { width: 100%; }
 .mais-analises:not(.aberto) > .mais-corpo { height: 0; overflow: hidden; visibility: hidden; }
 .mais-analises.aberto > .mais-corpo { margin-top: 14px; }
+
+/* (13/11/2026, segunda simplificação) a Programação: quatro números grandes — programadas, executadas, pendentes de
+   execução e o % de execução —, a barra embaixo e uma linha só para a extra programação */
+.kpis.pg-top { grid-template-columns: repeat(4, minmax(0, 1fr)); margin-top: 4px; }
+@media (max-width: 900px) { .kpis.pg-top { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+.kpis.pg-top .val { font-size: 32px; }
+.pg-avanco-tit span { font-weight: 400; color: var(--fraco); }
+.pg-extra { margin: 6px 0 0; }
+
+/* (13/11/2026, segunda simplificação) o Avanço: os cinco números da conta, grandes */
+.kpis.av-kpis5 { grid-template-columns: repeat(5, minmax(0, 1fr)); margin-top: 4px; }
+@media (max-width: 1100px) { .kpis.av-kpis5 { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+@media (max-width: 640px) { .kpis.av-kpis5 { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+.kpis.av-kpis5 .val { font-size: 30px; }
+
+/* (13/11/2026, segunda simplificação) a Visão geral: o rumo da carteira e a programação numa linha cada, com o caminho
+   para a aba que detalha */
+.resumo-linhas { display: grid; gap: 8px; margin-top: 14px; }
+.resumo-prog { margin: 0; padding: 10px 14px; border-radius: 10px; background: var(--papel2); font-size: 14.5px; line-height: 1.45; }
+.ver-link { border: 0; background: none; padding: 0 0 0 4px; color: var(--marca); font: inherit; font-weight: 650; cursor: pointer; white-space: nowrap; }
+.ver-link:hover { text-decoration: underline; }
+.veredito .ver-link { color: inherit; text-decoration: underline; }
+
+/* (13/11/2026, segunda simplificação) a Carteira: o resumo que filtra, numa linha (cada número liga o filtro dele) */
+.cart-resumo { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.cart-chip { display: inline-flex; align-items: baseline; gap: 6px; min-height: 36px; padding: 6px 12px; border: 1px solid var(--borda);
+  border-radius: 999px; background: var(--papel); color: var(--texto); font: inherit; font-size: 13px; cursor: pointer; }
+.cart-chip b { font-size: 15px; font-variant-numeric: tabular-nums; }
+.cart-chip span { color: var(--fraco); }
+.cart-chip:hover { border-color: var(--marca); }
+.cart-chip[aria-pressed="true"] { background: var(--marca-clara); border-color: var(--marca); }
+.cart-chip[aria-pressed="true"] span { color: var(--texto); }
+.cart-chip.velhas b { color: var(--alerta-t); }
+.cart-idade { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 6px; padding-left: 4px; }
+.cart-idade-rot { font-size: 12.5px; color: var(--fraco); }
+/* no celular, cada OS da lista vira um cartão: OS, frota e situação em cima, o serviço, e o resto em três colunas */
+@media (max-width: 640px) {
+  .tab.tab-os { max-height: none; overflow: visible; }
+  table.lista-os thead { display: none; }
+  table.lista-os, table.lista-os tbody { display: block; width: 100%; }
+  table.lista-os tr { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px 10px; padding: 11px 12px; border-bottom: 1px solid var(--linha); }
+  table.lista-os td { display: block; padding: 0; border: 0; min-width: 0; white-space: normal; position: static; }
+  table.lista-os td[data-k="os"] { grid-column: 1; grid-row: 1; align-self: center; }
+  table.lista-os td[data-k="frota"] { grid-column: 2; grid-row: 1; align-self: center; }
+  table.lista-os td[data-k="sit"] { grid-column: 3; grid-row: 1; justify-self: end; }
+  table.lista-os td[data-k="servico"] { grid-column: 1 / -1; grid-row: 2; min-width: 0; }
+  table.lista-os td:not([data-k="os"]):not([data-k="frota"]):not([data-k="sit"]):not([data-k="servico"]) { font-size: 12.5px; text-align: left; }
+  table.lista-os td:not([data-k="os"]):not([data-k="frota"]):not([data-k="sit"]):not([data-k="servico"])::before {
+    content: attr(data-rot); display: block; font-size: 10.5px; font-weight: 700; letter-spacing: .03em; text-transform: uppercase; color: var(--muito-fraco); }
+  .cart-chip { min-height: 40px; }
+}
+
+/* (13/11/2026) a idade acima de 90 dias na lista: um ponto vermelho discreto ao lado do número, e não a coluna toda em
+   vermelho (o vermelho fica para o que é crítico) */
+@media (min-width: 641px) {
+  td.velha { color: var(--texto); }
+  td.velha::before { content: ""; display: inline-block; width: 7px; height: 7px; margin-right: 6px; border-radius: 50%; background: var(--alerta); vertical-align: 1px; }
+}

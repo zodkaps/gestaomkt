@@ -2476,22 +2476,22 @@ ok("e o Diagnóstico não manda rodar SQL por causa de sessão",
   await mt.waitForSelector("#kpis .kpi", { timeout: 30000 });
   await mt.waitForTimeout(600);
   const kp = await mt.$$eval("#kpis .kpi .val", v => v.map(x => x.textContent));
-  const kr = await mt.$$eval("#kpis-resumo .kpi .val", v => v.map(x => x.textContent));
-  const kv = await mt.$$eval("#kpis-resumo .kpi", v => v.map(x => x.innerText.replace(/\s+/g, " ")));
-  ok("gravou e abriu: 2 abertas, e no resumo da semana (o período de partida) 1 encerrada e a carteira de 3 para 2", kp[0] === "2" && kr[1] === "−1" &&
-    /de 3 para 2 OS/.test(kv[2] || ""), kp.join(" | ") + " · " + kv.join(" | "));
-  // (13/11/2026) a Visão geral simplificada: os sete números num cartão só (agora: 3; no período: 4), sem o backlog
-  // repetido; e o secundário em "Mais análises", fechado — um clique mostra, com os gráficos na largura certa
+  ok("gravou e abriu: 2 abertas", kp[0] === "2", kp.join(" | "));
+  // (13/11/2026) a Visão geral é o resumo da carteira de agora: três números; o rumo da carteira e a programação numa
+  // linha cada, com o caminho para a aba; e o secundário em "Mais análises", fechado
   const rotKpis = await mt.$$eval("#c-resumo .kpi .rot", v => v.map(x => x.textContent.trim()));
-  ok("o Resumo tem os sete números, cada um uma vez: abertas, mais de 90 dias, sem executante; novas, encerradas, variação, programadas",
-    rotKpis.join("|") === "Abertas agora|Há mais de 90 dias|Sem executante|Novas OS|Encerradas|Variação|Programadas", rotKpis.join("|"));
+  ok("o Resumo: os três números da carteira de agora — abertas, mais de 90 dias, sem executante",
+    rotKpis.join("|") === "Abertas agora|Há mais de 90 dias|Sem executante", rotKpis.join("|"));
+  const linhaProg = (await mt.textContent("#resumo-prog")).replace(/\s+/g, " ");
+  ok("e a programação numa linha: programadas, executadas (com o %) e pendentes, com o caminho para a aba",
+    /^Programação · Semana atual.*: \d+ programadas? · \d+ executadas? \(.*\) · \d+ pendentes? Ver a programação →$/.test(linhaProg), linhaProg);
   const maisAntes = { bt: await mt.textContent("#geral .mais-bt"), exp: await mt.getAttribute("#geral .mais-bt", "aria-expanded"), cats: await mt.isVisible("#c-cats") };
   await mt.click("#geral .mais-bt");
   await mt.waitForTimeout(250);
   const maisDepois = { bt: await mt.textContent("#geral .mais-bt"), exp: await mt.getAttribute("#geral .mais-bt", "aria-expanded"), cats: await mt.isVisible("#c-cats"),
     larg: await mt.$eval("#g-cats svg", (s) => Math.round(s.getBoundingClientRect().width)).catch(() => 0) };
   ok("o secundário da Visão geral fica em 'Mais análises' fechado, e um clique mostra (os gráficos com a largura certa)",
-    /^Mais análises \(3\)/.test(maisAntes.bt) && maisAntes.exp === "false" && !maisAntes.cats &&
+    /^Mais análises \(5\)/.test(maisAntes.bt) && maisAntes.exp === "false" && !maisAntes.cats &&
     /^Menos análises/.test(maisDepois.bt) && maisDepois.exp === "true" && maisDepois.cats && maisDepois.larg > 200, JSON.stringify([maisAntes, maisDepois]));
   await mt.click("#geral .mais-bt");
   await mt.waitForTimeout(150);
@@ -2592,9 +2592,15 @@ ok("e o Diagnóstico não manda rodar SQL por causa de sessão",
     notaPF.startsWith("Mês atual") && notaPF.includes("0 programadas") && notaPF.includes("1 encerrada no total (1 extra programação)"), notaPF);
   await mt.click("#aba-programacao");
   await mt.waitForTimeout(300);
+  // (13/11/2026) a lista das OS começa fechada: abre pelo clique num número, na barra ou no "Ver a lista das OS"
+  ok("Programação: a lista das OS começa fechada, com o botão para abrir", !(await mt.isVisible("#pg-lista")) &&
+    (await mt.textContent('#programacao [data-mais="pg-lista"] > .mais-bt')).includes("Ver a lista das OS"));
   const kpiDe = (sel, rot) => mt.$eval(`${sel} .kpi:has(.rot:text-is("${rot}"))`, (k) => [k.querySelector(".val").textContent, k.querySelector(".pe").textContent]).catch(() => ["?", "?"]);
   const kFin = await kpiDe("#programacao .pg-mov", "Encerradas no período");
   ok("Programação: as encerradas no mês, separadas das programadas (da programação e extra programação)", kFin[0] === "−1" && kFin[1].startsWith("0 da programação · 1 extra programação"), kFin.join(" | "));
+  // (13/11/2026) o encerramento e a carteira do período ficam em "Mais análises" da Programação
+  await mt.click('#programacao [data-mais="programacao"] > .mais-bt');
+  await mt.waitForTimeout(250);
   await mt.click('#programacao .pg-mov .kpi:has(.rot:text-is("Encerradas no período"))');
   await mt.waitForTimeout(500);
   const listaFin = await mt.innerText("#pg-lista");
@@ -2605,8 +2611,8 @@ ok("e o Diagnóstico não manda rodar SQL por causa de sessão",
   const kOut = await mt.$$eval("#programacao .pg-kpis:not(.pg-mov) .kpi .val", (v) => v.map((x) => x.textContent));
   const kOutMov = await kpiDe("#programacao .pg-mov", "Encerradas no período");
   const notaSemExec = await mt.textContent("#programacao .pg-semexec").catch(() => "");
-  ok("e em outubro: 2 programadas (a 100003 encerrou depois, em novembro), nenhuma encerrada no mês — a 100002, sem ninguém na STL, não conta",
-    kOut[0] === "2" && kOut[2] === "1" && kOutMov[0] === "0" && notaSemExec.startsWith("1 OS tem a data programada no período e ninguém na STL"),
+  ok("e em outubro: 2 programadas, 1 executada (a 100003, encerrada depois, em novembro), 1 pendente e 50% de execução; nenhuma encerrada no mês — a 100002, sem ninguém na STL, não conta",
+    kOut.join("|") === "2|1|1|50%" && kOutMov[0] === "0" && notaSemExec.startsWith("1 OS tem a data programada no período e ninguém na STL"),
     kOut.join(" | ") + " · " + kOutMov.join(" | ") + " · " + notaSemExec);
   await mt.click("#programacao .pg-kpis .kpi >> nth=0");
   await mt.waitForTimeout(500);
@@ -2619,6 +2625,19 @@ ok("e o Diagnóstico não manda rodar SQL por causa de sessão",
   await mt.waitForTimeout(400);
   ok("e a sem executante fica no grupo dela, à parte", (await mt.innerText("#pg-lista tbody")).includes("100002"), (await mt.innerText("#pg-lista tbody")).slice(0, 120));
   ok("e o avanço das programadas numa barra só", await mt.isVisible("#programacao .pg-avanco-barra"));
+  // (13/11/2026) um gráfico só: programadas × executadas, com dia, semana e mês
+  const tituloSeq = () => mt.textContent("#pg-seq h2");
+  const seqAntes = await tituloSeq();
+  await mt.click('#pg-seq .ctl button:has-text("Dia")');
+  await mt.waitForTimeout(300);
+  const seqDia = await tituloSeq();
+  await mt.click('#pg-seq .ctl button:has-text("Mês")');
+  await mt.waitForTimeout(300);
+  const seqMes = await tituloSeq();
+  ok("o gráfico programadas × executadas troca entre dia, semana e mês", seqAntes.startsWith("Programadas × executadas") && seqDia.endsWith("dia a dia") &&
+    seqMes.endsWith("mês a mês") && (await mt.$$("#pg-seq svg")).length > 0, [seqAntes, seqDia, seqMes].join(" | "));
+  await mt.click('#pg-seq .ctl button:has-text("Semana")');
+  await mt.waitForTimeout(300);
   // a aba OS preventivas: a 100007, em aberto
   await mt.click("#aba-preventivas");
   await mt.waitForSelector("#prev-topo .kpi", { timeout: 10000 });
@@ -2630,16 +2649,20 @@ ok("e o Diagnóstico não manda rodar SQL por causa de sessão",
   await mt.waitForSelector(".av-kpis", { timeout: 10000 });
   const av = await mt.$$eval(".av-kpis .kpi .val", v => v.slice(0, 4).map(x => x.textContent).join("|"));
   ok("aba Avanço: backlog inicial 3, nenhuma nova, 1 encerrada, backlog final 2", av === "3|0|−1|2", av);
+  // (13/11/2026) a conferência fica em "Detalhes da análise", fechada; um clique mostra
+  const detAv = '#avanco [data-mais="av-detalhes"] > .mais-bt';
+  const detFechado = !(await mt.isVisible("#av-conferencia"));
+  await mt.click(detAv);
+  await mt.waitForTimeout(250);
   const concil = await mt.innerText("#av-conferencia");
-  ok("a conferência do backlog: 3 + 0 − 1 − 0 = 2, e a conta fecha", concil.includes("A conta fecha") && /Backlog final calculado\s+2/.test(concil), concil.replace(/\s+/g, " ").slice(0, 300));
+  ok("a conferência do backlog (em 'Detalhes da análise'): 3 + 0 − 1 − 0 = 2, e a conta fecha", detFechado && concil.includes("A conta fecha") &&
+    /Backlog final calculado\s+2/.test(concil), concil.replace(/\s+/g, " ").slice(0, 300));
+  await mt.click(detAv);
+  await mt.waitForTimeout(150);
+  // o clique num número abre a lista das OS dele
   await mt.click('.av-kpis button.kpi:has-text("Encerradas")');
   await mt.waitForTimeout(400);
-  // a lista das encerradas fica em "Mais análises" do Avanço (13/11/2026)
-  await mt.click("#avanco .mais-bt");
-  await mt.waitForTimeout(250);
-  ok("e a lista das encerradas (em 'Mais análises') traz a OS encerrada em 03/11", (await mt.innerText("#av-lista")).includes("100003"));
-  await mt.click("#avanco .mais-bt");
-  await mt.waitForTimeout(150);
+  ok("e o clique em Encerradas abre a lista, com a OS encerrada em 03/11", (await mt.innerText("#av-lista")).includes("100003"));
   await periodoPronto("Mês anterior");
   const out = await mt.$$eval(".av-kpis .kpi .val", v => v.slice(0, 4).map(x => x.textContent).join("|"));
   ok("em outubro: nada no começo, entraram 3, nenhuma encerrada, ficaram 3", out === "0|+3|0|3", out);
@@ -2667,13 +2690,16 @@ ok("e o Diagnóstico não manda rodar SQL por causa de sessão",
   await mt.click('#pop .cal-dia[data-dia="2026-11-02"]');
   await mt.click('#pop .cal-dia[data-dia="2026-11-04"]');
   await mt.waitForTimeout(300);
-  const kpPer = await mt.$$eval("#kpis-resumo .kpi", (v) => v.map((x) => x.innerText.replace(/\s+/g, " ")));
-  ok("no calendário, o começo e o fim: só a OS encerrada em 03/11 conta como encerrada", (await mt.textContent("#f-periodo-txt")) === "De 02/11/2026 a 04/11/2026" &&
-    (await mt.textContent("#rot-resumo")) === "De 02/11/2026 a 04/11/2026" && /^Encerradas −1 /.test(kpPer[1]), kpPer[1]);
+  const verPer = await mt.textContent("#veredito");
+  ok("no calendário, o começo e o fim: só a OS encerrada em 03/11 conta como encerrada (a carteira de 3 para 2)", (await mt.textContent("#f-periodo-txt")) === "De 02/11/2026 a 04/11/2026" &&
+    (await mt.textContent("#rot-resumo")) === "De 02/11/2026 a 04/11/2026" && /caiu de 3 para 2 OS/.test(verPer), verPer);
   ok("o dia depois do export não se escolhe", await mt.evaluate(() => { const s = document.querySelector(".os-host").shadowRoot; s.querySelector("#f-periodo").click(); const b = s.querySelector('#pop .cal-dia[data-dia="2026-11-06"]'); return !!b && b.disabled; }));
   await mt.keyboard.press("Escape");
   // as frotas em colunas: uma por frota, a das abertas empilhada por liberação; clicar abre a frota
   ok("o backlog por frota (padrão do PCM): uma barra deitada para cada frota com OS", (await mt.$$("#g-frotas svg .col")).length === 2);
+  // (13/11/2026) o backlog por frota está em "Mais análises" da Visão geral (é o mesmo da aba Frotas)
+  await mt.click("#geral .mais-bt");
+  await mt.waitForTimeout(250);
   await mt.click("#g-frotas svg .col >> nth=1");
   await mt.waitForTimeout(400);
   ok("clicar numa frota do gráfico abre a ficha dela", mt.url().endsWith("#/os?aba=frotas") && (await mt.innerText("#chips")).includes("F-617"), mt.url());
@@ -2734,7 +2760,7 @@ ok("e o Diagnóstico não manda rodar SQL por causa de sessão",
   ok("e o painel volta para a aba em que estava", (await mt.textContent(".aba.on")).trim() === "Avanço", await mt.textContent(".aba.on"));
   const [dCel] = await Promise.all([mt.waitForEvent("download", { timeout: 30000 }), mt.click('#detalhe button:has-text("Baixar a imagem (celular)")')]);
   const bCel = await readFile(await dCel.path());
-  ok("a imagem para o celular (o resumo, a evolução e a conferência numa só)", bCel.subarray(1, 4).toString() === "PNG", dCel.suggestedFilename());
+  ok("a imagem para o celular (o resumo, a evolução, a programação e o avanço numa só)", bCel.subarray(1, 4).toString() === "PNG", dCel.suggestedFilename());
   const xCel = await xVermelho(bCel, { w: 0.15, h: 0.03, embaixo: false });
   ok("com o cabeçalho do relatório: o logo da Makro em cima, à direita", xCel > 20, `${xCel} pontos do X vermelho`);
   const [dDad] = await Promise.all([mt.waitForEvent("download", { timeout: 10000 }), mt.click('#detalhe button:has-text("Baixar os dados (Excel)")')]);
@@ -2849,6 +2875,50 @@ ok("e o Diagnóstico não manda rodar SQL por causa de sessão",
   ok("ao sair, a cópia do painel de OS some deste aparelho (e a lembrança do acesso também)", tinhaCopia && ficouCopia === null &&
     (await mt.evaluate(async () => await mkt.dados.lerMeta("acesso_os", null))) === null, `${tinhaCopia} → ${JSON.stringify(ficouCopia)?.slice(0, 40)}`);
   await ctxM.close();
+}
+
+// ── a Carteira de OS como lista de trabalho (13/11/2026) ─────────────────────
+// No alto, o resumo que filtra (cada número liga o filtro dele na barra e, ligado, desliga); a tabela com sete colunas
+// (as outras no botão Colunas); no celular, cada OS é um cartão, sem rolar para o lado.
+{
+  const abrirCarteira = async (pg) => {
+    vigiarCSP(pg);
+    await pg.goto(site.endereco, { waitUntil: "networkidle" });
+    await entrarComo(pg, "Mateus");
+    await pg.evaluate(() => { location.hash = "#/os?aba=carteira"; });
+    await pg.waitForSelector("#c-carteira tbody tr", { timeout: 30000 });
+    await pg.waitForTimeout(400);
+  };
+  const pc = await (await nav.newContext({ viewport: { width: 1280, height: 860 } })).newPage();
+  await abrirCarteira(pc);
+  const cab = await pc.$$eval("#c-carteira thead th", (v) => v.map((x) => x.textContent.trim()));
+  const chips = await pc.$$eval("#c-carteira .cart-chip", (v) => v.map((x) => `${x.querySelector("b").textContent} ${x.querySelector("span").textContent}`));
+  ok("a Carteira: o resumo que filtra no alto e a tabela com sete colunas", cab.join("|") === "OS|Frota|Serviço|Situação|Aberta em|Dias|Executante" &&
+    chips.some((c) => /^\d+ abertas$/.test(c)) && chips.some((c) => /^\d+ aguardando liberação$/.test(c)) && chips.some((c) => /^\d+ sem executante$/.test(c)),
+    cab.join("|") + " · " + chips.join(" · "));
+  const chipP = '#c-carteira .cart-chip:has-text("aguardando liberação")';
+  await pc.click(chipP);
+  await pc.waitForTimeout(400);
+  const soP = await pc.$$eval("#c-carteira tbody tr", (v) => v.map((tr) => (tr.querySelector('td[data-k="sit"]') || {}).textContent || ""));
+  const comFiltro = { ligado: await pc.getAttribute(chipP, "aria-pressed"), chips: (await pc.innerText("#chips")).trim() };
+  await pc.click(chipP);
+  await pc.waitForTimeout(400);
+  const semFiltro = { ligado: await pc.getAttribute(chipP, "aria-pressed"), chips: (await pc.innerText("#chips")).trim() };
+  ok("o número 'aguardando liberação' filtra a lista (o filtro aparece na barra) e, clicado de novo, solta",
+    soP.length > 0 && soP.every((t) => t.trim() === "Não liberada") && comFiltro.ligado === "true" && !!comFiltro.chips && semFiltro.ligado === "false" && !semFiltro.chips,
+    JSON.stringify({ soP, comFiltro, semFiltro }));
+  await pc.context().close();
+  const cel = await (await nav.newContext({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true })).newPage();
+  await abrirCarteira(cel);
+  const noCel = await cel.evaluate(() => {
+    const s = document.querySelector(".os-host").shadowRoot, tr = s.querySelector("#c-carteira tbody tr");
+    const r = (k) => { const td = tr.querySelector(`td[data-k="${k}"]`); if (!td) return null; const b = td.getBoundingClientRect(); return (b.top + b.bottom) / 2; };
+    return { larga: document.documentElement.scrollWidth <= innerWidth, cartao: getComputedStyle(tr).display, cab: getComputedStyle(s.querySelector("#c-carteira thead")).display,
+      mesmaLinha: Math.abs(r("os") - r("frota")) <= 4 && Math.abs(r("os") - r("sit")) <= 8 };
+  });
+  ok("no celular, cada OS da Carteira é um cartão (OS e frota na mesma linha), sem rolar para o lado",
+    noCel.larga && noCel.cartao === "grid" && noCel.cab === "none" && noCel.mesmaLinha, JSON.stringify(noCel));
+  await cel.context().close();
 }
 
 // ── o site publicado com a página aberta (12/11/2026) ───────────────────────

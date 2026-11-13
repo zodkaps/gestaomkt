@@ -94,6 +94,50 @@ A oficina devolver a frota atrasada **não** conta: o que se avalia é a operaç
   com erro de versão misturada recarrega uma vez sozinha; se falhar de novo,
   mostra o porquê e os botões de sempre (o teste simula a publicação com a
   página aberta, em `testes/interacao.mjs`).
+- **A segunda simplificação do painel de OS** (13/11/2026, tarde): o painel
+  responde primeiro quanto se programou, quanto se executou, quanto ficou
+  pendente, o % de execução e se a carteira anda ou acumula. Cada aba mostra o
+  que é dela e o resto fica a um clique — sem tirar aba, filtro, gráfico, conta
+  ou função, e sem mudar fórmula (as contas são as de `js/os/indicadores.js`).
+  - **Programação** — quatro números grandes: *Programadas* (data programada no
+    período e executante), *Executadas* (encerradas no Protheus ou com o fim
+    real da manutenção), *Pendentes de execução* (liberadas · aguardando
+    liberação) e *Execução* (executadas ÷ programadas, com o período anterior);
+    a barra executadas × pendentes, que abre a lista no clique; uma linha para a
+    extra programação; e um gráfico só, *programadas × executadas*, por dia,
+    semana ou mês. A lista das OS começa fechada (*Ver a lista das OS*) e abre
+    pelo clique num número ou na barra. O encerramento no Protheus (a
+    Conclusão, encerradas ÷ programadas) e a carteira do período, o gráfico com
+    a extra programação, o dia a dia e o por executante ficam em *Mais análises*.
+  - **Avanço** — os cinco números da conta (backlog inicial, novas, encerradas,
+    backlog final e variação, com encerradas ÷ novas junto) e o backlog ao fim
+    de cada período. A conferência, a entrada e saída e o histórico ficam em
+    *Detalhes da análise*; as novas × encerradas e o por executante ou frota, em
+    *Mais análises*; a lista abre pelo clique nos números.
+  - **Visão geral** — o resumo da carteira de agora: abertas, há mais de 90
+    dias e sem executante; o rumo da carteira numa linha (com o caminho para o
+    Avanço) e a programação numa linha (com o caminho para a Programação); a
+    evolução do backlog, a entrada e saída e a idade das abertas. Os números do
+    período saíram dela (estão no Avanço); o backlog por frota (o mesmo da aba
+    Frotas) e as programadas e encerradas (o mesmo da Programação) foram para
+    *Mais análises*.
+  - **Indicadores** — à vista, onze que nenhuma outra aba mostra, em três
+    grupos (ritmo; programação e prazo; planejamento e mão de obra). Os que
+    repetem outra aba (backlog no fim, entraram, saldo, taxa de atendimento,
+    aguardando liberação, cobertura de mão de obra) e o comparativo ficam em
+    *Mais análises*, com as mesmas contas.
+  - **Carteira de OS** — uma lista de trabalho. No alto, o resumo que filtra:
+    abertas, aguardando liberação, sem executante, há mais de 30, 60 e 90 dias
+    e as encerradas no período; cada número liga o filtro dele na barra (o mesmo
+    filtro, aparece nas etiquetas) e, clicado de novo, solta. Os recortes são das
+    abertas e não somam: uma OS pode estar em mais de um. Esse resumo ficou no
+    lugar dos botões de situação, que repetiam o filtro Situação da barra. A
+    tabela tem sete colunas por padrão (OS, frota, serviço, situação, aberta em,
+    dias e executante); as outras continuam no botão *Colunas* (a lista da
+    Programação mostra também a data programada e o fim). A idade acima de 90
+    dias é um ponto vermelho ao lado do número, não a coluna toda em vermelho.
+    No celular, cada OS vira um cartão (OS, frota e situação em cima, o serviço,
+    e aberta em, dias e executante embaixo), sem rolar para o lado.
 - **O painel de OS mais limpo** (13/11/2026), sem tirar aba, filtro, gráfico,
   cálculo ou função. A **Visão geral** começa num cartão só, o **Resumo**: a
   frase do rumo da carteira em uma linha e os sete números, cada um uma vez —

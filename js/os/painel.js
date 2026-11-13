@@ -60,14 +60,16 @@ export function iniciarPainel(D, { baixar, raiz = document, aba = '', aoTrocarAb
       const aberto = !!MAIS[chave];
       caixa.classList.toggle('aberto', aberto);
       bt.setAttribute('aria-expanded', String(aberto));
-      bt.replaceChildren(el('span', { text: aberto ? 'Menos análises' : `Mais análises (${n})` }),
+      bt.replaceChildren(el('span', { text: aberto ? caixa.dataset.fechar || 'Menos análises' : caixa.dataset.abrir || `Mais análises (${n})` }),
         el('span', { class: 'seta', 'aria-hidden': 'true', text: aberto ? '▲' : '▼' }));
     };
     if (!caixa.dataset.ligado) { caixa.dataset.ligado = '1'; bt.addEventListener('click', () => { MAIS[chave] = !MAIS[chave]; pintarMais(); }); }
     pintarMais();
   }
-  function maisAnalises(chave, ...cartoes) {
-    const caixa = el('section', { class: 'mais-analises', 'data-mais': chave },
+  // (13/11/2026) o mesmo recolhido serve para o que abre pelo clique: a lista das OS, os detalhes da análise
+  function maisAnalises(chave, ...cartoes) { return recolhido(chave, {}, ...cartoes); }
+  function recolhido(chave, { abrir = '', fechar = '' }, ...cartoes) {
+    const caixa = el('section', { class: 'mais-analises', 'data-mais': chave, 'data-abrir': abrir || null, 'data-fechar': fechar || null },
       el('button', { type: 'button', class: 'mais-bt', 'aria-controls': 'mais-' + chave }),
       el('div', { class: 'grade mais-corpo', id: 'mais-' + chave }, cartoes));
     ligarMais(caixa);
@@ -983,7 +985,7 @@ export function iniciarPainel(D, { baixar, raiz = document, aba = '', aoTrocarAb
       const tr = el('tr', { class: aoClicar ? 'clica' : null, tabindex: aoClicar ? '0' : null });
       for (const c of cols) {
         const v = c.ver ? c.ver(r) : r[c.k];
-        tr.append(el('td', { class: [c.num ? 'n' : '', c.cls ? c.cls(r) : '', c.esc ? 'esc' : ''].join(' ').trim() || null },
+        tr.append(el('td', { class: [c.num ? 'n' : '', c.cls ? c.cls(r) : '', c.esc ? 'esc' : ''].join(' ').trim() || null, 'data-k': c.k, 'data-rot': c.rot },
           v instanceof Node ? v : v == null || v === '' ? '—' : typeof v === 'number' ? (c.h ? nh : nf).format(v) : String(v)));
       }
       if (aoClicar) { tr.addEventListener('click', () => aoClicar(r)); tr.addEventListener('keydown', (e) => { if (e.key === 'Enter') aoClicar(r); }); }
@@ -1005,19 +1007,19 @@ export function iniciarPainel(D, { baixar, raiz = document, aba = '', aoTrocarAb
     { k: 'frota', rot: 'Frota', fixa: true, frota: true, cls: () => 'frota' },
     { k: 'servico', rot: 'Serviço', fixa: true, cls: () => 'serv', ver: (o) => el('span', {}, o.servico, o.equip ? el('small', { text: o.equip }) : null) },
     { k: 'sit', rot: 'Situação', fixa: true, ver: (o) => badge(o), ord: ordSit },
-    { k: 'cat', rot: 'Categoria', padrao: true, ver: (o) => categoria(o), ord: (o) => 'PNOS'.indexOf(o.classe) + o.cat },
+    { k: 'cat', rot: 'Categoria', ver: (o) => categoria(o), ord: (o) => 'PNOS'.indexOf(o.classe) + o.cat },
     { k: 'abertura', rot: 'Aberta em', padrao: true, ver: (o) => br(o.abertura), cls: () => 'data' },
-    { k: 'abertaPor', rot: 'Aberta por', padrao: true, ver: (o) => o.abertaPor || '—', cls: () => 'data' },
-    { k: 'liberada', rot: 'Liberada em', padrao: true, ver: (o) => br(o.liberada), cls: () => 'data' },
-    { k: 'progEm', rot: 'Programada para', padrao: true, ver: (o) => br(o.progEm), cls: () => 'data' },
+    { k: 'abertaPor', rot: 'Aberta por', ver: (o) => o.abertaPor || '—', cls: () => 'data' },
+    { k: 'liberada', rot: 'Liberada em', ver: (o) => br(o.liberada), cls: () => 'data' },
+    { k: 'progEm', rot: 'Programada para', ver: (o) => br(o.progEm), cls: () => 'data' },
     { k: 'prev', rot: 'Prevista na STL', ver: (o) => (o.prev ? el('span', { class: o.prevEstado === 'vencida' ? 'velha' : '', text: br(o.prev), title: o.prevEstado === 'vencida' ? 'A data prevista na STL já passou' : 'Data prevista na mão de obra da STL' }) : '—'), cls: () => 'data' },
     { k: 'inicioMan', rot: 'Início da manutenção', ver: (o) => br(o.inicioMan), cls: () => 'data' },
-    { k: 'fim', rot: 'Finalizada em', padrao: true, ver: (o) => br(o.fim), cls: () => 'data' },
+    { k: 'fim', rot: 'Finalizada em', ver: (o) => br(o.fim), cls: () => 'data' },
     { k: 'dias', rot: 'Dias', num: true, padrao: true, ord: (o) => o.dias, cls: (o) => (o.sit !== 'F' && o.dias > 90 ? 'velha' : o.sit === 'F' ? 'fraco' : ''),
       ver: (o) => (o.lancDepois ? el('span', {}, diasDe(o), el('span', { class: 'lanc', text: 'lançada depois', title: `Aberta no Protheus ${plural(o.lancDepois, 'dia', 'dias')} depois do fim do serviço; o tempo conta do início da manutenção` })) : diasDe(o)) },
-    { k: 'quemTxt', rot: 'Quem fecha', padrao: true, cls: (o) => 'quem' + (o.grupo === 'S' ? ' fraco' : ''),
+    { k: 'quemTxt', rot: 'Executante', padrao: true, cls: (o) => 'quem' + (o.grupo === 'S' ? ' fraco' : ''),
       ver: (o) => (o.grupo === 'S' && o.espTxt ? el('span', {}, 'Sem executante', el('small', { style: 'display:block;color:var(--muito-fraco)', text: 'prevista: ' + o.espTxt })) : o.quemTxt) },
-    { k: 'horas', rot: 'Horas apontadas', num: true, h: true, padrao: true, ver: (o) => (o.horas ? nh.format(o.horas) + ' h' : '—') },
+    { k: 'horas', rot: 'Horas apontadas', num: true, h: true, ver: (o) => (o.horas ? nh.format(o.horas) + ' h' : '—') },
     { k: 'hPrev', rot: 'Horas previstas', num: true, h: true, ver: (o) => (o.hPrev ? nh.format(o.hPrev) + ' h' : '—') },
     { k: 'contador', rot: 'Contador', num: true, ord: (o) => Number(o.contador) || -1, ver: (o) => (o.contador ? nf.format(Number(o.contador) || 0) : '—') },
     { k: 'servCod', rot: 'Código do serviço' },
@@ -1026,6 +1028,8 @@ export function iniciarPainel(D, { baixar, raiz = document, aba = '', aoTrocarAb
     { k: 'obs', rot: 'Observação', cls: () => 'obs', ver: (o) => (o.obs ? o.obs.slice(0, 110) + (o.obs.length > 110 ? '…' : '') : '—') },
   ];
   const GUARDA_COLS = 'painel-os-colunas-v3';
+  // (13/11/2026) as colunas que cada lista mostra além das escolhidas: a da Programação precisa da data programada
+  const COLS_DA_LISTA = { prog: ['progEm', 'fim'], av: ['fim'], prev: ['fim'], ficha: ['fim'] };
   const colunasOn = (() => {
     try { const l = JSON.parse(localStorage.getItem(GUARDA_COLS) || 'null'); if (Array.isArray(l)) return new Set(l); } catch (e) { /* sem armazenamento */ }
     return new Set(COLS.filter((c) => c.padrao).map((c) => c.k));
@@ -1036,6 +1040,11 @@ export function iniciarPainel(D, { baixar, raiz = document, aba = '', aoTrocarAb
   // v7: a coluna Programada para entra para quem já tinha escolhido as colunas
   try { if (!localStorage.getItem('painel-os-v7-colunas')) { colunasOn.add('progEm'); colunasOn.delete('prev'); localStorage.setItem('painel-os-v7-colunas', '1');
     localStorage.setItem(GUARDA_COLS, JSON.stringify([...colunasOn])); } } catch (e) { colunasOn.add('progEm'); }
+  // v9 (13/11/2026): a carteira enxuta — OS, frota, serviço, situação, aberta em, dias e executante. Vale uma vez para
+  // todo mundo; as outras colunas continuam no botão Colunas
+  const padraoCols = () => { colunasOn.clear(); for (const c of COLS) if (c.padrao) colunasOn.add(c.k); };
+  try { if (!localStorage.getItem('painel-os-v9-colunas')) { padraoCols(); localStorage.setItem('painel-os-v9-colunas', '1');
+    localStorage.setItem(GUARDA_COLS, JSON.stringify([...colunasOn])); } } catch (e) { padraoCols(); }
   const salvarCols = () => { try { localStorage.setItem(GUARDA_COLS, JSON.stringify([...colunasOn])); } catch (e) { /* sem armazenamento */ } };
   let colunasAbertas = false;
 
@@ -1070,6 +1079,26 @@ export function iniciarPainel(D, { baixar, raiz = document, aba = '', aoTrocarAb
     const segm = el('div', { class: 'segm', role: 'group', 'aria-label': 'Situação (pode marcar mais de uma)' }, ...SITS.map(([k, rot]) =>
       el('button', { type: 'button', 'aria-pressed': String(ligado(k)), on: { click: () => clicar(k) } },
         COR[k] ? el('i', { class: 'ponto', style: 'background:' + COR[k] }) : null, rot, el('span', { class: 'n', text: nf.format(conta[k]) }))));
+    // (13/11/2026) a Carteira: no alto, o resumo que filtra. Os recortes são das abertas e não somam (uma OS pode estar
+    // em mais de um); cada número liga o filtro dele na barra (o mesmo filtro, sem botão repetido) e, ligado, desliga.
+    let resumoCart = null;
+    if (chave === 'carteira') {
+      const ab = semSit.filter((o) => o.sit !== 'F');
+      const desde = (n) => ab.filter((o) => o.faixa >= n).length;
+      const tem = (k, ...v) => !F.neg.has(k) && F[k].size === v.length && v.every((x) => F[k].has(x));
+      const liga = (k, ...v) => aplicar(() => { if (tem(k, ...v)) F[k].clear(); else so(k, ...v); });
+      const chip = (n, rot, dica, k, v, cls = '') => el('button', { type: 'button', class: 'cart-chip' + (cls ? ' ' + cls : ''), title: dica,
+        'aria-pressed': String(tem(k, ...v)), on: { click: () => liga(k, ...v) } }, el('b', { text: nf.format(n) }), el('span', { text: rot }));
+      resumoCart = el('div', { class: 'cart-resumo', role: 'group', 'aria-label': 'Resumo da carteira: cada número filtra a lista' },
+        chip(ab.length, 'abertas', 'Liberadas e aguardando liberação', 'sit', ['A', 'P']),
+        chip(conta.P, 'aguardando liberação', 'Das abertas, as que ainda não foram liberadas', 'sit', ['P']),
+        chip(ab.filter((o) => o.grupo === 'S').length, 'sem executante', 'Das abertas, as sem ninguém na STL (nem da equipe, nem terceiro)', 'exec', ['g:S']),
+        el('span', { class: 'cart-idade' }, el('span', { class: 'cart-idade-rot', text: 'Abertas há mais de' }),
+          chip(desde(1), '30 dias', 'Das abertas, as com mais de 30 dias', 'idade', ['1', '2', '3']),
+          chip(desde(2), '60', 'Das abertas, as com mais de 60 dias', 'idade', ['2', '3']),
+          chip(desde(3), '90', 'Das abertas, as com mais de 90 dias', 'idade', ['3'], 'velhas')),
+        chip(conta.F, 'encerradas no período', 'Encerradas no Protheus dentro do período da barra', 'sit', ['F']));
+    }
     const caixa = el('div', { class: 'tab' });
     const baixar = el('button', { type: 'button', class: 'botao mini baixar-csv', hidden: true, title: 'A lista na tela, com todas as linhas e todas as colunas, para abrir no Excel' });
     baixar.innerHTML = ICONE_BAIXAR + '<span>Baixar a lista (Excel)</span>';
@@ -1087,9 +1116,12 @@ export function iniciarPainel(D, { baixar, raiz = document, aba = '', aoTrocarAb
     const pe = el('div', { class: 'tab-pe' });
     alvo.replaceChildren(
       el('div', { class: 'cab' }, el('div', {}, el('h2', { text: titulo }), el('p', { class: 'nota', text: nota })), el('div', { class: 'acoes' }, aviso, baixar, escolha)),
-      ...(semSegm ? [] : [el('div', { class: 'cart-barra' }, segG || segm)]), caixa, pe);
-    const cols = COLS.filter((c) => (c.fixa || colunasOn.has(c.k)) && !(semFrota && c.frota));
+      ...(semSegm ? [] : [el('div', { class: 'cart-barra' }, segG || resumoCart || segm)]), caixa, pe);
+    const extras = COLS_DA_LISTA[chave] || [];
+    const cols = COLS.filter((c) => (c.fixa || colunasOn.has(c.k) || extras.includes(c.k)) && !(semFrota && c.frota));
     const ordenadas = tabela(caixa, { id: 'cart-' + chave, linhas: lista, lim: est.lim, padrao: { k: 'sit', dir: 'asc' }, aoClicar: abrirDetalhe, cols });
+    const tb = caixa.querySelector('table');
+    if (tb) { tb.classList.add('lista-os'); caixa.classList.add('tab-os'); }   // no celular, cada OS vira um cartão
     const mais = lista.length - est.lim;
     pe.replaceChildren(el('span', { text: `${nf.format(Math.min(est.lim, lista.length))} de ${plural(lista.length, 'OS', 'OS')} ` }),
       ...(mais > 0 ? [el('span', { class: 'acoes' },
@@ -1214,11 +1246,9 @@ export function iniciarPainel(D, { baixar, raiz = document, aba = '', aoTrocarAb
     // antigas), quanto há e se a carteira andou ou só girou —, cada número com o período anterior
     const mv = IND.movimento(R.todas, { de: sel.de, ate: sel.ate, base: D.base });
     const pa = IND.anterior({ desde: sel.de, ate: sel.ate, base: D.base, unidade: sel.unidade });
-    const mvA = IND.movimento(R.todas, { de: pa.desde, ate: pa.ate, base: D.base });
-    const rotAnt = pa.desde === pa.ate ? dm(pa.desde) : `${dm(pa.desde)} a ${dm(pa.ate)}`, nf0 = (v) => nf.format(v);
+    const rotAnt = pa.desde === pa.ate ? dm(pa.desde) : `${dm(pa.desde)} a ${dm(pa.ate)}`;
     const pctV = mv.variacaoPct == null || !mv.variacao ? '' : ` (${sinalPc(mv.variacaoPct)})`, pctF = pctV ? `; ${sinalPc(mv.variacaoPct)}` : '';
-    $('#rot-resumo').textContent = sel.rot;
-    $('#nota-resumo').textContent = `A carteira de agora e o movimento do período · comparado com ${rotAnt}`;
+    $('#nota-resumo').textContent = `A carteira de agora, o rumo dela no período e a programação · comparado com ${rotAnt}`;
     // (12/11/2026) a posição atual não é do período: é a carteira do último export, e o rótulo diz
     $('#rot-posicao').textContent = `Agora · a carteira no Protheus de ${br(D.base)}`;
     // (13/11/2026) a frase numa linha: o rumo da carteira; o resto está nos números logo embaixo
@@ -1231,6 +1261,7 @@ export function iniciarPainel(D, { baixar, raiz = document, aba = '', aoTrocarAb
     const ver = $('#veredito');
     ver.className = 'veredito ' + clsV;
     ver.textContent = (clsV === 'bom' ? '✓ ' : clsV === 'ruim' ? '⚠ ' : '= ') + frase;
+    ver.append(' ', el('button', { type: 'button', class: 'ver-link', text: 'Ver o avanço →', on: { click: () => irPara('avanco') } }));
     // a evolução do backlog: o fim de cada período, a variação embaixo e a reta da tendência
     const serie = serieCarteira(R.todas, sel, esc);
     $('#ctl-evolucao').replaceChildren(segSerie(sel));
@@ -1249,14 +1280,14 @@ export function iniciarPainel(D, { baixar, raiz = document, aba = '', aoTrocarAb
       kpi('Há mais de 90 dias', nf.format(v90), ab.length ? `${pc.format(v90 / ab.length)} das abertas · mais de 60: ${nf.format(v60)} · de 30: ${nf.format(v30)}` : '—',
         { cls: v90 ? 'ruim' : '', cor: COR.alerta, fazer: () => aplicar(() => so('idade', '3'), 'carteira') }),
       kpi('Sem executante', nf.format(sem), ab.length ? `${pc.format(sem / ab.length)} das abertas` : '—', { cls: sem ? 'ruim' : '', cor: COR.alerta, fazer: () => aplicar(() => so('exec', 'g:S'), 'carteira') }));
-    $('#kpis-resumo').replaceChildren(
-      kpiCom('Novas OS', mais(mv.entradas), 'abertas no período', 'var(--nova)', { comp: comparacao(mv.entradas, mvA.entradas, null, nf0, rotAnt) }),
-      kpiCom('Encerradas', menos(mv.saidas), `${nf.format(mv.saidasAntigas)} antigas · ${nf.format(mv.saidasNovas)} do período`, COR.F,
-        { comp: comparacao(mv.saidas, mvA.saidas, 'mais', nf0, rotAnt) }),
-      kpiCom('Variação', sinal(mv.variacao) + pctV, `de ${nf.format(mv.inicial)} para ${nf.format(mv.final)} OS`, null,
-        { cls: mv.variacao < 0 ? 'bom' : mv.variacao > 0 ? 'ruim' : '', comp: comparacao(mv.variacao, mvA.variacao, 'menos', sinal, rotAnt) }),
-      kpi('Programadas', nf.format(sem7.n), `${nf.format(sem7.prazo)} encerradas (${sem7.n ? pc.format(sem7.prazo / sem7.n) : '—'})`,
-        { cor: COR.prog, fazer: () => { (V.cart.prog || (V.cart.prog = { lim: 100 })).g = 'prog'; V.rolar = 'pg-lista'; irPara('programacao'); } }));
+    // (13/11/2026) a programação numa linha — programei, executei, ficou pendente e o % — com as contas da aba
+    // Programação (IND.progFin); o detalhe está lá. Os números do período (novas, encerradas, variação) ficam no Avanço.
+    const pendG = sem7.n - sem7.exec;
+    $('#resumo-prog').replaceChildren(el('span', { text: 'Programação · ' }), el('b', { id: 'rot-resumo', text: sel.rot }), ': ',
+      el('b', { text: nf.format(sem7.n) }), ` ${sem7.n === 1 ? 'programada' : 'programadas'} · `,
+      el('b', { text: nf.format(sem7.exec) }), ` ${sem7.exec === 1 ? 'executada' : 'executadas'} (${pctDe(sem7.exec, sem7.n)}) · `,
+      el('b', { text: nf.format(pendG) }), ` ${pendG === 1 ? 'pendente' : 'pendentes'} `,
+      el('button', { type: 'button', class: 'ver-link', text: 'Ver a programação →', on: { click: () => irPara('programacao') } }));
 
     // abertas e fechadas por frota, lado a lado (pedido de 03/11/2026)
     const pf = ordenaFrotas(porFrota(R));
@@ -1401,45 +1432,49 @@ export function iniciarPainel(D, { baixar, raiz = document, aba = '', aoTrocarAb
         el('div', { class: 'cab' }, el('div', {}, el('h2', { text: 'Indicadores de PCM' }),
           el('p', { class: 'nota', text: `${R.p.rot} · comparado com ${nomeAnt}` })),
           el('div', { class: 'acoes' }, botaoRegras())),
-        grupo('Carteira', 'o que estava em aberto no fim do período',
-          ind('Backlog no fim do período', nf.format(k.carteira), `em aberto em ${dm(k.periodo.ate)} · eram ${nf.format(k.noComeco)} no começo do período`,
-            { comp: compara(k.carteira, k.noComeco, 'menos', (v) => nf.format(v)), fazer: () => irSit('A', 'P') }),
-          ind('Backlog em semanas', fmtSem(k.backlogSemanas), k.ritmo ? `carteira ÷ ${nh.format(k.ritmo)} fechadas por semana no período: quanto tempo leva para zerar, se nada entrar` : 'nenhuma fechada no período'),
-          ind('Idade da carteira', fmtDias(k.idadeMediana), `mediana das abertas · ${fmtPc(k.mais90)} com mais de 90 dias (${nf.format(k.nMais90)})`,
-            { cls: k.mais90 > 0.5 ? 'ruim' : '', fazer: () => aplicar(() => so('idade', '3'), 'carteira') }),
-          ind('Aguardando liberação', nf.format(k.aguardando), k.esperaLiberacao == null ? 'nenhuma liberada no período para medir a espera'
-            : `as liberadas no período esperaram ${fmtDias(k.esperaLiberacao)} (mediana) da abertura até a liberação`, { fazer: () => irPara('pendentes') })),
-        grupo('Ritmo', 'no período',
+        grupo('Ritmo', 'quanto se fecha e quanto demora',
           ind('Fechadas por semana', k.ritmo == null ? '—' : nh.format(k.ritmo), `${plural(k.fechadas, 'fechada', 'fechadas')} em ${nh.format(k.periodo.semanas)} semanas`,
             { comp: compara(k.ritmo, a.ritmo, 'mais', (v) => nh.format(v)), fazer: () => irSit('F') }),
-          ind('Taxa de atendimento', fmtPc(k.atendimento), `fechadas ÷ entraram (${nf.format(k.fechadas)} de ${nf.format(k.entraram)}) · acima de 100% a carteira diminui`,
-            { comp: compara(k.atendimento, a.atendimento, 'mais', fmtPc), cls: k.atendimento == null ? '' : k.atendimento >= 1 ? 'bom' : 'ruim' }),
-          ind('Saldo da carteira', sinal(k.saldo), `entraram − fecharam no período (${nf.format(k.entraram)} − ${nf.format(k.fechadas)})`,
-            { comp: compara(k.saldo, a.saldo, 'menos', sinal), cls: k.saldo > 0 ? 'ruim' : k.saldo < 0 ? 'bom' : '' }),
-          ind('Entraram', nf.format(k.entraram), 'OS abertas no Protheus dentro do período', { comp: compara(k.entraram, a.entraram, null, (v) => nf.format(v)) })),
-        grupo('Prazo', 'quanto demora e o que cumpre o combinado',
+          ind('Backlog em semanas', fmtSem(k.backlogSemanas), k.ritmo ? `carteira ÷ ${nh.format(k.ritmo)} fechadas por semana no período: quanto tempo leva para zerar, se nada entrar` : 'nenhuma fechada no período'),
           ind('Tempo para fechar', fmtDias(k.tempoMediana), `mediana, da abertura ao fim da manutenção, das fechadas no período · média ${fmtDias(k.tempoMedia)}`,
             { comp: compara(k.tempoMediana, a.tempoMediana, 'menos', fmtDias) }),
-          ind('Fechadas em até 7 dias', fmtPc(k.ate7), `${nf.format(k.nAte7)} das ${nf.format(k.fechadas)} fechadas no período`, { comp: compara(k.ate7, a.ate7, 'mais', fmtPc) }),
+          ind('Fechadas em até 7 dias', fmtPc(k.ate7), `${nf.format(k.nAte7)} das ${nf.format(k.fechadas)} fechadas no período`, { comp: compara(k.ate7, a.ate7, 'mais', fmtPc) })),
+        grupo('Programação e prazo', 'o que cumpre o combinado',
           ind('Aderência à programação', fmtPc(k.aderencia), k.programadas ? `das ${nf.format(k.programadas)} programadas (com executante) para uma semana que já acabou, ${nf.format(k.cumpridas)} finalizadas até o domingo dela`
             : 'nenhuma OS programada para uma semana que já acabou', { comp: compara(k.aderencia, a.aderencia, 'mais', fmtPc), fazer: () => irPara('programacao') }),
           ind('Prevista vencida', fmtPc(k.vencida), `${nf.format(k.nVencidas)} das ${nf.format(k.nEquipe)} abertas com alguém da equipe: a data da mão de obra na STL já passou`,
-            { cls: k.vencida > 0.5 ? 'ruim' : '', fazer: () => aplicar(() => { so('exec', 'g:I'); so('prev', 'vencida'); }, 'carteira') })),
+            { cls: k.vencida > 0.5 ? 'ruim' : '', fazer: () => aplicar(() => { so('exec', 'g:I'); so('prev', 'vencida'); }, 'carteira') }),
+          ind('Idade da carteira', fmtDias(k.idadeMediana), `mediana das abertas · ${fmtPc(k.mais90)} com mais de 90 dias (${nf.format(k.nMais90)})`,
+            { cls: k.mais90 > 0.5 ? 'ruim' : '', fazer: () => aplicar(() => so('idade', '3'), 'carteira') })),
         grupo('Planejamento e mão de obra', 'como o trabalho chega',
           ind('Índice de preventiva', fmtPc(k.preventiva), `das encerradas no período (corretivas e preventivas), as preventivas: ${nf.format(k.nPreventivas)} de ${nf.format(k.fechadasTodas)}`,
             { comp: compara(k.preventiva, a.preventiva, 'mais', fmtPc) }),
           ind('Trabalho programado', fmtPc(k.programado), `Categoria programada ÷ (programada + não programada), nas fechadas (${nf.format(k.nProgP)} de ${nf.format(k.nProgP + k.nProgN)})`,
             { comp: compara(k.programado, a.programado, 'mais', fmtPc) }),
-          ind('Cobertura de mão de obra', fmtPc(k.cobertura), `abertas com alguém da equipe ou terceiro na STL (${nf.format(k.nComExec)} de ${nf.format(k.carteira)})`,
-            { fazer: () => aplicar(() => so('exec', 'g:S'), 'carteira') }),
           ind('Horas apontadas', nh.format(k.horas) + ' h', k.horasPorOS == null ? 'nenhuma fechada no período com apontamento' : `nas fechadas no período · ${nh.format(k.horasPorOS)} h por OS com apontamento`,
             { comp: compara(k.horas, a.horas, null, (v) => nh.format(v) + ' h') }),
           ind('Abertas depois do serviço', fmtPc(k.abertasDepois), `das fechadas no período, OS aberta no Protheus depois do fim da manutenção (${nf.format(k.nDepois)})`,
             { comp: compara(k.abertasDepois, a.abertasDepois, 'menos', fmtPc) }))),
-      cartaoComp,
       cartaoGraf('c-tempo', 'Tempo para fechar', `Mediana de dias até fechar, em cada ${unidI}`, 'c6'),
       cartaoGraf('c-ader', 'Aderência à programação', `% das programadas encerradas até o domingo da semana delas, em cada ${unidI}`, 'c6'),
       maisAnalises('indicadores',
+        el('article', { class: 'cartao c12', id: 'c-ind-outros', 'data-imagem': true },
+          el('div', { class: 'cab' }, el('div', {}, el('h2', { text: 'Também em outras abas' }),
+            el('p', { class: 'nota', text: 'Os números da carteira e do movimento, pela conta destes indicadores: estão também na Visão geral, no Avanço e em Não liberadas' })),
+            el('div', { class: 'acoes' })),
+          grupo('Carteira e movimento', 'no período',
+            ind('Backlog no fim do período', nf.format(k.carteira), `em aberto em ${dm(k.periodo.ate)} · eram ${nf.format(k.noComeco)} no começo do período`,
+            { comp: compara(k.carteira, k.noComeco, 'menos', (v) => nf.format(v)), fazer: () => irSit('A', 'P') }),
+            ind('Entraram', nf.format(k.entraram), 'OS abertas no Protheus dentro do período', { comp: compara(k.entraram, a.entraram, null, (v) => nf.format(v)) }),
+            ind('Saldo da carteira', sinal(k.saldo), `entraram − fecharam no período (${nf.format(k.entraram)} − ${nf.format(k.fechadas)})`,
+            { comp: compara(k.saldo, a.saldo, 'menos', sinal), cls: k.saldo > 0 ? 'ruim' : k.saldo < 0 ? 'bom' : '' }),
+            ind('Taxa de atendimento', fmtPc(k.atendimento), `fechadas ÷ entraram (${nf.format(k.fechadas)} de ${nf.format(k.entraram)}) · acima de 100% a carteira diminui`,
+            { comp: compara(k.atendimento, a.atendimento, 'mais', fmtPc), cls: k.atendimento == null ? '' : k.atendimento >= 1 ? 'bom' : 'ruim' }),
+            ind('Aguardando liberação', nf.format(k.aguardando), k.esperaLiberacao == null ? 'nenhuma liberada no período para medir a espera'
+            : `as liberadas no período esperaram ${fmtDias(k.esperaLiberacao)} (mediana) da abertura até a liberação`, { fazer: () => irPara('pendentes') }),
+            ind('Cobertura de mão de obra', fmtPc(k.cobertura), `abertas com alguém da equipe ou terceiro na STL (${nf.format(k.nComExec)} de ${nf.format(k.carteira)})`,
+            { fazer: () => aplicar(() => so('exec', 'g:S'), 'carteira') }))),
+        cartaoComp,
         cartaoGraf('c-ind-backlog', 'Evolução do backlog', `OS em aberto no fim de cada ${unidI} · tracejado: a tendência`, 'c12'),
         cartaoGraf('c-ind-ne', 'Novas e encerradas', `Em cada ${unidI}: a entrada pela abertura e a saída pelo fim · embaixo, o saldo`, 'c12', [['Novas OS', 'var(--nova)'], ['Encerradas', COR.F]]),
         cartaoGraf('c-ind-saldo', 'Saldo da carteira', `Novas − encerradas em cada ${unidI}`, 'c6', [['Cresceu (entrou mais do que saiu)', COR.alerta], ['Diminuiu (saiu mais do que entrou)', COR.F]]),
@@ -1527,6 +1562,9 @@ export function iniciarPainel(D, { baixar, raiz = document, aba = '', aoTrocarAb
     ['· encerradas depois', nf.format(l.depois)], [l.ate < D.base ? '· não encerradas' : '· ainda abertas', nf.format(l.ab)],
     ['Encerradas no período', nf.format(l.fin)], ['· da programação', nf.format(l.finProg), COR.F], ['· extra programação', nf.format(l.finFora), COR.nprog],
     ...(l.semExec ? [['Com data, sem executante (não contam)', nf.format(l.semExec), COR.alerta]] : [])];
+  const dicaExec = (l) => [['Programadas', nf.format(l.n), COR.prog], ['Executadas', `${nf.format(l.exec)} · ${pctDe(l.exec, l.n)}`, COR.F],
+    ['· já encerradas', nf.format(l.prazo + l.depois)], ['· sem encerrar no Protheus', nf.format(l.execAbertas)],
+    [l.ate < D.base ? 'Não executadas' : 'Pendentes', nf.format(l.n - l.exec)], ...(l.semExec ? [['Com data, sem executante (não contam)', nf.format(l.semExec), COR.alerta]] : [])];
   const itensPF = () => {
     const item = (nome, cor) => el('span', {}, el('i', { style: 'background:' + cor }), nome);
     return [item('Programadas', COR.prog), item('Encerradas da programação', COR.F), item('Extra programação', COR.nprog)];
@@ -1583,20 +1621,23 @@ export function iniciarPainel(D, { baixar, raiz = document, aba = '', aoTrocarAb
     const pend = progs.filter((o) => !execP(o)), nA = pend.filter((o) => o.sit === 'A').length, nP = pend.length - nA;
     const fech = x.prazo + x.depois;
     const conclusao = x.n ? fech / x.n : null, conclusaoA = xA.n ? (xA.prazo + xA.depois) / xA.n : null;
-    const irLista = (g) => { (V.cart.prog || (V.cart.prog = { lim: 100 })).g = g; V.rolar = 'pg-lista'; desenhar(); };
+    const irLista = (g) => { (V.cart.prog || (V.cart.prog = { lim: 100 })).g = g; MAIS['pg-lista'] = true; V.rolar = 'pg-lista'; desenhar(); };
     const rotPend = passou ? 'Não executadas' : 'Pendentes de execução';
-    const kProg = el('div', { class: 'kpis mini pg-kpis' },
-      kpiCom('Programadas', nf.format(x.n), 'com a data no período e executante' + (x.semExec ? ` · ${nf.format(x.semExec)} sem executante não contam` : ''), COR.prog,
+    // (13/11/2026) quatro números à vista: programadas, executadas, pendentes de execução e o % de execução
+    // (executadas ÷ programadas — as contas de sempre, do IND.progFin)
+    const execPct = x.n ? x.exec / x.n : null, execPctA = xA.n ? xA.exec / xA.n : null;
+    const kProg = el('div', { class: 'kpis pg-kpis pg-top' },
+      kpiCom('Programadas', nf.format(x.n), 'data no período e executante', COR.prog,
         { fazer: () => irLista('prog'), comp: comparacao(x.n, xA.n, null, nf0, rotPP) }),
-      kpiCom('Executadas', nf.format(x.exec), temFimReal ? `${pct(x.exec)} das programadas · ${nf.format(x.execAbertas)} sem encerrar no Protheus`
-        : `${pct(x.exec)} das programadas · pelo encerramento no Protheus`, null, { fazer: () => irLista('exec') }),
-      kpiCom('Encerradas', nf.format(fech), `${pct(fech)} das programadas` + (x.depois ? ` · ${nf.format(x.depois)} depois do período` : ''), COR.F,
-        { cls: x.n && fech / x.n >= 0.8 ? 'bom' : '', fazer: () => irLista('fech') }),
+      kpiCom('Executadas', nf.format(x.exec), temFimReal ? `${nf.format(fech)} encerradas · ${nf.format(x.execAbertas)} sem encerrar` : 'pelo encerramento no Protheus',
+        COR.F, { fazer: () => irLista('exec') }),
       kpiCom(rotPend, nf.format(pend.length), `${plural(nA, 'liberada', 'liberadas')} · ${nf.format(nP)} aguardando liberação`, passou && pend.length ? COR.alerta : COR.A,
         { cls: passou && pend.length ? 'ruim' : '', fazer: () => irLista('pend') }),
-      kpiCom('Conclusão', conclusao == null ? '—' : pc.format(conclusao), x.n ? `encerradas ÷ programadas · no período ${pct(x.prazo)}` : 'nada programado no período', null,
-        { comp: comparacao(conclusao, conclusaoA, 'mais', (v) => pc.format(v), rotPP) }));
+      kpiCom('Execução', execPct == null ? '—' : pc.format(execPct), x.n ? 'executadas ÷ programadas' : 'nada programado no período', null,
+        { cls: execPct != null && execPct >= 0.8 ? 'bom' : '', comp: comparacao(execPct, execPctA, 'mais', (v) => pc.format(v), rotPP) }));
     const kMov = el('div', { class: 'kpis mini pg-kpis pg-mov' },
+      kpiCom('Conclusão', conclusao == null ? '—' : pc.format(conclusao), x.n ? `encerradas ÷ programadas (${nf.format(fech)} de ${nf.format(x.n)}) · no período ${pct(x.prazo)}` : 'nada programado no período', COR.F,
+        { fazer: () => irLista('fech'), comp: comparacao(conclusao, conclusaoA, 'mais', (v) => pc.format(v), rotPP) }),
       kpiCom('Abertas no período', mais(mv.entradas), 'OS novas, pela data de abertura', 'var(--nova)',
         { fazer: () => irLista('novas'), comp: comparacao(mv.entradas, mvA.entradas, null, nf0, rotPA) }),
       kpiCom('Encerradas no período', menos(x.fin), `${nf.format(x.finProg)} da programação · ${nf.format(x.finFora)} extra programação`, COR.F,
@@ -1608,7 +1649,8 @@ export function iniciarPainel(D, { baixar, raiz = document, aba = '', aoTrocarAb
       ['Executadas, sem encerrar', x.execAbertas, COR.ctx, 'execAb', '#1f2937'],
       [`${passou ? 'Não executadas' : 'Pendentes'}: liberadas`, nA, COR.A, 'abA', '#ffffff'], [`${passou ? 'Não executadas' : 'Pendentes'}: aguardando liberação`, nP, COR.P, 'abP', '#1f2937']];
     const avanco = x.n ? el('div', { class: 'pg-avanco' },
-      el('p', { class: 'pg-avanco-tit' }, el('b', { text: `Das ${plural(x.n, 'programada', 'programadas')}: ${nf.format(x.exec)} executadas (${pct(x.exec)}) e ${nf.format(fech)} encerradas (${pct(fech)})` })),
+      el('p', { class: 'pg-avanco-tit' }, el('b', { text: `${nf.format(x.exec)} de ${plural(x.n, 'programada', 'programadas')} executadas (${pct(x.exec)})` }),
+        el('span', { text: ` · ${nf.format(fech)} já encerradas no Protheus (${pct(fech)})` })),
       el('div', { class: 'pg-avanco-barra' }, ...partesAv.filter((q) => q[1]).map(([rot, v, cor, g, tinta]) =>
         el('button', { type: 'button', class: 'pg-parte', style: `flex:${v} 1 0;background:${cor};color:${tinta}`, title: `${rot}: ${nf.format(v)} — ver na lista`,
           'aria-label': `${rot}: ${nf.format(v)}`, on: { click: () => irLista(g) } }, v / x.n >= 0.06 ? nf.format(v) : ''))),
@@ -1617,6 +1659,8 @@ export function iniciarPainel(D, { baixar, raiz = document, aba = '', aoTrocarAb
     // as com data no período e sem ninguém na STL: não contam como programadas, mas não somem
     const semExecNota = x.semExec ? el('p', { class: 'nota pg-semexec' }, `${plural(x.semExec, 'OS tem', 'OS têm')} a data programada no período e ninguém na STL (nem da equipe, nem terceiro): ` +
       `${x.semExec === 1 ? 'não conta como programada' : 'não contam como programadas'}. `, el('button', { type: 'button', class: 'concil-ver', text: 'Ver quais', on: { click: () => irLista('semExec') } })) : null;
+    const extraNota = x.finFora ? el('p', { class: 'nota pg-extra' }, `Fora da programação: ${plural(x.finFora, 'OS encerrada', 'OS encerradas')} no período sem estar ` +
+      `${x.finFora === 1 ? 'programada' : 'programadas'} para ele (extra programação). `, el('button', { type: 'button', class: 'concil-ver', text: 'Ver quais', on: { click: () => irLista('extra') } })) : null;
     const limite = el('details', { class: 'regra-mais pg-regras' }, el('summary', { text: 'Como é contado' }), el('ul', { class: 'pg-limite' },
       el('li', { text: 'Programada: a data programada (P. In. Man.) cai no período e há quem execute — alguém da equipe ou terceiro na STL. Sem executante, a OS não conta como programada. A OS encerrada no período sem estar programada nele é extra programação.' }),
       el('li', { text: temFimReal ? 'Executada: encerrada no Protheus, ou aberta com o fim real da manutenção (R. Fim Man.) lançado.'
@@ -1626,18 +1670,24 @@ export function iniciarPainel(D, { baixar, raiz = document, aba = '', aoTrocarAb
       el('div', { class: 'cab' }, el('div', {}, el('h2', { text: 'Programação' }),
         el('p', { class: 'nota', text: `${sel.rot} · comparado com ${rotPP}`, title: 'A data programada é a previsão de início da manutenção no Protheus; quando ninguém a mudou, é o próprio dia da abertura.' })),
         el('div', { class: 'acoes' }, el('div', { class: 'ctl' }, segQuaisDe(pg)))),
-      el('b', { class: 'pg-rot', text: sel.rot }),
-      el('div', { class: 'kpi-grupo' }, el('h3', { class: 'kpis-tit', text: 'As programadas para o período' }), kProg), avanco, semExecNota,
-      el('div', { class: 'kpi-grupo' }, el('h3', { class: 'kpis-tit', text: 'A carteira no período · pela abertura e pelo fim' }), kMov), limite);
+      kProg, avanco, semExecNota, extraNota, limite);
+    const carteiraPer = el('article', { class: 'cartao c12', id: 'pg-carteira', 'data-imagem': true },
+      el('div', { class: 'cab' }, el('div', {}, el('h2', { text: 'Encerramento e carteira no período' }),
+        el('p', { class: 'nota', text: `${sel.rot} · encerrada é a OS com Término = Sim no Protheus` })), el('div', { class: 'acoes' })), kMov);
     // a série: as programadas e as encerradas de cada período até o escolhido, e os 2 seguintes (já programados)
     const esc = escSerie(sel);
     const janela = janelaDe(sel, esc, 2).map((b) => contaProg(todas, b));
-    const gSeq = el('div', { class: 'graf rolar-x' });
+    const gSeq = el('div', { class: 'graf rolar-x' }), gSeqFin = el('div', { class: 'graf rolar-x' });
+    const itemLeg = (nome, cor) => el('span', {}, el('i', { style: 'background:' + cor }), nome);
     const seq = el('article', { class: 'cartao c12', id: 'pg-seq', 'data-imagem': true },
+      el('div', { class: 'cab' }, el('div', {}, el('h2', { text: 'Programadas × executadas · ' + ESC_ROT[esc] }),
+        el('p', { class: 'nota', text: 'embaixo, o % executado' })), el('div', { class: 'acoes' }, el('div', { class: 'ctl' }, segSerie(sel)))),
+      el('div', { class: 'legenda' }, itemLeg('Programadas', COR.prog), itemLeg('Executadas', COR.F)), gSeq);
+    const seqFin = el('article', { class: 'cartao c12', id: 'pg-seq-fin', 'data-imagem': true },
       el('div', { class: 'cab' }, el('div', {}, el('h2', { text: 'Programadas e encerradas · ' + ESC_ROT[esc] }),
         el('p', { class: 'nota', text: 'À esquerda as programadas; à direita as encerradas no período (da programação e extra programação) · embaixo, % das programadas encerradas no período' })),
         el('div', { class: 'acoes' }, el('div', { class: 'ctl' }, segSerie(sel)))),
-      legendaPF(), gSeq);
+      legendaPF(), gSeqFin);
     // dentro do período: os dias, as semanas ou os meses
     const dp = partesDoPeriodo(sel);
     let det = null, gDet = null, subs = [];
@@ -1657,9 +1707,13 @@ export function iniciarPainel(D, { baixar, raiz = document, aba = '', aoTrocarAb
       el('div', { class: 'cab' }, el('div', {}, el('h2', { text: 'Por ' + (por === 'exec' ? 'executante' : 'frota') + ' · ' + sel.rot })), el('div', { class: 'acoes' }, el('div', { class: 'ctl' }, segPor))),
       tPor);
     const lista = el('article', { class: 'cartao c12', id: 'pg-lista' });
-    raiz.replaceChildren(el('div', { class: 'grade' }, topo, lista, maisAnalises('programacao', seq, det, quem)));
+    raiz.replaceChildren(el('div', { class: 'grade' }, topo, seq, recolhido('pg-lista', { abrir: 'Ver a lista das OS', fechar: 'Esconder a lista' }, lista),
+      maisAnalises('programacao', carteiraPer, seqFin, det, quem)));
     const rotPct = (l) => (l.de > D.base ? 'a vir' : pctDe(l.prazo, l.n));
-    grafProgFin(gSeq, janela, { titulo: 'Programadas e encerradas', rotulo: (l) => [l.curto, rotPct(l)], marcado: (l) => toca(l, sel), aoClicar: (l) => irPeriodo(l) });
+    colunasPar(gSeq, { linhas: janela, titulo: 'Programadas × executadas', H: 290, passoMin: 58, passoMax: 104, bwMax: 26, esq: PF_ESQ,
+      dir: [{ k: 'exec', cor: COR.F, nome: 'Executadas', tinta: '#1f2937' }], rotulo: (l) => [l.curto, l.de > D.base ? 'a vir' : pctDe(l.exec, l.n)],
+      marcado: (l) => toca(l, sel), aoClicar: (l) => irPeriodo(l), dica: dicaExec, quem: ['período', 'períodos'] });
+    grafProgFin(gSeqFin, janela, { titulo: 'Programadas e encerradas', rotulo: (l) => [l.curto, rotPct(l)], marcado: (l) => toca(l, sel), aoClicar: (l) => irPeriodo(l) });
     if (det) grafProgFin(gDet, subs, { titulo: dp.tit, rotulo: (l) => (dp.esc === 'dia' ? [`${l.sub} ${l.curto}`, rotPct(l)] : [l.curto, rotPct(l)]), aoClicar: (l) => irPeriodo(l) });
     // a tabela por executante ou frota
     const m = new Map();
@@ -1952,9 +2006,10 @@ export function iniciarPainel(D, { baixar, raiz = document, aba = '', aoTrocarAb
     const por = av.por;
     const segPor = el('div', { class: 'seg', role: 'group', 'aria-label': 'Cada um por' }, ...[['exec', 'Executante'], ['frota', 'Frota']].map(([kk, rot]) =>
       el('button', { type: 'button', 'aria-pressed': String(por === kk), text: rot, on: { click: () => { av.por = kk; desenhar(); } } })));
-    const verLista = (kk) => { av.lista = kk; zerarPaginas(); V.rolar = 'av-lista'; desenhar(); };
+    const verLista = (kk) => { av.lista = kk; zerarPaginas(); MAIS['av-lista'] = true; V.rolar = 'av-lista'; desenhar(); };
     const nf0 = (v) => nf.format(v);
-    const kpis = el('div', { class: 'kpis mini av-kpis' },
+    // (13/11/2026) os cinco números da conta (a razão encerradas ÷ novas vai junto da variação)
+    const kpis = el('div', { class: 'kpis av-kpis av-kpis5' },
       kpiCom('Backlog inicial', nf.format(mv.inicial), `em aberto em ${dm(mv.vespera)}`, COR.A, { fazer: () => verLista('tinha'), comp: comparacao(mv.inicial, mvA.inicial, null, nf0, rotAnt) }),
       kpiCom('Novas OS', mais(mv.entradas), `abertas no período · ${nf.format(mv.novasAbertas)} seguem abertas`, 'var(--nova)',
         { fazer: () => verLista('entrou'), comp: comparacao(mv.entradas, mvA.entradas, null, nf0, rotAnt) }),
@@ -1962,18 +2017,16 @@ export function iniciarPainel(D, { baixar, raiz = document, aba = '', aoTrocarAb
         { fazer: () => verLista('saiu'), comp: comparacao(mv.saidas, mvA.saidas, 'mais', nf0, rotAnt) }),
       kpiCom(noAtual ? 'Backlog atual' : 'Backlog final', nf.format(mv.final), `em aberto em ${dm(mv.ate)}`, 'var(--fraco)',
         { fazer: () => verLista('fim'), comp: comparacao(mv.final, mvA.final, 'menos', nf0, rotAnt) }),
-      kpiCom('Variação do backlog', sinal(mv.variacao) + (mv.variacaoPct != null && mv.variacao ? ` (${sinalPc(mv.variacaoPct)})` : ''),
-        mv.variacao < 0 ? 'a carteira diminuiu' : mv.variacao > 0 ? 'a carteira cresceu' : 'a carteira ficou igual', null,
-        { cls: mv.variacao < 0 ? 'bom' : mv.variacao > 0 ? 'ruim' : '', comp: comparacao(mv.variacao, mvA.variacao, 'menos', sinal, rotAnt) }),
-      kpiCom('Encerradas ÷ novas', mv.taxaEncerramento == null ? '—' : pc.format(mv.taxaEncerramento),
-        mv.taxaEncerramento == null ? 'nenhuma OS nova no período' : mv.taxaEncerramento >= 1 ? 'encerrou mais do que entrou' : 'entrou mais do que encerrou', null,
-        { cls: mv.taxaEncerramento == null ? '' : mv.taxaEncerramento >= 1 ? 'bom' : 'ruim', comp: comparacao(mv.taxaEncerramento, mvA.taxaEncerramento, 'mais', (v) => pc.format(v), rotAnt) }));
+      kpiCom('Variação', sinal(mv.variacao) + (mv.variacaoPct != null && mv.variacao ? ` (${sinalPc(mv.variacaoPct)})` : ''),
+        (mv.variacao < 0 ? 'a carteira diminuiu' : mv.variacao > 0 ? 'a carteira cresceu' : 'a carteira ficou igual') +
+          (mv.taxaEncerramento == null ? '' : ` · encerradas ÷ novas: ${pc.format(mv.taxaEncerramento)}`), null,
+        { cls: mv.variacao < 0 ? 'bom' : mv.variacao > 0 ? 'ruim' : '', comp: comparacao(mv.variacao, mvA.variacao, 'menos', sinal, rotAnt) }));
     const topo = el('article', { class: 'cartao c12', id: 'av-topo', 'data-imagem': true },
       el('div', { class: 'cab' }, el('div', {}, el('h2', { text: 'Avanço do backlog' }),
         el('p', { class: 'nota', text: `${sel.rot} · comparado com ${rotAnt}`,
           title: 'Pelas datas do Protheus: a OS entra no dia da abertura e sai no dia do fim da manutenção. Cada pessoa: pela mão de obra da STL de hoje.' })),
         el('div', { class: 'acoes' }, el('div', { class: 'ctl' }, segQuaisDe(av)))),
-      el('b', { class: 'pg-rot', text: sel.rot }), kpis);
+      kpis);
     // entradas × saídas do período, ao lado da conferência
     const gES = el('div', { class: 'graf' });
     const es = el('article', { class: 'cartao c6', id: 'av-es', 'data-imagem': true },
@@ -1989,7 +2042,7 @@ export function iniciarPainel(D, { baixar, raiz = document, aba = '', aoTrocarAb
     const gSeq = el('div', { class: 'graf rolar-x' });
     const seq = el('article', { class: 'cartao c12', 'data-imagem': true },
       el('div', { class: 'cab' }, el('div', {}, el('h2', { text: `Backlog ao fim de cada ${unid}` }),
-        el('p', { class: 'nota', text: 'OS em aberto ao fim de cada período · embaixo, o percentual do backlog inicial encerrado' })), el('div', { class: 'acoes' }, el('div', { class: 'ctl' }, segSerie(sel)))),
+        el('p', { class: 'nota', text: 'OS em aberto ao fim de cada período · embaixo, % do backlog inicial já encerrado' })), el('div', { class: 'acoes' }, el('div', { class: 'ctl' }, segSerie(sel)))),
       el('div', { class: 'legenda' }, ...PARTES_FIM.map((q) => el('span', {}, el('i', { style: 'background:' + q.cor }), q.nome)), el('span', { text: 'no topo, o backlog final' })),
       gSeq);
     // cada pessoa (ou frota): do backlog inicial, quantas encerrou
@@ -2034,7 +2087,11 @@ export function iniciarPainel(D, { baixar, raiz = document, aba = '', aoTrocarAb
     const hist = el('article', { class: 'cartao c12', id: 'av-historico', 'data-imagem': true },
       el('div', { class: 'cab' }, el('div', {}, el('h2', { text: `Histórico · cada ${unid}` }),
         el('p', { class: 'nota', text: 'O backlog no começo e no fim de cada período, o que entrou e o que saiu · a linha abre o período' })), el('div', { class: 'acoes' })), tHist);
-    raiz.replaceChildren(el('div', { class: 'grade' }, topo, cartaoConferencia(mv, sel), es, hist, maisAnalises('avanco', seq, ne, cada, tab, lista)));
+    raiz.replaceChildren(el('div', { class: 'grade' }, topo, seq,
+      recolhido('av-lista', { abrir: 'Ver a lista das OS', fechar: 'Esconder a lista' }, lista),
+      recolhido('av-detalhes', { abrir: 'Detalhes da análise (a conferência, a entrada e saída e o histórico)', fechar: 'Esconder os detalhes' },
+        cartaoConferencia(mv, sel), es, hist),
+      maisAnalises('avanco', ne, cada, tab)));
     const varH = (l) => l.fim - l.tinha, encH = (l) => l.fechou + l.entrouFechou;
     tabela(tHist, { id: 'av-hist', linhas: janela, padrao: { k: 'de', dir: 'desc' }, aoClicar: (l) => irPeriodo(l), cols: [
       { k: 'de', rot: 'Período', ord: (l) => l.de, ver: (l) => l.rot },
@@ -2464,8 +2521,8 @@ export function iniciarPainel(D, { baixar, raiz = document, aba = '', aoTrocarAb
     const lista = R.base.filter((o) => casa('sit', o));
     const prevBusca = F.q.trim() ? recorte({ lista: OS_PREV }).base.length : 0;
     carteira($('#c-carteira'), lista, R.base, { chave: 'carteira', titulo: 'Carteira de OS',
-      nota: `Corretivas em aberto hoje e encerradas no período (${R.p.rot.toLowerCase()}) · ${plural(lista.length, 'OS', 'OS')} com os filtros` +
-        (prevBusca ? ` · ${plural(prevBusca, 'preventiva com esta busca está', 'preventivas com esta busca estão')} na aba OS preventivas` : ' · as preventivas estão na aba OS preventivas') });
+      nota: `Corretivas abertas e encerradas no período · ${plural(lista.length, 'OS', 'OS')} na lista` +
+        (prevBusca ? ` · ${plural(prevBusca, 'preventiva com esta busca está', 'preventivas com esta busca estão')} na aba OS preventivas` : ' · as preventivas ficam na aba delas') });
     $('#c-carteira .cab .acoes').prepend(botaoFolha());
   }
 
@@ -3109,12 +3166,12 @@ export function iniciarPainel(D, { baixar, raiz = document, aba = '', aoTrocarAb
   // de página e no tema claro, e os cartões viram imagem (as mesmas do Enviar). O que vai no PDF é o que
   // está na tela; os dados para o Excel saem das mesmas contas (js/os/indicadores.js).
   const REL = [
-    ['geral', 'Visão geral', ['#c-resumo', '#c-evolucao', '#c-fluxo', '#c-progfin']],
+    ['geral', 'Visão geral', ['#c-resumo', '#c-evolucao', '#c-fluxo', '#c-idade']],
     ['avanco', 'Avanço do backlog', ['#av-topo', '#av-conferencia', '#av-es', '#av-historico']],
     ['programacao', 'Programação', ['#pg-topo', '#pg-seq']],
     ['indicadores', 'Indicadores', ['#c-ind-kpis', '#c-ind-comp', '#c-ind-ne', '#c-ind-saldo', '#c-ind-taxa', '#c-ader']],
     ['preventivas', 'OS preventivas (fora da carteira)', ['#prev-topo']]];
-  const REL_CEL = [['geral', 'Visão geral', ['#c-resumo', '#c-evolucao']], ['avanco', 'Avanço do backlog', ['#av-conferencia']]];
+  const REL_CEL = [['geral', 'Visão geral', ['#c-resumo', '#c-evolucao']], ['programacao', 'Programação', ['#pg-topo']], ['avanco', 'Avanço do backlog', ['#av-topo']]];
   const quadro = () => new Promise((ok) => requestAnimationFrame(() => ok()));
   const abrirImagem = (blob) => new Promise((ok, erro) => {
     const fr = new FileReader();
@@ -3285,7 +3342,7 @@ export function iniciarPainel(D, { baixar, raiz = document, aba = '', aoTrocarAb
         b('Baixar a imagem (celular)', () => usarImagem('baixar', fazerImg, aviso)),
         podeCompartilhar() ? b('Compartilhar a imagem…', () => usarImagem('compartilhar', fazerImg, aviso)) : null,
         b('Baixar os dados (Excel)', (bt) => relatorioDados(bt, aviso)), aviso),
-      el('p', { class: 'nota', text: 'O PDF leva a Visão geral (o resumo do período, a evolução, entradas e saídas, programadas e encerradas), o Avanço (os números, a conferência do backlog e o histórico), a Programação e os Indicadores (o comparativo e os gráficos) — no período e com os filtros da barra. A imagem para o celular leva o resumo, a evolução e a conferência. Os dados levam as mesmas contas e a lista das OS que entraram ou saíram no período.' }));
+      el('p', { class: 'nota', text: 'O PDF leva a Visão geral (o resumo, a evolução, a entrada e saída e a idade das abertas), o Avanço (os números, a conferência do backlog e o histórico), a Programação e os Indicadores (o comparativo e os gráficos) — no período e com os filtros da barra. A imagem para o celular leva o resumo, a evolução, a programação e o avanço. Os dados levam as mesmas contas e a lista das OS que entraram ou saíram no período.' }));
   }
   const bRel = $('#os-relatorio');
   if (bRel) { bRel.hidden = false; bRel.addEventListener('click', abrirRelatorio); }
