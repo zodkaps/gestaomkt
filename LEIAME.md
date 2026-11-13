@@ -94,6 +94,13 @@ A oficina devolver a frota atrasada **não** conta: o que se avalia é a operaç
   com erro de versão misturada recarrega uma vez sozinha; se falhar de novo,
   mostra o porquê e os botões de sempre (o teste simula a publicação com a
   página aberta, em `testes/interacao.mjs`).
+- **O modo claro do painel de OS** (13/11/2026): os controles com o jeito do
+  resto do site — filtros, números da Carteira e botões dentro dos cartões com
+  fundo cinza suave, sem o contorno branco sobre branco que deixava a tela com
+  cara de rascunho; os botões no fundo da página brancos, com sombra leve; o
+  cabeçalho da tabela em cinza claro; a barra de rolagem fina (no Windows, a do
+  claro vinha larga e com setas dentro da tabela); e o texto de apoio um pouco
+  mais escuro, para o contraste mínimo da letra pequena. O escuro não mudou.
 - **A segunda simplificação do painel de OS** (13/11/2026, tarde): o painel
   responde primeiro quanto se programou, quanto se executou, quanto ficou
   pendente, o % de execução e se a carteira anda ou acumula. Cada aba mostra o

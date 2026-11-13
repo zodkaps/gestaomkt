@@ -813,3 +813,24 @@ h2, h3, .aba, .kpi .val, .porta-caixa h2 { font-family: var(--fonte-marca, inher
   td.velha { color: var(--texto); }
   td.velha::before { content: ""; display: inline-block; width: 7px; height: 7px; margin-right: 6px; border-radius: 50%; background: var(--alerta); vertical-align: 1px; }
 }
+
+/* (13/11/2026) o modo claro do painel com o jeito do resto do site: os controles (filtros, números da Carteira,
+   botões, "Mais análises") com fundo cinza suave em vez de branco com contorno — branco sobre branco com linha cinza
+   em tudo deixava a tela com cara de rascunho —, o escolhido em azul-marinho claro, e a barra de rolagem fina e
+   discreta (no Windows, a do modo claro vinha larga e com setas, dentro da tabela). O escuro não muda. */
+:host([data-tema="claro"]) .pill, :host([data-tema="claro"]) .botao:not(.prim), :host([data-tema="claro"]) .cart-chip,
+:host([data-tema="claro"]) .mais-bt, :host([data-tema="claro"]) .pill-busca { background-color: var(--papel2); border-color: transparent; }
+:host([data-tema="claro"]) .pill:hover, :host([data-tema="claro"]) .botao:not(.prim):hover, :host([data-tema="claro"]) .cart-chip:hover,
+:host([data-tema="claro"]) .mais-bt:hover { background-color: var(--papel3); border-color: transparent; color: var(--texto); }
+:host([data-tema="claro"]) .pill.on, :host([data-tema="claro"]) .botao[aria-pressed="true"], :host([data-tema="claro"]) .botao[aria-expanded="true"],
+:host([data-tema="claro"]) .cart-chip[aria-pressed="true"] { background-color: var(--marca-clara); border-color: var(--marca); color: var(--marca); }
+:host([data-tema="claro"]) .pill-busca:focus { background-color: var(--papel); border-color: var(--borda); }
+:host([data-tema="claro"]) th { background: var(--papel2); color: var(--fraco); }
+.tab, .rolar-x, .pop-lista, .abas { scrollbar-width: thin; scrollbar-color: var(--borda) transparent; }
+/* no fundo da página (fora dos cartões), o botão é branco com sombra leve — cinza sobre cinza sumia */
+:host([data-tema="claro"]) .os-cab .botao:not(.prim), :host([data-tema="claro"]) .mais-bt {
+  background-color: var(--papel); border-color: transparent; box-shadow: 0 1px 2px rgba(19, 22, 78, .08), 0 1px 4px rgba(19, 22, 78, .05); }
+:host([data-tema="claro"]) .os-cab .botao:not(.prim):hover, :host([data-tema="claro"]) .mais-bt:hover { background-color: var(--papel); color: var(--marca); }
+/* o texto de apoio um pouco mais escuro no claro: o cinza de antes ficava abaixo do contraste mínimo para letra
+   pequena (a linha do Protheus, os títulos da tabela, os rótulos dos grupos) */
+:host([data-tema="claro"]) { --muito-fraco: #66707c; }
