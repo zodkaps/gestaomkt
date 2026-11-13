@@ -574,7 +574,12 @@ e preventivas, e **só ele ter acesso**.
   no ar e tem **Voltar para esta** (a volta vira uma versão nova, registrada). Os
   arquivos de antes (`historico.json.gz`, `frotas.json.gz`, `importacoes.json.gz`,
   `dias/`) continuam sendo lidos. Os testes simulam cada falha (`testes/rodar.js`,
-  sem rede, e `testes/interacao.mjs`, com o Storage de mentira).
+  sem rede, e `testes/interacao.mjs`, com o Storage de mentira). Na primeira
+  publicação de verdade (13/11/2026) a reserva não saiu do bucket: o pedido de
+  apagar ia com "Content-Type: application/json" e o corpo vazio, que o Storage
+  recusa (400) — a publicação entrou, e a reserva venceu sozinha em 15 minutos.
+  O pedido de apagar vai sem esse cabeçalho, e o Storage de mentira recusa igual
+  ao de verdade, para o teste pegar.
 - **A linha sem número de OS** (12/11/2026) conta à parte no caminho das linhas
   ("sem número de OS, não dá para identificar"); antes caía como repetida.
 - **A Visão geral separa o que é do período do que é de agora** (12/11/2026): o

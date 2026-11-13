@@ -490,7 +490,12 @@ export async function subirArquivo(bucket, caminho, blob, tipo = "application/gz
 
 /** Apaga um arquivo do bucket (o painel de OS só apaga a trava da publicação). */
 export async function apagarArquivo(bucket, caminho) {
-  await chamar(`object/${bucket}/${caminho}`, { method: "DELETE", headers: cabecalhos(), semErro404: true }, false, "storage/v1");
+  // Sem Content-Type: o pedido de apagar não tem corpo, e o Storage recusa "application/json" com o corpo vazio
+  // (400 "Body cannot be empty when content-type is set to 'application/json'" — em 13/11/2026 a trava da
+  // primeira publicação de verdade ficou no bucket por isso, até vencer).
+  const headers = cabecalhos();
+  delete headers["Content-Type"];
+  await chamar(`object/${bucket}/${caminho}`, { method: "DELETE", headers, semErro404: true }, false, "storage/v1");
 }
 
 /** Quem é quem, direto do banco. O papel deixa de morar no código: é a tabela

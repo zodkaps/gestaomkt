@@ -215,6 +215,10 @@ createServer(async (req, res) => {
     }
     if (req.method === "DELETE") {
       const k = u.pathname.replace("/storage/v1/object/", "");
+      // como o Storage de verdade (13/11/2026): "application/json" com o corpo vazio é recusado antes de tudo
+      const corpoDel = await bruto(req);
+      if (/application\/json/i.test(req.headers["content-type"] || "") && !corpoDel.length)
+        return json(res, 400, { statusCode: "400", error: "FastifyError", message: "Body cannot be empty when content-type is set to 'application/json'", code: "InvalidRequest" });
       if (!atualizaOs) return nega(403);
       arquivos.delete(k);
       process.stderr.write(`[falso] ${eu.nome}: apagou ${k}\n`);
