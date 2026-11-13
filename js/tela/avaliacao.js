@@ -6,25 +6,26 @@
 // combinado para a preventiva, e a liberação que foi remarcada para mais
 // tarde.
 //
-// Desde 12/11/2026, em três áreas, na ordem em que se lê (antes eram cinco abas
-// — Resumo, Para resolver, Motivos, Análise e Todos os atrasos — com o mesmo
-// histórico em pedaços e a mesma pendência contada duas vezes):
+// As cinco abas de sempre, na ordem em que se lê (em 12/11/2026 elas viraram
+// três áreas por umas horas; o PCM pediu as cinco de volta, com a leitura nova
+// dentro de cada uma):
 //
-//   Resumo               como está a operação: uma frase que compara com o
-//                        período anterior, os quatro números de sempre (cada um
-//                        com o valor de antes), o que precisa de ação, os
-//                        principais motivos e um gráfico;
-//   Pendências           o que pede ação, cada coisa uma vez só — o que está
-//                        atrasando agora e o atraso sem o porquê —, o mais
-//                        atrasado primeiro, cada um com o botão que resolve;
-//   Histórico e análise  os motivos recorrentes e os gráficos (Análise) e todos
-//                        os atrasos do período (Todos os atrasos); tocar num
-//                        motivo ou numa frota abre os registros dela.
+//   Resumo            como está a operação: uma frase que compara com o período
+//                     anterior, os quatro números de sempre (cada um com o valor
+//                     de antes), o que precisa de ação, os principais motivos e
+//                     um gráfico;
+//   Para resolver     o que pede ação, cada coisa uma vez só — o que está
+//                     atrasando agora e o atraso sem o porquê —, o mais atrasado
+//                     primeiro, cada um com o botão que resolve;
+//   Motivos           os motivos recorrentes: quantos atrasos, de que tipo, os
+//                     dias e quem atrasou; tocar num motivo abre os atrasos dele;
+//   Análise           os gráficos do período;
+//   Todos os atrasos  a lista do período, com os filtros.
 //
 // As contas não mudaram: a comparação é a mesma conta com as datas do período
-// anterior (`A.periodoAnterior`). No celular, as tabelas viram cartões e os
-// filtros longos viram uma lista de escolha. Os endereços antigos (?a=resolver,
-// motivos, analise, lista) caem na área nova.
+// anterior (`A.periodoAnterior`). No celular, as tabelas viram cartões, os
+// filtros longos viram uma lista de escolha e as abas usam o nome curto. Os
+// endereços das três áreas (?a=pendencias, ?a=historico) caem na aba certa.
 
 import * as ev from "../eventos.js";
 import * as M from "../modelo.js";
@@ -43,15 +44,16 @@ const NO_PRAZO = "var(--ctx)", ATRASO = "var(--s2)";
 // Para contar: "3 movimentações · 1 chegada".
 const CONTA_TIPO = { mov: ["movimentação", "movimentações"], entrega: ["chegada atrasada", "chegadas atrasadas"],
   liberacao: ["liberação remarcada", "liberações remarcadas"] };
-const ABAS = [["resumo", "Resumo"], ["pendencias", "Pendências"], ["historico", "Histórico e análise"]];
-// Os endereços de antes de 12/11/2026 continuam valendo: [área, vista].
-const ABA_ANTIGA = new Map([["resolver", ["pendencias", ""]], ["motivos", ["historico", "analise"]], ["analise", ["historico", "analise"]], ["lista", ["historico", "lista"]]]);
+// [id, nome, nome curto (celular e tablet)]
+const ABAS = [["resumo", "Resumo"], ["resolver", "Para resolver", "Resolver"], ["motivos", "Motivos"], ["analise", "Análise"],
+  ["lista", "Todos os atrasos", "Atrasos"]];
+// Os endereços das três áreas (12/11/2026) continuam valendo.
+const ABA_TRES = new Map([["pendencias", "resolver"], ["historico", "analise"]]);
 const FILTROS_PEND = [["todas", "Todas"], ["agora", "Atrasando agora"], ["sem-porque", "Sem justificativa"]];
-const VISTAS_HIST = [["analise", "Análise"], ["lista", "Todos os atrasos"]];
 const NO_RESUMO = 3;    // as pendências mais atrasadas que aparecem no Resumo
 const POR_VEZ = 15;     // linhas antes do "Mostrar as outras"
 
-const estado = { periodo: "mes", frota: "", busca: "", tipo: "", aba: "resumo", vista: "analise", pend: "todas", motivo: null, mais: false };
+const estado = { periodo: "mes", frota: "", busca: "", tipo: "", aba: "resumo", pend: "todas", motivo: null, mais: false };
 
 const pc = v => v == null ? "—" : Math.round(v * 100) + "%";
 const n1 = v => (Math.round(v * 10) / 10).toLocaleString("pt-BR");
@@ -65,13 +67,12 @@ export async function montar(raiz, ctx, params = new URLSearchParams()) {
   if (params.get("p")) estado.periodo = params.get("p");
   if (params.get("f") != null) estado.frota = params.get("f");
   const pedida = params.get("a"), vista = params.get("v") || "";
-  if (ABAS.some(([id]) => id === pedida) || ABA_ANTIGA.has(pedida)) {
-    const [aba, vistaAntiga] = ABA_ANTIGA.get(pedida) || [pedida, ""];
+  // ?a=historico&v=lista (ou com um motivo) era a lista de todos os atrasos
+  const aba = pedida === "historico" && (vista === "lista" || params.get("m") != null) ? "lista" : ABA_TRES.get(pedida) || pedida;
+  if (ABAS.some(([id]) => id === aba)) {
     estado.aba = aba;
     estado.mais = false;
-    if (aba === "pendencias") estado.pend = FILTROS_PEND.some(([id]) => id === vista) ? vista : "todas";
-    if (aba === "historico") estado.vista = VISTAS_HIST.some(([id]) => id === vista) ? vista
-      : vistaAntiga || (params.get("m") != null ? "lista" : "analise");
+    if (aba === "resolver") estado.pend = FILTROS_PEND.some(([id]) => id === vista) ? vista : "todas";
   }
   if (params.get("m") != null) estado.motivo = params.get("m");
 
@@ -215,16 +216,19 @@ export async function montar(raiz, ctx, params = new URLSearchParams()) {
     const pend = A.pendencias(agora, semJ);
     const r = A.resumo(ocs, agora);
 
-    limpar(abas).append(...ABAS.map(([id, rot]) => el("button", { type: "button", role: "tab", class: "aba" + (estado.aba === id ? " on" : ""),
-      "aria-selected": estado.aba === id ? "true" : "false", dataset: { aba: id }, onclick: ir(id) },
-      id === "historico" ? el("span", {}, "Histórico", el("span", { class: "so-largo" }, " e análise")) : rot,
-      id === "pendencias" && pend.length ? el("span", { class: "cont" }, String(pend.length)) : null)));
+    limpar(abas).append(...ABAS.map(([id, rot, curto]) => el("button", { type: "button", role: "tab", class: "aba" + (estado.aba === id ? " on" : ""),
+      "aria-selected": estado.aba === id ? "true" : "false", dataset: { aba: id }, onclick: ir(id, id === "lista" ? { motivo: null } : {}) },
+      curto ? [el("span", { class: "so-largo" }, rot), el("span", { class: "so-curto" }, curto)] : rot,
+      id === "resolver" && pend.length ? el("span", { class: "cont" }, String(pend.length)) : null)));
 
-    if (estado.aba === "pendencias") return pintarPendencias(pend);
+    if (estado.aba === "resolver") return pintarPendencias(pend);
     const semNada = !ocs.length && el("div", {}, vazio(nomeFrota && !movs.length && !prevs.length
       ? `Nenhuma movimentação ou preventiva da ${nomeFrota} lançada ainda.`
       : "Nada concluído, entregue ou remarcado neste período" + (nomeFrota ? ` · ${nomeFrota}` : "") + "."));
-    if (estado.aba === "historico") return semNada ? corpo.append(semNada) : pintarHistorico(ocs, per, filtro, semJ.length);
+    if (estado.aba !== "resumo" && semNada) return corpo.append(semNada);
+    if (estado.aba === "motivos") return pintarMotivos(ocs, semJ.length);
+    if (estado.aba === "analise") return pintarGraficos(ocs, per, filtro);
+    if (estado.aba === "lista") return pintarLista(ocs);
     pintarResumo({ ref, per, ant, ocs, ocsAnt, r, ra: A.resumo(ocsAnt), agora, pend, semNada });
   }
 
@@ -257,20 +261,20 @@ export async function montar(raiz, ctx, params = new URLSearchParams()) {
       kpi("Movimentações no prazo", pc(r.mov.pct),
         r.mov.com_prazo ? `${r.mov.no_prazo} de ${r.mov.com_prazo} concluídas` + (r.mov.atrasadas ? ` · atraso médio ${n1(r.mov.atraso_medio)} d` : "")
           : r.mov.total ? `${r.mov.total} concluída(s), nenhuma com prazo` : "nenhuma concluída no período",
-        compPct("mov", "nenhuma com prazo"), corPct(r.mov.pct), r.mov.atrasadas ? ir("historico", { vista: "lista", tipo: "mov", motivo: null }) : null),
+        compPct("mov", "nenhuma com prazo"), corPct(r.mov.pct), r.mov.atrasadas ? ir("lista", { tipo: "mov", motivo: null }) : null),
       kpi("Frotas no dia da preventiva", pc(r.entrega.pct),
         r.entrega.com_prazo ? `${r.entrega.no_prazo} de ${r.entrega.com_prazo} chegaram no dia` + (r.entrega.atrasadas ? ` · atraso médio ${n1(r.entrega.atraso_medio)} d` : "")
           : "nenhuma chegada anotada no período",
-        compPct("entrega", "nenhuma chegada anotada"), corPct(r.entrega.pct), r.entrega.atrasadas ? ir("historico", { vista: "lista", tipo: "entrega", motivo: null }) : null),
+        compPct("entrega", "nenhuma chegada anotada"), corPct(r.entrega.pct), r.entrega.atrasadas ? ir("lista", { tipo: "entrega", motivo: null }) : null),
       kpi("Liberações remarcadas", r.liberacao.remarcadas,
         r.liberacao.remarcadas ? `${plural(r.liberacao.frotas, "frota", "frotas")} · ${r.liberacao.dias} dia(s) adiados` : "nenhuma no período",
         comparar(r.liberacao.remarcadas, antes ? antes.liberacao.remarcadas : null, { bomQuando: "desce",
           detalhe: antes ? `De ${quandoAntes}: ${antes.liberacao.remarcadas}` : "" }),
-        r.liberacao.remarcadas ? "hoje" : "", r.liberacao.remarcadas ? ir("historico", { vista: "lista", tipo: "liberacao", motivo: null }) : null),
+        r.liberacao.remarcadas ? "hoje" : "", r.liberacao.remarcadas ? ir("lista", { tipo: "liberacao", motivo: null }) : null),
       kpi("Atrasando agora", r.agora.total,
         r.agora.total ? `${plural(r.agora.movs, "movimentação", "movimentações")} · ${plural(r.agora.entregas, "frota sem chegar", "frotas sem chegar")}` : "nada atrasado",
         el("div", { class: "k-comp" }, r.agora.total ? `a mais atrasada: ${plural(maisAntigo, "dia", "dias")}` : "conta até hoje"),
-        r.agora.total ? "vencida" : "ok", r.agora.total ? ir("pendencias", { pend: "agora" }) : null)));
+        r.agora.total ? "vencida" : "ok", r.agora.total ? ir("resolver", { pend: "agora" }) : null)));
 
     corpo.append(el("div", { class: "av-dupla" }, cartaoAcao(pend), semNada ? null : cartaoMotivos(ocs)));
     if (semNada) return corpo.append(semNada);
@@ -318,7 +322,7 @@ export async function montar(raiz, ctx, params = new URLSearchParams()) {
           el("small", {}, o.atrasando ? (o.tipo === "entrega" ? "frota não chegou" : "atrasada") + (o.semPorque ? " · sem o porquê" : "")
             : "feita com atraso · falta justificar")),
         el("span", { class: "av-mini-acoes" }, botoes(o))))),
-      el("button", { type: "button", class: "av-ver", onclick: ir("pendencias", { pend: "todas" }) },
+      el("button", { type: "button", class: "av-ver", onclick: ir("resolver", { pend: "todas" }) },
         pend.length > NO_RESUMO ? `Ver as ${pend.length} pendências →` : "Abrir as pendências →"));
   }
 
@@ -334,12 +338,12 @@ export async function montar(raiz, ctx, params = new URLSearchParams()) {
       total ? el("p", { class: "av-cartao-sub" }, "toque num motivo para ver os atrasos dele") : null,
       total ? el("ul", { class: "av-mot-lista" }, mostrar.map(x => el("li", {},
         el("button", { type: "button", class: "av-mot" + (x.id ? "" : " sem"), dataset: { motivo: x.id },
-          onclick: ir("historico", { vista: "lista", motivo: x.id, tipo: "" }) },
+          onclick: ir("lista", { motivo: x.id, tipo: "" }) },
           el("span", { class: "av-mot-nome" }, x.nome),
           el("span", { class: "av-mot-barra", "aria-hidden": "true" }, el("i", { style: `width:${Math.round(x.total * 100 / max)}%` })),
           el("span", { class: "av-mot-n" }, String(x.total), el("small", {}, ` ${Math.round(x.total * 100 / total)}%`))))))
         : el("p", { class: "nada" }, "Nenhum atraso no período."),
-      el("button", { type: "button", class: "av-ver", onclick: ir("historico", { vista: "analise" }) }, "Ver a análise completa →"));
+      el("button", { type: "button", class: "av-ver", onclick: ir("motivos") }, "Ver todos os motivos →"));
   }
 
   const legTipos = TIPOS.map(t => ({ nome: A.TIPOS_OCORRENCIA[t], cor: COR_TIPO[t] }));
@@ -379,19 +383,10 @@ export async function montar(raiz, ctx, params = new URLSearchParams()) {
       onclick: () => { estado.mais = true; pintar(); } }, `Mostrar as outras ${itens.length - mostrar.length}`));
   }
 
-  // ── Histórico e análise ──────────────────────────────────────────────────
-  function pintarHistorico(ocs, per, filtro, nSemJ) {
-    const nAtrasos = ocs.filter(o => o.atrasou).length;
-    corpo.append(el("div", { class: "av-barra" },
-      escolha("Ver", VISTAS_HIST.map(([id, rot]) => [id, rot, id === "lista" ? nAtrasos : null]), estado.vista,
-        id => { estado.vista = id; if (id === "lista") estado.motivo = null; pintar(); }, { celular: false })));
-    if (estado.vista === "lista") return pintarLista(ocs);
-    pintarAnalise(ocs, per, filtro, nSemJ);
-  }
-
-  // A análise: os motivos recorrentes (cada motivo com quantos atrasos, de que
-  // tipo, os dias e quem atrasou; tocar abre os atrasos dele) e os gráficos.
-  function pintarAnalise(ocs, per, filtro, nSemJ) {
+  // ── Motivos ──────────────────────────────────────────────────────────────
+  // Os motivos recorrentes: cada motivo com quantos atrasos, de que tipo, os
+  // dias e quem atrasou; tocar abre os atrasos dele.
+  function pintarMotivos(ocs, nSemJ) {
     const ms = A.porMotivo(ocs);
     const total = ms.reduce((t, x) => t + x.total, 0);
     corpo.append(el("h2", { class: "av-titulo" }, "Motivos recorrentes",
@@ -400,7 +395,7 @@ export async function montar(raiz, ctx, params = new URLSearchParams()) {
     else {
       const max = Math.max(...ms.map(x => x.total));
       const linha = x => el("button", { type: "button", class: "mt-lin" + (x.id ? "" : " sem"), dataset: { motivo: x.id },
-        onclick: ir("historico", { vista: "lista", motivo: x.id, tipo: "" }) },
+        onclick: ir("lista", { motivo: x.id, tipo: "" }) },
         el("span", { class: "mt-nome" }, el("b", {}, x.nome),
           el("small", {}, TIPOS.filter(t => x[t]).map(t => plural(x[t], ...CONTA_TIPO[t])).join(" · "))),
         el("span", { class: "mt-barra", title: `${x.total} de ${total} atrasos` },
@@ -417,9 +412,12 @@ export async function montar(raiz, ctx, params = new URLSearchParams()) {
     if (nSemJ) corpo.append(el("div", { class: "av-aviso" },
       el("span", {}, el("b", {}, plural(nSemJ, "atraso sem justificativa", "atrasos sem justificativa")),
         " — sem o porquê, o atraso entra em \"Sem motivo informado\"."),
-      el("button", { type: "button", class: "mini primario-leve", onclick: ir("pendencias", { pend: "sem-porque" }) }, "Justificar")));
+      el("button", { type: "button", class: "mini primario-leve", onclick: ir("resolver", { pend: "sem-porque" }) }, "Justificar")));
+  }
 
-    corpo.append(el("h2", { class: "av-titulo" }, "Gráficos do período"));
+  // ── Análise ──────────────────────────────────────────────────────────────
+  // Os gráficos do período.
+  function pintarGraficos(ocs, per, filtro) {
     const grade = el("div", { class: "bi-grade" });
     corpo.append(grade);
     const pendurar = penduradorEm(grade);

@@ -734,3 +734,24 @@ span.fraco { color: var(--muito-fraco); font-size: 12px; }
    vermelho só no alerta); aqui, a fonte da marca nos títulos, nas abas e nos números grandes. As tabelas ficam na
    fonte do sistema (algarismos de largura igual). */
 h2, h3, .aba, .kpi .val, .porta-caixa h2 { font-family: var(--fonte-marca, inherit); }
+
+/* (13/11/2026) a simplificação do painel: o Resumo é um cartão só — a carteira agora (três números) e o período
+   (quatro) —, e o secundário de cada aba fica em "Mais análises", fechado. Fechado, os cartões continuam montados (sem
+   altura e invisíveis): os gráficos têm a largura certa e o relatório e as imagens saem iguais. */
+#c-resumo .veredito { margin: 2px 0 4px; }
+#c-resumo .kpi-grupo { margin-top: 12px; }
+#c-resumo .kpis-tit b { font-weight: 700; letter-spacing: 0; text-transform: none; color: var(--texto); }
+.kpis.kpis3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+@media (max-width: 560px) {
+  .kpis.kpis3 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .kpis.kpis3 > :first-child { grid-column: 1 / -1; }
+}
+.mais-analises { grid-column: 1 / -1; display: flex; flex-direction: column; align-items: flex-start; }
+.mais-bt { display: inline-flex; align-items: center; gap: 8px; min-height: 40px; padding: 8px 18px; border: 1px solid var(--borda);
+  border-radius: 999px; background: var(--papel); color: var(--texto); font: inherit; font-weight: 650; cursor: pointer; }
+.mais-bt:hover { border-color: var(--marca); }
+.mais-bt:focus-visible { outline: 2px solid var(--marca); outline-offset: 2px; }
+.mais-bt .seta { color: var(--fraco); font-size: 12px; }
+.mais-corpo { width: 100%; }
+.mais-analises:not(.aberto) > .mais-corpo { height: 0; overflow: hidden; visibility: hidden; }
+.mais-analises.aberto > .mais-corpo { margin-top: 14px; }

@@ -9,7 +9,7 @@
 // Precisa do servidor de mentira (`testes/supabase_falso.mjs`) e do site
 // servido (`python3 -m http.server 8123`).
 import pw from "/opt/node-tools/node_modules/playwright/index.js";
-import { readFile } from "node:fs/promises";
+import { readFile, writeFile } from "node:fs/promises";
 import { servirCopia, entrarComo, entrarLocalComo, emailDoTeste } from "./sitefalso.mjs";
 const { chromium } = pw;
 
@@ -2019,16 +2019,15 @@ ok("um clique aprova: Concluída com atraso, concluída pelo Pedro, aprovada pel
     return { prev: cp.alvo, mov: cm.alvo, ontem: dia(-1) };
   }, FAV);
   await av.waitForTimeout(500);
-  // Três áreas (12/11/2026): Resumo, Pendências (com quantas) e Histórico e análise.
-  const abasAv = await av.evaluate(() => [...document.querySelectorAll(".abas .aba")].map(b => b.textContent));
-  ok("a Avaliação vem em três áreas: Resumo, Pendências (com quantas) e Histórico e análise",
-    abasAv.length === 3 && abasAv[0] === "Resumo" && /^Pendências\d+$/.test(abasAv[1]) && abasAv[2] === "Histórico e análise",
-    JSON.stringify(abasAv));
+  // As cinco abas (de volta em 12/11/2026): Resumo, Para resolver (com quantas), Motivos, Análise e Todos os atrasos.
+  const abasAv = await av.evaluate(() => [...document.querySelectorAll(".abas .aba")].map(b => ({ id: b.dataset.aba, txt: b.innerText.replace(/\s+/g, " ").trim() })));
+  ok("a Avaliação tem as cinco abas: Resumo, Para resolver (com quantas), Motivos, Análise e Todos os atrasos",
+    abasAv.map(a => a.id).join() === "resumo,resolver,motivos,analise,lista" && abasAv[0].txt === "Resumo" && /^Para resolver ?\d+$/.test(abasAv[1].txt) &&
+    abasAv[2].txt === "Motivos" && abasAv[3].txt === "Análise" && abasAv[4].txt === "Todos os atrasos", JSON.stringify(abasAv));
   const aba = async id => { await av.click(`.abas [data-aba="${id}"]`); await av.waitForTimeout(400); };
-  const vista = async id => { await av.click(`.av-barra [data-op="${id}"]`); await av.waitForTimeout(400); };
   // a lista mostra 15 de cada vez; o resto vem no "Mostrar as outras"
   const tudo = async pg => { if (await pg.$(".av-mais")) { await pg.click(".av-mais"); await pg.waitForTimeout(300); } };
-  await aba("pendencias");
+  await aba("resolver");
   await tudo(av);
   const agora = await av.evaluate(frota => [...document.querySelectorAll(".av-pend tbody tr.atrasando")]
     .filter(tr => tr.textContent.includes(frota)).map(tr => ({ tipo: tr.querySelector(".tipo-oc").textContent, dias: tr.querySelector(".c-dias b").textContent,
@@ -2042,7 +2041,7 @@ ok("um clique aprova: Concluída com atraso, concluída pelo Pedro, aprovada pel
     const linhas = [...document.querySelectorAll(".av-pend tbody tr")].filter(tr => tr.textContent.includes(frota) && tr.dataset.tipo === "mov");
     const menu = [...document.querySelectorAll("#menu nav a")].find(a => a.textContent.includes("Avaliação"))?.querySelector(".cont")?.textContent || "";
     return { linhas: linhas.length, falta: linhas.map(tr => tr.querySelector(".av-sit.falta")?.textContent || ""), menu,
-      aba: document.querySelector('.abas [data-aba="pendencias"] .cont')?.textContent || "",
+      aba: document.querySelector('.abas [data-aba="resolver"] .cont')?.textContent || "",
       todas: document.querySelector('.av-barra [data-op="todas"] .n')?.textContent.trim() || "" };
   }, FAV);
   ok("a movimentação vencida e sem o porquê é uma pendência só (com o 'Falta justificar'), e o número é o mesmo no menu, na aba e na lista",
@@ -2065,8 +2064,7 @@ ok("um clique aprova: Concluída com atraso, concluída pelo Pedro, aprovada pel
     return { p: [p.entregue_em, p.entrega_combinada, p.motivo_entrega, p.quem_atrasou_entrega, p.em_andamento],
       aindaAtrasando: [...document.querySelectorAll(".av-pend tbody tr.atrasando")].some(tr => tr.textContent.includes(frota) && tr.textContent.includes("Entrega")) };
   }, [ids.prev, FAV]);
-  await aba("historico");
-  await vista("lista");
+  await aba("lista");
   depois.noPeriodo = await av.evaluate(frota => [...document.querySelectorAll(".av-hist tbody tr")]
     .some(tr => tr.textContent.includes(frota) && tr.textContent.includes("frota voltou de viagem")), FAV);
   await aba("resumo");
@@ -2083,11 +2081,12 @@ ok("um clique aprova: Concluída com atraso, concluída pelo Pedro, aprovada pel
   ok("o Resumo: a frase do período, os quatro números (cada um com a linha do período anterior), o que precisa de ação, os motivos e um gráfico só",
     resumoAv.kpis === 4 && resumoAv.comp === 4 && /atraso/i.test(resumoAv.leitura) && resumoAv.acao === "Precisa de ação" &&
     resumoAv.motivos > 0 && resumoAv.graficos.join() === "No prazo e com atraso, por semana", JSON.stringify(resumoAv));
-  await aba("historico");
-  await vista("analise");
-  const analise = await av.evaluate(() => ({ graficos: [...document.querySelectorAll(".bi-grade .g-card .g-tit")].map(t => t.textContent),
-    motivos: document.querySelectorAll(".motivos .mt-lin").length }));
-  ok("e a Análise: os motivos recorrentes e os gráficos — pontualidade, frotas, quem atrasou, categoria e tamanho",
+  await aba("analise");
+  const graficosAv = await av.evaluate(() => [...document.querySelectorAll(".bi-grade .g-card .g-tit")].map(t => t.textContent));
+  await aba("motivos");
+  const analise = await av.evaluate(() => ({ motivos: document.querySelectorAll(".motivos .mt-lin").length, graficos: [] }));
+  analise.graficos = graficosAv;
+  ok("e as abas Motivos (os motivos recorrentes) e Análise (pontualidade, frotas, quem atrasou, categoria e tamanho)",
     analise.motivos > 0 && ["Pontualidade por semana", "Frotas com mais atrasos", "Quem atrasou", "Movimentações por categoria", "Tamanho dos atrasos"]
       .every(t => analise.graficos.includes(t)), JSON.stringify(analise));
   // Os motivos, organizados: cada motivo com quantos, os dias e quem; tocar
@@ -2099,10 +2098,9 @@ ok("um clique aprova: Concluída com atraso, concluída pelo Pedro, aprovada pel
   await av.click('.mt-lin[data-motivo="operacao"]');
   await av.waitForTimeout(400);
   const doMotivo = await av.evaluate(frota => ({ aba: document.querySelector(".aba.on")?.dataset.aba,
-    vista: document.querySelector(".av-barra .seg-op.on")?.dataset.op,
     filtro: document.querySelector(".chip-filtro")?.textContent || "",
     tem: [...document.querySelectorAll(".av-hist tbody tr")].some(tr => tr.textContent.includes(frota)) }), FAV);
-  ok("e tocar no motivo abre Todos os atrasos só dele, com a etiqueta do filtro", doMotivo.aba === "historico" && doMotivo.vista === "lista" &&
+  ok("e tocar no motivo abre Todos os atrasos só dele, com a etiqueta do filtro", doMotivo.aba === "lista" &&
     /Motivo: Frota em viagem ou em uso/.test(doMotivo.filtro) && doMotivo.tem, JSON.stringify(doMotivo));
   await av.click(".chip-filtro");
   await av.waitForTimeout(300);
@@ -2225,15 +2223,15 @@ ok("um clique aprova: Concluída com atraso, concluída pelo Pedro, aprovada pel
   const menuOp = await op.evaluate(() => [...document.querySelectorAll("#menu nav a span:not(.cont)")].map(s => s.textContent.trim()));
   ok("a operação tem a Avaliação no menu, e nenhuma tela da oficina",
     menuOp.includes("Avaliação") && !menuOp.some(n => OFICINA.includes(n)), menuOp.join(" | "));
-  // o endereço antigo (?a=resolver) cai nas Pendências
+  // o endereço da aba (?a=resolver) abre o Para resolver
   await op.evaluate(() => { location.hash = "#/avaliacao?a=resolver"; });
   await op.waitForTimeout(900);
   await tudo(op);
   const botoesOp = await op.evaluate(() => ({ aba: document.querySelector(".aba.on")?.dataset.aba,
     b: [...document.querySelectorAll(".av-pend tbody tr.atrasando button")].map(b => b.textContent) }));
-  ok("o endereço antigo abre as Pendências; a operação não vê 'A frota chegou' (mas conclui a movimentação)", botoesOp.aba === "pendencias" &&
+  ok("o endereço abre o Para resolver; a operação não vê 'A frota chegou' (mas conclui a movimentação)", botoesOp.aba === "resolver" &&
     !botoesOp.b.includes("A frota chegou") && botoesOp.b.includes("Concluir"), JSON.stringify(botoesOp));
-  // o "Justificar" da Movimentação abre as Pendências já no recorte sem justificativa
+  // o endereço das três áreas (?a=pendencias) ainda vale: abre o Para resolver, já no recorte sem justificativa
   await op.evaluate(() => { location.hash = "#/avaliacao?a=pendencias&v=sem-porque"; });
   await op.waitForTimeout(700);
   const semPorque = await op.evaluate(() => ({ on: document.querySelector(".av-barra .seg-op.on")?.dataset.op,
@@ -2251,14 +2249,14 @@ ok("um clique aprova: Concluída com atraso, concluída pelo Pedro, aprovada pel
   await av.context().close();
 
   // No celular (12/11/2026): as pendências em cartões, sem rolar para o lado; o período numa lista que
-  // cabe na linha; botões do tamanho do dedo; as três áreas à vista.
+  // cabe na linha; botões do tamanho do dedo; as cinco abas à vista, com o nome curto.
   const cel = await (await nav.newContext({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true })).newPage();
   cel.on("pageerror", e => console.log("  [erro na página]", e.message));
   vigiarCSP(cel);
   await cel.goto(site.endereco, { waitUntil: "networkidle" });
   await entrarComo(cel, "Mateus");
   await cel.waitForTimeout(600);
-  await cel.evaluate(() => { location.hash = "#/avaliacao?a=pendencias"; });
+  await cel.evaluate(() => { location.hash = "#/avaliacao?a=resolver"; });
   await cel.waitForTimeout(900);
   const noCel = await cel.evaluate(() => {
     const tr = document.querySelector(".av-pend tbody tr");
@@ -2269,9 +2267,9 @@ ok("um clique aprova: Concluída com atraso, concluída pelo Pedro, aprovada pel
       lista: !!sel && sel.offsetParent !== null, segmentos: getComputedStyle(document.querySelector(".av-filtros .segmentos")).display,
       abas: [...document.querySelectorAll(".abas .aba")].map(b => { const r = b.getBoundingClientRect(); return r.left >= 0 && r.right <= innerWidth + 1; }) };
   });
-  ok("no celular: pendências em cartões, sem rolagem para o lado, botões de 40px, o período numa lista e as três áreas à vista",
+  ok("no celular: pendências em cartões, sem rolagem para o lado, botões de 40px, o período numa lista e as cinco abas à vista",
     noCel.larga && noCel.cabecalho === "none" && noCel.cartao === "grid" && noCel.botoes.length > 0 && noCel.botoes.every(h => h >= 40) &&
-    noCel.lista && noCel.segmentos === "none" && noCel.abas.length === 3 && noCel.abas.every(Boolean), JSON.stringify(noCel));
+    noCel.lista && noCel.segmentos === "none" && noCel.abas.length === 5 && noCel.abas.every(Boolean), JSON.stringify(noCel));
   const antesSub = await cel.textContent(".cabec .sub");
   await cel.selectOption(".av-filtros select.av-seg-cel", "mes-passado");
   await cel.waitForTimeout(500);
@@ -2479,8 +2477,24 @@ ok("e o Diagnóstico não manda rodar SQL por causa de sessão",
   await mt.waitForTimeout(600);
   const kp = await mt.$$eval("#kpis .kpi .val", v => v.map(x => x.textContent));
   const kr = await mt.$$eval("#kpis-resumo .kpi .val", v => v.map(x => x.textContent));
-  ok("gravou e abriu: 2 abertas, e no resumo da semana (o período de partida) 3 no começo, 1 encerrada, 2 no fim", kp[0] === "2" && kr[0] === "3" && kr[2] === "−1" && kr[3] === "2",
-    kp.join(" | ") + " · " + kr.join(" | "));
+  const kv = await mt.$$eval("#kpis-resumo .kpi", v => v.map(x => x.innerText.replace(/\s+/g, " ")));
+  ok("gravou e abriu: 2 abertas, e no resumo da semana (o período de partida) 1 encerrada e a carteira de 3 para 2", kp[0] === "2" && kr[1] === "−1" &&
+    /de 3 para 2 OS/.test(kv[2] || ""), kp.join(" | ") + " · " + kv.join(" | "));
+  // (13/11/2026) a Visão geral simplificada: os sete números num cartão só (agora: 3; no período: 4), sem o backlog
+  // repetido; e o secundário em "Mais análises", fechado — um clique mostra, com os gráficos na largura certa
+  const rotKpis = await mt.$$eval("#c-resumo .kpi .rot", v => v.map(x => x.textContent.trim()));
+  ok("o Resumo tem os sete números, cada um uma vez: abertas, mais de 90 dias, sem executante; novas, encerradas, variação, programadas",
+    rotKpis.join("|") === "Abertas agora|Há mais de 90 dias|Sem executante|Novas OS|Encerradas|Variação|Programadas", rotKpis.join("|"));
+  const maisAntes = { bt: await mt.textContent("#geral .mais-bt"), exp: await mt.getAttribute("#geral .mais-bt", "aria-expanded"), cats: await mt.isVisible("#c-cats") };
+  await mt.click("#geral .mais-bt");
+  await mt.waitForTimeout(250);
+  const maisDepois = { bt: await mt.textContent("#geral .mais-bt"), exp: await mt.getAttribute("#geral .mais-bt", "aria-expanded"), cats: await mt.isVisible("#c-cats"),
+    larg: await mt.$eval("#g-cats svg", (s) => Math.round(s.getBoundingClientRect().width)).catch(() => 0) };
+  ok("o secundário da Visão geral fica em 'Mais análises' fechado, e um clique mostra (os gráficos com a largura certa)",
+    /^Mais análises \(3\)/.test(maisAntes.bt) && maisAntes.exp === "false" && !maisAntes.cats &&
+    /^Menos análises/.test(maisDepois.bt) && maisDepois.exp === "true" && maisDepois.cats && maisDepois.larg > 200, JSON.stringify([maisAntes, maisDepois]));
+  await mt.click("#geral .mais-bt");
+  await mt.waitForTimeout(150);
   const veredito = await mt.textContent("#veredito");
   ok("o resumo responde se a carteira andou: caiu de 3 para 2", veredito.startsWith("✓ Evoluindo: a carteira caiu de 3 para 2 OS (−1 OS; −33%)"), veredito);
   ok("o período de partida é a semana atual, e a seta da próxima fica apagada", (await mt.textContent("#f-periodo-txt")).startsWith("Semana atual") && await mt.isDisabled("#f-per-prox"),
@@ -2620,7 +2634,12 @@ ok("e o Diagnóstico não manda rodar SQL por causa de sessão",
   ok("a conferência do backlog: 3 + 0 − 1 − 0 = 2, e a conta fecha", concil.includes("A conta fecha") && /Backlog final calculado\s+2/.test(concil), concil.replace(/\s+/g, " ").slice(0, 300));
   await mt.click('.av-kpis button.kpi:has-text("Encerradas")');
   await mt.waitForTimeout(400);
-  ok("e a lista das encerradas traz a OS encerrada em 03/11", (await mt.innerText("#av-lista")).includes("100003"));
+  // a lista das encerradas fica em "Mais análises" do Avanço (13/11/2026)
+  await mt.click("#avanco .mais-bt");
+  await mt.waitForTimeout(250);
+  ok("e a lista das encerradas (em 'Mais análises') traz a OS encerrada em 03/11", (await mt.innerText("#av-lista")).includes("100003"));
+  await mt.click("#avanco .mais-bt");
+  await mt.waitForTimeout(150);
   await periodoPronto("Mês anterior");
   const out = await mt.$$eval(".av-kpis .kpi .val", v => v.slice(0, 4).map(x => x.textContent).join("|"));
   ok("em outubro: nada no começo, entraram 3, nenhuma encerrada, ficaram 3", out === "0|+3|0|3", out);
@@ -2650,7 +2669,7 @@ ok("e o Diagnóstico não manda rodar SQL por causa de sessão",
   await mt.waitForTimeout(300);
   const kpPer = await mt.$$eval("#kpis-resumo .kpi", (v) => v.map((x) => x.innerText.replace(/\s+/g, " ")));
   ok("no calendário, o começo e o fim: só a OS encerrada em 03/11 conta como encerrada", (await mt.textContent("#f-periodo-txt")) === "De 02/11/2026 a 04/11/2026" &&
-    (await mt.textContent("#rot-resumo")) === "De 02/11/2026 a 04/11/2026" && /^Encerradas −1 /.test(kpPer[2]), kpPer[2]);
+    (await mt.textContent("#rot-resumo")) === "De 02/11/2026 a 04/11/2026" && /^Encerradas −1 /.test(kpPer[1]), kpPer[1]);
   ok("o dia depois do export não se escolhe", await mt.evaluate(() => { const s = document.querySelector(".os-host").shadowRoot; s.querySelector("#f-periodo").click(); const b = s.querySelector('#pop .cal-dia[data-dia="2026-11-06"]'); return !!b && b.disabled; }));
   await mt.keyboard.press("Escape");
   // as frotas em colunas: uma por frota, a das abertas empilhada por liberação; clicar abre a frota
@@ -2830,6 +2849,53 @@ ok("e o Diagnóstico não manda rodar SQL por causa de sessão",
   ok("ao sair, a cópia do painel de OS some deste aparelho (e a lembrança do acesso também)", tinhaCopia && ficouCopia === null &&
     (await mt.evaluate(async () => await mkt.dados.lerMeta("acesso_os", null))) === null, `${tinhaCopia} → ${JSON.stringify(ficouCopia)?.slice(0, 40)}`);
   await ctxM.close();
+}
+
+// ── o site publicado com a página aberta (12/11/2026) ───────────────────────
+// A tela chega na hora de abrir, mas o módulo que a página carregou ao começar
+// fica na memória: publicado o site com a página aberta, a Avaliação nova usou o
+// js/avaliacao.js velho e parou com "A.periodoAnterior is not a function". Aqui
+// a publicação acontece na cópia servida, com a página aberta: a tela nova usa
+// uma função que só o módulo novo tem. A página recarrega sozinha uma vez e abre.
+{
+  const COPIA = "/tmp/mkt-copia-interacao/js/";
+  const pv = await (await nav.newContext({ viewport: { width: 1280, height: 860 } })).newPage();
+  vigiarCSP(pv);
+  await pv.goto(site.endereco, { waitUntil: "networkidle" });
+  await entrarComo(pv, "Mateus");
+  // começa noutra tela, com a página recém-carregada: a Avaliação ainda não está na memória, o js/avaliacao.js já
+  await pv.evaluate(() => { location.hash = "#/movimentacoes"; });
+  await pv.waitForTimeout(400);
+  await pv.reload({ waitUntil: "networkidle" });
+  await pv.waitForTimeout(400);
+  const [modAntes, telaAntes] = await Promise.all([readFile(COPIA + "avaliacao.js", "utf8"), readFile(COPIA + "tela/avaliacao.js", "utf8")]);
+  try {
+    await writeFile(COPIA + "avaliacao.js", modAntes + "\nexport const versaoDoTeste = () => \"nova\";\n");
+    await writeFile(COPIA + "tela/avaliacao.js", telaAntes + "\nA.versaoDoTeste();\n");
+    await pv.evaluate(() => { sessionStorage.removeItem("mkt-recarga"); window.__antesDaPublicacao = true; });
+    await pv.evaluate(() => { location.hash = "#/avaliacao"; });
+    await pv.waitForFunction(() => !window.__antesDaPublicacao && (document.querySelector("#tela h1") || {}).textContent === "Avaliação da operação",
+      null, { timeout: 15000 }).catch(() => {});
+    const depois = await pv.evaluate(() => ({ recarregou: !window.__antesDaPublicacao, h1: (document.querySelector("#tela h1") || {}).textContent || "",
+      falha: (document.querySelector("#tela .falha-carga") || {}).textContent || "" }));
+    ok("o site publicado com a página aberta: a tela nova não usa o módulo velho — a página recarrega sozinha e a Avaliação abre",
+      depois.recarregou && depois.h1 === "Avaliação da operação" && !depois.falha, JSON.stringify(depois));
+    // se a tela falhar de novo logo depois (um defeito de verdade), não fica recarregando: mostra o porquê e os botões
+    await writeFile(COPIA + "tela/avaliacao.js", telaAntes + "\nA.funcaoQueNaoExiste();\n");
+    await pv.evaluate(() => { location.hash = "#/movimentacoes"; });
+    await pv.waitForTimeout(400);
+    await pv.reload({ waitUntil: "networkidle" });
+    await pv.waitForTimeout(400);
+    await pv.evaluate(() => { sessionStorage.setItem("mkt-recarga", String(Date.now())); window.__semRecarga = true; location.hash = "#/avaliacao"; });
+    await pv.waitForSelector("#tela .falha-carga", { timeout: 10000 }).catch(() => {});
+    const falha = await pv.evaluate(() => ({ semRecarga: !!window.__semRecarga, txt: (document.querySelector("#tela .falha-carga") || {}).textContent || "" }));
+    ok("e se falhar de novo logo depois, não fica recarregando: diz o porquê e oferece tentar de novo",
+      falha.semRecarga && falha.txt.includes("Não consegui abrir esta tela") && falha.txt.includes("funcaoQueNaoExiste") && falha.txt.includes("Tentar de novo"),
+      JSON.stringify(falha).slice(0, 300));
+  } finally {
+    await writeFile(COPIA + "avaliacao.js", modAntes);
+    await writeFile(COPIA + "tela/avaliacao.js", telaAntes);
+  }
 }
 
 ok("nenhuma página foi barrada pela política de conteúdo (CSP)", !recusasCSP.length, recusasCSP.slice(0, 3).join(" | "));

@@ -1489,6 +1489,8 @@ tr.cat-bloco .n, .mov-grupo-tit .n { color: var(--fraco); font-weight: 500; }
    para o quadro caber na tela; a rolagem de cada uma é guardada e devolvida
    quando o quadro se repinta depois de um lançamento. */
 @media (max-width: 860px) { .so-largo { display: none !important; } }
+.so-curto { display: none; }
+@media (max-width: 860px) { .so-curto { display: inline; } }
 .q-resumo { margin: -4px 0 10px; font-size: 13px; color: var(--fraco); }
 .q-resumo b { color: var(--texto); font-variant-numeric: tabular-nums; }
 .quadro { display: grid; grid-template-columns: 240px minmax(0, 1fr); gap: 10px; align-items: start; }
@@ -2365,7 +2367,9 @@ button.mini.ja-feita:hover, button.mini.ja-feita:focus-visible { color: var(--ok
   .av-filtros { flex-wrap: nowrap; }
   .av-filtros .busca-frota { flex: 1 1 0; min-width: 0; min-height: 40px; }
   .av-abas { gap: 0; }
-  .av-abas .aba { flex: 1 1 auto; justify-content: center; padding: 11px 6px 10px; }
+  /* as cinco abas numa linha só, no celular (nome curto, letra e folga menores) */
+  .av-abas .aba { flex: 1 1 auto; justify-content: center; padding: 11px 3px 10px; font-size: 13px; }
+  .av-abas .aba .cont { margin-left: 4px; }
   .av-leitura { font-size: 14.5px; }
   .av-cartao { padding: 12px 14px 6px; }
   .av-mini { grid-template-columns: 42px minmax(0, 1fr); row-gap: 8px; }
@@ -2384,9 +2388,9 @@ button.mini.ja-feita:hover, button.mini.ja-feita:focus-visible { color: var(--ok
 
 /* ══ 12/11/2026: a identidade da Makro ═══════════════════════════════════════
    As cores da interface são as de referência que o PCM passou (12/11/2026): o
-   azul-marinho institucional (#13164E) e o vermelho institucional (#E4002A). O
-   logo tem as do arquivo dele (#1D3C85 e #ED1C24, dos vetores oficiais) e o
-   desenho dele não muda. No tema claro o azul-marinho é a estrutura do site — o
+   azul-marinho institucional (#13164E) e o vermelho institucional (#E4002A), e
+   o logo também (o desenho dos vetores oficiais, só com as cores trocadas). No
+   tema claro o azul-marinho é a estrutura do site — o
    menu lateral, o botão principal, a aba e o item escolhidos, os links e o foco.
    O vermelho é só alerta: o atraso, o vencido, o que pede atenção.
    A fonte da marca é a Metropolis (livre; a Gotham, que também veio, é paga e
@@ -2402,8 +2406,6 @@ button.mini.ja-feita:hover, button.mini.ja-feita:focus-visible { color: var(--ok
 :root {
   --azul-makro: #13164E;          /* azul-marinho institucional (referência do PCM, 12/11/2026) */
   --vermelho-makro: #E4002A;      /* vermelho institucional: só alerta */
-  --azul-logo: #1D3C85;           /* as cores do arquivo do logo (img/makro*.svg) */
-  --vermelho-logo: #ED1C24;
   --fonte-marca: "Metropolis", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
 }
 :root[data-tema="claro"] {

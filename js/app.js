@@ -331,6 +331,10 @@ let geracaoTela = 0;
 
 async function pintar() {
   const minha = ++geracaoTela;
+  // A versão nova do site entrou com esta página aberta: a troca de tela
+  // recarrega a página inteira, para a tela nova não usar módulo velho.
+  if (siteNovo && !recarregouHaPouco()) { marcarRecarga(); location.reload(); return; }
+  conferirVersao();
   const { id, params, trocou } = alvo();
   const tela = TELAS.find(t => t.id === id);
   // Endereço de uma tela que não está no menu (o Hoje de um favorito antigo,
@@ -369,8 +373,11 @@ async function pintar() {
     // recarregar — e como as telas trocam sem recarregar, a pessoa ficava presa
     // nela (o Pedro, em 23/10/2026). Recarrega uma vez sozinho; se voltar a
     // falhar, oferece tentar de novo ou consertar o site neste aparelho.
-    if (falhaDeCarga(e) && !recarregouHaPouco()) { marcarRecarga(); location.reload(); return; }
-    limpar(raiz).append(falhaDeCarga(e) ? telaDeFalha() : el("p", { class: "nada" }, "Não consegui abrir esta tela: " + e.message));
+    // Uma tela nova com um módulo velho da memória (a página ficou aberta
+    // durante a publicação) falha com "x is not a function": recarrega uma vez
+    // também. Se falhar de novo, mostra o porquê.
+    if ((falhaDeCarga(e) || versaoMisturada(e)) && !recarregouHaPouco()) { marcarRecarga(); location.reload(); return; }
+    limpar(raiz).append(falhaDeCarga(e) ? telaDeFalha() : telaDeFalha(e.message));
   }
   await faixa();
   window.scrollTo(0, 0);
@@ -384,6 +391,28 @@ function recarregouHaPouco() {
 }
 function marcarRecarga() { try { sessionStorage.setItem("mkt-recarga", String(Date.now())); } catch (x) { /* segue */ } }
 
+// ── quando o site é publicado com esta página aberta ────────────────────────
+// (12/11/2026) As telas chegam na hora de abrir (`import`), mas o que a página
+// carregou ao começar fica na memória até ela recarregar. Publicado o site com
+// a página aberta, a tela nova chegava e usava o módulo velho da memória — a
+// Avaliação parou com "A.periodoAnterior is not a function". Agora o navegador
+// confere a versão do site nas trocas de tela (no máximo uma vez por minuto);
+// se a nova entrou (o service worker trocou), a próxima troca recarrega a
+// página inteira. E o que escapar disso cai no `versaoMisturada`, lá em cima.
+let siteNovo = false;
+if ("serviceWorker" in navigator && navigator.serviceWorker.controller) {
+  // na primeira visita o service worker também "troca" (de nenhum para ele): essa não conta
+  navigator.serviceWorker.addEventListener("controllerchange", () => { siteNovo = true; });
+}
+let conferiuVersao = 0;
+function conferirVersao() {
+  if (!("serviceWorker" in navigator) || Date.now() - conferiuVersao < 60e3) return;
+  conferiuVersao = Date.now();
+  navigator.serviceWorker.getRegistration().then(r => r && r.update()).catch(() => { /* segue */ });
+}
+const versaoMisturada = e => e instanceof TypeError || e instanceof SyntaxError ||
+  /does not provide an export named|is not a function|is not defined/i.test(String(e && e.message || e));
+
 /** Tira a cópia do site guardada neste aparelho (o service worker e o cache dos
  *  arquivos) e recarrega. Os lançamentos ficam: moram no IndexedDB, que isto
  *  não toca — inclusive os que ainda não subiram. */
@@ -395,9 +424,10 @@ async function consertarSite() {
   location.reload();
 }
 
-function telaDeFalha() {
+function telaDeFalha(detalhe = "") {
   return el("div", { class: "mes-vazio falha-carga" },
-    el("h2", {}, "Esta tela não carregou"),
+    el("h2", {}, detalhe ? "Não consegui abrir esta tela" : "Esta tela não carregou"),
+    detalhe ? el("p", {}, "Detalhe: " + detalhe) : null,
     el("p", {}, "Uma parte do site não chegou a este aparelho — a internet pode ter falhado, ou o aparelho guardou uma versão " +
       "antiga. Os lançamentos guardados aqui não se perdem com nenhum dos dois botões."),
     el("div", { class: "acoes-mes" },

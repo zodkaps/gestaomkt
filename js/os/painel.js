@@ -48,6 +48,32 @@ export function iniciarPainel(D, { baixar, raiz = document, aba = '', aoTrocarAb
   };
   const plural = (n, um, varios) => `${nf.format(n)} ${n === 1 ? um : varios}`;
 
+  // ── "Mais análises" (13/11/2026) ──
+  // O secundário de cada aba (o que se repete em outra aba, ou o detalhe) fica fechado, e à vista só o essencial.
+  // Fechado, os cartões continuam montados (sem altura e invisíveis): os gráficos têm a largura certa, e o
+  // relatório e as imagens saem iguais. Abrir vale até sair do painel.
+  const MAIS = {};
+  function ligarMais(caixa) {
+    const chave = caixa.dataset.mais, bt = caixa.querySelector(':scope > .mais-bt');
+    const n = caixa.querySelectorAll(':scope > .mais-corpo > .cartao').length;
+    const pintarMais = () => {
+      const aberto = !!MAIS[chave];
+      caixa.classList.toggle('aberto', aberto);
+      bt.setAttribute('aria-expanded', String(aberto));
+      bt.replaceChildren(el('span', { text: aberto ? 'Menos análises' : `Mais análises (${n})` }),
+        el('span', { class: 'seta', 'aria-hidden': 'true', text: aberto ? '▲' : '▼' }));
+    };
+    if (!caixa.dataset.ligado) { caixa.dataset.ligado = '1'; bt.addEventListener('click', () => { MAIS[chave] = !MAIS[chave]; pintarMais(); }); }
+    pintarMais();
+  }
+  function maisAnalises(chave, ...cartoes) {
+    const caixa = el('section', { class: 'mais-analises', 'data-mais': chave },
+      el('button', { type: 'button', class: 'mais-bt', 'aria-controls': 'mais-' + chave }),
+      el('div', { class: 'grade mais-corpo', id: 'mais-' + chave }, cartoes));
+    ligarMais(caixa);
+    return caixa;
+  }
+
   // ── as cores: um sentido para cada uma ──
   const COR = { A: 'var(--liberada)', P: 'var(--pendente)', F: 'var(--finalizada)', criadas: 'var(--liberada)', prog: 'var(--prog)', nprog: 'var(--nprog)',
     ctx: 'var(--ctx)', alerta: 'var(--alerta)' };
@@ -1192,33 +1218,25 @@ export function iniciarPainel(D, { baixar, raiz = document, aba = '', aoTrocarAb
     const rotAnt = pa.desde === pa.ate ? dm(pa.desde) : `${dm(pa.desde)} a ${dm(pa.ate)}`, nf0 = (v) => nf.format(v);
     const pctV = mv.variacaoPct == null || !mv.variacao ? '' : ` (${sinalPc(mv.variacaoPct)})`, pctF = pctV ? `; ${sinalPc(mv.variacaoPct)}` : '';
     $('#rot-resumo').textContent = sel.rot;
-    $('#nota-resumo').textContent = `Movimentação no período: entradas pela abertura e saídas pelo fim no Protheus · comparado com ${rotAnt}`;
+    $('#nota-resumo').textContent = `A carteira de agora e o movimento do período · comparado com ${rotAnt}`;
     // (12/11/2026) a posição atual não é do período: é a carteira do último export, e o rótulo diz
-    $('#rot-posicao').textContent = `Posição atual · a carteira no Protheus de ${br(D.base)} (não depende do período escolhido)`;
+    $('#rot-posicao').textContent = `Agora · a carteira no Protheus de ${br(D.base)}`;
+    // (13/11/2026) a frase numa linha: o rumo da carteira; o resto está nos números logo embaixo
     const [clsV, frase] = mv.variacao < 0
-      ? ['bom', `Evoluindo: a carteira caiu de ${nf.format(mv.inicial)} para ${nf.format(mv.final)} OS (${sinal(mv.variacao)} OS${pctF}). Encerrou ${plural(mv.saidas, 'OS', 'OS')} — ${nf.format(mv.saidasAntigas)} do backlog inicial — e entraram ${nf.format(mv.entradas)}.`]
+      ? ['bom', `Evoluindo: a carteira caiu de ${nf.format(mv.inicial)} para ${nf.format(mv.final)} OS (${sinal(mv.variacao)} OS${pctF}).`]
       : mv.variacao > 0 && mv.saidas
-        ? ['ruim', `Só movimentando: encerrou ${plural(mv.saidas, 'OS', 'OS')}, mas entraram ${nf.format(mv.entradas)} — a carteira cresceu de ${nf.format(mv.inicial)} para ${nf.format(mv.final)} (${sinal(mv.variacao)} OS${pctF}).`]
-        : mv.variacao > 0 ? ['ruim', `A carteira cresceu de ${nf.format(mv.inicial)} para ${nf.format(mv.final)} (${sinal(mv.variacao)} OS${pctF}): entraram ${nf.format(mv.entradas)} e nenhuma foi encerrada.`]
-          : ['', `A carteira ficou igual (${nf.format(mv.final)} OS): entraram ${nf.format(mv.entradas)} e encerraram ${nf.format(mv.saidas)}.`];
+        ? ['ruim', `Só movimentando: a carteira cresceu de ${nf.format(mv.inicial)} para ${nf.format(mv.final)} OS (${sinal(mv.variacao)} OS${pctF}) — entraram ${nf.format(mv.entradas)}, encerraram ${nf.format(mv.saidas)}.`]
+        : mv.variacao > 0 ? ['ruim', `Acumulando: a carteira cresceu de ${nf.format(mv.inicial)} para ${nf.format(mv.final)} OS (${sinal(mv.variacao)} OS${pctF}) — nenhuma encerrada.`]
+          : ['', `Estável: a carteira ficou em ${nf.format(mv.final)} OS — entraram ${nf.format(mv.entradas)} e encerraram ${nf.format(mv.saidas)}.`];
     const ver = $('#veredito');
     ver.className = 'veredito ' + clsV;
-    ver.textContent = (clsV === 'bom' ? '✓ ' : clsV === 'ruim' ? '⚠ ' : '= ') + frase + ` No período anterior (${rotAnt}): ${sinal(mvA.variacao)}.`;
-    $('#kpis-resumo').replaceChildren(
-      kpiCom('Backlog inicial', nf.format(mv.inicial), `em aberto em ${dm(mv.vespera)}`, COR.A, { comp: comparacao(mv.inicial, mvA.inicial, null, nf0, rotAnt) }),
-      kpiCom('Novas OS', mais(mv.entradas), 'abertas no período', 'var(--nova)', { comp: comparacao(mv.entradas, mvA.entradas, null, nf0, rotAnt) }),
-      kpiCom('Encerradas', menos(mv.saidas), `${nf.format(mv.saidasAntigas)} antigas · ${nf.format(mv.saidasNovas)} abertas no período`, COR.F,
-        { comp: comparacao(mv.saidas, mvA.saidas, 'mais', nf0, rotAnt) }),
-      kpiCom(sel.ate >= D.base ? 'Backlog atual' : 'Backlog final', nf.format(mv.final), `em aberto em ${dm(mv.ate)}`, 'var(--fraco)', { comp: comparacao(mv.final, mvA.final, 'menos', nf0, rotAnt) }),
-      kpiCom('Variação', sinal(mv.variacao) + pctV, mv.variacao < 0 ? 'a carteira diminuiu' : mv.variacao > 0 ? 'a carteira cresceu' : 'a carteira ficou igual', null,
-        { cls: mv.variacao < 0 ? 'bom' : mv.variacao > 0 ? 'ruim' : '', comp: comparacao(mv.variacao, mvA.variacao, 'menos', sinal, rotAnt) }));
+    ver.textContent = (clsV === 'bom' ? '✓ ' : clsV === 'ruim' ? '⚠ ' : '= ') + frase;
     // a evolução do backlog: o fim de cada período, a variação embaixo e a reta da tendência
     const serie = serieCarteira(R.todas, sel, esc);
     $('#ctl-evolucao').replaceChildren(segSerie(sel));
     const trE = linhaTempo($('#g-evolucao'), { linhas: serie, k: 'final', titulo: 'Evolução do backlog', nomes: (l) => [l.curto, l.variacaoPct == null || !l.variacao ? '0' : sinalPc(l.variacaoPct)],
       subCor: corVar, marcado: (l) => toca(l, sel), aoClicar: (l) => irPeriodo(l), dica: dicaMov, tendencia: true });
-    $('#nota-evolucao').textContent = `OS em aberto no fim de cada ${unid} · embaixo, a variação ${{ dia: 'no dia', semana: 'na semana', mes: 'no mês' }[esc]}` +
-      (trE ? ` · tracejado: a tendência dos últimos ${N_JANELA[esc]} (${sinal(Math.round(trE.b))} OS por ${unid})` : '');
+    $('#nota-evolucao').textContent = `OS em aberto no fim de cada ${unid}` + (trE ? ` · tendência: ${sinal(Math.round(trE.b))} OS por ${unid} (tracejado)` : '');
     const kpi = (rot, val, pe, { cls = '', cor = null, fazer = null, trilho = null } = {}) => el(fazer ? 'button' : 'div', { class: 'kpi', type: fazer ? 'button' : null, on: fazer ? { click: fazer } : {} },
       el('span', { class: 'rot' }, cor ? el('i', { class: 'ponto', style: 'background:' + cor }) : null, rot), el('span', { class: 'val ' + cls, text: val }),
       trilho, el('span', { class: 'pe', text: pe }));
@@ -1228,10 +1246,16 @@ export function iniciarPainel(D, { baixar, raiz = document, aba = '', aoTrocarAb
     const sem7 = contaProg(semSituacao().todas, sel);
     $('#kpis').replaceChildren(
       kpi('Abertas agora', nf.format(ab.length), `${nf.format(lib)} liberadas · ${nf.format(pen)} aguardando`, { trilho, fazer: () => irSit('A', 'P') }),
-      kpi('Sem executante', nf.format(sem), ab.length ? `${pc.format(sem / ab.length)} das abertas` : '—', { cls: sem ? 'ruim' : '', cor: COR.alerta, fazer: () => aplicar(() => so('exec', 'g:S'), 'carteira') }),
-      kpi('Abertas há mais de 90 dias', nf.format(v90), ab.length ? `${pc.format(v90 / ab.length)} das abertas · mais de 60 dias: ${nf.format(v60)} · mais de 30: ${nf.format(v30)}` : '—',
+      kpi('Há mais de 90 dias', nf.format(v90), ab.length ? `${pc.format(v90 / ab.length)} das abertas · mais de 60: ${nf.format(v60)} · de 30: ${nf.format(v30)}` : '—',
         { cls: v90 ? 'ruim' : '', cor: COR.alerta, fazer: () => aplicar(() => so('idade', '3'), 'carteira') }),
-      kpi('Programadas no período', nf.format(sem7.n), `${nf.format(sem7.prazo)} encerradas no período (${sem7.n ? pc.format(sem7.prazo / sem7.n) : '—'})`,
+      kpi('Sem executante', nf.format(sem), ab.length ? `${pc.format(sem / ab.length)} das abertas` : '—', { cls: sem ? 'ruim' : '', cor: COR.alerta, fazer: () => aplicar(() => so('exec', 'g:S'), 'carteira') }));
+    $('#kpis-resumo').replaceChildren(
+      kpiCom('Novas OS', mais(mv.entradas), 'abertas no período', 'var(--nova)', { comp: comparacao(mv.entradas, mvA.entradas, null, nf0, rotAnt) }),
+      kpiCom('Encerradas', menos(mv.saidas), `${nf.format(mv.saidasAntigas)} antigas · ${nf.format(mv.saidasNovas)} do período`, COR.F,
+        { comp: comparacao(mv.saidas, mvA.saidas, 'mais', nf0, rotAnt) }),
+      kpiCom('Variação', sinal(mv.variacao) + pctV, `de ${nf.format(mv.inicial)} para ${nf.format(mv.final)} OS`, null,
+        { cls: mv.variacao < 0 ? 'bom' : mv.variacao > 0 ? 'ruim' : '', comp: comparacao(mv.variacao, mvA.variacao, 'menos', sinal, rotAnt) }),
+      kpi('Programadas', nf.format(sem7.n), `${nf.format(sem7.prazo)} encerradas (${sem7.n ? pc.format(sem7.prazo / sem7.n) : '—'})`,
         { cor: COR.prog, fazer: () => { (V.cart.prog || (V.cart.prog = { lim: 100 })).g = 'prog'; V.rolar = 'pg-lista'; irPara('programacao'); } }));
 
     // abertas e fechadas por frota, lado a lado (pedido de 03/11/2026)
@@ -1240,22 +1264,20 @@ export function iniciarPainel(D, { baixar, raiz = document, aba = '', aoTrocarAb
     $('#leg-frotas').replaceChildren(...itensBK());
     barrasBacklog($('#g-frotas'), { linhas: pf.map((l) => ({ ...l, rot: l.chave, baix: l.F, pend: l.A + l.P })), titulo: 'Backlog por frota', dica: dicaFrota(R),
       limite: 10, chave: 'geral-frotas', sub: (l) => l.sub, aoClicar: (l) => aplicar(() => so('frota', l.chave), 'frotas') });
-    $('#nota-frotas').textContent = `${plural(ab.length, 'pendente', 'pendentes')} e ${plural(fe.length, 'baixada', 'baixadas')} (${R.p.rot.toLowerCase()}) em ${plural(pf.length, 'frota', 'frotas')}` +
-      ` · por ${ORD_FROTA[V.frotaOrd][0].toLowerCase()}`;
+    $('#nota-frotas').textContent = `${plural(ab.length, 'pendente', 'pendentes')} e ${plural(fe.length, 'baixada', 'baixadas')} no período · ${plural(pf.length, 'frota', 'frotas')}`;
 
     // programadas × finalizadas (10/11/2026): o dia, a semana ou o mês de hoje e os em volta; a coluna abre a Programação
     const jan = janelaDe(sel, esc, 2).map((q) => contaProg(semSituacao().todas, q));
     const agora = contaProg(semSituacao().todas, sel);
     $('#ctl-progfin').replaceChildren(segSerie(sel));
-    $('#nota-progfin').textContent = `${sel.rot}: ${plural(agora.n, 'programada', 'programadas')}, ${nf.format(agora.prazo)} encerradas no período (${pctDe(agora.prazo, agora.n)})` +
+    $('#nota-progfin').textContent = `${sel.rot}: ${plural(agora.n, 'programada', 'programadas')} · ${nf.format(agora.prazo)} encerradas no período (${pctDe(agora.prazo, agora.n)})` +
       ` · ${plural(agora.fin, 'encerrada', 'encerradas')} no total (${nf.format(agora.finFora)} extra programação)`;
     $('#leg-progfin').replaceChildren(...itensPF());
     grafProgFin($('#g-progfin'), jan, { titulo: 'Programadas e encerradas', rotulo: (l) => [l.curto, l.de > D.base ? 'a vir' : pctDe(l.prazo, l.n)], marcado: (l) => toca(l, sel),
       aoClicar: (l) => verProgramadas(esc, l.de) });
 
     // entrada e saída em cada período: novas × encerradas, e o saldo embaixo
-    $('#nota-fluxo').textContent = `Por ${unid} · ${sel.rot}: entraram ${nf.format(mv.entradas)} e saíram ${nf.format(mv.saidas)} — ` +
-      (mv.saldo > 0 ? `a carteira cresceu ${nf.format(mv.saldo)}` : mv.saldo < 0 ? `a carteira diminuiu ${nf.format(-mv.saldo)}` : 'a carteira ficou igual') + ' · embaixo, o saldo';
+    $('#nota-fluxo').textContent = `Por ${unid} · no período: entraram ${nf.format(mv.entradas)} e saíram ${nf.format(mv.saidas)}`;
     legenda('#leg-fluxo', [['Novas OS (abertas no Protheus)', 'var(--nova)'], ['Encerradas', COR.F]]);
     colunasNE($('#g-fluxo'), serie, sel, 'Entrada e saída da carteira');
 
@@ -1415,14 +1437,15 @@ export function iniciarPainel(D, { baixar, raiz = document, aba = '', aoTrocarAb
           ind('Abertas depois do serviço', fmtPc(k.abertasDepois), `das fechadas no período, OS aberta no Protheus depois do fim da manutenção (${nf.format(k.nDepois)})`,
             { comp: compara(k.abertasDepois, a.abertasDepois, 'menos', fmtPc) }))),
       cartaoComp,
-      cartaoGraf('c-ind-backlog', 'Evolução do backlog', `OS em aberto no fim de cada ${unidI} · tracejado: a tendência`, 'c12'),
-      cartaoGraf('c-ind-ne', 'Novas e encerradas', `Em cada ${unidI}: a entrada pela abertura e a saída pelo fim · embaixo, o saldo`, 'c12', [['Novas OS', 'var(--nova)'], ['Encerradas', COR.F]]),
-      cartaoGraf('c-ind-saldo', 'Saldo da carteira', `Novas − encerradas em cada ${unidI}`, 'c6', [['Cresceu (entrou mais do que saiu)', COR.alerta], ['Diminuiu (saiu mais do que entrou)', COR.F]]),
-      cartaoGraf('c-ind-taxa', 'Encerradas ÷ novas', `Em cada ${unidI} · acima de 100% a carteira diminui`, 'c6'),
       cartaoGraf('c-tempo', 'Tempo para fechar', `Mediana de dias até fechar, em cada ${unidI}`, 'c6'),
       cartaoGraf('c-ader', 'Aderência à programação', `% das programadas encerradas até o domingo da semana delas, em cada ${unidI}`, 'c6'),
-      cartaoGraf('c-tipo', 'Corretiva e preventiva', 'Encerradas no período', 'c6'),
-      cartaoGraf('c-sit', 'Situação das abertas', 'Abertas hoje', 'c6')));
+      maisAnalises('indicadores',
+        cartaoGraf('c-ind-backlog', 'Evolução do backlog', `OS em aberto no fim de cada ${unidI} · tracejado: a tendência`, 'c12'),
+        cartaoGraf('c-ind-ne', 'Novas e encerradas', `Em cada ${unidI}: a entrada pela abertura e a saída pelo fim · embaixo, o saldo`, 'c12', [['Novas OS', 'var(--nova)'], ['Encerradas', COR.F]]),
+        cartaoGraf('c-ind-saldo', 'Saldo da carteira', `Novas − encerradas em cada ${unidI}`, 'c6', [['Cresceu (entrou mais do que saiu)', COR.alerta], ['Diminuiu (saiu mais do que entrou)', COR.F]]),
+        cartaoGraf('c-ind-taxa', 'Encerradas ÷ novas', `Em cada ${unidI} · acima de 100% a carteira diminui`, 'c6'),
+        cartaoGraf('c-tipo', 'Corretiva e preventiva', 'Encerradas no período', 'c6'),
+        cartaoGraf('c-sit', 'Situação das abertas', 'Abertas hoje', 'c6'))));
     $('#c-ind-backlog .acoes').prepend(el('div', { class: 'ctl' }, segSerie(selI)));
     const serieI = serieCarteira(R.todas, selI, escI);
     linhaTempo($('#g-ind-backlog'), { linhas: serieI, k: 'final', titulo: 'Evolução do backlog', nomes: (l) => [l.curto, l.variacaoPct == null || !l.variacao ? '0' : sinalPc(l.variacaoPct)],
@@ -1634,7 +1657,7 @@ export function iniciarPainel(D, { baixar, raiz = document, aba = '', aoTrocarAb
       el('div', { class: 'cab' }, el('div', {}, el('h2', { text: 'Por ' + (por === 'exec' ? 'executante' : 'frota') + ' · ' + sel.rot })), el('div', { class: 'acoes' }, el('div', { class: 'ctl' }, segPor))),
       tPor);
     const lista = el('article', { class: 'cartao c12', id: 'pg-lista' });
-    raiz.replaceChildren(el('div', { class: 'grade' }, topo, lista, seq, det, quem));
+    raiz.replaceChildren(el('div', { class: 'grade' }, topo, lista, maisAnalises('programacao', seq, det, quem)));
     const rotPct = (l) => (l.de > D.base ? 'a vir' : pctDe(l.prazo, l.n));
     grafProgFin(gSeq, janela, { titulo: 'Programadas e encerradas', rotulo: (l) => [l.curto, rotPct(l)], marcado: (l) => toca(l, sel), aoClicar: (l) => irPeriodo(l) });
     if (det) grafProgFin(gDet, subs, { titulo: dp.tit, rotulo: (l) => (dp.esc === 'dia' ? [`${l.sub} ${l.curto}`, rotPct(l)] : [l.curto, rotPct(l)]), aoClicar: (l) => irPeriodo(l) });
@@ -2011,7 +2034,7 @@ export function iniciarPainel(D, { baixar, raiz = document, aba = '', aoTrocarAb
     const hist = el('article', { class: 'cartao c12', id: 'av-historico', 'data-imagem': true },
       el('div', { class: 'cab' }, el('div', {}, el('h2', { text: `Histórico · cada ${unid}` }),
         el('p', { class: 'nota', text: 'O backlog no começo e no fim de cada período, o que entrou e o que saiu · a linha abre o período' })), el('div', { class: 'acoes' })), tHist);
-    raiz.replaceChildren(el('div', { class: 'grade' }, topo, cartaoConferencia(mv, sel), es, seq, ne, hist, cada, tab, lista));
+    raiz.replaceChildren(el('div', { class: 'grade' }, topo, cartaoConferencia(mv, sel), es, hist, maisAnalises('avanco', seq, ne, cada, tab, lista)));
     const varH = (l) => l.fim - l.tinha, encH = (l) => l.fechou + l.entrouFechou;
     tabela(tHist, { id: 'av-hist', linhas: janela, padrao: { k: 'de', dir: 'desc' }, aoClicar: (l) => irPeriodo(l), cols: [
       { k: 'de', rot: 'Período', ord: (l) => l.de, ver: (l) => l.rot },
@@ -2805,7 +2828,7 @@ export function iniciarPainel(D, { baixar, raiz = document, aba = '', aoTrocarAb
   function cabecalhoImg(c, cor, titulo, subL, pad, W, H, logo = null) {
     const f = cor('--fonte');
     c.fillStyle = cor('--texto'); c.font = `700 19px ${f}`; c.fillText(titulo, pad, pad + 16, W - pad * 2 - 160);
-    c.textAlign = 'right'; c.fillStyle = cor('--alerta-t');
+    c.textAlign = 'right'; c.fillStyle = cor('--marca') || cor('--texto');
     c.font = `700 12px ${f}`; c.fillText('Data de atualização', W - pad, pad + 6);
     c.font = `800 15px ${f}`; c.fillText(br(D.base), W - pad, pad + 24);
     c.textAlign = 'left';
@@ -3267,6 +3290,7 @@ export function iniciarPainel(D, { baixar, raiz = document, aba = '', aoTrocarAb
   const bRel = $('#os-relatorio');
   if (bRel) { bRel.hidden = false; bRel.addEventListener('click', abrirRelatorio); }
   raiz.querySelectorAll('.cartao[data-imagem]').forEach(prepararImagem);
+  raiz.querySelectorAll('.mais-analises[data-mais]').forEach(ligarMais);
 
   // ── a carteira para imprimir (05/11/2026) ──
   // Um PDF A4 deitado, uma frota por página: as OS para fechar (liberadas e aguardando liberação, da mais

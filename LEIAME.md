@@ -44,9 +44,9 @@ A oficina devolver a frota atrasada **não** conta: o que se avalia é a operaç
   a frota no alto — **qualquer frota se digita**, lançada ou não: "617" acha a
   F-617, um pedaço do número mostra as que têm ele, e a frota que ninguém lançou
   aparece vazia, dizendo que não há nada dela (o mesmo no filtro do Registro).
-  Embaixo, desde 12/11/2026, **três áreas**, na ordem em que se lê (eram cinco
-  abas — Resumo, Para resolver, Motivos, Análise e Todos os atrasos — com o
-  mesmo histórico em pedaços):
+  Embaixo, as **cinco abas**, na ordem em que se lê (em 12/11/2026 elas viraram
+  três áreas por umas horas; o PCM pediu as cinco de volta, com a leitura nova
+  dentro de cada uma, em 13/11/2026):
   - **Resumo** — uma frase que compara com o período anterior ("Atrasos
     diminuíram: 4 no período, contra 7 de 01/10 a 12/10"), os quatro números de
     sempre (movimentações no prazo, frotas no dia da preventiva, liberações
@@ -54,16 +54,17 @@ A oficina devolver a frota atrasada **não** conta: o que se avalia é a operaç
     ação** (quantas pendências e as três mais atrasadas, com os botões); os
     **principais motivos** (tocar abre os atrasos de cada um); e um gráfico só,
     a semana a semana, com a semana de mais atrasos dita em palavras;
-  - **Pendências** — o que pede ação, cada coisa uma vez só: o que está
+  - **Para resolver** — o que pede ação, cada coisa uma vez só: o que está
     atrasando agora e o atraso sem o porquê, de qualquer período, o mais
     atrasado primeiro, com Frota, Ocorrência, Situação, Dias, Motivo e
     responsável e o botão que resolve (Concluir, A frota chegou, Justificar —
     os de sempre, com as mesmas permissões). Recortes: Todas, Atrasando agora,
     Sem justificativa. Quinze de cada vez; o resto em *Mostrar as outras*;
-  - **Histórico e análise** — *Análise*: os motivos recorrentes (cada motivo
-    com quantos atrasos, os dias e quem atrasou) e os gráficos (pontualidade por
-    semana, frotas com mais atrasos, quem atrasou, categoria e tamanho do
-    atraso); *Todos os atrasos*: a tabela do período, com tipo, busca e motivo.
+  - **Motivos** — os motivos recorrentes: cada motivo com quantos atrasos, de
+    que tipo, os dias e quem atrasou; tocar abre os atrasos dele;
+  - **Análise** — os gráficos: pontualidade por semana, frotas com mais atrasos,
+    quem atrasou, categoria e tamanho do atraso;
+  - **Todos os atrasos** — a tabela do período, com tipo, busca e motivo.
   **O período anterior** (`A.periodoAnterior`) é o mesmo trecho do bloco de
   antes, para comparar igual com igual: os mesmos dias do mês anterior (Este
   mês), o mês antes do passado, as 4 ou 12 semanas antes (mesmos dias da
@@ -77,20 +78,51 @@ A oficina devolver a frota atrasada **não** conta: o que se avalia é a operaç
   parte. No prazo é cinza nos gráficos: só o atraso tem cor.
   **No celular e no tablet** (abaixo de 1000px) as tabelas viram cartões, com
   os botões do tamanho do dedo; no celular o período vira uma lista de escolha
-  e as três áreas cabem numa linha. Os endereços antigos (`?a=resolver`,
-  `motivos`, `analise`, `lista`) caem na área nova; o *Justificar* da
-  Movimentação abre as Pendências já em *Sem justificativa*.
+  e as cinco abas cabem numa linha, com o nome curto (Resolver, Atrasos). Os
+  endereços das três áreas (`?a=pendencias`, `?a=historico`) caem na aba certa;
+  o *Justificar* da Movimentação abre o *Para resolver* já em *Sem
+  justificativa*.
 - As contas ficam em `js/avaliacao.js` (puras, testadas em `testes/rodar.js`);
   a tela em `js/tela/avaliacao.js`.
 
+- **A página aberta durante uma publicação** (13/11/2026). As telas chegam na
+  hora de abrir, mas o que a página carregou ao começar fica na memória até
+  ela recarregar. Publicado o site com a página aberta, a Avaliação nova usou o
+  `js/avaliacao.js` velho da memória e parou com "A.periodoAnterior is not a
+  function". Agora o navegador confere a versão do site nas trocas de tela; se
+  a nova entrou, a próxima troca recarrega a página inteira. E a tela que falhar
+  com erro de versão misturada recarrega uma vez sozinha; se falhar de novo,
+  mostra o porquê e os botões de sempre (o teste simula a publicação com a
+  página aberta, em `testes/interacao.mjs`).
+- **O painel de OS mais limpo** (13/11/2026), sem tirar aba, filtro, gráfico,
+  cálculo ou função. A **Visão geral** começa num cartão só, o **Resumo**: a
+  frase do rumo da carteira em uma linha e os sete números, cada um uma vez —
+  *agora* (abertas, há mais de 90 dias, sem executante) e *no período* (novas,
+  encerradas, variação "de 1.156 para 1.227", programadas). Antes eram dois
+  blocos com nove números, o backlog do fim repetido e a frase repetindo os
+  números. Depois, os gráficos na ordem das perguntas da gestão: a evolução do
+  backlog, a entrada e saída com a idade das abertas ao lado, o backlog por
+  frota e as programadas e encerradas. O secundário — o que se repete em outra
+  aba, ou o detalhe — fica em **Mais análises**, fechado, no fim da aba: na
+  Visão geral (quem vai fechar, programadas e não programadas, categorias), nos
+  Indicadores (a evolução, novas e encerradas, saldo, encerradas ÷ novas,
+  corretiva e preventiva, situação das abertas), no Avanço (os gráficos semana a
+  semana, o por executante e a lista das encerradas) e na Programação (os
+  gráficos e o por executante). Fechado, o cartão continua montado (sem altura
+  e invisível): o relatório em PDF e as imagens saem iguais. As notas dos
+  gráficos ficaram numa linha. As abas Não liberadas, Frotas, Executantes e
+  Auditoria são listas de consulta e ficaram como estavam.
 - **As cores de referência** (12/11/2026, segunda revisão): o PCM passou o
   azul-marinho institucional **#13164E** e o vermelho institucional **#E4002A**,
   que agora são as cores da interface (a estrutura e o alerta, no site, no painel
   de OS e no relatório). O relatório gerencial (o PDF e a imagem para o celular)
   ganhou o cabeçalho com o logo, o título em azul-marinho e um fio; as imagens dos
   cartões e do resumo, o logo no rodapé (o colorido no fundo claro, o branco no
-  escuro). As do arquivo do logo (#1D3C85 e #ED1C24) ficam só no desenho dele
-  (`--azul-logo`, `--vermelho-logo`).
+  escuro). O logo (o colorido, o branco do menu e o ícone do site) ficou com as
+  mesmas cores de referência — o desenho é o dos vetores oficiais, só com as
+  cores trocadas (#1D3C85 → #13164E e #ED1C24 → #E4002A). A "Data de
+  atualização" das imagens saiu do vermelho: é a cor da marca (o vermelho é só
+  para alerta).
 - **A identidade da Makro** (12/11/2026, com os arquivos que o PCM mandou):
   as cores saíram dos vetores oficiais do logo, não do olho — o **Azul Makro
   #1D3C85** e o **Vermelho Makro #ED1C24** (`--azul-makro`, `--vermelho-makro`
@@ -1707,7 +1739,7 @@ travas existem de propósito — não tirar sem saber o porquê:
 | `js/tela/*.js` | entrar, operacao, painel, hoje, programacao, semana, resultados, movimentacoes, preventivas, frota, historico, importar, diagnostico |
 | `js/foco.js` | o que o site mostra: sem `?oficina=1`, as telas da oficina ficam fora do menu; a primeira tela de quem entra |
 | `js/avaliacao.js` | as contas da Avaliação da operação: os três atrasos, o que atrasa agora, o que falta justificar, os agrupamentos dos gráficos |
-| `js/tela/avaliacao.js` | a tela Avaliação, em três áreas: Resumo, Pendências e Histórico e análise |
+| `js/tela/avaliacao.js` | a tela Avaliação, em cinco abas: Resumo, Para resolver, Motivos, Análise e Todos os atrasos |
 | `js/tela/buscarfrota.js` | o Buscar frota (Ctrl+K): a frota digitada e tudo o que ela tem em aberto, abrindo as caixas de sempre |
 | `js/tela/prevlote.js` | as preventivas em lote: a barra das marcadas no Plano e as caixas de liberação, parada, chegada e realizada |
 | `js/decisoes.js` | **o que decidir agora**: as regras do Painel, puras, e a data sugerida para a parada |

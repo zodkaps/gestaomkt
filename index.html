@@ -77,19 +77,24 @@
   <section class="vista" id="geral" role="tabpanel" aria-labelledby="aba-geral" hidden>
     <div class="grade">
       <article class="cartao c12" id="c-resumo" data-imagem>
-        <div class="cab"><div><h2>Resumo do período</h2><p class="nota" id="nota-resumo"></p></div><div class="acoes"></div></div>
-        <b class="pg-rot" id="rot-resumo"></b>
+        <div class="cab"><div><h2>Resumo</h2><p class="nota" id="nota-resumo"></p></div><div class="acoes"></div></div>
         <p class="veredito" id="veredito"></p>
-        <div class="kpis mini kpis5" id="kpis-resumo"></div>
+        <div class="kpi-grupo"><h3 class="kpis-tit" id="rot-posicao"></h3><div class="kpis mini kpis3" id="kpis"></div></div>
+        <div class="kpi-grupo"><h3 class="kpis-tit">No período · <b id="rot-resumo"></b></h3><div class="kpis mini kpis4" id="kpis-resumo"></div></div>
       </article>
-    </div>
-    <p class="rot-secao" id="rot-posicao"></p>
-    <div class="kpis kpis4" id="kpis"></div>
-    <div class="grade">
       <article class="cartao c12" id="c-evolucao" data-imagem>
         <div class="cab"><div><h2>Evolução do backlog</h2><p class="nota" id="nota-evolucao"></p></div>
           <div class="acoes"><div class="ctl" id="ctl-evolucao"></div></div></div>
         <div class="graf rolar-x" id="g-evolucao"></div>
+      </article>
+      <article class="cartao c8" id="c-fluxo" data-imagem>
+        <div class="cab"><div><h2>Entrada e saída da carteira</h2><p class="nota" id="nota-fluxo"></p></div><div class="acoes"></div></div>
+        <div class="legenda" id="leg-fluxo"></div>
+        <div class="graf rolar-x" id="g-fluxo"></div>
+      </article>
+      <article class="cartao c4" id="c-idade" data-imagem>
+        <div class="cab"><div><h2>Há quanto tempo estão abertas</h2><p class="nota">As abertas, pela data de abertura</p></div><div class="acoes"></div></div>
+        <div class="graf" id="g-idade"></div>
       </article>
       <article class="cartao c12" id="c-frotas" data-imagem>
         <div class="cab"><div><h2>Backlog por frota</h2><p class="nota" id="nota-frotas"></p></div>
@@ -103,30 +108,26 @@
         <div class="legenda" id="leg-progfin"></div>
         <div class="graf rolar-x" id="g-progfin"></div>
       </article>
-      <article class="cartao c8" id="c-fluxo" data-imagem>
-        <div class="cab"><div><h2>Entrada e saída da carteira</h2><p class="nota" id="nota-fluxo"></p></div><div class="acoes"></div></div>
-        <div class="legenda" id="leg-fluxo"></div>
-        <div class="graf rolar-x" id="g-fluxo"></div>
-      </article>
-      <article class="cartao c4" id="c-quem" data-imagem>
-        <div class="cab"><div><h2>Quem vai fechar as abertas</h2><p class="nota">Pela mão de obra da STL</p></div><div class="acoes"></div></div>
-        <div class="graf" id="g-quem"></div>
-      </article>
-      <article class="cartao c6" id="c-idade" data-imagem>
-        <div class="cab"><div><h2>Há quanto tempo estão abertas</h2><p class="nota">As abertas, pela data de abertura</p></div><div class="acoes"></div></div>
-        <div class="graf" id="g-idade"></div>
-      </article>
-      <article class="cartao c6" id="c-comp" data-imagem>
-        <div class="cab"><div><h2>Programadas e não programadas</h2><p class="nota" id="nota-comp"></p></div><div class="acoes"></div></div>
-        <div class="legenda" id="leg-comp"></div>
-        <div class="graf" id="g-comp"></div>
-      </article>
-      <article class="cartao c12" id="c-cats" data-imagem>
-        <div class="cab"><div><h2>Categorias</h2><p class="nota">Abertas e fechadas no período</p></div><div class="acoes"></div></div>
-        <div class="legenda" id="leg-cats"></div>
-        <div class="graf rolar-x" id="g-cats"></div>
-        <details class="regra-mais"><summary>Quais categorias contam como programadas</summary><p class="regra" id="regra-prog"></p></details>
-      </article>
+      <section class="mais-analises" data-mais="geral">
+        <button type="button" class="mais-bt" aria-controls="mais-geral"></button>
+        <div class="grade mais-corpo" id="mais-geral">
+          <article class="cartao c4" id="c-quem" data-imagem>
+            <div class="cab"><div><h2>Quem vai fechar as abertas</h2><p class="nota">Pela mão de obra da STL</p></div><div class="acoes"></div></div>
+            <div class="graf" id="g-quem"></div>
+          </article>
+          <article class="cartao c8" id="c-comp" data-imagem>
+            <div class="cab"><div><h2>Programadas e não programadas</h2><p class="nota" id="nota-comp"></p></div><div class="acoes"></div></div>
+            <div class="legenda" id="leg-comp"></div>
+            <div class="graf" id="g-comp"></div>
+          </article>
+          <article class="cartao c12" id="c-cats" data-imagem>
+            <div class="cab"><div><h2>Categorias</h2><p class="nota">Abertas e fechadas no período</p></div><div class="acoes"></div></div>
+            <div class="legenda" id="leg-cats"></div>
+            <div class="graf rolar-x" id="g-cats"></div>
+            <details class="regra-mais"><summary>Quais categorias contam como programadas</summary><p class="regra" id="regra-prog"></p></details>
+          </article>
+        </div>
+      </section>
     </div>
   </section>
 

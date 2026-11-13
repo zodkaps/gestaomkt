@@ -130,4 +130,7 @@ Mudou arquivo em `js/`? Acrescentar em `sw.js` (lista e versão) — o
 - O painel de OS mora numa área isolada (shadow DOM, `js/tela/os.js`): o que
   ele procura é na raiz dele, não no `document`; o que ouve na janela sai no
   `parar()`. Indicador novo: a conta em `js/os/indicadores.js`, com teste.
+- Cartão novo no painel de OS: à vista só se for essencial para a aba; o
+  secundário vai para o "Mais análises" dela (`maisAnalises` em
+  `js/os/painel.js`), que fica fechado mas montado — o relatório captura de lá.
 - CSV sai por `celulaCSV` (`js/texto.js`), que não deixa célula virar fórmula.
