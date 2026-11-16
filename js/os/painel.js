@@ -1962,6 +1962,61 @@ export function iniciarPainel(D, { baixar, raiz = document, aba = '', aoTrocarAb
     });
     return tr;
   }
+  /** A progressão da carteira (16/11/2026, como a "Gestão da Carteira de Serviço" dos controladores de PCM): em
+   *  cima, as OS em aberto no fim de cada período; embaixo, as novas e as encerradas dele. Duas faixas com a mesma
+   *  linha do tempo, cada uma na sua escala — nunca dois eixos no mesmo gráfico. A de cima não começa no zero (o que
+   *  importa é a subida e a descida, e cada ponto traz o número); a de baixo começa. `linhas`: contaAvanco de cada período. */
+  function progressaoCarteira(caixa, { linhas, titulo, unid, marcado = null, aoClicar = null, H = 340, passoMin = 58 }) {
+    if (!linhas.length) return vazio(caixa, 'Nada com estes filtros.');
+    const enc = (l) => l.fechou + l.entrouFechou;
+    const W = Math.max(caixa.clientWidth || 640, linhas.length * passoMin);
+    const svg = d3.create('svg').attr('width', W).attr('height', H).attr('viewBox', `0 0 ${W} ${H}`).attr('role', 'img').attr('aria-label', titulo);
+    caixa.replaceChildren(svg.node());
+    guardarDados(caixa, { titulo, cab: ['Período', 'Carteira no início', 'Novas OS', 'Encerradas', 'Carteira no fim', 'Variação'],
+      linhas: linhas.map((l) => [l.rot, l.tinha, l.entrou, enc(l), l.fim, l.fim - l.tinha]) });
+    const passo = W / linhas.length, cx = (i) => passo * i + passo / 2;
+    const F1 = { topo: 46, base: 136 }, F2 = { topo: 200, base: 290 };
+    const [lo, hi] = d3.extent(linhas, (l) => l.fim), folga = (hi - lo) * 0.2 || Math.max(1, hi * 0.1);
+    const s1 = d3.scaleLinear([Math.max(0, lo - folga), hi + folga], [F1.base, F1.topo]);
+    const s2 = d3.scaleLinear([0, d3.max(linhas, (l) => Math.max(l.entrou, enc(l))) || 1], [F2.base, F2.topo]).nice();
+    linhas.forEach((l, i) => { if (marcado && marcado(l)) svg.append('rect').attr('x', passo * i + 2).attr('y', 4).attr('width', passo - 4).attr('height', H - 8).attr('rx', 8).style('fill', 'var(--marca-clara)'); });
+    for (const v of s2.ticks(2)) if (v) svg.append('line').attr('x1', 0).attr('x2', W).attr('y1', s2(v) + 0.5).attr('y2', s2(v) + 0.5).style('stroke', 'var(--linha)');
+    svg.append('line').attr('x1', 0).attr('x2', W).attr('y1', F2.base + 0.5).attr('y2', F2.base + 0.5).style('stroke', 'var(--borda)');
+    const de = unid === 'semana' ? 'da' : 'do';
+    txt(svg, 4, 13, `Carteira no fim ${de} ${unid}`, { cor: 'var(--fraco)', tam: 10.5, peso: 650 });
+    txt(svg, 4, F2.topo - 34, `Novas e encerradas ${de} ${unid}`, { cor: 'var(--fraco)', tam: 10.5, peso: 650 });
+    const linha = (pts, cor) => svg.append('path').attr('d', d3.line()(pts)).style('fill', 'none').style('stroke', cor).style('stroke-width', 2).style('stroke-linejoin', 'round');
+    linha(linhas.map((l, i) => [cx(i), s1(l.fim)]), COR.A);
+    linha(linhas.map((l, i) => [cx(i), s2(l.entrou)]), 'var(--nova-linha)');
+    linha(linhas.map((l, i) => [cx(i), s2(enc(l))]), COR.F);
+    const ponto = (g, x, y, cor) => {
+      g.append('rect').attr('x', x - 6.5).attr('y', y - 6.5).attr('width', 13).attr('height', 13).attr('rx', 6.5).style('fill', 'var(--papel)');
+      g.append('rect').attr('x', x - 4.5).attr('y', y - 4.5).attr('width', 9).attr('height', 9).attr('rx', 4.5).style('fill', cor);
+    };
+    const num = (g, x, y, v, cls) => txt(g, x, y, nf.format(v), { anchor: 'middle', cor: 'var(--texto)', peso: 700, tam: 11.5 }).attr('class', cls);
+    linhas.forEach((l, i) => {
+      const g = svg.append('g').attr('class', 'col'), x = cx(i);
+      g.append('rect').attr('x', passo * i).attr('y', 0).attr('width', passo).attr('height', H).style('fill', 'transparent');
+      const y1 = s1(l.fim);
+      ponto(g, x, y1, COR.A);
+      num(g, x, y1 - 14, l.fim, 'v-fim');
+      // embaixo, o número da maior por cima do ponto e o da menor por baixo: os dois nunca se cobrem
+      const yN = s2(l.entrou), yE = s2(enc(l)), novasEmCima = l.entrou >= enc(l);
+      ponto(g, x, yN, 'var(--nova-linha)');
+      ponto(g, x, yE, COR.F);
+      num(g, x, novasEmCima ? yN - 13 : yN + 14, l.entrou, 'v-novas');
+      num(g, x, novasEmCima ? yE + 14 : yE - 13, enc(l), 'v-enc');
+      txt(g, x, F2.base + 27, l.curto, { anchor: 'middle', cor: 'var(--fraco)', peso: 650, tam: 11 });
+      if (l.sub) txt(g, x, F2.base + 41, l.sub, { anchor: 'middle', cor: 'var(--muito-fraco)', peso: 600, tam: 10.5 });
+      g.on('mousemove', (ev) => mostrarDica(ev, l.rot, [['Carteira no início', nf.format(l.tinha)], ['Novas OS', nf.format(l.entrou), 'var(--nova-linha)'],
+        ['Encerradas', `${nf.format(enc(l))} · ${nf.format(l.fechou)} da carteira do início`, COR.F], ['Carteira no fim', nf.format(l.fim), COR.A],
+        ['Variação', sinal(l.fim - l.tinha)]])).on('mouseleave', esconderDica);
+      if (aoClicar) g.style('cursor', 'pointer').on('click', () => aoClicar(l));
+    });
+    // rolando (no celular): o período marcado vem para o meio; sem ele, o mais recente
+    const disp = caixa.clientWidth || 640, iMarc = marcado ? linhas.findIndex(marcado) : -1;
+    if (W > disp + 1) caixa.scrollLeft = Math.max(0, (iMarc >= 0 ? cx(iMarc) : W) - disp / 2);
+  }
   /** O saldo em cada período: para cima a carteira cresceu (entrou mais do que saiu), para baixo diminuiu. */
   function colunasSaldo(caixa, { linhas, titulo, k = 'saldo', nomes, marcado = null, aoClicar = null, dica = null, H = 250 }) {
     if (!linhas.length) return vazio(caixa, 'Nada com estes filtros.');
@@ -2039,6 +2094,15 @@ export function iniciarPainel(D, { baixar, raiz = document, aba = '', aoTrocarAb
     const PARTES_FIM = [{ k: 'ainda', nome: 'Remanescente do backlog inicial', cor: COR.A, texto: 'claro' }, { k: 'entrouAberta', nome: 'Abertas no período', cor: 'var(--nova)', texto: 'tema' }];
     const dicaAv = (l) => [['Backlog inicial', nf.format(l.tinha), COR.A], ['Encerradas', `${nf.format(l.fechou + l.entrouFechou)} · ${nf.format(l.fechou)} do inicial`, COR.F],
       ['Novas OS', `${nf.format(l.entrou)} · ${nf.format(l.entrouFechou)} já encerradas`, 'var(--nova)'], ['Backlog final', nf.format(l.fim)]];
+    // (16/11/2026, pedido do Mateus) a progressão da carteira, como a "Gestão da Carteira de Serviço" dos controladores
+    const gProg = el('div', { class: 'graf rolar-x' }), daUn = unid === 'semana' ? 'da' : 'do';
+    const prog = el('article', { class: 'cartao c12', id: 'av-progressao', 'data-imagem': true },
+      el('div', { class: 'cab' }, el('div', {}, el('h2', { text: 'Progressão da carteira' }),
+        el('p', { class: 'nota', text: `Em cima, as OS em aberto no fim de cada ${unid}; embaixo, as novas e as encerradas ${daUn} ${unid}` })),
+        el('div', { class: 'acoes' }, el('div', { class: 'ctl' }, segSerie(sel)))),
+      el('div', { class: 'legenda' }, el('span', {}, el('i', { style: 'background:' + COR.A }), `Carteira no fim ${daUn} ${unid}`),
+        el('span', {}, el('i', { style: 'background:var(--nova-linha)' }), 'Novas OS'), el('span', {}, el('i', { style: 'background:' + COR.F }), 'Encerradas')),
+      gProg);
     const gSeq = el('div', { class: 'graf rolar-x' });
     const seq = el('article', { class: 'cartao c12', 'data-imagem': true },
       el('div', { class: 'cab' }, el('div', {}, el('h2', { text: `Backlog ao fim de cada ${unid}` }),
@@ -2087,7 +2151,7 @@ export function iniciarPainel(D, { baixar, raiz = document, aba = '', aoTrocarAb
     const hist = el('article', { class: 'cartao c12', id: 'av-historico', 'data-imagem': true },
       el('div', { class: 'cab' }, el('div', {}, el('h2', { text: `Histórico · cada ${unid}` }),
         el('p', { class: 'nota', text: 'O backlog no começo e no fim de cada período, o que entrou e o que saiu · a linha abre o período' })), el('div', { class: 'acoes' })), tHist);
-    raiz.replaceChildren(el('div', { class: 'grade' }, topo, seq,
+    raiz.replaceChildren(el('div', { class: 'grade' }, topo, prog, seq,
       recolhido('av-lista', { abrir: 'Ver a lista das OS', fechar: 'Esconder a lista' }, lista),
       recolhido('av-detalhes', { abrir: 'Detalhes da análise (a conferência, a entrada e saída e o histórico)', fechar: 'Esconder os detalhes' },
         cartaoConferencia(mv, sel), es, hist),
@@ -2110,6 +2174,7 @@ export function iniciarPainel(D, { baixar, raiz = document, aba = '', aoTrocarAb
       rotulo: (l) => [l.curto, (l.saldo > 0 ? '+' : l.saldo < 0 ? '−' : '') + nf.format(Math.abs(l.saldo))], marcado: (l) => toca(l, sel), aoClicar: (l) => irPeriodo(l),
       dica: (l) => [['Novas OS', nf.format(l.novas), 'var(--nova)'], ['Encerradas', `${nf.format(l.enc)} · ${nf.format(l.fechou)} do backlog inicial`, COR.F],
         ['Saldo', sinal(l.saldo)], ['Backlog no fim', nf.format(l.fim)]], quem: ['período', 'períodos'] });
+    progressaoCarteira(gProg, { linhas: janela, titulo: 'Progressão da carteira', unid, marcado: (l) => toca(l, sel), aoClicar: (l) => irPeriodo(l) });
     colunasEmPe(gSeq, { linhas: janela, partes: PARTES_FIM, titulo: `Backlog ao fim de cada ${unid}`, H: 300, passoMin: 46, passoMax: 92,
       nomes: (l) => ({ fortes: [l.curto], fracos: [l.tinha ? pc.format(l.pct) + ' encerrado' : '—'] }), dica: dicaAv,
       marcado: (l) => toca(l, sel), aoClicar: (l) => irPeriodo(l) });
@@ -3167,7 +3232,7 @@ export function iniciarPainel(D, { baixar, raiz = document, aba = '', aoTrocarAb
   // está na tela; os dados para o Excel saem das mesmas contas (js/os/indicadores.js).
   const REL = [
     ['geral', 'Visão geral', ['#c-resumo', '#c-evolucao', '#c-fluxo', '#c-idade']],
-    ['avanco', 'Avanço do backlog', ['#av-topo', '#av-conferencia', '#av-es', '#av-historico']],
+    ['avanco', 'Avanço do backlog', ['#av-topo', '#av-progressao', '#av-conferencia', '#av-es', '#av-historico']],
     ['programacao', 'Programação', ['#pg-topo', '#pg-seq']],
     ['indicadores', 'Indicadores', ['#c-ind-kpis', '#c-ind-comp', '#c-ind-ne', '#c-ind-saldo', '#c-ind-taxa', '#c-ader']],
     ['preventivas', 'OS preventivas (fora da carteira)', ['#prev-topo']]];
@@ -3342,7 +3407,7 @@ export function iniciarPainel(D, { baixar, raiz = document, aba = '', aoTrocarAb
         b('Baixar a imagem (celular)', () => usarImagem('baixar', fazerImg, aviso)),
         podeCompartilhar() ? b('Compartilhar a imagem…', () => usarImagem('compartilhar', fazerImg, aviso)) : null,
         b('Baixar os dados (Excel)', (bt) => relatorioDados(bt, aviso)), aviso),
-      el('p', { class: 'nota', text: 'O PDF leva a Visão geral (o resumo, a evolução, a entrada e saída e a idade das abertas), o Avanço (os números, a conferência do backlog e o histórico), a Programação e os Indicadores (o comparativo e os gráficos) — no período e com os filtros da barra. A imagem para o celular leva o resumo, a evolução, a programação e o avanço. Os dados levam as mesmas contas e a lista das OS que entraram ou saíram no período.' }));
+      el('p', { class: 'nota', text: 'O PDF leva a Visão geral (o resumo, a evolução, a entrada e saída e a idade das abertas), o Avanço (os números, a progressão da carteira, a conferência do backlog e o histórico), a Programação e os Indicadores (o comparativo e os gráficos) — no período e com os filtros da barra. A imagem para o celular leva o resumo, a evolução, a programação e o avanço. Os dados levam as mesmas contas e a lista das OS que entraram ou saíram no período.' }));
   }
   const bRel = $('#os-relatorio');
   if (bRel) { bRel.hidden = false; bRel.addEventListener('click', abrirRelatorio); }

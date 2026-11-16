@@ -94,6 +94,20 @@ A oficina devolver a frota atrasada **não** conta: o que se avalia é a operaç
   com erro de versão misturada recarrega uma vez sozinha; se falhar de novo,
   mostra o porquê e os botões de sempre (o teste simula a publicação com a
   página aberta, em `testes/interacao.mjs`).
+- **A progressão da carteira no Avanço** (16/11/2026, pedido do Mateus, no
+  jeito da "Gestão da Carteira de Serviço" dos controladores de PCM): logo
+  depois dos números, semana a semana (ou dia, ou mês), em cima as OS em aberto
+  no fim de cada uma e embaixo as novas e as encerradas, com o número em cada
+  ponto. O dos controladores põe as três linhas num gráfico só, com dois eixos;
+  aqui são duas faixas com as mesmas semanas, cada uma na sua escala, porque
+  dois eixos no mesmo desenho fazem a linha de um parecer maior ou menor que a
+  do outro. A conta é a mesma do resto do Avanço (corretivas; a entrada pela
+  abertura e a saída pelo fim), e a semana fecha: a carteira do início mais as
+  novas, menos as encerradas, dá a do fim. Passar o mouse mostra a conta da
+  semana; o clique leva a barra para ela; no celular o gráfico já abre na
+  semana da barra. Vai junto no PDF, na parte do Avanço. A linha das novas usa
+  um azul um pouco mais forte que o das colunas (`--nova-linha`): o azul claro
+  some numa linha fina sobre o branco.
 - **O modo claro do painel de OS** (13/11/2026): os controles com o jeito do
   resto do site — filtros, números da Carteira e botões dentro dos cartões com
   fundo cinza suave, sem o contorno branco sobre branco que deixava a tela com

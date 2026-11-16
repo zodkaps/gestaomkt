@@ -2649,6 +2649,20 @@ ok("e o Diagnóstico não manda rodar SQL por causa de sessão",
   await mt.waitForSelector(".av-kpis", { timeout: 10000 });
   const av = await mt.$$eval(".av-kpis .kpi .val", v => v.slice(0, 4).map(x => x.textContent).join("|"));
   ok("aba Avanço: backlog inicial 3, nenhuma nova, 1 encerrada, backlog final 2", av === "3|0|−1|2", av);
+  // (16/11/2026) a progressão da carteira, como a dos controladores: a mesma conta, semana a semana, à vista
+  const prog = await mt.$$eval("#av-progressao svg .col", (cs) => cs.map((c) => [".v-fim", ".v-novas", ".v-enc"].map((q) => c.querySelector(q).textContent)
+    .concat([...c.querySelectorAll("text")].map((x) => x.textContent).find((x) => /^S\d+$/.test(x))).join(",")));
+  ok("a progressão da carteira: 12 semanas, e a da barra (S45) com 2 no fim, nenhuma nova e 1 encerrada", prog.length === 12 && prog.at(-1) === "2,0,1,S45",
+    prog.slice(-3).join(" | "));
+  ok("e duas faixas, cada uma na sua escala (nenhum eixo do lado direito)", (await mt.$$("#av-progressao .graf svg > path")).length === 3 && await mt.isVisible("#av-progressao"));
+  await mt.hover("#av-progressao svg .col >> nth=11");
+  const dicaProg = (await mt.innerText("#dica")).replace(/\s+/g, " ");
+  ok("passar o mouse numa semana mostra a conta dela (3 no início, 1 encerrada, 2 no fim)", /Carteira no início\s*3/.test(dicaProg) && /Encerradas\s*1/.test(dicaProg) &&
+    /Carteira no fim\s*2/.test(dicaProg) && /Variação\s*−1/.test(dicaProg), dicaProg);
+  await mt.click("#av-progressao svg .col >> nth=10");
+  await mt.waitForTimeout(300);
+  ok("e o clique numa semana leva a barra para ela (S44: 26/10 a 01/11)", (await mt.textContent("#f-periodo-txt")).startsWith("Semana 44 · 26/10 a 01/11"), await mt.textContent("#f-periodo-txt"));
+  await periodoPronto("Semana atual");
   // (13/11/2026) a conferência fica em "Detalhes da análise", fechada; um clique mostra
   const detAv = '#avanco [data-mais="av-detalhes"] > .mais-bt';
   const detFechado = !(await mt.isVisible("#av-conferencia"));
