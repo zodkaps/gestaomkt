@@ -630,7 +630,12 @@ e preventivas, e **só ele ter acesso**.
   apagar ia com "Content-Type: application/json" e o corpo vazio, que o Storage
   recusa (400) — a publicação entrou, e a reserva venceu sozinha em 15 minutos.
   O pedido de apagar vai sem esse cabeçalho, e o Storage de mentira recusa igual
-  ao de verdade, para o teste pegar.
+  ao de verdade, para o teste pegar. Mesmo assim a reserva continuou no bucket,
+  agora sem aviso (16/11/2026, nos registros do Supabase): a leitura dela
+  segundos depois de gravá-la vinha do CDN do Storage com a de antes — a que a
+  própria publicação tinha acabado de substituir —, e o destravar achava que era
+  de outra tentativa. A substituída agora também conta como desta tentativa, e o
+  teste simula o CDN devolvendo a leitura velha.
 - **A linha sem número de OS** (12/11/2026) conta à parte no caminho das linhas
   ("sem número de OS, não dá para identificar"); antes caía como repetida.
 - **A Visão geral separa o que é do período do que é de agora** (12/11/2026): o

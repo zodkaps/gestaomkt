@@ -124,12 +124,16 @@ export async function travar(io, { quem, id, agora = () => new Date() }) {
         `(se ela não terminar, a reserva vence em ${resta} min).`);
     }
     await io.subir(TRAVA, await gz(minha), { substituir: true });
-    return minha;
+    // a substituída: o CDN do Storage pode devolvê-la por alguns segundos na leitura do destravar
+    return outra && outra.id ? { ...minha, substituiu: outra.id } : minha;
   }
 }
 export async function destravar(io, trava) {
   const agora = await lerJSON(io, TRAVA).catch(() => null);
-  if (agora && trava && agora.id !== trava.id) return false;          // já é de outra tentativa: não é minha para soltar
+  // Já é de outra tentativa: não é minha para soltar. A que esta tentativa substituiu também é dela: a leitura
+  // segundos depois de gravar pode vir do CDN do Storage com o que havia antes (16/11/2026, nos registros do
+  // Supabase: por isso a reserva continuava no bucket depois de cada publicação, sem aviso).
+  if (agora && trava && agora.id !== trava.id && agora.id !== trava.substituiu) return false;
   await io.apagar(TRAVA);
   return true;
 }

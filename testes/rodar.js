@@ -1953,6 +1953,30 @@ titulo("os/publicar.js — a atualização publica inteira ou não publica (12/1
   ok("publicar de novo a mesma versão: recusa, e a cópia guardada fica como estava", t7.erro && t7.erro.etapa === "versao" && io.arq.get(P.arquivoDaVersao(t6.ok.id)).v === v6,
     t7.erro ? t7.erro.etapa : "publicou");
 
+  // o CDN do Storage (16/11/2026, nos registros do Supabase): a leitura da reserva segundos depois de gravá-la
+  // veio com a de antes — a que esta publicação tinha acabado de substituir —, o destravar achou que era de outra
+  // tentativa e a reserva ficou no bucket. A substituída também é desta tentativa: sai.
+  const comCDN = (base) => {
+    const cache = new Map();
+    return { ...base, async baixar(c) {
+      if (c === P.TRAVA && cache.has(c)) return cache.get(c);
+      const b = await base.baixar(c);
+      if (c === P.TRAVA) cache.set(c, b);
+      return b;
+    } };
+  };
+  await travaDe("Mateus", "2026-11-12T13:00:00Z");                 // a reserva que ficou de uma publicação anterior
+  const tCDN = await tentar(async () => P.publicar({ io: comCDN(io), pacote: await pacote(DE("2026-11-13", ["a", "b", "c", "d"])), quem: "Mateus",
+    versaoAberta: await io.versaoNoAr(), agora }));
+  ok("a leitura da reserva vem do CDN com a que esta publicação substituiu: publica e a reserva sai do bucket", !!tCDN.ok && !io.arq.has(P.TRAVA),
+    tCDN.erro ? tCDN.erro.message : "a reserva ficou no bucket");
+  // e a reserva que já é de outra tentativa (tomada depois desta) continua não sendo apagada
+  const minha = await P.travar(io, { quem: "Mateus", id: "minha", agora });
+  await io.subir(P.TRAVA, await P.gz({ quem: "Lucas", id: "dele", desde: "2026-11-12T14:30:00Z" }), { substituir: true });
+  const soltou = await P.destravar(io, minha);
+  ok("a reserva que outra tentativa tomou depois desta fica no bucket", soltou === false && io.arq.has(P.TRAVA), String(soltou));
+  await io.apagar(P.TRAVA);
+
   // a conferência antes de gravar: o que estiver errado no pacote não chega ao bucket
   const ruim = await pacote(DE("2026-11-12", ["a"]));
   ruim.D.os.push([...ruim.D.os[0]]);
