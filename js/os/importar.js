@@ -17,6 +17,7 @@
 import * as nuvem from "../nuvem.js";
 import * as M from "./montar.js";
 import * as P from "./publicar.js";
+import * as IND from "./indicadores.js";
 import { carregarXLSX } from "../planilha.js";
 
 const BUCKET = "painel-os";
@@ -355,8 +356,10 @@ export function abrirImportar({ atual, metaAtual = () => null, versaoAberta = ""
         historico = { blob, sha };
         p.meta.historico = { arquivo: P.arquivoDoHistorico(sha), sha, feito_em: sem.semente.feitoEm || "" };
       } else p.meta.historico = mp && mp.historico ? mp.historico : { arquivo: "historico.json.gz", sha: "", feito_em: (p.D.historica && p.D.historica.feito_em) || "" };
-      // o índice das atualizações vai dentro do pacote: as linhas de antes e a desta
-      p.meta.importacoes = [...P.mesclarIndice((mp && mp.importacoes) || [], await lerImportacoes()), { ...linhaDaImportacao(p, comparacao), ...P.linhaDaVersao(p) }];
+      // o índice das atualizações vai dentro do pacote: as linhas de antes e a desta — que leva, curto, o plano da semana
+      // dela e o da seguinte, para os Indicadores não baixarem a cópia (19/11/2026); a poda deixa só os que valem
+      const linha = { ...linhaDaImportacao(p, comparacao), ...P.linhaDaVersao(p), planos: IND.planosDaCopia(p.D, IND.diaLocal(p.meta.publicado_em)) };
+      p.meta.importacoes = IND.podarPlanos([...P.mesclarIndice((mp && mp.importacoes) || [], await lerImportacoes()), linha]);
       const r = await P.publicar({ io: ioDoBucket, pacote: p, historico, quem, versaoAberta, etapa: pintarEtapa });
       aviso.className = "imp-aviso ok";
       aviso.textContent = `Publicada a versão ${P.rotuloDaVersao(r.id)} (Protheus de ${br(p.meta.base)}). Abrindo o painel…` + (r.avisos.length ? " " + r.avisos.join(" ") : "");

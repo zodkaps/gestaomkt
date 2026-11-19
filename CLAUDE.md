@@ -78,6 +78,8 @@ marca. Regras:
   aparece como divergência (a Conferência e a aba Auditoria) — nunca ajustado.
 - Programada é com executante (`contaComoProgramada`): a data programada no
   período e alguém da equipe ou terceiro na STL. Sem executante não conta.
+  Executada é a que terminou dentro do período (`terminouEm`, 19/11/2026); a que
+  já tinha terminado antes fica fora da conta, à parte (`antes` no `progFin`).
 - A aderência semanal é pelo **plano de segunda** (19/11/2026, escolha do
   Mateus; `copiaDaSemana`, `planoDaCopia` e `aderenciaDoPlano` em
   `js/os/indicadores.js`): o plano é o que estava programado (data na semana e
@@ -85,7 +87,11 @@ marca. Regras:
   última da semana anterior; cumprida é a que terminou dentro da semana; o que
   passou a ter a data depois conta à parte, como incluída na semana, fora da
   conta. Corretivas e preventivas cada uma com a sua. As cópias são as do bucket
-  (`versoes/` e, antes de 12/11, `dias/`): nunca apagar nem reescrever.
+  (`versoes/` e, antes de 12/11, `dias/`): nunca apagar nem reescrever. A linha
+  de cada versão no índice leva o plano curto da semana dela e da seguinte
+  (`planosDaCopia`, podado por `podarPlanos`): os Indicadores usam ele em vez de
+  baixar a cópia; o cartão da semana baixa. As com data e sem executante na
+  cópia ficam fora do plano e aparecem à parte (`semExecutanteDaCopia`).
 - A folha de conferência (Imprimir carteira → Para conferir e limpar) e o CSV
   dela levam tudo da OS, menos o CPF de quem abriu.
 - Uma OS é filial + número sem os zeros da frente (`chaveOS`, em `montar.js` e

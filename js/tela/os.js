@@ -117,7 +117,8 @@ export async function montar(raiz, ctx, params = new URLSearchParams()) {
       const temDia = new Set(guardados), l = [], velhas = new Map();
       for (const x of idx) {
         if (x.tipo === "volta") continue;
-        if (x.id) { const q = local(x.publicado_em); if (q) l.push({ ...q, id: x.id, base: x.base }); }
+        // (19/11/2026) com o plano guardado na linha, se ela tiver (os Indicadores não precisam baixar a cópia)
+        if (x.id) { const q = local(x.publicado_em); if (q) l.push({ ...q, id: x.id, base: x.base, ...(x.planos ? { planos: x.planos } : {}) }); }
         else if (temDia.has(x.base)) velhas.set(x.base, x);
       }
       for (const b of guardados) l.push({ ...((velhas.has(b) && local(velhas.get(b).gerado_em)) || { dia: b, hora: "" }), base: b });

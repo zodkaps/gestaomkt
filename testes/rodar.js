@@ -677,9 +677,9 @@ titulo("fechamento.js — a semana fechada não muda");
   let semMotivo = "";
   try { ev.fecharSemana(2026, 39, { aderencia: 1 }); } catch (e) { semMotivo = e.message; }
   ok("fechar de novo sem motivo não passa", /motivo/i.test(semMotivo), semMotivo);
-  await ev.aplicar(ev.fecharSemana(2026, 39, { aderencia: 0.7, cumprimento: 0.75 }, { motivo: "faltou a baixa da F-401" }));
+  await ev.aplicar(ev.fecharSemana(2026, 39, { aderencia: 0.7, cumprimento: 0.75 }, { motivo: "faltou a baixa da F-2118" }));
   igual("com motivo, o novo número substitui", [ev.fechamentoDe(2026, 39).aderencia, ev.fechamentoDe(2026, 39).motivo],
-    [0.7, "faltou a baixa da F-401"]);
+    [0.7, "faltou a baixa da F-2118"]);
   igual("e os dois fechamentos ficam no registro",
     ev.log.filter(e => e.alvo === ev.chaveSemana(2026, 39)).length, 2);
   ok("a fita fecha com as semanas dentro", ev.conferir().ok);
@@ -873,34 +873,34 @@ titulo("modelo.js — a carteira por idade e prioridade");
 titulo("pendencias.js — a mensagem da inspeção ou do TOP vira pendências");
 {
   const P = await import("../js/pendencias.js");
-  const frotas = ["F-433", "F-616", "F-617", "F-971", "F-971 G", "F-969", "F-974"];
-  // a mensagem da 433, como chegou no WhatsApp (com os caracteres da menção)
-  const m433 = ["433", "*TEMOS PREVENTIVA PARA ESSE MES* ", "", "*PENDENCIAS IDENTIFICADAS NA INSPEÇÃO*",
+  const frotas = ["F-342", "F-503", "F-255", "F-742", "F-742 G", "F-738", "F-661"];
+  // a mensagem da 342, como chegou no WhatsApp (com os caracteres da menção)
+  const m342 = ["342", "*TEMOS PREVENTIVA PARA ESSE MES* ", "", "*PENDENCIAS IDENTIFICADAS NA INSPEÇÃO*",
     "- Soldar trincas no lastro dianteiro LD, junção com o pescoço;",
     "- Substituir lonas de freio do primeiro eixo LE e LD;",
     "- Substituir lonas de freio do segundo eixo LE;",
     "- Substituir lonas do quarto eixo LD gastas;",
     "@\u2068lukkas souza CHEFE\u2069  enviar para o fornecedor( resolvemos duas coisas) ", "", "",
     "@\u2068Dias\u2069 ", "psc", "alinhar fornecedor, já adianto que provavelmente vai ser reprovado no TOP"].join("\n");
-  const [b433, ...resto433] = P.lerPendencias(m433, { frotas });
-  igual("433 vira a F-433, de inspeção, com as quatro pendências", [b433.frota, b433.fonte, b433.itens.length, resto433.length],
-    ["F-433", "Inspeção", 4, 0]);
-  igual("sem o ';' do fim e sem o traço", b433.itens[0].texto, "Soldar trincas no lastro dianteiro LD, junção com o pescoço");
-  ok("a conversa fica de fora, à vista (menções, psc, o recado do TOP)", b433.ignoradas.length === 6 &&
-    b433.ignoradas.some(l => l.startsWith("@lukkas")) && b433.ignoradas.includes("psc"), JSON.stringify(b433.ignoradas));
-  ok("e o aviso de que a mensagem fala em preventiva", b433.temPreventiva);
+  const [b342, ...resto342] = P.lerPendencias(m342, { frotas });
+  igual("342 vira a F-342, de inspeção, com as quatro pendências", [b342.frota, b342.fonte, b342.itens.length, resto342.length],
+    ["F-342", "Inspeção", 4, 0]);
+  igual("sem o ';' do fim e sem o traço", b342.itens[0].texto, "Soldar trincas no lastro dianteiro LD, junção com o pescoço");
+  ok("a conversa fica de fora, à vista (menções, psc, o recado do TOP)", b342.ignoradas.length === 6 &&
+    b342.ignoradas.some(l => l.startsWith("@lukkas")) && b342.ignoradas.includes("psc"), JSON.stringify(b342.ignoradas));
+  ok("e o aviso de que a mensagem fala em preventiva", b342.temPreventiva);
 
-  const m616 = "Inspeção prioridades 616:\n- Realizar limpeza dos bornes das baterias;\n- Veículo está esquentando, conforme relato do motorista; ⚠️⚠️\nAinda tem essas pendências aqui do 616 adicine em carteira";
-  const [b616] = P.lerPendencias(m616, { frotas });
-  igual("'Inspeção prioridades 616:' é a frota; o ⚠️ marca urgente e sai do texto",
-    [b616.frota, b616.itens.map(i => [i.texto, i.alerta])],
-    ["F-616", [["Realizar limpeza dos bornes das baterias", false], ["Veículo está esquentando, conforme relato do motorista", true]]]);
+  const m503 = "Inspeção prioridades 503:\n- Realizar limpeza dos bornes das baterias;\n- Veículo está esquentando, conforme relato do motorista; ⚠️⚠️\nAinda tem essas pendências aqui do 616 adicine em carteira";
+  const [b503] = P.lerPendencias(m503, { frotas });
+  igual("'Inspeção prioridades 503:' é a frota; o ⚠️ marca urgente e sai do texto",
+    [b503.frota, b503.itens.map(i => [i.texto, i.alerta])],
+    ["F-503", [["Realizar limpeza dos bornes das baterias", false], ["Veículo está esquentando, conforme relato do motorista", true]]]);
 
   // o texto do PDF da folha: OS na frente, linha quebrada, TOP no fim, rodapé com a frota de novo
-  const folha = ["F-617 · CAVALO TRATOR", "Pendências em aberto · 29 atividades · chegou em 06/10 · TOP: não liberado",
+  const folha = ["F-255 · CAVALO TRATOR", "Pendências em aberto · 29 atividades · chegou em 06/10 · TOP: não liberado",
     "OS ATIVIDADE QUEM FEZ", "021333 Repor cortinas da cabine", "021336",
     "Substituir tomada da bomba do ARLA sem proteção (item em", "estoque)", "— Corrigir banco do passageiro solto", "—",
-    "Verificar vazamento de água debaixo da cabine e completar o", "nível do radiador TOP", "F-617  ·  página 1 de 1"].join("\n");
+    "Verificar vazamento de água debaixo da cabine e completar o", "nível do radiador TOP", "F-255  ·  página 1 de 1"].join("\n");
   const bf = P.lerPendencias(folha, { frotas });
   igual("PDF da folha: uma frota só, com OS, a linha quebrada emendada e o TOP marcado",
     [bf.length, bf[0].itens.map(i => [i.os, i.texto, i.top])],
@@ -909,37 +909,37 @@ titulo("pendencias.js — a mensagem da inspeção ou do TOP vira pendências");
       ["", "Corrigir banco do passageiro solto", false],
       ["", "Verificar vazamento de água debaixo da cabine e completar o nível do radiador", true]]]);
 
-  const varias = P.lerPendencias("969\n1. Trocar lâmpada do farol LD\n2. Fixar para-choque\n974:\n• Corrigir vazamento de ar\n971 G\n- Soldar suporte", { frotas });
-  igual("várias frotas na mesma mensagem, com numeração e bolinha; '971 G' é a F-971 G",
-    varias.map(b => [b.frota, b.itens.length]), [["F-969", 2], ["F-974", 1], ["F-971 G", 1]]);
+  const varias = P.lerPendencias("738\n1. Trocar lâmpada do farol LD\n2. Fixar para-choque\n661:\n• Corrigir vazamento de ar\n742 G\n- Soldar suporte", { frotas });
+  igual("várias frotas na mesma mensagem, com numeração e bolinha; '742 G' é a F-742 G",
+    varias.map(b => [b.frota, b.itens.length]), [["F-738", 2], ["F-661", 1], ["F-742 G", 1]]);
   igual("frota que o site não conhece entra como nova", P.resolverFrota("1234", frotas), { frota: "F-1234", nova: true });
   igual("sem número de frota no texto, vale a da tela; sem marcador, cada linha é uma pendência",
-    P.lerPendencias("Trocar lona de freio\nFixar para-lama LE", { frotas, frotaPadrao: "F-969" }).map(b => [b.frota, b.itens.map(i => i.texto)]),
-    [["F-969", ["Trocar lona de freio", "Fixar para-lama LE"]]]);
+    P.lerPendencias("Trocar lona de freio\nFixar para-lama LE", { frotas, frotaPadrao: "F-738" }).map(b => [b.frota, b.itens.map(i => i.texto)]),
+    [["F-738", ["Trocar lona de freio", "Fixar para-lama LE"]]]);
 
-  const abertas = [{ ...modelo.molde(), id: "X", frota: "F-433", atividade: "Substituir lona de freio do segundo eixo LE", semana: 42, dia: "Qua" }];
-  const d = P.marcarDuplicadas("F-433", b433.itens, abertas);
+  const abertas = [{ ...modelo.molde(), id: "X", frota: "F-342", atividade: "Substituir lona de freio do segundo eixo LE", semana: 42, dia: "Qua" }];
+  const d = P.marcarDuplicadas("F-342", b342.itens, abertas);
   igual("a que a frota já tem em aberto é marcada (o mesmo serviço, no mesmo lugar); a do outro eixo não",
     d.map(i => !!i.duplicada), [false, false, true, false]);
   igual("e a repetida dentro da própria mensagem também",
     P.marcarDuplicadas("F-1", [{ texto: "Fixar descarga" }, { texto: "fixar descarga;" }], []).map(i => i.repetida), [false, true]);
   // o formato do TOP, como chegou em 14/10: frota sem traço, uma pendência por
   // linha, duas grudadas por "-", o porquê da reprovação, a situação na linha da frota
-  const top = ["TOP REPROVADOS 14/10- PENDENCIAS  DO TOP ", "", "F616", "",
+  const top = ["TOP REPROVADOS 14/10- PENDENCIAS  DO TOP ", "", "F503", "",
     "realizar limpeza dos bornes das baterias",
     "fixar base do cinto de segurança do motorista desobstruir esguicho do limpador ",
     "fixar saia lateral da cabine ( LE )-veículo esquentando ", "", "",
-    "F508", "PREVENTENTIVA ", "luz de ré revisar-", "luz da placa revisar regular freios ( lona LD 1º eixo )", "", "",
-    "F620", "", "revisar banco do passageiro ", "revisar banco do passageiro",
+    "F572", "PREVENTENTIVA ", "luz de ré revisar-", "luz da placa revisar regular freios ( lona LD 1º eixo )", "", "",
+    "F541", "", "revisar banco do passageiro ", "revisar banco do passageiro",
     "fixar corote-lubrificar tirantes da porta-corrigir falha no motor ( sistema NOX )-corrigir iluminação traseira LE", "",
     "Veículo nao liberado devido as seguintes observações:", "Terminal da bateria ", "Falha no sistema NOX", "", "",
-    "F434 LIBERADO COM RESTRIÇÃO ", "", "vazamento na válvula distribuidora ", "sirene de ré", "", "",
-    "974", "", "Verificar ar-condicionado (fraco).", "Providenciar estepe.", "",
+    "F343 LIBERADO COM RESTRIÇÃO ", "", "vazamento na válvula distribuidora ", "sirene de ré", "", "",
+    "661", "", "Verificar ar-condicionado (fraco).", "Providenciar estepe.", "",
     "Observação: Veículo em manutenção para verificar possível rompimento do trocador de calor."].join("\n");
-  const bt = P.lerPendencias(top, { frotas: ["F-616", "F-508", "F-620", "F-434", "F-974"], ref: "2026-10-14" });
+  const bt = P.lerPendencias(top, { frotas: ["F-503", "F-572", "F-541", "F-343", "F-661"], ref: "2026-10-14" });
   igual("TOP: as cinco frotas, de TOP, do dia 14/10", bt.map(b => [b.frota, b.fonte, b.dia]),
-    [["F-616", "TOP", "2026-10-14"], ["F-508", "TOP", "2026-10-14"], ["F-620", "TOP", "2026-10-14"],
-      ["F-434", "TOP", "2026-10-14"], ["F-974", "TOP", "2026-10-14"]]);
+    [["F-503", "TOP", "2026-10-14"], ["F-572", "TOP", "2026-10-14"], ["F-541", "TOP", "2026-10-14"],
+      ["F-343", "TOP", "2026-10-14"], ["F-661", "TOP", "2026-10-14"]]);
   igual("as grudadas se separam: pelo '-' antes de verbo ou depois de ')', e pelo verbo que começa outra",
     bt[0].itens.map(i => i.texto), ["Realizar limpeza dos bornes das baterias", "Fixar base do cinto de segurança do motorista",
       "Desobstruir esguicho do limpador", "Fixar saia lateral da cabine (LE)", "Veículo esquentando"]);
@@ -954,16 +954,16 @@ titulo("pendencias.js — a mensagem da inspeção ou do TOP vira pendências");
     [bt[3].situacao, bt[4].itens.map(i => i.texto), bt[4].notas.length],
     ["LIBERADO COM RESTRIÇÃO", ["Verificar ar-condicionado (fraco)", "Providenciar estepe"], 1]);
   const ja = [
-    { ...modelo.molde(), id: "J1", frota: "F-616", atividade: "Veículo está esquentando, conforme relato do motorista" },
-    { ...modelo.molde(), id: "J2", frota: "F-974", atividade: "Sem estepe" },
-    { ...modelo.molde(), id: "J3", frota: "F-974", atividade: "Motor falhando" },
-    { ...modelo.molde(), id: "J4", frota: "F-974", atividade: "Diagnosticar e sanar falha no módulo FR, acionamento do freio motor" },
-    { ...modelo.molde(), id: "J5", frota: "F-974", atividade: "Revisar esguicho do limpador de parabrisa" },
-    { ...modelo.molde(), id: "J6", frota: "F-974", atividade: "Revisar luz de freio (LD)" }];
+    { ...modelo.molde(), id: "J1", frota: "F-503", atividade: "Veículo está esquentando, conforme relato do motorista" },
+    { ...modelo.molde(), id: "J2", frota: "F-661", atividade: "Sem estepe" },
+    { ...modelo.molde(), id: "J3", frota: "F-661", atividade: "Motor falhando" },
+    { ...modelo.molde(), id: "J4", frota: "F-661", atividade: "Diagnosticar e sanar falha no módulo FR, acionamento do freio motor" },
+    { ...modelo.molde(), id: "J5", frota: "F-661", atividade: "Revisar esguicho do limpador de parabrisa" },
+    { ...modelo.molde(), id: "J6", frota: "F-661", atividade: "Revisar luz de freio (LD)" }];
   const par = (f, t) => { const [r] = P.marcarDuplicadas(f, [{ texto: t }], ja); return (r.duplicada || r.parecida || {}).id || null; };
   igual("parecidas: escrita de outro jeito é a mesma; o outro lado (LE × LD) não é",
-    [par("F-616", "Veículo esquentando"), par("F-974", "Providenciar estepe"), par("F-974", "Diagnosticar falhas no motor"),
-      par("F-974", "Revisar esguicho do limpador de para-brisa"), par("F-974", "Revisar luz de freio LE"), par("F-974", "Providenciar cortina")],
+    [par("F-503", "Veículo esquentando"), par("F-661", "Providenciar estepe"), par("F-661", "Diagnosticar falhas no motor"),
+      par("F-661", "Revisar esguicho do limpador de para-brisa"), par("F-661", "Revisar luz de freio LE"), par("F-661", "Providenciar cortina")],
     ["J1", "J2", "J3", "J5", null, null]);
   igual("a observação leva o dia e a origem", P.obsDaOrigem("Inspeção", "2026-10-14"), "[14/10] Inspeção");
   igual("e a carteira conta a idade a partir do dia da inspeção",
@@ -1117,12 +1117,12 @@ titulo("legado.js — lançamentos que caíram nas cópias antigas do aparelho")
   const at = (id, frota, atividade, extra = {}) => ({ id: "i-" + id, ts: "2026-09-16T02:00:00.000Z", tipo: "importada",
     alvo: id, alvo_tipo: "atividade", origem: "planilha", dados: { ...modelo.molde(), frota, atividade, ano: 2026, semana: 41, dia: "Ter", dias: 4, ...extra } });
   // O que o navegador guardava de antes da sincronização (ids inventados, sem `enviado`)
-  const legado = [at("mu-1", "F-617", "REPOR CORTINAS DA CABINE"), at("mu-2", "F-617", "Lavar frota"),
-    at("mu-3", "F-999", "Serviço que o banco não tem"), at("mu-4", "F-617", "Trocar lâmpada", { os: "021999" })];
+  const legado = [at("mu-1", "F-255", "REPOR CORTINAS DA CABINE"), at("mu-2", "F-255", "Lavar frota"),
+    at("mu-3", "F-999", "Serviço que o banco não tem"), at("mu-4", "F-255", "Trocar lâmpada", { os: "021999" })];
   // O banco: a mesma planilha com o id da planilha
-  const banco = [at("A-0205", "F-617", "Repor cortinas da cabine"),
-    { ...at("A-0935", "F-617", "Lavar frota"), dados: { ...at("A-0935", "F-617", "Lavar frota").dados, concluida_em: "2026-10-09" } },
-    at("A-0300", "F-617", "Substituir lâmpada do farol", { os: "021999" })];
+  const banco = [at("A-0205", "F-255", "Repor cortinas da cabine"),
+    { ...at("A-0935", "F-255", "Lavar frota"), dados: { ...at("A-0935", "F-255", "Lavar frota").dados, concluida_em: "2026-10-09" } },
+    at("A-0300", "F-255", "Substituir lâmpada do farol", { os: "021999" })];
   const depois = [
     { id: "c1", ts: "2026-10-13T18:38:00.000Z", tipo: "concluida", alvo: "mu-1", alvo_tipo: "atividade", dados: { em: "2026-10-09" } },
     { id: "j1", ts: "2026-10-13T18:38:01.000Z", tipo: "justificada", alvo: "mu-1", alvo_tipo: "atividade", dados: { motivo: "Peça atrasou", quem: "Fornecedor", texto: "" } },
@@ -1136,7 +1136,7 @@ titulo("legado.js — lançamentos que caíram nas cópias antigas do aparelho")
   const fita = [...banco, ...depois];
   const atual = ev.reconstruir(fita).atividade;
   ok("a fita do banco não tem as cópias: cada atividade uma vez só",
-    [...atual.values()].filter(a => a.frota === "F-617").length === 3 && !atual.has("mu-1"));
+    [...atual.values()].filter(a => a.frota === "F-255").length === 3 && !atual.has("mu-1"));
   const itens = leg.lancamentosEmCopias(legado, fita, atual);
   const de = id => itens.filter(it => it.e.id === id)[0];
   igual("acha os lançamentos que foram para cópias — exclusão de cópia não entra (era tirar a duplicata)",
@@ -1245,18 +1245,18 @@ igual("OS de seis dígitos não muda", imp.normalizarOS("021188"), "021188");
 // ── a frota digitada ────────────────────────────────────────────────────────
 titulo("texto.js — qualquer frota se digita");
 {
-  igual("'F-617', 'f617', 'f 617', 'F-0617' e '617' são a mesma frota",
-    ["F-617", "f617", "f 617", "F-0617", "617"].map(texto.chaveFrota), ["617", "617", "617", "617", "617"]);
-  ok("mas a F-970 G não é a F-970", texto.chaveFrota("F-970 G") !== texto.chaveFrota("F-970"));
-  const conhecidas = ["F-617", "F-618", "F-6170", "F-700", "Sub chassi"];
+  igual("'F-255', 'f255', 'f 255', 'F-0255' e '255' são a mesma frota",
+    ["F-255", "f255", "f 255", "F-0255", "255"].map(texto.chaveFrota), ["255", "255", "255", "255", "255"]);
+  ok("mas a F-2119 G não é a F-2119", texto.chaveFrota("F-2119 G") !== texto.chaveFrota("F-2119"));
+  const conhecidas = ["F-255", "F-256", "F-2550", "F-770", "Sub chassi"];
   const so = (d, l = conhecidas) => { const f = texto.filtroDeFrota(d, l); return [f.exata, l.filter(f.bate)]; };
-  igual("só o número escolhe a frota inteira, não a que começa igual", so("617"), ["F-617", ["F-617"]]);
-  igual("as duas grafias da mesma frota vêm juntas", so("617", ["F-617", "F 617", "F-6170"]), ["F-617", ["F-617", "F 617"]]);
-  igual("um pedaço do número mostra as frotas que têm ele", so("61"), ["", ["F-617", "F-618", "F-6170"]]);
+  igual("só o número escolhe a frota inteira, não a que começa igual", so("255"), ["F-255", ["F-255"]]);
+  igual("as duas grafias da mesma frota vêm juntas", so("255", ["F-255", "F 255", "F-2550"]), ["F-255", ["F-255", "F 255"]]);
+  igual("um pedaço do número mostra as frotas que têm ele", so("25"), ["", ["F-255", "F-256", "F-2550"]]);
   igual("frota que ninguém lançou também se digita, e não acha nada", so("F-99999"), ["", []]);
   igual("o que não é número também", so("sub"), ["", ["Sub chassi"]]);
   ok("vazio, ou só o 'F' do começo, é todas", texto.filtroDeFrota("", conhecidas).vazio &&
-    texto.filtroDeFrota("F-", conhecidas).vazio && texto.filtroDeFrota(" f ", conhecidas).bate("F-700"));
+    texto.filtroDeFrota("F-", conhecidas).vazio && texto.filtroDeFrota(" f ", conhecidas).bate("F-770"));
 }
 
 titulo("texto.js — a célula do CSV não vira fórmula no Excel");
@@ -1268,7 +1268,7 @@ titulo("texto.js — a célula do CSV não vira fórmula no Excel");
   igual("número continua número, e vazio é vazio", [c(-3), c(1.5), c(0), c(null), c(undefined), c("")], ["-3", "1.5", "0", "", "", ""]);
   igual("; aspas e quebra de linha vão entre aspas", [c("a;b"), c('diz "oi"'), c("um\ndois"), c("a\r\nb")],
     ['"a;b"', '"diz ""oi"""', '"um\ndois"', '"a\r\nb"']);
-  igual("o texto comum não muda", [c("F-617"), c("Troca de óleo"), c("433")], ["F-617", "Troca de óleo", "433"]);
+  igual("o texto comum não muda", [c("F-255"), c("Troca de óleo"), c("342")], ["F-255", "Troca de óleo", "342"]);
 }
 
 // ── a avaliação da operação ─────────────────────────────────────────────────
@@ -1602,7 +1602,7 @@ titulo("liberadas agora, e adiantar até a realização");
   igual("observação: CPF e telefone digitados saem; número de frota fica",
     M.semDoc("cpf 123.456.789-00 tel (84) 99999-1234 frota 9711 doc 12345678901"),
     "cpf [nº omitido] tel [nº omitido] frota 9711 doc [nº omitido]");
-  igual("nome da pessoa e frota do bem", [M.nome("FULANO DA SILVA DE SOUZA"), M.frota("0433"), M.frota("X1")], ["Fulano da Silva de Souza", "F-433", "X1"]);
+  igual("nome da pessoa e frota do bem", [M.nome("FULANO DA SILVA DE SOUZA"), M.frota("0342"), M.frota("X1")], ["Fulano da Silva de Souza", "F-342", "X1"]);
   const CAB_STJ = ["Filial", "Ordem Serv.", "Plano Manut.", "Dt. Original", "Bem", "Nome do Bem", "Serviço", "Nome Serviço", "Centro Custo", "Contador",
     "P. In. Man.", "R. In. Man.", "R. Fim Man.", "Término", "Situação", "Terceiro", "Categoria OS", "Obs O.S", "Dt.Liberacao"];
   const os = (o, bem, ab, term, sit, fim = null, extra = {}) => CAB_STJ.map((c) => ({ "Filial": "010101", "Ordem Serv.": o, "Plano Manut.": "000000",
@@ -1611,12 +1611,12 @@ titulo("liberadas agora, e adiantar até a realização");
     "Obs O.S": "", "Dt.Liberacao": null, ...extra })[c]);
   // o export vem com título em cima e o cabeçalho com espaço no fim, como o do Protheus
   const stj = M.tabela([["STJ"], [" "], CAB_STJ.map((c) => c + "  "),
-    os("100001", "0433", "2026-10-01", "Não", "Liberado", null, { "Obs O.S": "ligar (84) 99999-1234", "Dt.Liberacao": D("2026-10-02") }),
-    os("100002", "0433", "2026-10-20", "Não", "Pendente", null, { "Categoria OS": "emergencial" }),
-    os("100003", "0617", "2026-10-25", "Sim", "Liberado", "2026-11-03", { "Plano Manut.": "000123" }),
+    os("100001", "0342", "2026-10-01", "Não", "Liberado", null, { "Obs O.S": "ligar (84) 99999-1234", "Dt.Liberacao": D("2026-10-02") }),
+    os("100002", "0342", "2026-10-20", "Não", "Pendente", null, { "Categoria OS": "emergencial" }),
+    os("100003", "0255", "2026-10-25", "Sim", "Liberado", "2026-11-03", { "Plano Manut.": "000123" }),
     os("100004", "0999", "2026-10-25", "Não", "Liberado"),             // frota fora da lista
-    os("100005", "0617", "2026-10-26", "Não", "Cancelado"),            // cancelada
-    os("100006", "0617", "2023-05-01", "Sim", "Liberado", "2023-06-01"), // finalizada antes de 2024
+    os("100005", "0255", "2026-10-26", "Não", "Cancelado"),            // cancelada
+    os("100006", "0255", "2023-05-01", "Sim", "Liberado", "2023-06-01"), // finalizada antes de 2024
   ], "STJ.xlsx");
   igual("a STJ: cabeçalho achado abaixo do título, e o tipo reconhecido", [stj.cab[0], M.tipoDaTabela(stj), stj.linhas.length], ["Filial", "STJ", 6]);
   const CAB_STL = ["Filial", "Ordem", "Tipo", "Tipo Insumo", "Código", "Nome Insumo", "Quantidade", "Data Início"];
@@ -1629,15 +1629,15 @@ titulo("liberadas agora, e adiantar até a realização");
     ["040101", "777777", "REAL", "Mão de Obra", "000222", "CICLANO DE OUTRA FILIAL", 1, D("2026-11-02")],   // OS de fora do painel
   ], "STL_1.xlsx");
   // a base histórica: a OS de 2025 que o export de hoje não traz mais, e uma repetida (a de hoje vale)
-  const sem = M.lerSemente({ versao: 1, feito_em: "2026-11-05", corte: "2026-01-01", ate: "2026-12-31", frotas: ["433", "0617"],
-    stj: { cab: CAB_STJ, linhas: [os("090001", "0617", "2025-03-01", "Sim", "Liberado", "2025-03-10").map((v) => (v instanceof Date ? M.iso(v).split("-").reverse().join("/") : v)),
-      os("100001", "0433", "2026-10-01", "Sim", "Liberado", "2026-10-05").map((v) => (v instanceof Date ? M.iso(v).split("-").reverse().join("/") : v))] },
+  const sem = M.lerSemente({ versao: 1, feito_em: "2026-11-05", corte: "2026-01-01", ate: "2026-12-31", frotas: ["342", "0255"],
+    stj: { cab: CAB_STJ, linhas: [os("090001", "0255", "2025-03-01", "Sim", "Liberado", "2025-03-10").map((v) => (v instanceof Date ? M.iso(v).split("-").reverse().join("/") : v)),
+      os("100001", "0342", "2026-10-01", "Sim", "Liberado", "2026-10-05").map((v) => (v instanceof Date ? M.iso(v).split("-").reverse().join("/") : v))] },
     stl: { cab: CAB_STL, linhas: [["010101", "090001", "REAL", "Mão de Obra", "000111", "FULANO DE TESTE", "3,5", "05/03/2025"]] },
     ult: { "Beltrano Antigo": { real: "2025-05-01", plan: "" } } });
   const m = M.montar({ stj: [stj, sem.stj], stl: [stl, sem.stl], frotas: sem.frotas, base: "2026-11-05", desde: "2024-01-01", ult0: sem.ult });
   const P = M.dadosDoPainel(m);
   igual("entram só as frotas da lista, sem cancelada e sem finalizada antes de 2024",
-    P.os.map((a) => [a[0], a[2], a[6]]), [["090001", "F-617", "F"], ["100003", "F-617", "F"], ["100001", "F-433", "A"], ["100002", "F-433", "P"]].sort((x, y) => (x[1] + x[0] < y[1] + y[0] ? -1 : 1)));
+    P.os.map((a) => [a[0], a[2], a[6]]), [["090001", "F-255", "F"], ["100003", "F-255", "F"], ["100001", "F-342", "A"], ["100002", "F-342", "P"]].sort((x, y) => (x[1] + x[0] < y[1] + y[0] ? -1 : 1)));
   ok("a OS repetida entre a de hoje e a histórica conta uma vez, e vale a de hoje", m.repetidas === 1 && P.os.find((a) => a[0] === "100001")[6] === "A");
   const o1 = P.os.find((a) => a[0] === "100001"), o2 = P.os.find((a) => a[0] === "100002"), o3 = P.os.find((a) => a[0] === "100003");
   igual("a OS liberada: observação sem o telefone, liberada em, programada para", [o1[12], o1[11], o1[19]], ["ligar [nº omitido]", "2026-10-02", "2026-10-01"]);
@@ -1654,9 +1654,9 @@ titulo("liberadas agora, e adiantar até a realização");
   // quem abriu (10/11/2026): só a Usr Inclusao entra (o CPF, formatado); as outras colunas de usuário não. CPFs inventados.
   {
     const CAB_U = [...CAB_STJ, "Usr Inclusao", "Usuário Alt.", "Usr Altera", "Usuário Ini.", "Usuário Fim"];
-    const lin = (o, inc) => [...os(o, "0433", "2026-10-01", "Não", "Liberado"), inc, "11122233344", "55566677788", "99900011122", "33344455566"];
+    const lin = (o, inc) => [...os(o, "0342", "2026-10-01", "Não", "Liberado"), inc, "11122233344", "55566677788", "99900011122", "33344455566"];
     const tU = M.tabela([CAB_U, lin("200001", 1234567890), lin("200002", "000.000.001-91"), lin("200003", "LOGIN.TESTE")], "STJ_u.xlsx");
-    const PU = M.dadosDoPainel(M.montar({ stj: [tU], stl: [stl], frotas: ["433"], base: "2026-11-05" }));
+    const PU = M.dadosDoPainel(M.montar({ stj: [tU], stl: [stl], frotas: ["342"], base: "2026-11-05" }));
     igual("quem abriu: o CPF da Usr Inclusao, formatado (o zero que o Excel come volta); o que não é CPF vem como está",
       PU.os.map((a) => [a[0], a[20]]), [["200001", "012.345.678-90"], ["200002", "000.000.001-91"], ["200003", "LOGIN.TESTE"]]);
     const txtU = JSON.stringify(PU);
@@ -1666,27 +1666,27 @@ titulo("liberadas agora, e adiantar até a realização");
     ok("sem a coluna, o funil diz que a STJ de hoje veio sem ela", P.auditoria.colunaQuemAbriu === "" && P.auditoria.stjSemQuemAbriu.length > 0 && P.auditoria.comQuemAbriu === 0);
     // (11/11/2026) a mesma coluna com outros nomes do export
     for (const nome of ["Usuário Inclusão", "Usr. Incl.", "USR_INCLUSAO"]) {
-      const tN = M.tabela([[...CAB_STJ, nome, "Usuário Ini."], [...os("200009", "0433", "2026-10-01", "Não", "Liberado"), "000.000.001-91", "11122233344"]], "STJ_n.xlsx");
-      const PN = M.dadosDoPainel(M.montar({ stj: [tN], stl: [stl], frotas: ["433"], base: "2026-11-05" }));
+      const tN = M.tabela([[...CAB_STJ, nome, "Usuário Ini."], [...os("200009", "0342", "2026-10-01", "Não", "Liberado"), "000.000.001-91", "11122233344"]], "STJ_n.xlsx");
+      const PN = M.dadosDoPainel(M.montar({ stj: [tN], stl: [stl], frotas: ["342"], base: "2026-11-05" }));
       igual(`a coluna "${nome}" também é a de quem abriu (e a Usuário Ini. não)`, PN.os[0][20], "000.000.001-91");
     }
   }
   // (11/11/2026) a mesma OS com e sem os zeros da frente (o Excel come os zeros) é uma só — a de hoje vale — e a STL acha ela
   {
-    const tHoje = M.tabela([CAB_STJ, os(90001, "0617", "2025-03-01", "Sim", "Liberado", "2026-02-10")], "STJ_numero.xlsx");
-    const tHist = { ...M.tabela([CAB_STJ, os("090001", "0617", "2025-03-01", "Não", "Liberado")], "STJ histórica"), historica: true };
+    const tHoje = M.tabela([CAB_STJ, os(90001, "0255", "2025-03-01", "Sim", "Liberado", "2026-02-10")], "STJ_numero.xlsx");
+    const tHist = { ...M.tabela([CAB_STJ, os("090001", "0255", "2025-03-01", "Não", "Liberado")], "STJ histórica"), historica: true };
     const tStl = M.tabela([CAB_STL, ["10101", "090001", "REAL", "Mão de Obra", "000111", "FULANO DE TESTE", 2, D("2026-02-10")]], "STL_z.xlsx");
-    const mz = M.montar({ stj: [tHoje, tHist], stl: [tStl], frotas: ["617"], base: "2026-11-05" }), PZ = M.dadosDoPainel(mz);
+    const mz = M.montar({ stj: [tHoje, tHist], stl: [tStl], frotas: ["255"], base: "2026-11-05" }), PZ = M.dadosDoPainel(mz);
     igual("a OS 90001 (Excel, sem o zero) e a 090001 (base histórica) são a mesma: entra uma vez, encerrada como hoje",
       [PZ.os.length, PZ.os[0][6], PZ.os[0][7], mz.auditoria.repetidasHist], [1, "F", "2026-02-10", 1]);
     igual("e a STL com a filial e a OS escritas de outro jeito acha o executante", Object.keys(PZ.exec), ["Fulano de Teste"]);
-    // o Bem que o Excel guardou como número (617) é o 0617 da lista
-    const mb = M.montar({ stj: [M.tabela([CAB_STJ, os("300009", 617, "2026-10-01", "Não", "Liberado")], "STJ_bem.xlsx")], stl: [], frotas: ["617"], base: "2026-11-05" });
+    // o Bem que o Excel guardou como número (255) é o 0255 da lista
+    const mb = M.montar({ stj: [M.tabela([CAB_STJ, os("300009", 255, "2026-10-01", "Não", "Liberado")], "STJ_bem.xlsx")], stl: [], frotas: ["255"], base: "2026-11-05" });
     const PB = M.dadosDoPainel(mb);
-    igual("o Bem como número (617) é o 0617 da lista: entra no painel", [mb.auditoria.foraDaLista, PB.os.length, PB.os[0][2]], [0, 1, "F-617"]);
+    igual("o Bem como número (255) é o 0255 da lista: entra no painel", [mb.auditoria.foraDaLista, PB.os.length, PB.os[0][2]], [0, 1, "F-255"]);
     // (12/11/2026) a linha sem número de OS não tem como ser identificada: conta à parte (antes caía como repetida)
-    const msn = M.montar({ stj: [M.tabela([CAB_STJ, os("", 617, "2026-10-01", "Não", "Liberado"), os("000000", 617, "2026-10-02", "Não", "Liberado"),
-      os("300010", 617, "2026-10-03", "Não", "Liberado")], "STJ_sn.xlsx")], stl: [], frotas: ["617"], base: "2026-11-05" });
+    const msn = M.montar({ stj: [M.tabela([CAB_STJ, os("", 255, "2026-10-01", "Não", "Liberado"), os("000000", 255, "2026-10-02", "Não", "Liberado"),
+      os("300010", 255, "2026-10-03", "Não", "Liberado")], "STJ_sn.xlsx")], stl: [], frotas: ["255"], base: "2026-11-05" });
     igual("a linha sem número de OS (vazio ou só zeros) conta à parte, e não como repetida",
       [msn.auditoria.semNumero, msn.auditoria.repetidasHoje, M.dadosDoPainel(msn).os.length], [2, 0, 1]);
     const INDz = await import("../js/os/indicadores.js");
@@ -1696,19 +1696,19 @@ titulo("liberadas agora, e adiantar até a realização");
     (({ linhasHoje, linhasHist, foraDaLista, canceladas, antesDe, repetidasHoje, repetidasHist, semFim, consideradas, daBaseHistorica }) =>
       [linhasHoje, linhasHist, foraDaLista, canceladas, antesDe, repetidasHoje, repetidasHist, semFim, consideradas, daBaseHistorica])(P.auditoria), [6, 2, 1, 1, 1, 0, 1, 0, 4, 1]);
   igual("a lista de frotas colada: por linha, espaço ou vírgula; sem os zeros; a repetida uma vez; o cabeçalho fica de fora",
-    (({ frotas, repetidas, ignorados }) => [frotas, repetidas, ignorados])(M.lerFrotas("FROTA\n \n423\n0332, 622;622 F-56\n1060")), [["423", "332", "622", "56", "1060"], ["622"], ["FROTA"]]);
-  igual("a cancelada vai à parte (fora da carteira), com a abertura", P.canceladas, [["100005", "010101", "F-617", "2026-10-26"]]);
+    (({ frotas, repetidas, ignorados }) => [frotas, repetidas, ignorados])(M.lerFrotas("FROTA\n \n304\n0233, 405;405 F-56\n2060")), [["304", "233", "405", "56", "2060"], ["405"], ["FROTA"]]);
+  igual("a cancelada vai à parte (fora da carteira), com a abertura", P.canceladas, [["100005", "010101", "F-255", "2026-10-26"]]);
   igual("por filial: as 6 linhas da STJ de hoje — 1 de bem fora da lista, 1 cancelada, 1 encerrada antes de 2024, 2 corretivas e 1 preventiva no painel",
     P.auditoria.porFilial["010101"], { linhas: 6, fora: 1, semNumero: 0, repetidas: 0, canceladas: 1, semFim: 0, antesDe: 1, corretivas: 2, preventivas: 1 });
   igual("e os bens fora da lista do PCM, com quantas OS", [P.auditoria.foraBens.map((b) => [b.bem, b.n]), P.auditoria.foraBensTotal], [[["0999", 1]], 1]);
   igual("a origem: a OS que só veio da base histórica é marcada", [P.os.find((a) => a[0] === "090001")[21], P.os.find((a) => a[0] === "100001")[21]], ["H", ""]);
-  const PF = M.dadosDoPainel(M.montar({ stj: [M.tabela([CAB_STJ, os("300001", "0433", "2026-10-01", "Não", "Liberado", "2026-11-04")], "STJ_f.xlsx")], stl: [stl], frotas: ["433"], base: "2026-11-05" }));
+  const PF = M.dadosDoPainel(M.montar({ stj: [M.tabela([CAB_STJ, os("300001", "0342", "2026-10-01", "Não", "Liberado", "2026-11-04")], "STJ_f.xlsx")], stl: [stl], frotas: ["342"], base: "2026-11-05" }));
   igual("a OS aberta com o fim real da manutenção: serviço feito, OS não encerrada", [PF.os[0][6], PF.os[0][7], PF.os[0][22]], ["A", "", "2026-11-04"]);
-  igual("a lista de frotas do PCM, com o nome do equipamento", m.frotasRows, [{ frota: "F-433", bem: "0433", equipamento: "Cavalo trator" }, { frota: "F-617", bem: "0617", equipamento: "Cavalo trator" }]);
+  igual("a lista de frotas do PCM, com o nome do equipamento (em ordem de frota)", m.frotasRows, [{ frota: "F-255", bem: "0255", equipamento: "Cavalo trator" }, { frota: "F-342", bem: "0342", equipamento: "Cavalo trator" }]);
   // comparar: o que mudou de um dia para o outro
   const ontem = JSON.parse(JSON.stringify(P));
   ontem.os.find((a) => a[0] === "100003")[6] = "A";              // estava aberta: fechou
-  ontem.os.push(["100099", "010101", "F-433", 0, "Sumiu", "2026-09-01", "P", "", "C", "N", 0, "", "", "", "", "", "", "N", "", ""]);
+  ontem.os.push(["100099", "010101", "F-342", 0, "Sumiu", "2026-09-01", "P", "", "C", "N", 0, "", "", "", "", "", "", "N", "", ""]);
   const c = M.comparar(ontem, P);
   igual("comparar: fechou uma, sumiu uma (aberta), nenhuma perdeu executante",
     [c.fecharam.map((a) => a[0]), c.sumiram.map((a) => a[0]), c.sumiramAbertas.length, c.perdeuExecutante.length, c.novas.length], [["100003"], ["100099"], 1, 0, 0]);
@@ -1719,11 +1719,11 @@ titulo("liberadas agora, e adiantar até a realização");
   igual("o .csv: título, ; e o campo com quebra de linha", [M.tipoDaTabela(csv), csv.linhas.length, M.txt(csv.linhas[0][5]), M.num(csv.linhas[0][6])], ["STL", 1, "FULANO DE TESTE", 1.5]);
   // o .xlsx pelo mesmo SheetJS do site: as datas voltam como data
   const wb = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([["STJ"], CAB_STJ, os("100001", "0433", "2026-10-01", "Não", "Liberado")], { cellDates: true }), "STJ");
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([["STJ"], CAB_STJ, os("100001", "0342", "2026-10-01", "Não", "Liberado")], { cellDates: true }), "STJ");
   const xl = M.tabelaDoExcel(XLSX, XLSX.write(wb, { type: "buffer", bookType: "xlsx" }), "STJ.xlsx");
   igual("o .xlsx: o cabeçalho e a data de abertura", [M.tipoDaTabela(xl), M.iso(xl.linhas[0][CAB_STJ.indexOf("Dt. Original")])], ["STJ", "2026-10-01"]);
   let recusa = "";
-  try { M.montar({ stj: [M.tabela([["Filial", "Bem"], ["010101", "0433"]], "ruim.xlsx")], stl: [stl], frotas: ["433"], base: "2026-11-05" }); } catch (e) { recusa = e.message; }
+  try { M.montar({ stj: [M.tabela([["Filial", "Bem"], ["010101", "0342"]], "ruim.xlsx")], stl: [stl], frotas: ["342"], base: "2026-11-05" }); } catch (e) { recusa = e.message; }
   ok("STJ sem as colunas que importam é recusada, dizendo quais", /faltam as colunas Nome do Bem, Nome Serviço/.test(recusa), recusa);
   recusa = "";
   try { M.lerSemente({ qualquer: 1 }); } catch (e) { recusa = e.message; }
@@ -1810,6 +1810,22 @@ titulo("os/indicadores.js — entrada pela abertura, saída pelo fim, e a conta 
   igual("programadas: as executadas contam o fim real da manutenção, também das ainda abertas",
     (({ n, exec, execAbertas, ab }) => [n, exec, execAbertas, ab])(IND.progFin([{ progEm: "2026-11-10", sit: "A", fimReal: "2026-11-10", abertura: "2026-11-01" },
       { progEm: "2026-11-10", sit: "A", abertura: "2026-11-01" }, { progEm: "2026-11-11", sit: "F", fim: "2026-11-11", abertura: "2026-11-01" }], semana)), [3, 2, 1, 2]);
+  // (19/11/2026) executada é a que terminou dentro do período; a que já tinha terminado antes dele fica fora da conta
+  const pA = IND.progFin([
+    { progEm: "2026-11-10", sit: "F", fim: "2026-11-05", abertura: "2026-11-01", grupo: "I" },       // encerrada antes da semana: fora
+    { progEm: "2026-11-10", sit: "A", fimReal: "2026-11-06", abertura: "2026-11-01", grupo: "I" },   // feita antes, sem encerrar: fora
+    { progEm: "2026-11-10", sit: "F", fim: "2026-11-12", abertura: "2026-11-01", grupo: "I" },       // encerrada na semana
+    { progEm: "2026-11-10", sit: "A", fimReal: "2026-11-13", abertura: "2026-11-01", grupo: "T" },   // feita na semana, sem encerrar
+    { progEm: "2026-11-11", sit: "F", fim: "2026-11-18", abertura: "2026-11-01", grupo: "I" },       // encerrada depois
+    { progEm: "2026-11-11", sit: "A", fimReal: "2026-11-17", abertura: "2026-11-01", grupo: "I" },   // feita depois, sem encerrar
+    { progEm: "2026-11-12", sit: "A", abertura: "2026-11-01", grupo: "I" },                           // não feita
+    { progEm: "2026-11-12", sit: "F", fim: "2026-11-02", abertura: "2026-11-11", grupo: "I" },       // lançada depois do serviço: sai no dia em que entrou
+  ], { de: "2026-11-09", ate: "2026-11-15" });
+  igual("executadas só as que terminaram dentro da semana (3 de 6); as 2 que já tinham terminado antes ficam fora da conta",
+    [pA.antes, pA.n, pA.exec, pA.prazo, pA.execAbertas, pA.depois, pA.ab, pA.fin, pA.finProg], [2, 6, 3, 2, 1, 1, 3, 2, 2]);
+  ok("terminouEm: a encerrada pela saída (nunca antes da abertura); a aberta pelo fim real; sem nenhum, vazio",
+    IND.terminouEm({ sit: "F", fim: "2026-11-02", abertura: "2026-11-11" }) === "2026-11-11" && IND.terminouEm({ sit: "A", fimReal: "2026-11-06" }) === "2026-11-06" &&
+    IND.terminouEm({ sit: "P" }) === "");
 
   // duas atualizações do Protheus: [OS, filial, frota, equipamento, serviço, abertura, situação, fim]
   const L = (os, ab, sit, fim = "") => [os, "010101", "F-1", 0, "SERVICO", ab, sit, fim];
@@ -1869,6 +1885,25 @@ titulo("os/indicadores.js — entrada pela abertura, saída pelo fim, e a conta 
   const plano = IND.planoDaCopia(Dcop, { de: "2026-11-16", ate: "2026-11-22" });
   igual("o plano: data programada na semana e executante (a 3 não tem ninguém; a 4 é terceirizada na STJ); fora a da semana seguinte (6) e a que já tinha terminado (7)",
     plano.map((p) => p.os + p.tipo), ["1C", "2C", "4C", "5C", "8C", "9C", "10P", "11C"]);
+  igual("e, à parte, as com a data na semana e ninguém na STL na cópia (fora do plano por falta de executante): a 3",
+    IND.semExecutanteDaCopia(Dcop, { de: "2026-11-16", ate: "2026-11-22" }).map((p) => p.os + p.tipo), ["3C"]);
+  // (19/11/2026) o plano guardado na publicação: o mesmo do planoDaCopia, curto, e a poda do índice
+  igual("a segunda-feira de um dia", [IND.segundaDe("2026-11-16"), IND.segundaDe("2026-11-19"), IND.segundaDe("2026-11-22")], ["2026-11-16", "2026-11-16", "2026-11-16"]);
+  const pgd = IND.planosDaCopia(Dcop, "2026-11-18");
+  igual("os planos guardados de uma cópia de quarta 18/11: o da semana dela (16/11) e o da seguinte (23/11)", Object.keys(pgd), ["2026-11-16", "2026-11-23"]);
+  igual("e o guardado volta igual ao plano da cópia (chave, frota e tipo)", IND.planoGuardado(pgd["2026-11-16"]), plano.map(({ k, frota, tipo }) => ({ k, frota, tipo })));
+  igual("o da semana seguinte: a 6, programada para 23/11", IND.planoGuardado(pgd["2026-11-23"]).map((p) => p.k), ["10101|6"]);
+  const Lv = (id, quando, extra = {}) => ({ id, tipo: "atualização", base: quando.slice(0, 10), publicado_em: quando, ...extra });
+  const dois = (seg, prox) => ({ [seg]: [["1|1", "F-TESTE", "C"]], [prox]: [["1|2", "F-TESTE", "C"]] });
+  const idxP = [{ base: "2026-11-10", gerado_em: "2026-11-10T12:00:00.000Z", total: 3 },
+    Lv("a", "2026-11-16T12:00:00.000Z", { planos: dois("2026-11-16", "2026-11-23") }), Lv("b", "2026-11-18T12:00:00.000Z", { planos: dois("2026-11-16", "2026-11-23") }),
+    Lv("c", "2026-11-20T12:00:00.000Z", { planos: dois("2026-11-16", "2026-11-23") }), Lv("v", "2026-11-21T12:00:00.000Z", { tipo: "volta", de: "a" })];
+  const podado = IND.podarPlanos(idxP);
+  igual("a poda: o plano da semana fica só na primeira cópia dela (a), o da seguinte só na última (c); a do meio e a volta ficam sem",
+    podado.map((l) => (l.planos ? Object.keys(l.planos).join("+") : "—")), ["—", "2026-11-16", "—", "2026-11-23", "—"]);
+  ok("e o resto da linha fica como estava (a linha antiga, sem id, nem é tocada)", podado[2].id === "b" && podado[2].base === "2026-11-18" && !("planos" in podado[2]) && podado[0] === idxP[0]);
+  igual("a única cópia da semana é a primeira e a última: guarda os dois", Object.keys(IND.podarPlanos([Lv("x", "2026-11-25T12:00:00.000Z", { planos: dois("2026-11-23", "2026-11-30") })])[0].planos),
+    ["2026-11-23", "2026-11-30"]);
   // hoje (export de 23/11, a semana acabou): o que aconteceu com cada uma
   const hoje = new Map([
     ["10101|1", { sit: "F", abertura: "2026-11-01", fim: "2026-11-18", tipo: "Corretiva", progEm: "2026-11-17", grupo: "I" }],      // cumprida
@@ -1918,13 +1953,13 @@ titulo("os/publicar.js — a atualização publica inteira ou não publica (12/1
       async apagar(c) { arq.delete(c); },
       async versaoNoAr() { const a = arq.get(P.ATUAL); return a ? "v" + a.v : ""; } };
   };
-  const DE = (base, abertas) => ({ base, frotas_lista: ["0617"], canceladas: [],
-    os: [...abertas.map((x, i) => [String(100001 + i), "010101", "F-617", "", "trocar " + x, "2026-11-01", "A", ""]), ["100900", "010101", "F-617", "", "fechada", "2026-10-01", "F", "2026-11-05"]] });
+  const DE = (base, abertas) => ({ base, frotas_lista: ["0255"], canceladas: [],
+    os: [...abertas.map((x, i) => [String(100001 + i), "010101", "F-255", "", "trocar " + x, "2026-11-01", "A", ""]), ["100900", "010101", "F-255", "", "fechada", "2026-10-01", "F", "2026-11-05"]] });
   let seg = 0;
   const pacote = async (D, quem = "Mateus") => {
     const n = { A: 0, P: 0, F: 0 }; for (const a of D.os) n[a[6]]++;
     const quando = new Date(2026, 10, 12, 14, 3, seg++);
-    const p = { versao: 2, D, meta: { base: D.base, gerado_em: quando.toISOString(), resumo: { n: D.os.length, ...n }, frotas: ["617"], sha_dados: await P.shaDosDados(D),
+    const p = { versao: 2, D, meta: { base: D.base, gerado_em: quando.toISOString(), resumo: { n: D.os.length, ...n }, frotas: ["255"], sha_dados: await P.shaDosDados(D),
       versao_id: P.idDaVersao(D.base, quando, () => 0.5), publicado_em: quando.toISOString(), publicado_por: quem } };
     p.meta.importacoes = [P.linhaDaVersao(p)];
     return p;

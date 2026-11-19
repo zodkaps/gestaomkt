@@ -114,6 +114,36 @@ A oficina devolver a frota atrasada **não** conta: o que se avalia é a operaç
   fechadas do período, cada uma pelo plano dela; a semana sem cópia fica fora e é
   contada. A Visão geral usa a mesma linha. Com os dados de verdade, a semana 46
   dá 43% (6 de 14), e não os 66% da conta antiga.
+- **Executada é a que terminou no período** (19/11/2026, pedido do Mateus). Os
+  números de baixo da Programação (pela data programada de hoje) contavam como
+  executada toda OS encerrada, de quando fosse: na semana 46, 31 das 52 já
+  tinham terminado antes de a semana começar. Agora executada é a que terminou
+  dentro do período (encerrada com o fim nele, ou aberta com o fim real lançado
+  nele — `terminouEm`, a mesma régua da aderência pelo plano); a encerrada
+  depois conta como não executada no período (e aparece como "encerrada
+  depois"); a que já tinha terminado antes fica fora da conta, numa linha à
+  parte com *Ver quais*. A semana 46 fica com 48 programadas, 21 executadas e
+  44% — e as 48 são as 14 do plano de segunda mais as 34 incluídas na semana.
+- **Fora do plano por falta de executante** (19/11/2026, pedido do Mateus): no
+  cartão do plano de segunda, uma linha conta as OS que, na cópia de segunda,
+  tinham a data programada na semana e ninguém na STL (`semExecutanteDaCopia`) —
+  e quantas ganharam executante depois e estão nas incluídas —, com *Ver quais*
+  (as corretivas, na lista da Programação; as preventivas, contadas na linha
+  delas). Na aba OS preventivas, a mesma linha para as preventivas do período,
+  com *Ver quais*, que deixa só elas na lista (o mesmo botão volta). Na semana
+  46, com a cópia de 11/11: 44 corretivas e 15 preventivas.
+- **Os Indicadores sem baixar uma cópia por semana** (19/11/2026, pedido do
+  Mateus): a aderência dos Indicadores soma várias semanas, e cada uma baixava a
+  cópia inteira do painel (~600 KB; seis meses, uns 15 MB). Agora, ao publicar,
+  a linha da versão no índice (`meta.importacoes`) leva, curto, o plano da
+  semana dela e o da seguinte (`planosDaCopia`: chave, frota e tipo), e a poda
+  (`podarPlanos`) deixa o da semana só na primeira cópia dela e o da seguinte só
+  na última — as únicas que podem ser o plano de segunda de alguma semana. Os
+  Indicadores usam o plano guardado; sem ele (as cópias de antes disto), baixam
+  como antes. O cartão da Programação e a Visão geral baixam a cópia da semana
+  escolhida (usam também as sem executante e a lista de frotas dela). É o mesmo
+  `planoDaCopia` sobre o mesmo D: o número não muda. Nada em `versoes/` é
+  reescrito.
 - **A carteira para conferir e limpar** (19/11/2026, pedido do Mateus): em
   *Imprimir carteira*, o modo novo **Para conferir e limpar a carteira** (o de
   programar continua como era): todas as frotas numa lista só, frota a frota
@@ -155,8 +185,9 @@ A oficina devolver a frota atrasada **não** conta: o que se avalia é a operaç
   que é dela e o resto fica a um clique — sem tirar aba, filtro, gráfico, conta
   ou função, e sem mudar fórmula (as contas são as de `js/os/indicadores.js`).
   - **Programação** — quatro números grandes: *Programadas* (data programada no
-    período e executante), *Executadas* (encerradas no Protheus ou com o fim
-    real da manutenção), *Pendentes de execução* (liberadas · aguardando
+    período e executante), *Executadas* (terminaram dentro do período:
+    encerradas nele no Protheus ou com o fim real da manutenção lançado nele;
+    desde 19/11/2026), *Pendentes de execução* (liberadas · aguardando
     liberação) e *Execução* (executadas ÷ programadas, com o período anterior);
     a barra executadas × pendentes, que abre a lista no clique; uma linha para a
     extra programação; e um gráfico só, *programadas × executadas*, por dia,
@@ -566,7 +597,8 @@ e preventivas, e **só ele ter acesso**.
 - **Programação** (11/11/2026): três contas que não se misturam — *programada*
   (a data programada cai no período), *executada* (encerrada no Protheus, ou
   aberta com o fim real da manutenção lançado — este a partir da atualização
-  seguinte a 11/11) e *encerrada* (Término = Sim). *Conclusão* = encerradas ÷
+  seguinte a 11/11; desde 19/11/2026, só a que terminou dentro do período, e a
+  que já tinha terminado antes fica fora da conta) e *encerrada* (Término = Sim). *Conclusão* = encerradas ÷
   programadas. À parte, a carteira no período: abertas, encerradas (da
   programação e extra programação) e antigas encerradas. A OS encerrada no
   período sem a data programada nele é extra programação: nunca conta como

@@ -2411,18 +2411,18 @@ ok("e o Diagnóstico não manda rodar SQL por causa de sessão",
     return `${PASTA}/${nome}`;
   };
   // (11/11/2026) uma preventiva (Plano Manut. 000777): fica fora da carteira — os números de lá não mudam — e vai para a aba OS preventivas
-  const preventiva = os("100007", "0433", "2026-10-05", "Não", "Liberado"); preventiva[2] = "000777";
-  const linhasSTJ = [preventiva, os("100001", "0433", "2026-10-01", "Não", "Liberado"), os("100002", "0433", "2026-10-20", "Não", "Pendente"),
-    os("100003", "0617", "2026-10-25", "Sim", "Liberado", "2026-11-03"), os("100004", "0999", "2026-10-25", "Não", "Liberado")];
+  const preventiva = os("100007", "0342", "2026-10-05", "Não", "Liberado"); preventiva[2] = "000777";
+  const linhasSTJ = [preventiva, os("100001", "0342", "2026-10-01", "Não", "Liberado"), os("100002", "0342", "2026-10-20", "Não", "Pendente"),
+    os("100003", "0255", "2026-10-25", "Sim", "Liberado", "2026-11-03"), os("100004", "0999", "2026-10-25", "Não", "Liberado")];
   // uma STJ que só começa em outubro deixaria de fora as OS de janeiro a setembro: o site não grava
   const fSTJout = excel("STJ_outubro.xlsx", [["STJ"], CAB_STJ, ...linhasSTJ]);
-  const fSTJ = excel("STJ.xlsx", [["STJ"], CAB_STJ, os("100000", "0617", "2026-01-05", "Sim", "Liberado", "2026-02-01"), ...linhasSTJ]);
+  const fSTJ = excel("STJ.xlsx", [["STJ"], CAB_STJ, os("100000", "0255", "2026-01-05", "Sim", "Liberado", "2026-02-01"), ...linhasSTJ]);
   const CAB_STL = ["Filial", "Ordem", "Tipo", "Tipo Insumo", "Código", "Nome Insumo", "Quantidade", "Data Início"];
   const fSTL = excel("STL_1.xlsx", [CAB_STL, ["010101", "100001", "PLAN", "Mão de Obra", "000111", "FULANO DE TESTE", 2, D("2026-11-04")],
     ["010101", "100003", "REAL", "Mão de Obra", "000111", "FULANO DE TESTE", 1.5, D("2026-11-03")]]);
   const fHist = `${PASTA}/historico-os.json.gz`;
-  writeFileSync(fHist, gzipSync(JSON.stringify({ versao: 1, feito_em: "2026-11-05", corte: "2026-01-01", ate: "2026-12-31", frotas: ["0433", "0617"],
-    stj: { cab: CAB_STJ, linhas: [["010101", "090001", "000000", "01/03/2025", "0617", "CAVALO TRATOR", "MC", "TROCAR PNEU", "10001", "0", "01/03/2025", "", "10/03/2025", "Sim", "Liberado", "Não", "", "", ""]] },
+  writeFileSync(fHist, gzipSync(JSON.stringify({ versao: 1, feito_em: "2026-11-05", corte: "2026-01-01", ate: "2026-12-31", frotas: ["0342", "0255"],
+    stj: { cab: CAB_STJ, linhas: [["010101", "090001", "000000", "01/03/2025", "0255", "CAVALO TRATOR", "MC", "TROCAR PNEU", "10001", "0", "01/03/2025", "", "10/03/2025", "Sim", "Liberado", "Não", "", "", ""]] },
     stl: { cab: CAB_STL, linhas: [] }, ult: {} })));
   const fRuim = `${PASTA}/qualquer.csv`;
   writeFileSync(fRuim, "Filial;Coisa\n1;2\n");
@@ -2611,8 +2611,9 @@ ok("e o Diagnóstico não manda rodar SQL por causa de sessão",
   const kOut = await mt.$$eval("#programacao .pg-kpis:not(.pg-mov) .kpi .val", (v) => v.map((x) => x.textContent));
   const kOutMov = await kpiDe("#programacao .pg-mov", "Encerradas no período");
   const notaSemExec = await mt.textContent("#programacao .pg-semexec").catch(() => "");
-  ok("e em outubro: 2 programadas, 1 executada (a 100003, encerrada depois, em novembro), 1 pendente e 50% de execução; nenhuma encerrada no mês — a 100002, sem ninguém na STL, não conta",
-    kOut.join("|") === "2|1|1|50%" && kOutMov[0] === "0" && notaSemExec.startsWith("1 OS tem a data programada no período e ninguém na STL"),
+  // (19/11/2026) executada é a que terminou dentro do período: a 100003 só encerrou em novembro, não conta em outubro
+  ok("e em outubro: 2 programadas, nenhuma executada no mês (a 100003 encerrou depois, em novembro), 2 não executadas e 0% de execução; nenhuma encerrada no mês — a 100002, sem ninguém na STL, não conta",
+    kOut.join("|") === "2|0|2|0%" && kOutMov[0] === "0" && notaSemExec.startsWith("1 OS tem a data programada no período e ninguém na STL"),
     kOut.join(" | ") + " · " + kOutMov.join(" | ") + " · " + notaSemExec);
   await mt.click("#programacao .pg-kpis .kpi >> nth=0");
   await mt.waitForTimeout(500);
@@ -2658,10 +2659,22 @@ ok("e o Diagnóstico não manda rodar SQL por causa de sessão",
       await mkt.nuvem.subirArquivo("painel-os", `dias/${dia}.json.gz`, await gz({ meta: pk.meta, D: pk.D }), "application/gzip", { substituir: true });
       return pk.D.os.length;
     };
-    const n = await copia("2026-11-02", { 100003: { 19: "2026-11-03", 6: "A", 7: "" }, 100001: { 19: "2026-11-04" } });
+    // (19/11/2026) e a 100002, com a data na semana e ninguém na STL: fora do plano por falta de executante
+    const n = await copia("2026-11-02", { 100003: { 19: "2026-11-03", 6: "A", 7: "" }, 100001: { 19: "2026-11-04" }, 100002: { 19: "2026-11-05" } });
     await copia("2026-10-26", { 100003: { 19: "2026-10-27", 6: "A", 7: "" } });
+    // (19/11/2026) e uma versão de 19/10 que só existe no índice, com o plano guardado (a 100001) e sem o arquivo dela em
+    // versoes/: se os Indicadores tentassem baixá-la, a semana ficaria fora
     await mkt.nuvem.subirArquivo("painel-os", "importacoes.json.gz", await gz([{ base: "2026-10-26", gerado_em: "2026-10-26T11:00:00.000Z", total: n },
-      { base: "2026-11-02", gerado_em: "2026-11-02T11:00:00.000Z", total: n }]), "application/gzip", { substituir: true });
+      { base: "2026-11-02", gerado_em: "2026-11-02T11:00:00.000Z", total: n },
+      { id: "2026-10-19_090000_leve", tipo: "atualização", base: "2026-10-19", publicado_em: "2026-10-19T12:00:00.000Z", total: n,
+        planos: { "2026-10-19": [["10101|100001", "F-TESTE", "C"]], "2026-10-26": [] } }]), "application/gzip", { substituir: true });
+    // a publicação feita lá em cima guardou, na linha dela, o plano da semana dela e o da seguinte
+    const idx = (await ler()).meta.importacoes || [];
+    return idx.filter((l) => l.planos).map((l) => Object.keys(l.planos));
+  }).then((planosPub) => {
+    const segundas = planosPub.flat();
+    ok("a publicação guarda na linha da versão o plano curto da semana dela e o da seguinte (só segundas-feiras)",
+      planosPub.length > 0 && segundas.every((s) => new Date(s + "T00:00:00Z").getUTCDay() === 1), JSON.stringify(planosPub));
   });
   await mt.reload({ waitUntil: "networkidle" });
   await mt.waitForSelector("#aba-programacao", { timeout: 30000 });
@@ -2679,13 +2692,21 @@ ok("e o Diagnóstico não manda rodar SQL por causa de sessão",
   await mt.waitForTimeout(500);
   const listaAd = await mt.innerText("#pg-lista tbody");
   ok("o clique em Cumpridas mostra quais: a 100003", listaAd.includes("100003") && !listaAd.includes("100001"), listaAd.slice(0, 160));
+  const semAd = await mt.textContent("#pg-ader .pg-ader-semexec").catch(() => "");
+  ok("fora do plano por falta de executante: a 100002 tinha a data na semana e ninguém na STL na cópia de segunda",
+    semAd.startsWith("Fora do plano por falta de executante: 1 corretiva tinha a data programada na semana e ninguém na STL na cópia de segunda."), semAd);
+  await mt.click("#pg-ader .pg-ader-semexec button");
+  await mt.waitForTimeout(500);
+  const listaSemAd = await mt.innerText("#pg-lista tbody");
+  ok("e o Ver quais traz quais, na lista: a 100002", listaSemAd.includes("100002") && !listaSemAd.includes("100003"), listaSemAd.slice(0, 160));
   // os Indicadores somam as semanas já fechadas do período, cada uma pelo plano dela: em outubro, só a de 26/10 tem cópia
   await mt.click("#aba-indicadores");
   await periodoPronto("Mês anterior");
   await mt.waitForFunction(() => !/buscando/.test(document.querySelector(".os-host").shadowRoot.querySelector("#c-ind-kpis").textContent), null, { timeout: 15000 });
   const indAd = await mt.$eval('#c-ind-kpis .kpi:has(.rot:text-is("Aderência à programação"))', (k) => [k.querySelector(".val").textContent, k.querySelector(".regra").textContent]);
-  ok("Indicadores: a aderência de outubro pelo plano de segunda — a da semana de 26/10 (a 100003 terminou depois do domingo), e as 3 sem cópia ficam fora",
-    indAd[0] === "0%" && indAd[1] === "pelo plano de segunda: da 1 corretiva no plano de 1 semana já fechada, 0 terminaram dentro da semana · 3 semanas sem cópia do painel de segunda ficam fora",
+  ok("Indicadores: a aderência de outubro pelo plano de segunda — a semana de 19/10 pelo plano guardado (a 100001 segue aberta), a de 26/10 pela cópia " +
+    "(a 100003 terminou depois do domingo), e as 2 sem cópia ficam fora",
+    indAd[0] === "0%" && indAd[1] === "pelo plano de segunda: das 2 corretivas no plano de 2 semanas já fechadas, 0 terminaram dentro da semana · 2 semanas sem cópia do painel de segunda ficam fora",
     indAd.join(" | "));
   // as cópias e o índice de mentira saem do bucket: a Auditoria (mais adiante) conta só as cópias desta atualização
   await mt.evaluate(async () => {
@@ -2698,6 +2719,18 @@ ok("e o Diagnóstico não manda rodar SQL por causa de sessão",
   await mt.waitForSelector("#prev-topo .kpi", { timeout: 10000 });
   const kPrev = await mt.$$eval("#prev-topo .kpi .val", (v) => v.map((x) => x.textContent));
   ok("a aba OS preventivas: 1 em aberto, e a lista traz a 100007", kPrev[0] === "1" && (await mt.innerText("#prev-lista")).includes("100007"), kPrev.join(" | "));
+  // (19/11/2026) em outubro, a 100007 tem a data programada (05/10) e ninguém na STL: a linha diz, e o Ver quais deixa só ela na lista
+  await periodoPronto("Mês anterior");
+  const semPrev = await mt.textContent("#prev-topo .pg-semexec").catch(() => "");
+  ok("preventivas: a com data no período e sem executante não conta, e a linha diz quantas", semPrev.startsWith("1 preventiva tem a data programada no período e ninguém na STL"), semPrev);
+  await mt.click('#prev-topo .pg-semexec button:has-text("Ver quais")');
+  await mt.waitForTimeout(400);
+  const listaSemPrev = await mt.innerText("#prev-lista");
+  ok("e o Ver quais deixa só elas na lista; o mesmo botão volta para todas", listaSemPrev.includes("com data no período e sem executante") && listaSemPrev.includes("100007") &&
+    (await mt.textContent("#prev-topo .pg-semexec button")) === "Mostrar todas na lista", listaSemPrev.slice(0, 160));
+  await mt.click('#prev-topo .pg-semexec button');
+  await mt.waitForTimeout(300);
+  ok("e volta", !(await mt.innerText("#prev-lista")).includes("com data no período e sem executante"));
   // o avanço: na semana 45 (02 a 08/11, dados de 05/11) tinha 3 no começo, nenhuma nova, 1 encerrada, ficou com 2
   await mt.click("#aba-avanco");
   await periodoPronto("Semana atual");
@@ -2771,7 +2804,7 @@ ok("e o Diagnóstico não manda rodar SQL por causa de sessão",
   await mt.waitForTimeout(250);
   await mt.click("#g-frotas svg .col >> nth=1");
   await mt.waitForTimeout(400);
-  ok("clicar numa frota do gráfico abre a ficha dela", mt.url().endsWith("#/os?aba=frotas") && (await mt.innerText("#chips")).includes("F-617"), mt.url());
+  ok("clicar numa frota do gráfico abre a ficha dela", mt.url().endsWith("#/os?aba=frotas") && (await mt.innerText("#chips")).includes("F-255"), mt.url());
   await mt.click('#chips button[aria-label^="Tirar o filtro Frota"]');
   await mt.click("#f-periodo");
   await mt.click('#pop .per-op:has-text("Últimas 12 semanas")');
@@ -2809,7 +2842,7 @@ ok("e o Diagnóstico não manda rodar SQL por causa de sessão",
   await mt.click("#c-frotas .baixar");
   const [dNum] = await Promise.all([mt.waitForEvent("download", { timeout: 8000 }), mt.click('#c-frotas .menu-env button:has-text("Baixar os números")')]);
   const tNum = await readFile(await dNum.path(), "utf8");
-  ok("e os números do gráfico saem em planilha: as frotas e as colunas", tNum.includes("Frota;Baixadas (encerradas no período);Pendentes (abertas);Total") && tNum.includes("F-617"), tNum.slice(0, 240));
+  ok("e os números do gráfico saem em planilha: as frotas e as colunas", tNum.includes("Frota;Baixadas (encerradas no período);Pendentes (abertas);Total") && tNum.includes("F-255"), tNum.slice(0, 240));
   await mt.click("#c-frotas .baixar");
   await mt.keyboard.press("Escape");
   ok("o Esc fecha o menu do Enviar", await mt.isHidden("#c-frotas .menu-env"));
@@ -2862,7 +2895,7 @@ ok("e o Diagnóstico não manda rodar SQL por causa de sessão",
   await mt.click('#detalhe label:has-text("Para conferir e limpar a carteira")');
   await mt.waitForTimeout(200);
   const resConf = (await mt.textContent("#detalhe .folha-resumo")).replace(/\s+/g, " ");
-  ok("o modo de conferir: a 433 com as 2 abertas, nenhuma com sinal de já feita e as 2 com o mesmo serviço (repetidas); as opções de programar somem",
+  ok("o modo de conferir: a 342 com as 2 abertas, nenhuma com sinal de já feita e as 2 com o mesmo serviço (repetidas); as opções de programar somem",
     modoProg && resConf === "Vai sair: 1 frota · 2 OS · 0 com sinal de já feita · 2 repetidas · e o resumo por frota no fim." &&
     !(await mt.isVisible('#detalhe label:has-text("Colunas em branco para escrever")')) && await mt.isVisible('#detalhe label:has-text("Preventivas em aberto")'), resConf);
   await mt.click('#detalhe label:has-text("Preventivas em aberto")');

@@ -60,6 +60,10 @@ export function anterior({ desde, ate, base, unidade = "" }) {
  *  (a lançada depois do serviço sai no dia em que entrou). Em aberto, ou encerrada sem data: "". */
 export const saidaDe = (o) => (o.sit === "F" && o.fim ? (o.abertura && o.fim < o.abertura ? o.abertura : o.fim) : "");
 
+/** O dia em que o serviço terminou (19/11/2026): a saída da encerrada; da aberta, o fim real da manutenção
+ *  lançado na STL. Sem nenhum dos dois: "". A mesma régua da programação e da aderência pelo plano. */
+export const terminouEm = (o) => (o.sit === "F" ? saidaDe(o) : o.fimReal || "");
+
 /** Em aberto no fim do dia `d`: entrou até ele e não saiu até ele. */
 export const emAberto = (o, d) => !!o.abertura && o.abertura <= d && !(o.sit === "F" && (!o.fim || saidaDe(o) <= d));
 
@@ -181,22 +185,29 @@ export const contaComoProgramada = (o) => !!o.progEm && o.grupo !== "S";
 
 /** Programadas × finalizadas de um período (10/11/2026; 11/11/2026): `{ de, ate, fechAte? }`.
  *  Programadas: a data programada (P. In. Man.) dentro do período e com executante. Delas:
- *    executadas — com o fim real da manutenção (R. Fim Man.) na STJ: as encerradas e as abertas que já o têm
- *                 (`execAbertas`: serviço feito, OS ainda não encerrada no Protheus);
+ *    executadas — terminaram dentro do período (19/11/2026, pedido do Mateus; `terminouEm` até `fechAte`):
+ *                 as encerradas nele e as abertas com o fim real lançado nele (`execAbertas`: serviço feito,
+ *                 OS ainda não encerrada no Protheus);
  *    encerradas — Término = Sim: as no prazo (fim até `fechAte`, que é o `ate` — ou o domingo, na semana
  *                 cortada pelo fim do mês) e as depois; `ab`: as que seguem abertas.
+ *  A que já tinha terminado antes do período (o fim lançado depois, com a data de antes) fica fora da conta,
+ *  à parte (`antes`), como na aderência pelo plano de segunda: não foi programada e feita nele.
  *  Finalizadas no período: todas as que saíram da carteira nele (`saidaDe`) — as da programação dele e as
  *  extra programação (programadas para outro período, ou sem data programada).
  */
 export function progFin(lista, { de, ate, fechAte = ate }) {
-  const x = { n: 0, prazo: 0, depois: 0, ab: 0, exec: 0, execAbertas: 0, fin: 0, finProg: 0, finFora: 0, semExec: 0 };
+  const x = { n: 0, prazo: 0, depois: 0, ab: 0, exec: 0, execAbertas: 0, antes: 0, fin: 0, finProg: 0, finFora: 0, semExec: 0 };
   for (const o of lista) {
     const naData = !!o.progEm && o.progEm >= de && o.progEm <= ate, prog = naData && contaComoProgramada(o);
     if (naData && !prog) x.semExec++;
-    if (prog) {
+    const f = prog ? terminouEm(o) : "";
+    if (prog && f && f < de) x.antes++;
+    else if (prog) {
       x.n++;
-      if (o.sit !== "F") { x.ab++; if (o.fimReal) { x.exec++; x.execAbertas++; } }
-      else { x.exec++; if (o.fim <= fechAte) x.prazo++; else x.depois++; }
+      const noPeriodo = !!f && f <= fechAte;
+      if (o.sit !== "F") { x.ab++; if (o.fimReal && noPeriodo) { x.exec++; x.execAbertas++; } }
+      else if (noPeriodo) { x.exec++; x.prazo++; }
+      else x.depois++;
     }
     const s = saidaDe(o);
     if (s && s >= de && s <= ate) {
@@ -317,21 +328,70 @@ export function copiaDaSemana(copias, seg) {
   return depois ? { copia: depois, quando: "depois" } : null;
 }
 
-/** O plano de uma semana numa cópia (o bloco D dela): as OS com a data programada na semana e executante na cópia,
- *  menos as que já tinham terminado antes da semana começar. */
-export function planoDaCopia(D, { de, ate }) {
+/** As OS de uma cópia (o bloco D dela) com a data programada na semana, com ou sem executante na cópia, menos as
+ *  que já tinham terminado antes da semana começar. */
+function programadasDaCopia(D, { de, ate }, comExecutante) {
   const comGente = new Set();
   for (const l of Object.values(D.exec || {})) for (const x of l) comGente.add(x[0]);
-  const plano = [];
+  const lista = [];
   D.os.forEach((a, i) => {
     const prog = a[19] || "";
     if (!prog || prog < de || prog > ate) return;
-    if (!(a[9] === "S" || a[17] === "S" || comGente.has(i))) return;
+    if ((a[9] === "S" || a[17] === "S" || comGente.has(i)) !== comExecutante) return;
     const fim = a[6] === "F" ? saidaDe({ sit: "F", abertura: a[5], fim: a[7] }) : a[22] || "";
     if (fim && fim < de) return;
-    plano.push({ k: chaveOS(a[1], a[0]), os: a[0], filial: a[1], frota: a[2], tipo: a[8] === "P" ? "P" : "C", progEm: prog });
+    lista.push({ k: chaveOS(a[1], a[0]), os: a[0], filial: a[1], frota: a[2], tipo: a[8] === "P" ? "P" : "C", progEm: prog });
   });
-  return plano;
+  return lista;
+}
+/** O plano de uma semana numa cópia: as OS com a data programada na semana e executante na cópia. */
+export const planoDaCopia = (D, semana) => programadasDaCopia(D, semana, true);
+/** Na mesma cópia, as com a data programada na semana e ninguém na STL (19/11/2026): ficaram fora do plano por
+ *  falta de executante — a mesma forma do plano. */
+export const semExecutanteDaCopia = (D, semana) => programadasDaCopia(D, semana, false);
+
+// ── o plano guardado na publicação (19/11/2026, pedido do Mateus) ──
+// Os Indicadores somam a aderência de várias semanas, e cada uma pedia baixar a cópia inteira do painel (~600 KB).
+// Na publicação, a linha da versão no índice (meta.importacoes) leva, curto, o plano que ela pode ser chamada a dar:
+// o da semana dela (vale se for a primeira cópia da semana) e o da seguinte (se for a última) — `podarPlanos` tira o
+// resto. É o mesmo planoDaCopia sobre o mesmo D: o número não muda. Sem o plano guardado (as cópias de antes disto),
+// os Indicadores baixam a cópia, como antes; o cartão da Programação baixa sempre (usa também as sem executante e a
+// lista de frotas da cópia).
+
+/** O dia, no horário daqui, de um instante: "AAAA-MM-DD" ("" se não for data) — o mesmo das cópias (copiaDaSemana). */
+export const diaLocal = (x) => {
+  const d = new Date(x);
+  if (!x || isNaN(d)) return "";
+  const p = (n) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
+};
+/** A segunda-feira da semana de um dia ("AAAA-MM-DD"). */
+export const segundaDe = (d) => iso(t(d) - ((new Date(t(d)).getUTCDay() + 6) % 7) * DIA);
+const curto = (l) => l.map((p) => [p.k, p.frota, p.tipo]);
+/** Os planos de uma cópia publicada no dia `dia` (no horário daqui), curtos: { "<segunda>": [[chave, frota, tipo], …] },
+ *  da semana dela e da seguinte. */
+export function planosDaCopia(D, dia) {
+  const seg = segundaDe(dia), prox = iso(t(seg) + 7 * DIA);
+  const de = (s) => ({ de: s, ate: iso(t(s) + 6 * DIA) });
+  return { [seg]: curto(planoDaCopia(D, de(seg))), [prox]: curto(planoDaCopia(D, de(prox))) };
+}
+/** O plano guardado de volta na forma do planoDaCopia (o que a aderência usa: chave, frota e tipo). */
+export const planoGuardado = (l) => (Array.isArray(l) ? l.map(([k, frota, tipo]) => ({ k, frota, tipo })) : null);
+/** Poda os planos guardados no índice: o da semana fica só na primeira cópia dela; o da seguinte, só na última — as
+ *  outras nunca são o plano de semana nenhuma (copiaDaSemana). As voltas não são cópia. Devolve as linhas, sem mexer
+ *  em nada além de `planos`. */
+export function podarPlanos(indice) {
+  const semanaDe = (l) => (l && l.id && l.tipo !== "volta" && diaLocal(l.publicado_em) ? segundaDe(diaLocal(l.publicado_em)) : "");
+  const copias = indice.filter((l) => semanaDe(l)).sort((a, b) => String(a.publicado_em).localeCompare(String(b.publicado_em)));
+  const primeira = new Map(), ultima = new Map();
+  for (const l of copias) { const s = semanaDe(l); if (!primeira.has(s)) primeira.set(s, l); ultima.set(s, l); }
+  return indice.map((l) => {
+    if (!l || !l.planos) return l;
+    const { planos, ...resto } = l, s = semanaDe(l), prox = s ? iso(t(s) + 7 * DIA) : "", fica = {};
+    if (s && primeira.get(s) === l && planos[s]) fica[s] = planos[s];
+    if (s && ultima.get(s) === l && planos[prox]) fica[prox] = planos[prox];
+    return Object.keys(fica).length ? { ...resto, planos: fica } : resto;
+  });
 }
 
 /**
@@ -349,7 +409,7 @@ export function planoDaCopia(D, { de, ate }) {
  */
 export function aderenciaDoPlano(plano, atuais, { de, ate, base, canceladas = new Set(), tipo = "C", frotas = null }) {
   const fimSem = ate < base ? ate : base, passou = ate < base;
-  const terminou = (o) => (o.sit === "F" ? saidaDe(o) : o.fimReal || "");
+  const terminou = terminouEm;
   const x = { plano: 0, conta: 0, cumpridas: 0, depois: 0, naoFeitas: 0, remarcadas: 0, pendentes: 0, canceladas: 0, fora: 0, antes: 0,
     incluidas: 0, incluidasFeitas: 0, aderencia: null, passou,
     listas: { cumpridas: [], depois: [], naoFeitas: [], pendentes: [], incluidas: [], canceladas: [], antes: [] } };
