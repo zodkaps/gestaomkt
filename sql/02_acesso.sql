@@ -59,15 +59,18 @@ $$;
 -- internet criava uma conta e lia a carteira inteira. Agora só lê quem está
 -- na tabela `pessoas` — conta sem papel enxerga as tabelas vazias.
 
+-- (19/11/2026) A consulta (07_consulta.sql) lê só a própria linha e não lê a
+-- fita: as duas leituras abaixo são as mesmas de lá, para rodar este arquivo de
+-- novo não reabrir. Para o PCM e a operação, nada muda.
 drop policy if exists pessoas_leitura on public.pessoas;
 create policy pessoas_leitura on public.pessoas
-  for select to authenticated using (public.papel_atual() is not null);
+  for select to authenticated using (public.papel_atual() in ('pcm', 'operacao') or email = auth.email());
 
 -- ── eventos: só quem tem papel, e só o que é do seu papel ──────────────────
 
 drop policy if exists eventos_leitura on public.eventos;
 create policy eventos_leitura on public.eventos
-  for select to authenticated using (public.papel_atual() is not null);
+  for select to authenticated using (public.papel_atual() in ('pcm', 'operacao'));
 
 drop policy if exists eventos_insere on public.eventos;
 create policy eventos_insere on public.eventos

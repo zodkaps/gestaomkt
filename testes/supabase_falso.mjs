@@ -246,7 +246,9 @@ createServer(async (req, res) => {
     if (falha === "permissao") {
       return json(res, 403, { code: "42501", message: "permission denied for table pessoas" });
     }
-    return json(res, 200, eu ? PESSOAS.map(({ os_makro, os_makro_atualiza, ...p }) => p) : []);
+    // (19/11/2026) a consulta lê só a própria linha (sql/07_consulta.sql)
+    const legiveis = !eu ? [] : eu.papel === "consulta" ? [eu] : PESSOAS;
+    return json(res, 200, legiveis.map(({ os_makro, os_makro_atualiza, ...p }) => p));
   }
 
   if (u.pathname.startsWith("/rest/v1/eventos")) {
@@ -256,7 +258,8 @@ createServer(async (req, res) => {
     if (falha === "permissao") {
       return json(res, 403, { code: "42501", message: "permission denied for table eventos" });
     }
-    const visiveis = eu ? eventos.filter(e => !segurados.has(e.id)) : [];
+    // (19/11/2026) a consulta não lê a fita, como no banco (sql/07_consulta.sql)
+    const visiveis = eu && eu.papel !== "consulta" ? eventos.filter(e => !segurados.has(e.id)) : [];
     if (req.method === "GET") {
       if ((req.headers.prefer || "").includes("count=exact")) {
         res.setHeader("content-range", `0-0/${visiveis.length}`);
@@ -288,8 +291,9 @@ createServer(async (req, res) => {
         if (e.autor !== eu.nome) {
           return json(res, 403, { message: `new row violates row-level security policy (autor ${e.autor} ≠ ${eu.nome})` });
         }
+        // o PCM lança tudo; a operação, só o que é dela; a consulta, nada (sql/02_acesso.sql)
         if (eu.papel !== "pcm" &&
-            !(TIPOS_OPERACAO[e.alvo_tipo] && TIPOS_OPERACAO[e.alvo_tipo].has(e.tipo))) {
+            !(eu.papel === "operacao" && TIPOS_OPERACAO[e.alvo_tipo] && TIPOS_OPERACAO[e.alvo_tipo].has(e.tipo))) {
           return json(res, 403, { message: `new row violates row-level security policy (${eu.papel} não lança ${e.tipo} em ${e.alvo_tipo})` });
         }
         const g = { ...e, seq: eventos.length + 1 };

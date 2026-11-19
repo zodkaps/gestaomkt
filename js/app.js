@@ -52,7 +52,8 @@ const TELAS = [
     carregar: () => import("./tela/frota.js") },
   // O painel de OS do Protheus (09/11/2026): uma tela do site, no menu só de quem o banco libera (a marca
   // os_makro em pessoas, sql/04_painel_os.sql). Quem abrir o endereço sem a marca vê o aviso da própria tela.
-  { id: "os", icone: "barras", nome: "OS Makro", grupo: "Protheus", papeis: ["pcm", "operacao"], soComAcesso: true,
+  // (19/11/2026) a consulta vê só esta tela
+  { id: "os", icone: "barras", nome: "OS Makro", grupo: "Protheus", papeis: ["pcm", "operacao", "consulta"], soComAcesso: true,
     carregar: () => import("./tela/os.js") },
   { id: "historico", icone: "historico", nome: "Registro", grupo: "Gestão", papeis: ["pcm", "operacao"],
     carregar: () => import("./tela/historico.js") },
@@ -152,7 +153,7 @@ const telasDoPapel = () =>
 // As do menu: as do papel, menos a OS Makro para quem o banco não liberou.
 const telasDoMenu = () => telasDoPapel().filter(t => !t.soComAcesso || acessoOs);
 
-const inicial = () => telaInicial(pessoas.ehOperacao());
+const inicial = () => telaInicial(pessoas.papel());
 
 // Endereços antigos continuam chegando — favorito, link no WhatsApp. A carteira
 // virou um recorte da Programação, e os Números viraram Resultados.
@@ -347,7 +348,8 @@ async function pintar() {
   pintarPessoa();
   pintarVoltar();
   const bBusca = $("#bbuscar");
-  if (bBusca) bBusca.hidden = !pessoas.quem() || !pessoas.papel() || tela.oculta;
+  // a busca procura na fita da oficina: a consulta (só o painel de OS) não tem o que buscar nela
+  if (bBusca) bBusca.hidden = !pessoas.quem() || !pessoas.papel() || pessoas.papel() === "consulta" || tela.oculta;
   $("#topo .titulo").textContent = tela.oculta ? "" : tela.nome;
   limpar($("#acoes-topo"));
 
@@ -538,7 +540,7 @@ async function montarFaixa() {
     }
   }
 
-  if (!nuvem.ligada() && ev.log.length && !pessoas.ehOperacao()) {
+  if (!nuvem.ligada() && ev.log.length && pessoas.papel() === "pcm") {
     const b = await bk.estado();
     const perigo = b.nunca ? b.desde > 30 : (b.desde > 50 || b.dias > 7);
     if (!perigo && !(b.nunca || b.desde > 0)) return null;

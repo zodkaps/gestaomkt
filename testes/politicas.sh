@@ -135,6 +135,50 @@ os_rec=$(echo "$os" | grep -c "ERROR" || true)
 echo "   $os_ok de 11 conferências do painel de OS · $os_rec de 6 proibidas recusadas"
 [ "$os_ok" = "11" ] && [ "$os_rec" = "6" ] || { echo "FALHOU: o painel de OS não está fechado como devia"; exit 1; }
 
+# O 07 (19/11/2026): o papel de consulta — não lança nada, não lê a fita nem a equipe (só a própria linha) e,
+# com a marca, vê o painel de OS sem atualizar. O PCM e a operação continuam lendo como antes.
+echo "── 13. Consulta: só vê o painel de OS"
+for vez in 1 2; do psql -h "$D/sock" -U postgres -q -v ON_ERROR_STOP=1 -f "$AQUI/sql/07_consulta.sql" 2>&1 | grep -v NOTICE || true; done
+psql -h "$D/sock" -U postgres -q -v ON_ERROR_STOP=1 -c \
+  "insert into public.pessoas (email, nome, papel, os_makro) values ('visitante@makroteste.com.br', 'Visitante', 'consulta', true)"
+co=$(psql -h "$D/sock" -U postgres -q 2>&1 <<'SQL'
+\set ON_ERROR_STOP off
+begin; set local role authenticated; set local request.jwt.claims = '{"email":"visitante@makroteste.com.br"}';
+  select '   → consulta: viu eventos ' || count(*) from eventos;
+  select '   → consulta: viu pessoas ' || count(*) from pessoas;
+  select '   → consulta: ve_os ' || public.ve_os();
+  select '   → consulta: atualiza_os ' || public.atualiza_os();
+  select '   → consulta: viu o painel ' || count(*) from storage.objects where bucket_id = 'painel-os'; commit;
+begin; set local role authenticated; set local request.jwt.claims = '{"email":"visitante@makroteste.com.br"}';
+  insert into eventos (id,autor,tipo,alvo_tipo,alvo) values ('c1','Visitante','mov_chegou','movimentacao','M-0001'); rollback;
+begin; set local role authenticated; set local request.jwt.claims = '{"email":"visitante@makroteste.com.br"}';
+  insert into eventos (id,autor,tipo,alvo_tipo,alvo) values ('c2','Visitante','prev_disponivel','preventiva','P-0001'); rollback;
+begin; set local role authenticated; set local request.jwt.claims = '{"email":"visitante@makroteste.com.br"}';
+  insert into eventos (id,autor,tipo,alvo_tipo,alvo) values ('c3','Visitante','concluida','atividade','A-0001'); rollback;
+begin; set local role authenticated; set local request.jwt.claims = '{"email":"visitante@makroteste.com.br"}';
+  insert into storage.objects (bucket_id, name) values ('painel-os', 'visitante.json.gz'); rollback;
+begin; set local role authenticated; set local request.jwt.claims = '{"email":"visitante@makroteste.com.br"}';
+  update public.pessoas set papel = 'pcm' where nome = 'Visitante'; rollback;
+begin; set local role authenticated; set local request.jwt.claims = '{"email":"pedro@makroteste.com.br"}';
+  select '   → consulta: Pedro ainda viu eventos ' || (count(*) > 0) from eventos;
+  select '   → consulta: Pedro ainda viu pessoas ' || (count(*) > 1) from pessoas; commit;
+begin; set local role authenticated; set local request.jwt.claims = '{"email":"beltrano.teste@gmail.com"}';
+  select '   → consulta: sem papel viu ' || ((select count(*) from eventos) + (select count(*) from pessoas)); commit;
+SQL
+)
+# rodar o 02 de novo, depois do 07, não pode reabrir a leitura da fita para a consulta
+psql -h "$D/sock" -U postgres -q -v ON_ERROR_STOP=1 -f "$AQUI/sql/02_acesso.sql" 2>&1 | grep -v NOTICE || true
+co2=$(psql -h "$D/sock" -U postgres -q 2>&1 <<'SQL'
+begin; set local role authenticated; set local request.jwt.claims = '{"email":"visitante@makroteste.com.br"}';
+  select '   → consulta: depois do 02 de novo, viu eventos ' || count(*) from eventos; commit;
+SQL
+)
+echo "$co$co2" | grep -E "→ consulta:|ERROR" | sed -E 's/^(psql:.*)?ERROR:/   ✓ recusado:/'
+co_ok=$(echo "$co$co2" | grep -cE "viu eventos 0|viu pessoas 1|consulta: ve_os true|consulta: atualiza_os false|viu o painel 1|Pedro ainda viu eventos true|Pedro ainda viu pessoas true|sem papel viu 0" || true)
+co_rec=$(echo "$co" | grep -c "ERROR" || true)
+echo "   $co_ok de 9 conferências da consulta · $co_rec de 5 proibidas recusadas"
+[ "$co_ok" = "9" ] && [ "$co_rec" = "5" ] || { echo "FALHOU: a consulta não está fechada como devia"; exit 1; }
+
 passou=$(echo "$saida" | grep -c "→ passou" || true)
 recusado=$(( $(echo "$saida" | grep -c "ERROR" || true) + $(echo "$fora_de_ordem" | grep -c "ERROR" || true) ))
 vazio=$(echo "$saida" | grep -c "→ não viu nada" || true)

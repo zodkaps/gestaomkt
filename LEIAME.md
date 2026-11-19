@@ -4,12 +4,13 @@ Controle de PCM da manutenção, Makro Transportes (Mossoró/RN). Site estático
 que roda no navegador, guarda a fita de eventos no Supabase e funciona sem
 internet. **Qualquer mudança fica registrada**, com quem fez e por quê.
 
-São quatro pessoas, com dois papéis:
+São três papéis:
 
 | quem | papel | o que faz |
 |---|---|---|
 | Mateus, Lucas | **PCM** | programa a oficina, registra conclusões, programa paradas, **aprova as movimentações**, importa a planilha e o Protheus |
 | Pedro, João Victor | **Operação** | **conclui as movimentações** de frota e informa a liberação dos veículos para a manutenção (remarcar exige o motivo) |
+| o aprovisionamento | **Consulta** | só **vê o painel de OS** (confere se a OS existe para pedir material nela): não lança nada nem lê a fita da oficina (`sql/07_consulta.sql`, 19/11/2026) |
 
 A equipe da oficina continua fechando OS direto no Protheus. Este site é o
 controle do PCM e o canal de resposta da operação.

@@ -10,6 +10,7 @@
 export const OFICINA = typeof location !== "undefined" &&
   new URLSearchParams(location.search).get("oficina") === "1";
 
-/** A primeira tela de quem entra: a operação vai para o que é dela; o PCM, para
- *  a Avaliação — ou para o Hoje, com a oficina de volta. */
-export const telaInicial = operacao => operacao ? "operacao" : OFICINA ? "hoje" : "avaliacao";
+/** A primeira tela de quem entra, pelo papel: a consulta vai para o painel de OS
+ *  (é só o que ela vê); a operação, para o que é dela; o PCM, para a Avaliação —
+ *  ou para o Hoje, com a oficina de volta. */
+export const telaInicial = papel => papel === "consulta" ? "os" : papel === "operacao" ? "operacao" : OFICINA ? "hoje" : "avaliacao";

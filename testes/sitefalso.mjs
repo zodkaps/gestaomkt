@@ -67,6 +67,8 @@ export const EQUIPE_TESTE = [
   { email: "joao.victor@makroteste.com.br", nome: "João Victor", papel: "operacao" },
   // vê o painel de OS, mas não atualiza (sql/06_painel_os_so_ver.sql)
   { email: "mayra@makroteste.com.br", nome: "Mayra", papel: "pcm", os_makro: true },
+  // (19/11/2026) só consulta o painel de OS: não lança nada nem lê a fita (sql/07_consulta.sql)
+  { email: "visitante@makroteste.com.br", nome: "Visitante", papel: "consulta", os_makro: true },
 ];
 export const emailDoTeste = nome => (EQUIPE_TESTE.find(p => p.nome === nome) || {}).email;
 

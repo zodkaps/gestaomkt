@@ -61,7 +61,9 @@ arquivos em *Atualizar com o Protheus* e o site grava no bucket privado
 `painel-os`: só quem tem `os_makro = true` em `pessoas` lê, e só quem tem
 também `os_makro_atualiza = true` grava (`sql/04_painel_os.sql` e
 `sql/06_painel_os_so_ver.sql`). Liberar alguém para **ver** é só a primeira
-marca. Regras:
+marca. Quem só consulta o painel (o aprovisionamento) entra com o papel
+`consulta` (`sql/07_consulta.sql`, 19/11/2026): não lança nada, não lê a fita
+nem a equipe, e no site o menu só tem a OS Makro. Regras:
 
 - **Dado do Protheus nunca entra no repositório** (é público): nem export, nem
   JSON montado, nem nome de executante no código. Teste usa dado inventado.
@@ -117,7 +119,7 @@ marca. Regras:
 - Na ficha da OS o CPF de quem abriu vem mascarado (`***.456.789-**`); o
   "mostrar" revela só naquela caixa.
 - Não existe `sql/21_rastreio_programacao.sql` (conferido no repositório, na
-  história do Git e no banco em 12/11/2026): as migrações são de 00 a 06, e o
+  história do Git e no banco em 12/11/2026): as migrações são de 00 a 07, e o
   JavaScript só usa `eventos`, `pessoas`, `ve_os()`, `atualiza_os()` e o bucket
   `painel-os`.
 - Se ele mandar a STJ e a STL no chat, a resposta é: solte em *Atualizar com o

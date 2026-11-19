@@ -2523,6 +2523,34 @@ ok("e o Diagnóstico não manda rodar SQL por causa de sessão",
     ok("e o banco recusa a gravação dela, mesmo por fora do botão", gravou === "recusou", gravou);
     await ctxM.close();
   }
+  // (19/11/2026) a consulta (o aprovisionamento): só o painel de OS — o menu só com ele, nada de lançar, nada da fita
+  {
+    const ctxV = await nav.newContext({ viewport: { width: 1280, height: 860 } });
+    const vi = await ctxV.newPage();
+    const errosV = [];
+    vi.on("pageerror", (e) => errosV.push(e.message));
+    await vi.goto(site.endereco, { waitUntil: "networkidle" });
+    await entrarComo(vi, "Visitante");
+    await vi.waitForSelector("#kpis .kpi", { timeout: 15000 }).catch(() => {});
+    await vi.waitForTimeout(600);
+    const menuV = await vi.$$eval("#menu nav a > span:not(.cont)", (l) => l.map((x) => x.textContent));
+    ok("a consulta entra direto no painel de OS, e o menu só tem ele", vi.url().includes("#/os") && menuV.join("|") === "OS Makro", vi.url() + " · " + menuV.join("|"));
+    ok("e vê o painel, sem o Atualizar com o Protheus e sem a busca da oficina", (await vi.$$("#kpis .kpi")).length > 0 && await vi.isHidden("#os-atualizar") &&
+      await vi.isHidden("#bbuscar"));
+    await vi.goto(site.endereco + "#/movimentacoes", { waitUntil: "networkidle" });
+    await vi.waitForTimeout(600);
+    ok("a Movimentação (como o resto do site) não abre para ela: volta para o painel de OS", vi.url().includes("#/os"), vi.url());
+    const fita = await vi.evaluate(() => ({ eventos: mkt.ev.log.length, papel: mkt.pessoas.papel(),
+      pode: ["movimentar", "disponibilidade", "programar", "aprovar"].some((a) => mkt.pessoas.pode(a)) }));
+    ok("não lê a fita da oficina e não pode lançar nada", fita.eventos === 0 && fita.papel === "consulta" && !fita.pode, JSON.stringify(fita));
+    const lancou = await vi.evaluate(async () => {
+      try { await mkt.nuvem.enviar([{ id: "consulta-1", ts: new Date().toISOString(), autor: "Visitante", tipo: "mov_chegou", alvo_tipo: "movimentacao", alvo: "M-0001", dados: {} }]); return "lançou"; }
+      catch (e) { return "recusou"; }
+    });
+    ok("e o banco recusa o lançamento dela, mesmo por fora da tela", lancou === "recusou", lancou);
+    ok("sem erro de página para a consulta", errosV.length === 0, errosV.slice(0, 2).join(" | "));
+    await ctxV.close();
+  }
   // os indicadores (09/11/2026): base 05/11, 12 semanas — entraram 3 (01/10, 20/10, 25/10), fechou 1 (03/11), 2 abertas
   const periodoPronto = async (rot) => { await mt.click("#f-periodo"); await mt.click(`#pop .per-op:has-text("${rot}")`); await mt.waitForTimeout(300); };
   await mt.click("#aba-indicadores");

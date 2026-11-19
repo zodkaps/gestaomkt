@@ -33,6 +33,12 @@ export const PAPEIS = {
     rotulo: "Operação",
     descricao: "registra as movimentações de frota e informa a liberação dos veículos",
   },
+  // (19/11/2026, pedido do Mateus) quem só consulta o painel de OS — o aprovisionamento, que confere se a OS existe
+  // para pedir material nela. Não lança nada: o banco recusa (sql/07_consulta.sql), e a tela nem oferece.
+  consulta: {
+    rotulo: "Consulta",
+    descricao: "só vê o painel de OS",
+  },
 };
 
 // O que cada papel pode. Os nomes são a ação, não a tela: a mesma permissão
@@ -45,6 +51,8 @@ const PODE = {
   // A operação registra REALIDADE: o caminhão saiu, voltou, a frota está livre
   // tal dia. O que ela não faz é decidir a oficina.
   operacao: new Set(["movimentar", "disponibilidade"]),
+  // A consulta só olha: nenhum lançamento.
+  consulta: new Set(),
 };
 
 let atual = null;

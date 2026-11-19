@@ -78,7 +78,7 @@ export async function montar(raiz, ctx, params = new URLSearchParams()) {
         await pessoas.carregar();
         await ev.carregar();
         avisar(`Olá, ${pessoas.nome().split(" ")[0]}.`);
-        ctx.ir(telaInicial(pessoas.ehOperacao()));
+        ctx.ir(telaInicial(pessoas.papel()));
       } catch (x) {
         aviso.append(el("div", { class: "erro" }, x.message));
         // Falhou por qualquer motivo: a saída local passa a aparecer. Pode ser
@@ -123,7 +123,7 @@ export async function montar(raiz, ctx, params = new URLSearchParams()) {
 
   const cartao = el("div", { class: "cartao-entrar" },
     el("div", { class: "logo" }, el("img", { class: "logo-img", src: "logo.svg", alt: "", width: 40, height: 40 }), "Programação Makro"),
-    el("p", { class: "dica" }, "manutenção · Mossoró/RN"),
+    el("p", { class: "dica" }, "manutenção · Matriz"),
     aviso, atalhos, form,
     el("p", { class: "obs esqueci" },
       "Esqueceu a senha? Ninguém consegue vê-la — nem o PCM, nem o banco: ela é ",
@@ -212,7 +212,7 @@ async function entrarLocal(ctx) {
     await pessoas.entrarLocal(escolhido);
     await ev.carregar();
     avisar(`Trabalhando neste aparelho como ${escolhido.split(" ")[0]}.`);
-    ctx.ir(telaInicial(pessoas.ehOperacao()));
+    ctx.ir(telaInicial(pessoas.papel()));
   } catch (e) { erro(e.message); }
 }
 
@@ -270,7 +270,7 @@ function semPapel(raiz, ctx, p) {
       el("div", { style: "display:flex;gap:8px;margin-top:16px;flex-wrap:wrap" },
         el("button", { class: "primario", onclick: async () => {
           await pessoas.carregar();
-          if (pessoas.papel()) { ctx.ir(telaInicial(pessoas.ehOperacao())); }
+          if (pessoas.papel()) { ctx.ir(telaInicial(pessoas.papel())); }
           else avisar("Ainda não — o papel continua faltando.");
         } }, "Tentar de novo"),
         el("button", { onclick: () => ctx.ir("diagnostico") }, "Ver o diagnóstico"),
