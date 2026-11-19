@@ -2611,13 +2611,14 @@ ok("e o Diagnóstico não manda rodar SQL por causa de sessão",
     (await mt.$$(".abas .aba")).length === 10);
   await mt.click("#aba-carteira");
   await mt.waitForTimeout(200);
-  // programadas × finalizadas (10/11/2026): em novembro (dados de 05/11) nada programado, e a 100003
-  // (programada para 25/10, o dia da abertura) finalizada em 03/11 conta como finalizada de fora da programação
+  // programadas × finalizadas (10/11/2026): em novembro (dados de 05/11), a 100001 — programada pela previsão da STL para
+  // 04/11 (19/11/2026: a data da STJ ou da STL) —, e a 100003 (programada para 25/10, o dia da abertura) finalizada em 03/11
+  // conta como finalizada de fora da programação
   await mt.click("#aba-geral");
   await periodoPronto("Mês atual");
   const notaPF = await mt.textContent("#nota-progfin");
   ok("Visão geral: as programadas e as encerradas no período da barra (o mês)",
-    notaPF.startsWith("Mês atual") && notaPF.includes("0 programadas") && notaPF.includes("1 encerrada no total (1 extra programação)"), notaPF);
+    notaPF.startsWith("Mês atual") && notaPF.includes(": 1 programada ·") && notaPF.includes("1 encerrada no total (1 extra programação)"), notaPF);
   await mt.click("#aba-programacao");
   await mt.waitForTimeout(300);
   // (13/11/2026) a lista das OS começa fechada: abre pelo clique num número, na barra ou no "Ver a lista das OS"
@@ -2667,13 +2668,8 @@ ok("e o Diagnóstico não manda rodar SQL por causa de sessão",
     seqMes.endsWith("mês a mês") && (await mt.$$("#pg-seq svg")).length > 0, [seqAntes, seqDia, seqMes].join(" | "));
   await mt.click('#pg-seq .ctl button:has-text("Semana")');
   await mt.waitForTimeout(300);
-  // (19/11/2026) a aderência pelo plano de segunda. Sem cópia guardada da semana, o cartão diz e a conta fica pela data de hoje
+  // (19/11/2026) o cartão do plano de segunda saiu da tela; o plano curto guardado na publicação continua (conferido abaixo).
   await periodoPronto("Semana atual");
-  await mt.waitForSelector("#pg-ader", { timeout: 10000 });
-  await mt.waitForFunction(() => !/Buscando/.test(document.querySelector(".os-host").shadowRoot.querySelector("#pg-ader").textContent), null, { timeout: 15000 });
-  const semCopia = await mt.textContent("#pg-ader .cab .nota");
-  ok("sem cópia do painel de segunda desta semana, o cartão da aderência diz que os números são pela data de hoje",
-    semCopia.startsWith("Não há cópia do painel guardada desta semana") && !(await mt.$("#pg-ader .kpi")), semCopia);
   // duas cópias antigas (dias/), de duas segundas. Na de 02/11 a 100003 ainda estava aberta, programada para 03/11, e a 100001
   // para 04/11: hoje (dados de 05/11) a 100003 terminou em 03/11 (cumprida) e a 100001 segue aberta (pendente: a semana está
   // em curso). Na de 26/10, só a 100003, programada para 27/10 — e ela terminou depois do domingo 01/11 (não cumprida)
@@ -2708,33 +2704,25 @@ ok("e o Diagnóstico não manda rodar SQL por causa de sessão",
   await mt.waitForSelector("#aba-programacao", { timeout: 30000 });
   await mt.click("#aba-programacao");
   await periodoPronto("Semana atual");
-  await mt.waitForSelector("#pg-ader .kpi", { timeout: 15000 });
-  const kAd = await mt.$$eval("#pg-ader .kpi .val", (v) => v.map((x) => x.textContent));
-  const notaAd = await mt.textContent("#pg-ader .cab .nota");
-  ok("a aderência da semana pelo plano de segunda: 2 no plano (a cópia de 02/11), 1 cumprida, 1 pendente, 50% até agora e nenhuma incluída",
-    kAd.join("|") === "2|1|1|50%|0" && /plano: a cópia publicada na segunda, 02\/11/.test(notaAd), kAd.join(" | ") + " · " + notaAd);
-  ok("as preventivas à parte, com a mesma regra (nenhuma no plano)", (await mt.textContent("#pg-ader .pg-ader-prev")).includes("nenhuma no plano de segunda"));
-  ok("e a comparação com a conta pela data de hoje", /^Pela data programada de hoje, a semana tem 0 corretivas programadas/.test(await mt.textContent("#pg-ader .pg-ader-hoje")),
-    await mt.textContent("#pg-ader .pg-ader-hoje"));
-  await mt.click('#pg-ader .kpi:has(.rot:text-is("Cumpridas"))');
-  await mt.waitForTimeout(500);
-  const listaAd = await mt.innerText("#pg-lista tbody");
-  ok("o clique em Cumpridas mostra quais: a 100003", listaAd.includes("100003") && !listaAd.includes("100001"), listaAd.slice(0, 160));
-  const semAd = await mt.textContent("#pg-ader .pg-ader-semexec").catch(() => "");
-  ok("fora do plano por falta de executante: a 100002 tinha a data na semana e ninguém na STL na cópia de segunda",
-    semAd.startsWith("Fora do plano por falta de executante: 1 corretiva tinha a data programada na semana e ninguém na STL na cópia de segunda."), semAd);
-  await mt.click("#pg-ader .pg-ader-semexec button");
-  await mt.waitForTimeout(500);
-  const listaSemAd = await mt.innerText("#pg-lista tbody");
-  ok("e o Ver quais traz quais, na lista: a 100002", listaSemAd.includes("100002") && !listaSemAd.includes("100003"), listaSemAd.slice(0, 160));
-  // os Indicadores somam as semanas já fechadas do período, cada uma pelo plano dela: em outubro, só a de 26/10 tem cópia
+  // (19/11/2026) o plano de segunda saiu da tela (na segunda o Protheus ainda não tem a programação da semana): a
+  // Programação abre com o gráfico semana a semana e a próxima semana. Na semana 45 (dados de 05/11), a 100001 está
+  // programada pela previsão da STL (04/11) e segue aberta
+  await mt.waitForSelector("#pg-seq", { timeout: 15000 });
+  const ordemPg = await mt.$$eval("#programacao .grade > .cartao", (l) => l.map((x) => x.id).filter(Boolean).slice(0, 3));
+  ok("a Programação abre com o gráfico semana a semana, a próxima semana e os números do período — sem o cartão do plano de segunda",
+    ordemPg.join("|") === "pg-seq|pg-prox|pg-topo" && !(await mt.$("#pg-ader")), ordemPg.join("|"));
+  const prox = (await mt.textContent("#pg-prox")).replace(/\s+/g, " ");
+  ok("a próxima semana, com as datas dela: nos dados de teste, nada programado", /Programado para a próxima semana/.test(prox) &&
+    /Nada programado no Protheus para a próxima semana/.test(prox), prox.slice(0, 200));
+  const kSem = await mt.$$eval("#programacao .pg-top .kpi .val", (v) => v.map((x) => x.textContent));
+  ok("e a semana 45 pela data da STL: a 100001 (prevista para 04/11) é programada, ainda não executada", kSem.join("|") === "1|0|1|0%", kSem.join(" | "));
+  // os Indicadores somam as semanas já fechadas do período, cada uma pela conta da Programação
   await mt.click("#aba-indicadores");
   await periodoPronto("Mês anterior");
-  await mt.waitForFunction(() => !/buscando/.test(document.querySelector(".os-host").shadowRoot.querySelector("#c-ind-kpis").textContent), null, { timeout: 15000 });
+  await mt.waitForTimeout(400);
   const indAd = await mt.$eval('#c-ind-kpis .kpi:has(.rot:text-is("Aderência à programação"))', (k) => [k.querySelector(".val").textContent, k.querySelector(".regra").textContent]);
-  ok("Indicadores: a aderência de outubro pelo plano de segunda — a semana de 19/10 pelo plano guardado (a 100001 segue aberta), a de 26/10 pela cópia " +
-    "(a 100003 terminou depois do domingo), e as 2 sem cópia ficam fora",
-    indAd[0] === "0%" && indAd[1] === "pelo plano de segunda: das 2 corretivas no plano de 2 semanas já fechadas, 0 terminaram dentro da semana · 2 semanas sem cópia do painel de segunda ficam fora",
+  ok("Indicadores: a aderência de outubro semana a semana — a 100003 (programada para 25/10) terminou depois da semana dela",
+    indAd[0] === "0%" && indAd[1] === "da 1 programada (data na STJ ou previsão na STL, com executante) de 4 semanas já fechadas, 0 terminaram dentro da semana",
     indAd.join(" | "));
   // as cópias e o índice de mentira saem do bucket: a Auditoria (mais adiante) conta só as cópias desta atualização
   await mt.evaluate(async () => {

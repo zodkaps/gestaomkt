@@ -80,10 +80,19 @@ nem a equipe, e no site o menu só tem a OS Makro. Regras:
   aparece como divergência (a Conferência e a aba Auditoria) — nunca ajustado.
 - Programada é com executante (`contaComoProgramada`): a data programada no
   período e alguém da equipe ou terceiro na STL. Sem executante não conta.
+  A data programada é a P. In. Man. da STJ **ou** uma previsão (PLAN) de mão de
+  obra na STL (`programadaEntre`, 19/11/2026, escolha do Mateus): na Makro a
+  programação entra quase toda pela STL, durante a semana.
   Executada é a que terminou dentro do período (`terminouEm`, 19/11/2026); a que
   já tinha terminado antes fica fora da conta, à parte (`antes` no `progFin`).
-- A aderência semanal é pelo **plano de segunda** (19/11/2026, escolha do
-  Mateus; `copiaDaSemana`, `planoDaCopia` e `aderenciaDoPlano` em
+- A aderência semanal é semana a semana pela data de hoje (`progFin`: das
+  programadas para a semana, as que terminaram dentro dela) — no gráfico da
+  Programação, na Visão geral e nos Indicadores (19/11/2026). O cartão do plano
+  de segunda saiu da tela (`MOSTRAR_PLANO_DE_SEGUNDA` em `painel.js`): na segunda
+  de manhã o Protheus ainda não tem a programação, e o número saía ruim. As
+  contas dele continuam no código, e o que segue vale para quando voltar.
+- O **plano de segunda** (fora da tela; 19/11/2026, escolha do Mateus;
+  `copiaDaSemana`, `planoDaCopia` e `aderenciaDoPlano` em
   `js/os/indicadores.js`): o plano é o que estava programado (data na semana e
   executante) na primeira cópia do painel publicada na segunda — sem ela, a
   última da semana anterior; cumprida é a que terminou dentro da semana; o que

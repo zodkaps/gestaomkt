@@ -133,6 +133,21 @@ A oficina devolver a frota atrasada **não** conta: o que se avalia é a operaç
   delas). Na aba OS preventivas, a mesma linha para as preventivas do período,
   com *Ver quais*, que deixa só elas na lista (o mesmo botão volta). Na semana
   46, com a cópia de 11/11: 44 corretivas e 15 preventivas.
+- **A programação semana a semana e a próxima semana** (19/11/2026, pedido do
+  Mateus). O cartão do plano de segunda mostrava 1 OS no plano da semana 47: na
+  cópia de segunda às 09:48, o Protheus tinha só 2 OS com a data programada na
+  semana — nas 996 em aberto, nenhuma P. In. Man. para frente (801 iguais ao dia
+  da abertura) e uma previsão (PLAN) na STL. Olhando para trás, a programação
+  entra quase toda pela STL, durante a semana (26/10: 89 das 104 programadas;
+  02/11: 45 de 54). Então: a data programada passa a ser a P. In. Man. **ou** uma
+  previsão da STL (`programadaEntre`), em todas as contas; o cartão do plano de
+  segunda sai da tela (`MOSTRAR_PLANO_DE_SEGUNDA`), e a Programação abre com o
+  gráfico *Programadas × executadas* semana a semana (com o % embaixo) e o
+  quadro **Programado para a próxima semana** — dia a dia, as em aberto com data
+  e executante, e à parte as com data e sem ninguém na STL, com *Ver quais*. A
+  aderência dos Indicadores e a linha da Visão geral são a mesma conta, semana a
+  semana. O plano guardado na publicação continua sendo gravado, para quando o
+  plano de segunda voltar.
 - **Os Indicadores sem baixar uma cópia por semana** (19/11/2026, pedido do
   Mateus): a aderência dos Indicadores soma várias semanas, e cada uma baixava a
   cópia inteira do painel (~600 KB; seis meses, uns 15 MB). Agora, ao publicar,

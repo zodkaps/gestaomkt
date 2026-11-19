@@ -178,13 +178,21 @@ export function porBalde(todas, baldes, base) {
   });
 }
 
-/** Programada (11/11/2026, pedido do Mateus): tem a data programada (P. In. Man.) e quem execute — alguém da
- *  equipe ou terceiro na STL. A OS sem executante (grupo "S") não conta como programada em conta nenhuma: é
- *  contada à parte (`semExec`) e, se for encerrada no período, é extra programação. */
-export const contaComoProgramada = (o) => !!o.progEm && o.grupo !== "S";
+/** Programada (11/11/2026, pedido do Mateus): tem a data programada (P. In. Man. ou, desde 19/11/2026, uma
+ *  previsão da STL: `programadaEntre`) e quem execute — alguém da equipe ou terceiro na STL. A OS sem executante
+ *  (grupo "S") não conta como programada em conta nenhuma: é contada à parte (`semExec`) e, se for encerrada no
+ *  período, é extra programação. */
+export const contaComoProgramada = (o) => (!!o.progEm || !!(o.prevs && o.prevs.length)) && o.grupo !== "S";
+
+/** A OS tem data programada no período (19/11/2026, escolha do Mateus): a data programada da STJ (P. In. Man.) ou a
+ *  de uma previsão (PLAN) de mão de obra na STL (`prevs`: as datas previstas de cada pessoa na OS). Na Makro a
+ *  programação entra quase toda pela STL; a P. In. Man., quando ninguém mexe, é o dia da abertura. */
+export const programadaEntre = (o, de, ate) => (!!o.progEm && o.progEm >= de && o.progEm <= ate) ||
+  !!(o.prevs && o.prevs.some((d) => d >= de && d <= ate));
 
 /** Programadas × finalizadas de um período (10/11/2026; 11/11/2026): `{ de, ate, fechAte? }`.
- *  Programadas: a data programada (P. In. Man.) dentro do período e com executante. Delas:
+ *  Programadas: a data programada (P. In. Man. ou previsão da STL: `programadaEntre`) dentro do período e com
+ *  executante. Delas:
  *    executadas — terminaram dentro do período (19/11/2026, pedido do Mateus; `terminouEm` até `fechAte`):
  *                 as encerradas nele e as abertas com o fim real lançado nele (`execAbertas`: serviço feito,
  *                 OS ainda não encerrada no Protheus);
@@ -198,7 +206,7 @@ export const contaComoProgramada = (o) => !!o.progEm && o.grupo !== "S";
 export function progFin(lista, { de, ate, fechAte = ate }) {
   const x = { n: 0, prazo: 0, depois: 0, ab: 0, exec: 0, execAbertas: 0, antes: 0, fin: 0, finProg: 0, finFora: 0, semExec: 0 };
   for (const o of lista) {
-    const naData = !!o.progEm && o.progEm >= de && o.progEm <= ate, prog = naData && contaComoProgramada(o);
+    const naData = programadaEntre(o, de, ate), prog = naData && contaComoProgramada(o);
     if (naData && !prog) x.semExec++;
     const f = prog ? terminouEm(o) : "";
     if (prog && f && f < de) x.antes++;
@@ -331,12 +339,18 @@ export function copiaDaSemana(copias, seg) {
 /** As OS de uma cópia (o bloco D dela) com a data programada na semana, com ou sem executante na cópia, menos as
  *  que já tinham terminado antes da semana começar. */
 function programadasDaCopia(D, { de, ate }, comExecutante) {
-  const comGente = new Set();
-  for (const l of Object.values(D.exec || {})) for (const x of l) comGente.add(x[0]);
+  // quem está na OS e as datas previstas (PLAN) de cada um: [índice, horas, horas previstas, prevista para, apontada em]
+  const comGente = new Set(), prevs = new Map();
+  for (const l of Object.values(D.exec || {})) for (const x of l) {
+    comGente.add(x[0]);
+    if (x[3]) { if (!prevs.has(x[0])) prevs.set(x[0], []); prevs.get(x[0]).push(x[3]); }
+  }
   const lista = [];
+  const na = (d) => !!d && d >= de && d <= ate;
   D.os.forEach((a, i) => {
-    const prog = a[19] || "";
-    if (!prog || prog < de || prog > ate) return;
+    // (19/11/2026) a data que põe a OS na semana: a P. In. Man. ou uma previsão da STL (programadaEntre)
+    const prog = na(a[19]) ? a[19] : (prevs.get(i) || []).filter(na).sort()[0] || "";
+    if (!prog) return;
     if ((a[9] === "S" || a[17] === "S" || comGente.has(i)) !== comExecutante) return;
     const fim = a[6] === "F" ? saidaDe({ sit: "F", abertura: a[5], fim: a[7] }) : a[22] || "";
     if (fim && fim < de) return;
@@ -432,7 +446,7 @@ export function aderenciaDoPlano(plano, atuais, { de, ate, base, canceladas = ne
     if (noPlano.has(k) || o.tipo !== (tipo === "P" ? "Preventiva" : "Corretiva")) continue;
     // a frota que ainda não estava na lista do painel na segunda: não tinha como estar no plano (nem é incluída)
     if (frotas && frotas.size && !frotas.has(o.frota)) continue;
-    if (!o.progEm || o.progEm < de || o.progEm > ate || !contaComoProgramada(o)) continue;
+    if (!programadaEntre(o, de, ate) || !contaComoProgramada(o)) continue;
     const f = terminou(o);
     if (f && f < de) continue;
     x.incluidas++;

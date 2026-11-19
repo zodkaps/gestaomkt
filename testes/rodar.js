@@ -1823,6 +1823,19 @@ titulo("os/indicadores.js — entrada pela abertura, saída pelo fim, e a conta 
   ], { de: "2026-11-09", ate: "2026-11-15" });
   igual("executadas só as que terminaram dentro da semana (3 de 6); as 2 que já tinham terminado antes ficam fora da conta",
     [pA.antes, pA.n, pA.exec, pA.prazo, pA.execAbertas, pA.depois, pA.ab, pA.fin, pA.finProg], [2, 6, 3, 2, 1, 1, 3, 2, 2]);
+  // (19/11/2026) programada é a com a data da STJ (P. In. Man.) ou uma previsão (PLAN) da STL no período, e executante
+  const naSTL = { progEm: "2026-11-02", prevs: ["2026-11-12"], sit: "A", abertura: "2026-11-02", grupo: "I" };
+  ok("programadaEntre: pela P. In. Man. ou por uma previsão da STL; fora das duas, não",
+    IND.programadaEntre(naSTL, "2026-11-09", "2026-11-15") && IND.programadaEntre({ progEm: "2026-11-10" }, "2026-11-09", "2026-11-15") &&
+    !IND.programadaEntre({ progEm: "2026-11-02", prevs: ["2026-11-20"] }, "2026-11-09", "2026-11-15") && !IND.programadaEntre({}, "2026-11-09", "2026-11-15"));
+  const pSTL = IND.progFin([naSTL, { ...naSTL, prevs: [], grupo: "S" }, { progEm: "2026-11-02", prevs: ["2026-11-13"], sit: "F", fim: "2026-11-13", abertura: "2026-11-02", grupo: "T" }],
+    { de: "2026-11-09", ate: "2026-11-15" });
+  igual("a OS que só a STL põe na semana conta como programada (e a executada nela, como executada); sem data na semana, não entra",
+    [pSTL.n, pSTL.exec, pSTL.semExec], [2, 1, 0]);
+  const Dstl = { os: [[ "7", "010101", "F-TESTE", 0, "trocar", "2026-11-02", "A", "", "C", "N", 0, "", "", "", "", "", "", "N", "", "2026-11-02", "", "", ""]],
+    exec: { Ana: [[0, 0, 4, "2026-11-11", ""]] } };
+  igual("no plano da cópia também: a P. In. Man. fora da semana e a previsão da STL dentro — entra, pela data da STL",
+    IND.planoDaCopia(Dstl, { de: "2026-11-09", ate: "2026-11-15" }).map((p) => [p.os, p.progEm]), [["7", "2026-11-11"]]);
   ok("terminouEm: a encerrada pela saída (nunca antes da abertura); a aberta pelo fim real; sem nenhum, vazio",
     IND.terminouEm({ sit: "F", fim: "2026-11-02", abertura: "2026-11-11" }) === "2026-11-11" && IND.terminouEm({ sit: "A", fimReal: "2026-11-06" }) === "2026-11-06" &&
     IND.terminouEm({ sit: "P" }) === "");

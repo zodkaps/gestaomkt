@@ -69,8 +69,18 @@ export const baixarDia = (dia) => baixarJSON(`dias/${dia}.json.gz`);
 // histórico sem baixar todas as cópias. A cópia de cada dia (dias/) segue sendo o registro completo.
 const INDICE = "importacoes.json.gz";
 const FROTAS = "frotas.json.gz";   // a lista de frotas do PCM colada na atualização (11/11/2026)
-export async function lerImportacoes() {
-  try { const l = await baixarJSON(INDICE); return Array.isArray(l) ? l : []; } catch (e) { return []; }
+// (19/11/2026) o índice antigo não é mais gravado desde 12/11: lido uma vez por abertura do site (antes, cada aba do
+// painel o baixava de novo), e só se existir — pedir um arquivo que não existe faz o Storage responder 400 e o
+// navegador escrever erro no console (o mesmo cuidado do arquivosDoPainel). Falhou a leitura: tenta na próxima vez.
+let importacoesAntigas = null;
+export function lerImportacoes() {
+  if (!importacoesAntigas) {
+    importacoesAntigas = arquivosDoPainel()
+      .then((a) => (a.has(INDICE) ? baixarJSON(INDICE) : []))
+      .then((l) => (Array.isArray(l) ? l : []))
+      .catch(() => { importacoesAntigas = null; return []; });
+  }
+  return importacoesAntigas;
 }
 /** A linha do índice de um pacote gravado. `c`: a comparação com o painel anterior (M.comparar). */
 export function linhaDaImportacao(p, c = null) {

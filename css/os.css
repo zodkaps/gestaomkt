@@ -766,6 +766,7 @@ h2, h3, .aba, .kpi .val, .porta-caixa h2 { font-family: var(--fonte-marca, inher
 .kpis.pg-top .val { font-size: 32px; }
 .pg-avanco-tit span { font-weight: 400; color: var(--fraco); }
 .pg-extra, .pg-antes { margin: 6px 0 0; }
+.pg-prox-tit { margin: 2px 0 8px; }
 
 /* (13/11/2026, segunda simplificação) o Avanço: os cinco números da conta, grandes */
 .kpis.av-kpis5 { grid-template-columns: repeat(5, minmax(0, 1fr)); margin-top: 4px; }
