@@ -294,3 +294,91 @@ export function registradoReconstruido(X, H) {
   r.diferenca = r.reconstruido - r.registrado;
   return r;
 }
+
+// ── a aderência semanal pelo plano de segunda (19/11/2026, pedido do Mateus) ───────────────────────────
+// O plano da semana é o que estava no painel na segunda-feira: as OS com a data programada (P. In. Man.) na semana
+// e executante (alguém da equipe ou terceiro na STL), na cópia publicada na segunda. O que passou a ter a data na
+// semana depois (a OS aberta durante ela vem com a data programada igual à abertura; outras ganham a data ou o
+// executante depois) conta à parte, como incluída na semana. Cumprida: terminou dentro da semana — encerrada com o
+// fim nela, ou aberta com o fim real da manutenção lançado nela. Corretivas e preventivas, cada uma com a sua conta.
+
+/** A cópia que vale como plano da semana que começa na segunda `seg`: a primeira publicada na segunda; sem nenhuma
+ *  na segunda, a última da semana anterior; sem nenhuma, a primeira da própria semana. `copias`: [{ dia, hora }]
+ *  (o dia AAAA-MM-DD e a hora HH:MM da publicação, no horário local), em qualquer ordem. Devolve
+ *  `{ copia, quando }` ("segunda", "antes" ou "depois") ou null. */
+export function copiaDaSemana(copias, seg) {
+  const dom = iso(t(seg) + 6 * DIA), semAntes = iso(t(seg) - 7 * DIA);
+  const l = copias.filter((c) => c && c.dia).sort((a, b) => (a.dia + " " + (a.hora || "")).localeCompare(b.dia + " " + (b.hora || "")));
+  const naSeg = l.find((c) => c.dia === seg);
+  if (naSeg) return { copia: naSeg, quando: "segunda" };
+  const antes = l.filter((c) => c.dia < seg && c.dia >= semAntes).pop();
+  if (antes) return { copia: antes, quando: "antes" };
+  const depois = l.find((c) => c.dia > seg && c.dia <= dom);
+  return depois ? { copia: depois, quando: "depois" } : null;
+}
+
+/** O plano de uma semana numa cópia (o bloco D dela): as OS com a data programada na semana e executante na cópia,
+ *  menos as que já tinham terminado antes da semana começar. */
+export function planoDaCopia(D, { de, ate }) {
+  const comGente = new Set();
+  for (const l of Object.values(D.exec || {})) for (const x of l) comGente.add(x[0]);
+  const plano = [];
+  D.os.forEach((a, i) => {
+    const prog = a[19] || "";
+    if (!prog || prog < de || prog > ate) return;
+    if (!(a[9] === "S" || a[17] === "S" || comGente.has(i))) return;
+    const fim = a[6] === "F" ? saidaDe({ sit: "F", abertura: a[5], fim: a[7] }) : a[22] || "";
+    if (fim && fim < de) return;
+    plano.push({ k: chaveOS(a[1], a[0]), os: a[0], filial: a[1], frota: a[2], tipo: a[8] === "P" ? "P" : "C", progEm: prog });
+  });
+  return plano;
+}
+
+/**
+ * A aderência de uma semana pelo plano dela. `plano`: planoDaCopia (já com os filtros da tela); `atuais`: Map chave →
+ * a OS de hoje ({ sit, abertura, fim, fimReal, progEm, grupo, tipo }), com os mesmos filtros; `canceladas`: as chaves
+ * das canceladas de hoje; `base`: a data do export de hoje — a semana em curso conta até ela. `tipo`: "C" ou "P".
+ *   conta      — o que entra na conta: o plano menos as canceladas depois, as que saíram do painel e as que se
+ *                descobriu terem terminado antes da semana (o fim lançado depois, com data de antes);
+ *   cumpridas  — terminaram dentro da semana;  depois — terminaram depois do domingo;
+ *   naoFeitas  — a semana acabou e não terminaram (`remarcadas`: a data programada de hoje é depois da semana);
+ *   pendentes  — a semana está em curso e ainda não terminaram;
+ *   incluidas  — hoje programadas para a semana (data nela e executante) e fora do plano (`incluidasFeitas`: já terminaram nela);
+ *                com `frotas` (as da lista do painel na cópia), só as dessas frotas;
+ *   aderencia  — cumpridas ÷ conta.
+ */
+export function aderenciaDoPlano(plano, atuais, { de, ate, base, canceladas = new Set(), tipo = "C", frotas = null }) {
+  const fimSem = ate < base ? ate : base, passou = ate < base;
+  const terminou = (o) => (o.sit === "F" ? saidaDe(o) : o.fimReal || "");
+  const x = { plano: 0, conta: 0, cumpridas: 0, depois: 0, naoFeitas: 0, remarcadas: 0, pendentes: 0, canceladas: 0, fora: 0, antes: 0,
+    incluidas: 0, incluidasFeitas: 0, aderencia: null, passou,
+    listas: { cumpridas: [], depois: [], naoFeitas: [], pendentes: [], incluidas: [], canceladas: [], antes: [] } };
+  const noPlano = new Set();
+  for (const p of plano) {
+    if (p.tipo !== tipo) continue;
+    x.plano++;
+    noPlano.add(p.k);
+    const o = atuais.get(p.k);
+    if (!o) { if (canceladas.has(p.k)) { x.canceladas++; x.listas.canceladas.push(p.k); } else x.fora++; continue; }
+    const f = terminou(o);
+    if (f && f < de) { x.antes++; x.listas.antes.push(p.k); continue; }
+    x.conta++;
+    if (f && f <= fimSem) { x.cumpridas++; x.listas.cumpridas.push(p.k); }
+    else if (f && f > ate) { x.depois++; x.listas.depois.push(p.k); }
+    else if (passou) { x.naoFeitas++; x.listas.naoFeitas.push(p.k); if (o.progEm && o.progEm > ate) x.remarcadas++; }
+    else { x.pendentes++; x.listas.pendentes.push(p.k); }
+  }
+  for (const [k, o] of atuais) {
+    if (noPlano.has(k) || o.tipo !== (tipo === "P" ? "Preventiva" : "Corretiva")) continue;
+    // a frota que ainda não estava na lista do painel na segunda: não tinha como estar no plano (nem é incluída)
+    if (frotas && frotas.size && !frotas.has(o.frota)) continue;
+    if (!o.progEm || o.progEm < de || o.progEm > ate || !contaComoProgramada(o)) continue;
+    const f = terminou(o);
+    if (f && f < de) continue;
+    x.incluidas++;
+    x.listas.incluidas.push(k);
+    if (f && f <= fimSem) x.incluidasFeitas++;
+  }
+  x.aderencia = fracao(x.cumpridas, x.conta);
+  return x;
+}

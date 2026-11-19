@@ -1850,6 +1850,50 @@ titulo("os/indicadores.js — entrada pela abertura, saída pelo fim, e a conta 
   const pbS = IND.porBalde([{ progEm: "2026-11-02", sit: "F", fim: "2026-11-03", grupo: "S", abertura: "2026-11-01" },
     { progEm: "2026-11-02", sit: "F", fim: "2026-11-03", grupo: "I", abertura: "2026-11-01" }], [{ de: "2026-11-02", ate: "2026-11-08" }], "2026-11-11");
   igual("e a aderência também: só a programada com executante entra", [pbS[0].programadas, pbS[0].cumpridas], [1, 1]);
+
+  // (19/11/2026) a aderência pelo plano de segunda: a cópia que vale, o plano dela e o que aconteceu com ele
+  const cop = [{ dia: "2026-11-13", hora: "09:51" }, { dia: "2026-11-16", hora: "16:57" }, { dia: "2026-11-16", hora: "09:49" }, { dia: "2026-11-18", hora: "13:25" }];
+  igual("o plano da semana de 16/11 é a primeira cópia publicada na segunda (09:49), não a última", IND.copiaDaSemana(cop, "2026-11-16"), { copia: cop[2], quando: "segunda" });
+  igual("sem cópia na segunda, vale a última da semana anterior", IND.copiaDaSemana([{ dia: "2026-11-13", hora: "09:51" }, { dia: "2026-11-13", hora: "14:35" }], "2026-11-16"),
+    { copia: { dia: "2026-11-13", hora: "14:35" }, quando: "antes" });
+  igual("sem nenhuma antes, a primeira da própria semana; e cópia velha (de 2 semanas antes) não vale como plano",
+    [IND.copiaDaSemana([{ dia: "2026-11-11", hora: "10:32" }, { dia: "2026-11-12", hora: "08:44" }], "2026-11-09").copia.dia,
+      IND.copiaDaSemana([{ dia: "2026-11-01", hora: "10:00" }], "2026-11-16")], ["2026-11-11", null]);
+  // a cópia de segunda 16/11: [os, filial, frota, equip, serviço, abertura, sit, fim, tipo, terceiro STJ, cat, lib, obs, cod, cont, cc, início, terceiro STL, esp, programada, quem abriu, origem, fim real]
+  const linhaCop = (os, { ab = "2026-11-01", sit = "A", fim = "", tipo = "C", tSTJ = "N", tSTL = "N", prog = "", fimReal = "" } = {}) =>
+    [os, "010101", "F-TESTE", 0, "trocar", ab, sit, fim, tipo, tSTJ, 0, "", "", "", "", "", "", tSTL, "", prog, "", "", fimReal];
+  const Dcop = { os: [linhaCop("1", { prog: "2026-11-17" }), linhaCop("2", { prog: "2026-11-18" }), linhaCop("3", { prog: "2026-11-18" }), linhaCop("4", { prog: "2026-11-19", tSTJ: "S" }),
+    linhaCop("5", { prog: "2026-11-20" }), linhaCop("6", { prog: "2026-11-23" }), linhaCop("7", { prog: "2026-11-17", sit: "F", fim: "2026-11-13" }), linhaCop("8", { prog: "2026-11-16" }),
+    linhaCop("9", { prog: "2026-11-17" }), linhaCop("10", { prog: "2026-11-17", tipo: "P" }), linhaCop("11", { prog: "2026-11-18" })],
+    exec: { Ana: [[0, 2, 4, "2026-11-17", ""], [1, 0, 4, "2026-11-18", ""], [4, 0, 2, "", ""], [5, 0, 1, "", ""], [6, 1, 1, "", ""], [7, 0, 1, "", ""], [8, 0, 1, "", ""], [9, 0, 1, "", ""], [10, 0, 1, "", ""]] } };
+  const plano = IND.planoDaCopia(Dcop, { de: "2026-11-16", ate: "2026-11-22" });
+  igual("o plano: data programada na semana e executante (a 3 não tem ninguém; a 4 é terceirizada na STJ); fora a da semana seguinte (6) e a que já tinha terminado (7)",
+    plano.map((p) => p.os + p.tipo), ["1C", "2C", "4C", "5C", "8C", "9C", "10P", "11C"]);
+  // hoje (export de 23/11, a semana acabou): o que aconteceu com cada uma
+  const hoje = new Map([
+    ["10101|1", { sit: "F", abertura: "2026-11-01", fim: "2026-11-18", tipo: "Corretiva", progEm: "2026-11-17", grupo: "I" }],      // cumprida
+    ["10101|2", { sit: "F", abertura: "2026-11-01", fim: "2026-11-24", tipo: "Corretiva", progEm: "2026-11-18", grupo: "I" }],      // depois do domingo
+    ["10101|4", { sit: "A", abertura: "2026-11-01", fimReal: "2026-11-20", tipo: "Corretiva", progEm: "2026-11-19", grupo: "T" }], // fim real na semana: cumprida
+    ["10101|5", { sit: "A", abertura: "2026-11-01", tipo: "Corretiva", progEm: "2026-11-27", grupo: "I" }],                       // não feita, remarcada
+    ["10101|8", { sit: "A", abertura: "2026-11-01", tipo: "Corretiva", progEm: "2026-11-16", grupo: "I" }],                       // não feita
+    ["10101|9", { sit: "F", abertura: "2026-11-01", fim: "2026-11-12", tipo: "Corretiva", progEm: "2026-11-17", grupo: "I" }],      // o fim lançado depois, de antes da semana
+    ["10101|10", { sit: "F", abertura: "2026-11-01", fim: "2026-11-21", tipo: "Preventiva", progEm: "2026-11-17", grupo: "I" }],    // preventiva cumprida
+    ["10101|12", { sit: "F", abertura: "2026-11-18", fim: "2026-11-19", tipo: "Corretiva", progEm: "2026-11-18", grupo: "I" }],     // aberta na semana: incluída, feita
+    ["10101|13", { sit: "A", abertura: "2026-11-02", tipo: "Corretiva", progEm: "2026-11-20", grupo: "I" }],                      // ganhou a data na semana: incluída
+    ["10101|14", { sit: "A", abertura: "2026-11-02", tipo: "Corretiva", progEm: "2026-11-20", grupo: "S" }],                      // sem executante: nem incluída
+  ]);
+  const adC = IND.aderenciaDoPlano(plano, hoje, { de: "2026-11-16", ate: "2026-11-22", base: "2026-11-23", canceladas: new Set(["10101|11"]), tipo: "C" });
+  igual("corretivas: 7 no plano; 1 cancelada depois e 1 com o fim de antes da semana ficam fora da conta; das 5, 2 cumpridas (uma pelo fim real), 1 depois, 2 não feitas (1 remarcada)",
+    [adC.plano, adC.canceladas, adC.antes, adC.conta, adC.cumpridas, adC.depois, adC.naoFeitas, adC.remarcadas, adC.pendentes], [7, 1, 1, 5, 2, 1, 2, 1, 0]);
+  igual("e a aderência é 2 de 5; incluídas na semana: 2 (uma já feita) — a sem executante não entra", [adC.aderencia, adC.incluidas, adC.incluidasFeitas], [0.4, 2, 1]);
+  const adP = IND.aderenciaDoPlano(plano, hoje, { de: "2026-11-16", ate: "2026-11-22", base: "2026-11-23", tipo: "P" });
+  igual("preventivas à parte: 1 no plano, cumprida (100%)", [adP.plano, adP.conta, adP.cumpridas, adP.aderencia], [1, 1, 1, 1]);
+  const emCurso = IND.aderenciaDoPlano(plano, hoje, { de: "2026-11-16", ate: "2026-11-22", base: "2026-11-19", tipo: "C" });
+  igual("com a semana em curso (export de 19/11): o que ainda não terminou é pendente, não falha; o fim depois do export ainda não conta",
+    [emCurso.cumpridas, emCurso.pendentes, emCurso.naoFeitas, emCurso.depois], [1, 3, 0, 1]);
+  const hojeF = new Map([...hoje].map(([k, o]) => [k, { ...o, frota: k === "10101|13" ? "F-NOVA" : "F-TESTE" }]));
+  const comLista = IND.aderenciaDoPlano(plano, hojeF, { de: "2026-11-16", ate: "2026-11-22", base: "2026-11-23", tipo: "C", frotas: new Set(["F-TESTE"]) });
+  igual("a frota que entrou na lista depois da cópia de segunda (a F-NOVA) não conta como incluída: não tinha como estar no plano", [comLista.incluidas, comLista.cumpridas], [1, 2]);
 }
 
 // ── o que vai para o ar ─────────────────────────────────────────────────────

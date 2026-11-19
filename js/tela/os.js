@@ -107,6 +107,23 @@ export async function montar(raiz, ctx, params = new URLSearchParams()) {
     importacoes: indice,
     dias: async () => [...new Set([...(await indice()).filter((l) => l.id).map((l) => l.base), ...(await diasGuardados())])].sort(),
     dia: async (dia) => { const l = await ultimaDoDia(dia); return l ? baixarJSON(arquivoDaVersao(l.id)) : baixarDia(dia); },
+    // (19/11/2026) cada cópia guardada com o dia e a hora em que foi publicada (no horário daqui): o plano de segunda
+    // da aderência é a primeira publicada na segunda (js/os/indicadores.js, copiaDaSemana)
+    copias: async () => {
+      const local = (x) => { const d = new Date(x); if (isNaN(d)) return null; const p = (n) => String(n).padStart(2, "0");
+        return { dia: `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`, hora: `${p(d.getHours())}:${p(d.getMinutes())}` }; };
+      const [idx, guardados] = await Promise.all([indice(), diasGuardados()]);
+      // as de antes de 12/11/2026 (dias/): uma cópia por dia do export, a da última gravação dele
+      const temDia = new Set(guardados), l = [], velhas = new Map();
+      for (const x of idx) {
+        if (x.tipo === "volta") continue;
+        if (x.id) { const q = local(x.publicado_em); if (q) l.push({ ...q, id: x.id, base: x.base }); }
+        else if (temDia.has(x.base)) velhas.set(x.base, x);
+      }
+      for (const b of guardados) l.push({ ...((velhas.has(b) && local(velhas.get(b).gerado_em)) || { dia: b, hora: "" }), base: b });
+      return l;
+    },
+    copia: (c) => (c.id ? baixarJSON(arquivoDaVersao(c.id)) : baixarDia(c.base)),
     versao: () => (atualMeta && atualMeta.versao_id) || "",
     voltar: podeAtualizar ? (linha) => abrirVolta({ linha, publicada: { D: atualD, meta: atualMeta }, versaoAberta, quem: pessoas.nome() || "—",
       aoGravar: gravouNovo, raiz: sombra }) : null,

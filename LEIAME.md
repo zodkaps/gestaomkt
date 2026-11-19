@@ -94,6 +94,40 @@ A oficina devolver a frota atrasada **não** conta: o que se avalia é a operaç
   com erro de versão misturada recarrega uma vez sozinha; se falhar de novo,
   mostra o porquê e os botões de sempre (o teste simula a publicação com a
   página aberta, em `testes/interacao.mjs`).
+- **A aderência semanal pelo plano de segunda** (19/11/2026, escolha do Mateus).
+  A conta antiga usava a data programada (P. In. Man.) de hoje, e o plano da
+  semana crescia depois de ela começar: na semana 46 (09 a 15/11), na quarta só
+  14 corretivas estavam programadas; no fim, 79 — 33 com a data programada igual
+  à abertura (o Protheus põe sozinho na OS aberta na semana) e 31 das 52
+  "cumpridas" tinham terminado antes de a semana começar (o fim lançado depois).
+  Agora o plano é o da cópia do painel de segunda (a primeira publicada no dia;
+  sem nenhuma na segunda, a última da semana anterior, e sem nenhuma, a primeira
+  da semana, dito no cartão): as OS com a data programada na semana e executante
+  nela. Cumprida é a que terminou dentro da semana (encerrada com o fim nela, ou
+  aberta com o fim real lançado nela); a que passou a ter a data na semana depois
+  conta à parte, como **incluída na semana**, e não entra na aderência. As
+  canceladas depois de programadas e as que se descobriu terem terminado antes
+  ficam fora da conta, contadas. Na Programação, um cartão no alto (corretivas e,
+  à parte, preventivas, com a mesma regra), e os números de sempre embaixo, pela
+  data de hoje, para comparar; o clique em cada número abre a lista. Os
+  Indicadores (o indicador, o comparativo e o gráfico) somam as semanas já
+  fechadas do período, cada uma pelo plano dela; a semana sem cópia fica fora e é
+  contada. A Visão geral usa a mesma linha. Com os dados de verdade, a semana 46
+  dá 43% (6 de 14), e não os 66% da conta antiga.
+- **A carteira para conferir e limpar** (19/11/2026, pedido do Mateus): em
+  *Imprimir carteira*, o modo novo **Para conferir e limpar a carteira** (o de
+  programar continua como era): todas as frotas numa lista só, frota a frota
+  (cada uma com o título, quantas tem e a mais antiga), e de cada OS tudo o que o
+  painel sabe — serviço, categoria, observação, situação e liberação, abertura e
+  dias, data programada, prevista na STL, início da manutenção, fim real, quem e
+  as horas, contador e centro de custo —, os **sinais** de que o serviço já foi
+  feito (fim real, horas apontadas, início lançado, em verde) ou de que a OS
+  sobra (o mesmo serviço em outra OS aberta da frota, prevista vencida, ninguém
+  mais aponta) e caixas **Feita / Cancelar / Manter** com espaço para anotar. No
+  fim, o resumo por frota, com colunas para anotar quantas saíram. Opções: as
+  preventivas em aberto, só as com sinal, a ordem dentro da frota (a mais antiga,
+  por serviço — as repetidas juntas — ou pelo número) e uma página por frota. A
+  mesma lista sai em CSV para o Excel. Sem o CPF de quem abriu.
 - **A progressão da carteira no Avanço** (16/11/2026, pedido do Mateus, no
   jeito da "Gestão da Carteira de Serviço" dos controladores de PCM): logo
   depois dos números, semana a semana (ou dia, ou mês), em cima as OS em aberto

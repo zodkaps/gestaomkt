@@ -78,6 +78,16 @@ marca. Regras:
   aparece como divergência (a Conferência e a aba Auditoria) — nunca ajustado.
 - Programada é com executante (`contaComoProgramada`): a data programada no
   período e alguém da equipe ou terceiro na STL. Sem executante não conta.
+- A aderência semanal é pelo **plano de segunda** (19/11/2026, escolha do
+  Mateus; `copiaDaSemana`, `planoDaCopia` e `aderenciaDoPlano` em
+  `js/os/indicadores.js`): o plano é o que estava programado (data na semana e
+  executante) na primeira cópia do painel publicada na segunda — sem ela, a
+  última da semana anterior; cumprida é a que terminou dentro da semana; o que
+  passou a ter a data depois conta à parte, como incluída na semana, fora da
+  conta. Corretivas e preventivas cada uma com a sua. As cópias são as do bucket
+  (`versoes/` e, antes de 12/11, `dias/`): nunca apagar nem reescrever.
+- A folha de conferência (Imprimir carteira → Para conferir e limpar) e o CSV
+  dela levam tudo da OS, menos o CPF de quem abriu.
 - Uma OS é filial + número sem os zeros da frente (`chaveOS`, em `montar.js` e
   `indicadores.js`): o Excel come os zeros. Conta de encerradas por frota vem
   dividida entre abertas no período e abertas antes (a STJ de 2026 não tem

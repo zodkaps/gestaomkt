@@ -2638,6 +2638,61 @@ ok("e o Diagnóstico não manda rodar SQL por causa de sessão",
     seqMes.endsWith("mês a mês") && (await mt.$$("#pg-seq svg")).length > 0, [seqAntes, seqDia, seqMes].join(" | "));
   await mt.click('#pg-seq .ctl button:has-text("Semana")');
   await mt.waitForTimeout(300);
+  // (19/11/2026) a aderência pelo plano de segunda. Sem cópia guardada da semana, o cartão diz e a conta fica pela data de hoje
+  await periodoPronto("Semana atual");
+  await mt.waitForSelector("#pg-ader", { timeout: 10000 });
+  await mt.waitForFunction(() => !/Buscando/.test(document.querySelector(".os-host").shadowRoot.querySelector("#pg-ader").textContent), null, { timeout: 15000 });
+  const semCopia = await mt.textContent("#pg-ader .cab .nota");
+  ok("sem cópia do painel de segunda desta semana, o cartão da aderência diz que os números são pela data de hoje",
+    semCopia.startsWith("Não há cópia do painel guardada desta semana") && !(await mt.$("#pg-ader .kpi")), semCopia);
+  // duas cópias antigas (dias/), de duas segundas. Na de 02/11 a 100003 ainda estava aberta, programada para 03/11, e a 100001
+  // para 04/11: hoje (dados de 05/11) a 100003 terminou em 03/11 (cumprida) e a 100001 segue aberta (pendente: a semana está
+  // em curso). Na de 26/10, só a 100003, programada para 27/10 — e ela terminou depois do domingo 01/11 (não cumprida)
+  await mt.evaluate(async () => {
+    const atual = await (await mkt.nuvem.baixarArquivo("painel-os", "atual.json.gz")).arrayBuffer();
+    const ler = async () => JSON.parse(await new Response(new Blob([atual]).stream().pipeThrough(new DecompressionStream("gzip"))).text());
+    const gz = (o) => new Response(new Blob([JSON.stringify(o)]).stream().pipeThrough(new CompressionStream("gzip"))).blob();
+    const copia = async (dia, mudar) => {
+      const pk = await ler();
+      for (const a of pk.D.os) if (mudar[a[0]]) Object.assign(a, mudar[a[0]]);
+      await mkt.nuvem.subirArquivo("painel-os", `dias/${dia}.json.gz`, await gz({ meta: pk.meta, D: pk.D }), "application/gzip", { substituir: true });
+      return pk.D.os.length;
+    };
+    const n = await copia("2026-11-02", { 100003: { 19: "2026-11-03", 6: "A", 7: "" }, 100001: { 19: "2026-11-04" } });
+    await copia("2026-10-26", { 100003: { 19: "2026-10-27", 6: "A", 7: "" } });
+    await mkt.nuvem.subirArquivo("painel-os", "importacoes.json.gz", await gz([{ base: "2026-10-26", gerado_em: "2026-10-26T11:00:00.000Z", total: n },
+      { base: "2026-11-02", gerado_em: "2026-11-02T11:00:00.000Z", total: n }]), "application/gzip", { substituir: true });
+  });
+  await mt.reload({ waitUntil: "networkidle" });
+  await mt.waitForSelector("#aba-programacao", { timeout: 30000 });
+  await mt.click("#aba-programacao");
+  await periodoPronto("Semana atual");
+  await mt.waitForSelector("#pg-ader .kpi", { timeout: 15000 });
+  const kAd = await mt.$$eval("#pg-ader .kpi .val", (v) => v.map((x) => x.textContent));
+  const notaAd = await mt.textContent("#pg-ader .cab .nota");
+  ok("a aderência da semana pelo plano de segunda: 2 no plano (a cópia de 02/11), 1 cumprida, 1 pendente, 50% até agora e nenhuma incluída",
+    kAd.join("|") === "2|1|1|50%|0" && /plano: a cópia publicada na segunda, 02\/11/.test(notaAd), kAd.join(" | ") + " · " + notaAd);
+  ok("as preventivas à parte, com a mesma regra (nenhuma no plano)", (await mt.textContent("#pg-ader .pg-ader-prev")).includes("nenhuma no plano de segunda"));
+  ok("e a comparação com a conta pela data de hoje", /^Pela data programada de hoje, a semana tem 0 corretivas programadas/.test(await mt.textContent("#pg-ader .pg-ader-hoje")),
+    await mt.textContent("#pg-ader .pg-ader-hoje"));
+  await mt.click('#pg-ader .kpi:has(.rot:text-is("Cumpridas"))');
+  await mt.waitForTimeout(500);
+  const listaAd = await mt.innerText("#pg-lista tbody");
+  ok("o clique em Cumpridas mostra quais: a 100003", listaAd.includes("100003") && !listaAd.includes("100001"), listaAd.slice(0, 160));
+  // os Indicadores somam as semanas já fechadas do período, cada uma pelo plano dela: em outubro, só a de 26/10 tem cópia
+  await mt.click("#aba-indicadores");
+  await periodoPronto("Mês anterior");
+  await mt.waitForFunction(() => !/buscando/.test(document.querySelector(".os-host").shadowRoot.querySelector("#c-ind-kpis").textContent), null, { timeout: 15000 });
+  const indAd = await mt.$eval('#c-ind-kpis .kpi:has(.rot:text-is("Aderência à programação"))', (k) => [k.querySelector(".val").textContent, k.querySelector(".regra").textContent]);
+  ok("Indicadores: a aderência de outubro pelo plano de segunda — a da semana de 26/10 (a 100003 terminou depois do domingo), e as 3 sem cópia ficam fora",
+    indAd[0] === "0%" && indAd[1] === "pelo plano de segunda: da 1 corretiva no plano de 1 semana já fechada, 0 terminaram dentro da semana · 3 semanas sem cópia do painel de segunda ficam fora",
+    indAd.join(" | "));
+  // as cópias e o índice de mentira saem do bucket: a Auditoria (mais adiante) conta só as cópias desta atualização
+  await mt.evaluate(async () => {
+    for (const c of ["dias/2026-11-02.json.gz", "dias/2026-10-26.json.gz", "importacoes.json.gz"]) await mkt.nuvem.apagarArquivo("painel-os", c);
+  });
+  await mt.reload({ waitUntil: "networkidle" });
+  await mt.waitForSelector("#aba-preventivas", { timeout: 30000 });
   // a aba OS preventivas: a 100007, em aberto
   await mt.click("#aba-preventivas");
   await mt.waitForSelector("#prev-topo .kpi", { timeout: 10000 });
@@ -2802,6 +2857,30 @@ ok("e o Diagnóstico não manda rodar SQL por causa de sessão",
   const [dPDF] = await Promise.all([mt.waitForEvent("download", { timeout: 20000 }), mt.click('button:has-text("Baixar o PDF")')]);
   const bPDF = await readFile(await dPDF.path());
   ok("a carteira para imprimir sai em PDF", bPDF.subarray(0, 5).toString() === "%PDF-" && /\.pdf$/.test(dPDF.suggestedFilename()), dPDF.suggestedFilename());
+  // (19/11/2026) para conferir e limpar: todas as frotas numa lista só, com tudo de cada OS, os sinais e caixas para marcar
+  const modoProg = await mt.isVisible('#detalhe label:has-text("Colunas em branco para escrever")');
+  await mt.click('#detalhe label:has-text("Para conferir e limpar a carteira")');
+  await mt.waitForTimeout(200);
+  const resConf = (await mt.textContent("#detalhe .folha-resumo")).replace(/\s+/g, " ");
+  ok("o modo de conferir: a 433 com as 2 abertas, nenhuma com sinal de já feita e as 2 com o mesmo serviço (repetidas); as opções de programar somem",
+    modoProg && resConf === "Vai sair: 1 frota · 2 OS · 0 com sinal de já feita · 2 repetidas · e o resumo por frota no fim." &&
+    !(await mt.isVisible('#detalhe label:has-text("Colunas em branco para escrever")')) && await mt.isVisible('#detalhe label:has-text("Preventivas em aberto")'), resConf);
+  await mt.click('#detalhe label:has-text("Preventivas em aberto")');
+  await mt.waitForTimeout(200);
+  const resPrev = (await mt.textContent("#detalhe .folha-resumo")).replace(/\s+/g, " ");
+  ok("e com as preventivas em aberto, a 100007 entra (à parte, no fim da frota)", resPrev.startsWith("Vai sair: 1 frota · 3 OS ·"), resPrev);
+  const [dConf] = await Promise.all([mt.waitForEvent("download", { timeout: 20000 }), mt.click('#detalhe button:has-text("Baixar o PDF")')]);
+  const bConf = await readFile(await dConf.path());
+  ok("a lista de conferência sai em PDF", bConf.subarray(0, 5).toString() === "%PDF-" && /^carteira-conferencia-f-\d+-2026-11-05\.pdf$/.test(dConf.suggestedFilename()), dConf.suggestedFilename());
+  const [dXls] = await Promise.all([mt.waitForEvent("download", { timeout: 20000 }), mt.click('#detalhe button:has-text("Baixar a lista (Excel)")')]);
+  const tXls = (await readFile(await dXls.path())).toString("utf8");
+  const linhasXls = tXls.split("\r\n");
+  ok("e a mesma lista em CSV para o Excel: as colunas, os sinais e as colunas para marcar — sem o CPF de quem abriu",
+    linhasXls[0].startsWith("﻿Frota;Equipamento;OS;Filial;Tipo;Código do serviço;Serviço;") && linhasXls[0].endsWith(";Sinais;Feita (encerrar);Cancelar;Manter;Anotação") &&
+    linhasXls.length === 4 && tXls.includes("100001") && tXls.includes("100007") && tXls.includes("mesmo serviço em 2 OS") && tXls.includes("prevista p/ 04/11/26 (passou)") &&
+    !tXls.includes("00000000191"), linhasXls.slice(0, 3).join(" ⏎ "));
+  await mt.click('#detalhe label:has-text("Preventivas em aberto")');
+  await mt.click('#detalhe label:has-text("Para programar")');
   await mt.keyboard.press("Escape");
   await mt.waitForTimeout(200);
 
