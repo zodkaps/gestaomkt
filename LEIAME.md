@@ -240,6 +240,16 @@ A oficina devolver a frota atrasada **não** conta: o que se avalia é a operaç
     dias é um ponto vermelho ao lado do número, não a coluna toda em vermelho.
     No celular, cada OS vira um cartão (OS, frota e situação em cima, o serviço,
     e aberta em, dias e executante embaixo), sem rolar para o lado.
+- **O painel de OS no tablet** (24/11/2026), sem tirar nada. Em pé (a partir de
+  600 px), as dez abas ficam à vista em duas linhas; antes Frotas, Executantes e
+  Auditoria ficavam escondidas à direita. Em tela de toque, os filtros, as setas
+  do período, os botões pequenos e os cabeçalhos das tabelas têm uns 40 px, e as
+  caixinhas de marcar são maiores; com o mouse nada muda. Num gráfico que filtra,
+  o **primeiro toque mostra a dica**, com *Toque de novo para abrir*, e o
+  **segundo toque** no mesmo pedaço faz o que o clique faz (antes o toque já
+  filtrava e mudava de aba, sem deixar ver o número). A caixa do filtro e o
+  calendário do período cabem no que sobra da tela e rolam por dentro (deitado,
+  o calendário passava do pé da tela).
 - **O painel de OS mais limpo** (13/11/2026), sem tirar aba, filtro, gráfico,
   cálculo ou função. A **Visão geral** começa num cartão só, o **Resumo**: a
   frase do rumo da carteira em uma linha e os sete números, cada um uma vez —
@@ -1755,6 +1765,13 @@ Uma pendência lançada (pelo site ou pelo Claude) é um lançamento; uma baixa,
 outro. No ritmo de 100 a 250 lançamentos por dia, são 30 a 80 MB por ano:
 **de 6 a mais de 10 anos** até o limite. Reimportar a planilha inteira é o que
 mais pesa (~850 lançamentos de uma vez); depois da transição, isso acaba.
+
+Medido de novo em 24/11/2026: o banco tem 17 MB (3% dos 500 MB) e a fita
+1,3 MB para 1.737 lançamentos. Os **arquivos** (o painel de OS e os anexos do
+outro sistema) somam 14 MB de 1 GB: o que mais cresce são as versões do painel
+de OS, umas 21 MB por mês, o que dá uns 4 anos. O tráfego de saída fica perto de
+0,3 GB por mês, de 5 GB. O plano grátis não faz cópia automática do banco: a
+cópia é a do site (Importar → Cópia de segurança).
 
 O **Diagnóstico** mostra o espaço usado e quanto ainda cabe no ritmo atual, e
 avisa aos 60%. Se um dia chegar lá, há dois caminhos, nesta ordem:

@@ -303,6 +303,8 @@ td.data { white-space: nowrap; }
 .dica .t { color: var(--fraco); font-weight: 600; }
 .dica .l { display: flex; align-items: center; gap: 7px; }
 .dica .l b { margin-left: auto; padding-left: 14px; font-variant-numeric: tabular-nums; }
+/* (24/11/2026) no toque, a dica avisa que o segundo toque abre */
+.dica .toque { margin-top: 3px; padding-top: 6px; border-top: 1px solid var(--linha); color: var(--marca); font-weight: 650; }
 .aviso-img { font-size: 12px; color: var(--muito-fraco); }
 
 /* ── os filtros de várias escolhas: uma pílula por filtro, que abre a lista ── */
@@ -327,7 +329,7 @@ td.data { white-space: nowrap; }
   background: var(--papel2) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%238a93a6' stroke-width='2.2' stroke-linecap='round'%3E%3Ccircle cx='11' cy='11' r='7'/%3E%3Cpath d='m20 20-3.5-3.5'/%3E%3C/svg%3E") no-repeat 11px 50% / 15px; }
 .pill-busca:focus { background-color: var(--papel); }
 .pop { position: absolute; z-index: 40; width: min(350px, calc(100vw - 32px)); background: var(--papel); border: 1px solid var(--borda); border-radius: 12px;
-  box-shadow: 0 14px 34px rgba(15, 20, 35, .2); padding: 10px; display: grid; gap: 8px; }
+  box-shadow: 0 14px 34px rgba(15, 20, 35, .2); padding: 10px; display: grid; gap: 8px; overflow-y: auto; overscroll-behavior: contain; }
 .pop-tit { font-size: 12px; font-weight: 700; color: var(--fraco); }
 .pop input[type="search"], .pop input[type="date"] { width: 100%; height: 34px; padding: 0 10px; border: 1px solid var(--borda); border-radius: 9px; background: var(--papel); font-size: 13.5px; }
 .pop-lista { max-height: 19rem; overflow-y: auto; display: grid; gap: 1px; overscroll-behavior: contain; }
@@ -674,9 +676,10 @@ button.aud-n:focus-visible { outline: 2px solid var(--marca); }
 /* ── conferir com a STJ (11/11/2026): as linhas de título da conta ── */
 .concil tr.tit th, .concil tr.tit td { color: var(--texto); font-weight: 700; }
 
-/* (11/11/2026) com a aba OS preventivas são dez: no computador elas quebram a linha em vez de sumir à direita */
+/* (11/11/2026) com a aba OS preventivas são dez: no computador elas quebram a linha em vez de sumir à direita;
+   (24/11/2026) desde 600 px, para o tablet em pé ver todas (antes Frotas, Executantes e Auditoria ficavam escondidas) */
 .aba { padding: 10px 12px 9px; }
-@media (min-width: 900px) { .abas { flex-wrap: wrap; overflow-x: visible; } }
+@media (min-width: 600px) { .abas { flex-wrap: wrap; overflow-x: visible; } }
 
 /* ── o caminho das linhas da STJ (11/11/2026): na atualização ── */
 .imp-funil { border: 1px solid var(--linha); border-radius: 10px; padding: 10px 12px; font-size: 13px; }
@@ -844,3 +847,21 @@ h2, h3, .aba, .kpi .val, .porta-caixa h2 { font-family: var(--fonte-marca, inher
 /* o texto de apoio um pouco mais escuro no claro: o cinza de antes ficava abaixo do contraste mínimo para letra
    pequena (a linha do Protheus, os títulos da tabela, os rótulos dos grupos) */
 :host([data-tema="claro"]) { --muito-fraco: #66707c; }
+
+/* ── tablet e celular, com o dedo (24/11/2026) ──
+   Os alvos com uns 40 px de altura (antes de 14 a 34) e as caixinhas de marcar maiores. Só em tela de toque:
+   com o mouse, nada muda. */
+@media (pointer: coarse) {
+  .pill, .pill-g .pill-x, .pill-busca { height: 40px; }
+  .per-passo { min-width: 40px; }
+  .botao.mini { height: 38px; }
+  .segm button { padding-top: 9px; padding-bottom: 9px; }
+  .ctl .seg button { padding: 9px 11px; }
+  .ctl select { height: 38px; }
+  th button { padding-top: 12px; padding-bottom: 12px; }
+  .bt-cab button { padding: 8px 0; }
+  .ver-link { padding-block: 9px; margin-block: -9px; }
+  .concil-ver { padding-block: 9px; }
+  input[type="checkbox"], input[type="radio"] { width: 20px; height: 20px; }
+  .dica { font-size: 13.5px; }
+}

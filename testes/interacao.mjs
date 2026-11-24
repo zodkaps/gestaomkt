@@ -3063,6 +3063,55 @@ ok("e o Diagnóstico não manda rodar SQL por causa de sessão",
   await cel.context().close();
 }
 
+// ── o painel de OS no tablet (24/11/2026) ────────────────────────────────────
+// Em pé (800 px), as dez abas à vista, em duas linhas (antes Frotas, Executantes e Auditoria ficavam escondidas à
+// direita); os filtros com 40 px de altura para o dedo; no gráfico que filtra, o primeiro toque mostra a dica com
+// "Toque de novo para abrir" e o segundo abre a lista. Com o mouse, o clique continua abrindo na hora.
+{
+  const abrirExec = async (pg) => {
+    vigiarCSP(pg);
+    await pg.goto(site.endereco, { waitUntil: "networkidle" });
+    await entrarComo(pg, "Mateus");
+    await pg.evaluate(() => { location.hash = "#/os?aba=executantes"; });
+    await pg.waitForSelector("#g-exec svg [data-acao]", { timeout: 30000 });
+    await pg.waitForTimeout(500);
+  };
+  const tab = await (await nav.newContext({ viewport: { width: 800, height: 1280 }, isMobile: true, hasTouch: true })).newPage();
+  await abrirExec(tab);
+  const vista = await tab.evaluate(() => {
+    const s = document.querySelector(".os-host").shadowRoot, abas = s.querySelector(".abas"), aud = s.querySelector('.aba[data-aba="auditoria"]');
+    return { cabem: abas.scrollWidth <= abas.clientWidth + 1, auditoria: aud ? Math.round(aud.getBoundingClientRect().right) <= innerWidth : false,
+      pill: Math.round(s.querySelector(".pill").getBoundingClientRect().height) };
+  });
+  ok("no tablet em pé, as dez abas à vista (a Auditoria também) e os filtros com 40 px para o dedo",
+    vista.cabem && vista.auditoria && vista.pill >= 40, JSON.stringify(vista));
+  const pedaco = await tab.$("#g-exec svg [data-acao] path");
+  await pedaco.scrollIntoViewIfNeeded();
+  await tab.waitForTimeout(500);
+  const bb = await pedaco.boundingBox();
+  const tocar = async () => { await tab.touchscreen.tap(bb.x + bb.width / 2, bb.y + bb.height / 2); await tab.waitForTimeout(500); };
+  const estado = () => tab.evaluate(() => { const d = document.querySelector(".os-host").shadowRoot.querySelector("#dica");
+    return { hash: location.hash, dica: d && !d.hidden ? d.textContent : "" }; });
+  await tocar();
+  const t1 = await estado();
+  await tocar();
+  const t2 = await estado();
+  ok("no tablet, o primeiro toque numa barra do Backlog por executante mostra a dica (com 'Toque de novo para abrir') e não muda de aba",
+    t1.hash.includes("aba=executantes") && t1.dica.includes("Toque de novo para abrir"), JSON.stringify(t1).slice(0, 200));
+  ok("e o segundo toque na mesma barra abre a Carteira filtrada pela pessoa", t2.hash.includes("aba=carteira"), JSON.stringify(t2).slice(0, 200));
+  await tab.context().close();
+  const pcx = await (await nav.newContext({ viewport: { width: 1280, height: 860 } })).newPage();
+  await abrirExec(pcx);
+  await pcx.hover("#g-exec svg [data-acao] path");
+  await pcx.waitForTimeout(200);
+  const passou = await pcx.evaluate(() => { const d = document.querySelector(".os-host").shadowRoot.querySelector("#dica"); return d && !d.hidden ? d.textContent : ""; });
+  await pcx.click("#g-exec svg [data-acao] path");
+  await pcx.waitForTimeout(500);
+  ok("com o mouse nada muda: passar mostra a dica (sem o aviso do toque) e o clique abre a Carteira na hora",
+    !!passou && !passou.includes("Toque de novo") && (await pcx.evaluate(() => location.hash)).includes("aba=carteira"), passou.slice(0, 120));
+  await pcx.context().close();
+}
+
 // ── o site publicado com a página aberta (12/11/2026) ───────────────────────
 // A tela chega na hora de abrir, mas o módulo que a página carregou ao começar
 // fica na memória: publicado o site com a página aberta, a Avaliação nova usou o

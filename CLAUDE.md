@@ -157,6 +157,11 @@ Mudou arquivo em `js/`? Acrescentar em `sw.js` (lista e versão) — o
 - O painel de OS mora numa área isolada (shadow DOM, `js/tela/os.js`): o que
   ele procura é na raiz dele, não no `document`; o que ouve na janela sai no
   `parar()`. Indicador novo: a conta em `js/os/indicadores.js`, com teste.
+- Clique em gráfico do painel passa por `clicavel` (`js/os/painel.js`, 24/11/2026):
+  no toque (tablet), o primeiro mostra a dica com "Toque de novo para abrir" e o
+  segundo faz; com o mouse, igual a antes. Gráfico novo com ação usa ele, não
+  `.on('click')`, e o "saiu de cima" usa `sairDoMouse`. Alvo de toque: 40 px, no
+  `@media (pointer: coarse)` do fim do `css/os.css`.
 - Cartão novo no painel de OS: à vista só se for essencial para a aba; o
   secundário vai para o "Mais análises" dela (`maisAnalises` em
   `js/os/painel.js`), que fica fechado mas montado — o relatório captura de lá.

@@ -40,7 +40,7 @@ export function iniciarPainel(D, { baixar, raiz = document, aba = '', aoTrocarAb
   const el = (tag, attrs = {}, ...filhos) => {
     const e = document.createElement(tag);
     for (const [k, v] of Object.entries(attrs)) {
-      if (k === 'class') e.className = v; else if (k === 'text') e.textContent = v; else if (k === 'on') for (const [ev, fn] of Object.entries(v)) e.addEventListener(ev, fn);
+      if (k === 'class') { if (v != null && v !== false) e.className = v; } else if (k === 'text') e.textContent = v; else if (k === 'on') for (const [ev, fn] of Object.entries(v)) e.addEventListener(ev, fn);
       else if (v != null && v !== false) e.setAttribute(k, v === true ? '' : v);
     }
     for (const f of filhos.flat()) if (f != null && f !== false) e.append(f);
@@ -363,6 +363,9 @@ export function iniciarPainel(D, { baixar, raiz = document, aba = '', aoTrocarAb
     const c = popEl.parentElement.getBoundingClientRect(), b = botao.getBoundingClientRect();
     popEl.style.left = Math.max(8, Math.min(b.left - c.left, c.width - popEl.offsetWidth - 8)) + 'px';
     popEl.style.top = b.bottom - c.top + 6 + 'px';
+    // (24/11/2026) no tablet deitado o calendário passava do pé da tela (e a barra fica presa no alto): a caixa
+    // cabe no que sobra abaixo do botão e rola por dentro
+    popEl.style.maxHeight = Math.max(240, Math.floor(innerHeight - b.bottom - 16)) + 'px';
   }
   const mudou = () => { zerarPaginas(); desenhar(); if (pop && pop.lista) listarPop(); };
   const peDoPop = (limpar, ativoAgora) => el('div', { class: 'pop-pe' },
@@ -635,9 +638,34 @@ export function iniciarPainel(D, { baixar, raiz = document, aba = '', aoTrocarAb
 
   // ── a dica ──
   const dica = $('#dica');
+  // (24/11/2026) no tablet não existe "passar o mouse": o toque num gráfico que filtra já mudava de aba, sem deixar
+  // ver o número. Agora, com o dedo (ou a caneta), o primeiro toque mostra a dica, com "Toque de novo para abrir",
+  // e o segundo toque no mesmo pedaço faz o que o clique faz. Com o mouse nada muda: passar mostra, clicar faz.
+  let tocado = null;      // o pedaço de gráfico (com ação) do último toque
+  let liberado = true;    // o clique que vem agora faz a ação? (com o mouse, sempre)
+  let doDedo = false;     // o último toque foi de dedo ou caneta (o "saiu de cima" que vem depois dele não fecha a dica)
+  ouvir(document, 'pointermove', (e) => { if (e.pointerType === 'mouse') doDedo = false; }, { passive: true });
+  ouvir(document, 'pointerdown', (e) => {
+    doDedo = e.pointerType !== 'mouse';
+    const a = alvoDe(e), acao = a && a.closest ? a.closest('[data-acao]') : null;
+    if (e.pointerType === 'mouse' || !acao) { liberado = true; tocado = null; return; }
+    liberado = tocado === acao && !dica.hidden;
+    tocado = acao;
+  }, { capture: true });
+  /** O clique de um pedaço de gráfico, com o toque em dois tempos. `fn` recebe o que o d3 passa (evento, dado). */
+  function clicavel(sel, fn) {
+    return sel.attr('data-acao', '').on('click', function (ev, d) {
+      const passar = d3.select(this).on('mousemove');
+      if (!liberado && passar) { if (dica.hidden) passar.call(this, ev, d); return; }
+      tocado = null;
+      fn.call(this, ev, d);
+    });
+  }
   function mostrarDica(ev, titulo, linhas) {
+    const doToque = !liberado && tocado && ev.target && tocado.contains(ev.target);
     dica.replaceChildren(el('span', { class: 't', text: titulo }), ...linhas.map(([nome, valor, cor]) =>
-      el('span', { class: 'l' }, cor ? el('i', { class: 'ponto', style: 'background:' + cor }) : null, nome, el('b', { text: valor }))));
+      el('span', { class: 'l' }, cor ? el('i', { class: 'ponto', style: 'background:' + cor }) : null, nome, el('b', { text: valor }))),
+      doToque ? el('span', { class: 'toque', text: 'Toque de novo para abrir' }) : null);
     dica.hidden = false;
     const w = dica.offsetWidth, h = dica.offsetHeight;
     let x = ev.clientX + 14, y = ev.clientY - h - 12;
@@ -647,6 +675,8 @@ export function iniciarPainel(D, { baixar, raiz = document, aba = '', aoTrocarAb
     dica.style.top = y + 'px';
   }
   const esconderDica = () => { dica.hidden = true; };
+  // o mouse saiu de cima do pedaço: fecha a dica. Depois de um toque o navegador manda o mesmo aviso, e aí ela fica.
+  const sairDoMouse = () => { if (!doDedo) esconderDica(); };
   ouvir(window, 'scroll', esconderDica, { passive: true });
   ouvir(document, 'pointerdown', (e) => { const a = alvoDe(e); if (!(a.closest && a.closest('svg'))) esconderDica(); });
   const legenda = (alvo, itens) => $(alvo).replaceChildren(...itens.map(([nome, cor]) => el('span', {}, el('i', { style: 'background:' + cor }), nome)));
@@ -714,8 +744,8 @@ export function iniciarPainel(D, { baixar, raiz = document, aba = '', aoTrocarAb
       if (!(k % passo) || k === grupos.length - 1)
         txt(g, sx(d.chave) + sx.bandwidth() / 2, H - 12, rot(d), { anchor: 'middle', cor: faixaAlerta && faixaAlerta(d) ? 'var(--alerta-t)' : 'var(--fraco)', peso: faixaAlerta && faixaAlerta(d) ? 700 : null });
       g.on('mousemove', (ev) => mostrarDica(ev, d.nome || rot(d), [...series.map((s) => [s.nome, nf.format(d[s.k]), s.cor]), ...(empilhar && series.length > 1 ? [['Total', nf.format(tot(d))]] : [])]))
-        .on('mouseleave', esconderDica)
-        .on('click', () => aoClicar && aoClicar(d));
+        .on('mouseleave', sairDoMouse);
+      if (aoClicar) clicavel(g, () => aoClicar(d));
     });
   }
 
@@ -772,6 +802,7 @@ export function iniciarPainel(D, { baixar, raiz = document, aba = '', aoTrocarAb
         const vao = y < base ? 2 : 0;   // 2px entre as partes
         const r = barra(g, cx - bw / 2, y - h, bw, Math.max(1, h - vao), corDe(p, l), j === cima);
         r.node().parte = p;
+        if (aoParte) r.attr('data-acao', '');   // cada parte é um pedaço do toque em dois tempos
         const s = cem ? pc.format(v / t) : nf.format(v);
         if (p.texto && h - vao >= 15 && medN.w(s) * 1.1 + 6 <= bw)
           txt(g, cx, y - h + (h - vao) / 2, s, { anchor: 'middle', cor: TINTA[p.texto], peso: 750 }).style('pointer-events', 'none');
@@ -784,8 +815,8 @@ export function iniciarPainel(D, { baixar, raiz = document, aba = '', aoTrocarAb
         const p = ev.target.parte;
         if (p && aoParte) return mostrarDica(ev, `${nomeL} · ${p.nome}`, [['', `${nf.format(l[p.k])} OS · ${pc.format(l[p.k] / t)}`]]);
         mostrarDica(ev, nomeL, dica ? dica(l) : [...partes.map((p2) => [p2.nome, nf.format(l[p2.k] || 0), corDe(p2, l)]), ...(partes.length > 1 ? [['Total', nf.format(t)]] : [])]);
-      }).on('mouseleave', esconderDica)
-        .on('click', (ev) => { const p = ev.target.parte; if (p && aoParte) aoParte(l, p); else if (aoClicar) aoClicar(l); });
+      }).on('mouseleave', sairDoMouse);
+      if (aoClicar || aoParte) clicavel(g, (ev) => { const p = ev.target.parte; if (p && aoParte) aoParte(l, p); else if (aoClicar) aoClicar(l); });
     });
     medF.fim(); medf.fim(); medN.fim();
     guardarDados(caixa, dadosEmPe);
@@ -861,7 +892,8 @@ export function iniciarPainel(D, { baixar, raiz = document, aba = '', aoTrocarAb
       });
       txt(g, x + 6, cy, nf.format(tot(l)), { cor: 'var(--fraco)', peso: 700, tam: 12 });
       g.on('mousemove', (ev) => mostrarDica(ev, l.nome || l.rot, dica ? dica(l) : [...partes.map((q) => [q.nome, nf.format(l[q.k] || 0), q.cor]), ['Total', nf.format(tot(l))]]))
-        .on('mouseleave', esconderDica).on('click', () => aoClicar && aoClicar(l));
+        .on('mouseleave', sairDoMouse);
+      if (aoClicar) clicavel(g, () => aoClicar(l));
     });
     medF.fim(); medS.fim(); medN.fim();
     botaoTodas(caixa, { n: todas.length, nVis: limite, chave, quem, corta });
@@ -921,7 +953,8 @@ export function iniciarPainel(D, { baixar, raiz = document, aba = '', aoTrocarAb
       txt(g, cx, base + 14, corta2(forte), { anchor: 'middle', cor: 'var(--texto)', peso: 650, tam: 11.5 });
       if (fraco) txt(g, cx, base + 28, corta2(fraco), { anchor: 'middle', cor: 'var(--muito-fraco)', tam: 10 });
       g.on('mousemove', (ev) => mostrarDica(ev, l.nome || forte, dica ? dica(l) : [['Abertas (para fechar)', nf.format(soma(l, esq)), COR.A], ['Fechadas no período', nf.format(soma(l, dir)), COR.F]]))
-        .on('mouseleave', esconderDica).on('click', () => aoClicar && aoClicar(l));
+        .on('mouseleave', sairDoMouse);
+      if (aoClicar) clicavel(g, () => aoClicar(l));
     });
     med.fim();
     guardarDados(caixa, { titulo, cab: [maiusc(quem[0]), ...esq.map((p) => p.nome), ...dir.map((p) => p.nome)],
@@ -946,7 +979,7 @@ export function iniciarPainel(D, { baixar, raiz = document, aba = '', aoTrocarAb
     g.selectAll('path').data(d3.pie().sort(null).value((f) => f.valor).padAngle(vivas.length > 1 ? 0.03 : 0)(vivas)).join('path')
       .attr('d', arco).attr('class', 'fatia' + (aoClicar ? ' clica' : '')).style('fill', (d) => d.data.cor)
       .on('mousemove', (ev, d) => mostrarDica(ev, d.data.nome, [['', `${nf.format(d.data.valor)} OS · ${pc.format(d.data.valor / total)}`, d.data.cor]]))
-      .on('mouseleave', esconderDica).on('click', (ev, d) => aoClicar && aoClicar(d.data));
+      .on('mouseleave', sairDoMouse).call((fatias) => { if (aoClicar) clicavel(fatias, (ev, d) => aoClicar(d.data)); });
     txt(g, 0, -7, nf.format(total), { anchor: 'middle', cor: 'var(--texto)', tam: Math.round(tam / 6.6), peso: 750 });
     txt(g, 0, tam / 9, sub, { anchor: 'middle', cor: 'var(--muito-fraco)', tam: 11 });
     const leg = el('div', { class: 'rosca-leg' }, ...fatias.map((f) => el(aoClicar ? 'button' : 'div',
@@ -2105,7 +2138,7 @@ export function iniciarPainel(D, { baixar, raiz = document, aba = '', aoTrocarAb
       for (const q of l.partes) { if (q.v) barra(g, x, y + 2, Math.max(3, sx(q.v)), 22, q.cor, false); x += q.v ? Math.max(3, sx(q.v)) + 2 : 0; }
       txt(g, x + 6, y + 18, l.txt, { cor: i === 2 ? (mv.saldo > 0 ? 'var(--alerta-t)' : mv.saldo < 0 ? 'var(--finalizada-t)' : 'var(--texto)') : 'var(--texto)', peso: 750, tam: 14 });
       txt(g, rotW, y + 42, l.sub, { cor: 'var(--fraco)', tam: 11.5 });
-      g.on('mousemove', (ev) => mostrarDica(ev, l.rot, l.partes.map((q) => [q.nome, nf.format(q.v), q.cor]))).on('mouseleave', esconderDica);
+      g.on('mousemove', (ev) => mostrarDica(ev, l.rot, l.partes.map((q) => [q.nome, nf.format(q.v), q.cor]))).on('mouseleave', sairDoMouse);
     });
   }
 
@@ -2168,8 +2201,8 @@ export function iniciarPainel(D, { baixar, raiz = document, aba = '', aoTrocarAb
       const [forte, fraco] = nomes(l);
       txt(g, cx(i), base + 15, forte, { anchor: 'middle', cor: 'var(--fraco)', peso: 650, tam: 11 });
       if (fraco) txt(g, cx(i), base + 29, fraco, { anchor: 'middle', cor: subCor ? subCor(l) : 'var(--muito-fraco)', peso: 600, tam: 10.5 });
-      if (dica) g.on('mousemove', (ev) => mostrarDica(ev, l.rot, dica(l))).on('mouseleave', esconderDica);
-      if (aoClicar) g.style('cursor', 'pointer').on('click', () => aoClicar(l));
+      if (dica) g.on('mousemove', (ev) => mostrarDica(ev, l.rot, dica(l))).on('mouseleave', sairDoMouse);
+      if (aoClicar) clicavel(g.style('cursor', 'pointer'), () => aoClicar(l));
     });
     return tr;
   }
@@ -2221,8 +2254,8 @@ export function iniciarPainel(D, { baixar, raiz = document, aba = '', aoTrocarAb
       if (l.sub) txt(g, x, F2.base + 41, l.sub, { anchor: 'middle', cor: 'var(--muito-fraco)', peso: 600, tam: 10.5 });
       g.on('mousemove', (ev) => mostrarDica(ev, l.rot, [['Carteira no início', nf.format(l.tinha)], ['Novas OS', nf.format(l.entrou), 'var(--nova-linha)'],
         ['Encerradas', `${nf.format(enc(l))} · ${nf.format(l.fechou)} da carteira do início`, COR.F], ['Carteira no fim', nf.format(l.fim), COR.A],
-        ['Variação', sinal(l.fim - l.tinha)]])).on('mouseleave', esconderDica);
-      if (aoClicar) g.style('cursor', 'pointer').on('click', () => aoClicar(l));
+        ['Variação', sinal(l.fim - l.tinha)]])).on('mouseleave', sairDoMouse);
+      if (aoClicar) clicavel(g.style('cursor', 'pointer'), () => aoClicar(l));
     });
     // rolando (no celular): o período marcado vem para o meio; sem ele, o mais recente
     const disp = caixa.clientWidth || 640, iMarc = marcado ? linhas.findIndex(marcado) : -1;
@@ -2248,8 +2281,8 @@ export function iniciarPainel(D, { baixar, raiz = document, aba = '', aoTrocarAb
       const [forte, fraco] = nomes(l);
       txt(g, x, base + 15, forte, { anchor: 'middle', cor: 'var(--fraco)', peso: 650, tam: 11 });
       if (fraco) txt(g, x, base + 29, fraco, { anchor: 'middle', cor: 'var(--muito-fraco)', tam: 10.5 });
-      if (dica) g.on('mousemove', (ev) => mostrarDica(ev, l.rot, dica(l))).on('mouseleave', esconderDica);
-      if (aoClicar) g.style('cursor', 'pointer').on('click', () => aoClicar(l));
+      if (dica) g.on('mousemove', (ev) => mostrarDica(ev, l.rot, dica(l))).on('mouseleave', sairDoMouse);
+      if (aoClicar) clicavel(g.style('cursor', 'pointer'), () => aoClicar(l));
     });
   }
   /** Novas × encerradas em cada período, lado a lado; embaixo, o saldo. */
