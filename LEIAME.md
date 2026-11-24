@@ -240,6 +240,21 @@ A oficina devolver a frota atrasada **não** conta: o que se avalia é a operaç
     dias é um ponto vermelho ao lado do número, não a coluna toda em vermelho.
     No celular, cada OS vira um cartão (OS, frota e situação em cima, o serviço,
     e aberta em, dias e executante embaixo), sem rolar para o lado.
+- **O material da OS** (24/11/2026): a STL exportada com os produtos (o
+  insumo *Produto*) traz o material de cada OS. O previsto (PLAN) é o que foi
+  pedido, com a SA (a solicitação ao armazém); o aplicado (REAL) é a baixa do
+  estoque na OS. A ficha da OS mostra, produto por produto, o previsto, o
+  aplicado e a SA, e diz se a OS está **aguardando material** (previsto e nada
+  aplicado), com **parte aplicada** ou com o **material aplicado**. O filtro
+  *Material* (em Mais filtros) lista as OS de cada situação, a Carteira tem a
+  coluna *Material* (em Colunas) e a busca acha a OS pelo código ou pelo nome
+  do produto. A STL sem os produtos continua servindo: o material fica vazio.
+- **Abertura depois do export** (24/11/2026): a OS aberta no Protheus com a
+  data de abertura (Dt. Original) depois do dia do export conta nas *Abertas
+  agora*, mas só entra no backlog no dia da abertura (a regra da carteira). Por
+  isso as abertas podem passar o backlog do dia por umas poucas OS. A Visão
+  geral, o Avanço e a Conferência do backlog dizem quantas são, e a Auditoria
+  lista quais (Datas depois do export).
 - **O painel de OS no tablet** (24/11/2026), sem tirar nada. Em pé (a partir de
   600 px), as dez abas ficam à vista em duas linhas; antes Frotas, Executantes e
   Auditoria ficavam escondidas à direita. Em tela de toque, os filtros, as setas

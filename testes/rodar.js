@@ -1698,6 +1698,32 @@ titulo("liberadas agora, e adiantar até a realização");
   igual("a lista de frotas colada: por linha, espaço ou vírgula; sem os zeros; a repetida uma vez; o cabeçalho fica de fora",
     (({ frotas, repetidas, ignorados }) => [frotas, repetidas, ignorados])(M.lerFrotas("FROTA\n \n304\n0233, 405;405 F-56\n2060")), [["304", "233", "405", "56", "2060"], ["405"], ["FROTA"]]);
   igual("a cancelada vai à parte (fora da carteira), com a abertura", P.canceladas, [["100005", "010101", "F-255", "2026-10-26"]]);
+  // (24/11/2026) o material da OS: o insumo Produto da STL. PLAN é o previsto (com a SA), REAL o aplicado (a baixa do
+  // estoque). Produtos e SAs inventados.
+  {
+    const CAB_P = [...CAB_STL, "Unidade", "Numero da SA", "Destino"];
+    const tP = M.tabela([CAB_P,
+      ["010101", "100001", "PLAN", "Produto", "PEC-001", "FILTRO  DE TESTE", 2, D("2026-11-04"), "UN", "000123", "Substituição"],
+      ["010101", "100001", "REAL", "Produto", "PEC-001", "FILTRO DE TESTE", 1, D("2026-11-06"), "UN", "", "Substituição"],
+      ["010101", "100001", "PLAN", "Produto", "OLE-002", "OLEO DE TESTE", 5.5, D("2026-11-04"), "L", "000124", "Apoio"],
+      ["010101", "100002", "PLAN", "Produto", "PEC-001", "FILTRO DE TESTE", 1, D("2026-10-22"), "UN", "000130", "Substituição"],
+      ["010101", "100003", "REAL", "Produto", "PEC-003", "CORREIA DE TESTE", 1, D("2026-11-02"), "UN", "", "Troca"],
+      ["040101", "777777", "PLAN", "Produto", "PEC-001", "FILTRO DE TESTE", 1, D("2026-11-02"), "UN", "000999", "Apoio"],   // OS de fora do painel
+      ["010101", "100001", "PLAN", "Mão de Obra", "000111", "FULANO DE TESTE", 2, D("2026-11-06"), "H", "", ""],
+    ], "STL_p.xlsx");
+    const mp = M.montar({ stj: [stj], stl: [tP], frotas: ["342", "0255"], base: "2026-11-05", desde: "2024-01-01" });
+    const PP = M.dadosDoPainel(mp);
+    const matDe = (n) => { const i = PP.os.findIndex((a) => a[0] === n); return (PP.mat[i] || []).map(([p, ...r]) => [...PP.prod[p], ...r]); };
+    igual("o material por OS e por produto: previsto (com a SA, sem os zeros da frente) × aplicado, as datas e o destino",
+      [matDe("100001"), matDe("100002"), matDe("100003")],
+      [[["PEC-001", "FILTRO DE TESTE", "UN", 2, 1, "2026-11-04", "2026-11-06", "123", "S"], ["OLE-002", "OLEO DE TESTE", "L", 5.5, 0, "2026-11-04", "", "124", "A"]],
+        [["PEC-001", "FILTRO DE TESTE", "UN", 1, 0, "2026-10-22", "", "130", "S"]],
+        [["PEC-003", "CORREIA DE TESTE", "UN", 0, 1, "", "2026-11-02", "", "T"]]]);
+    igual("a OS de fora do painel não entra; o funil conta as linhas de produto e as OS do painel com material",
+      [PP.prod.length, mp.auditoria.linhasProduto, mp.auditoria.osComMaterial], [3, 6, 3]);
+    igual("o produto não vira executante", Object.keys(PP.exec), ["Fulano de Teste"]);
+    igual("sem produto na STL, o painel leva o material vazio", [P.prod, P.mat, P.auditoria.linhasProduto], [[], {}, 0]);
+  }
   igual("por filial: as 6 linhas da STJ de hoje — 1 de bem fora da lista, 1 cancelada, 1 encerrada antes de 2024, 2 corretivas e 1 preventiva no painel",
     P.auditoria.porFilial["010101"], { linhas: 6, fora: 1, semNumero: 0, repetidas: 0, canceladas: 1, semFim: 0, antesDe: 1, corretivas: 2, preventivas: 1 });
   igual("e os bens fora da lista do PCM, com quantas OS", [P.auditoria.foraBens.map((b) => [b.bem, b.n]), P.auditoria.foraBensTotal], [[["0999", 1]], 1]);
@@ -1836,6 +1862,19 @@ titulo("os/indicadores.js — entrada pela abertura, saída pelo fim, e a conta 
     exec: { Ana: [[0, 0, 4, "2026-11-11", ""]] } };
   igual("no plano da cópia também: a P. In. Man. fora da semana e a previsão da STL dentro — entra, pela data da STL",
     IND.planoDaCopia(Dstl, { de: "2026-11-09", ate: "2026-11-15" }).map((p) => [p.os, p.progEm]), [["7", "2026-11-11"]]);
+  igual("situacaoDoMaterial: aguardando (nada aplicado), parte aplicada, aplicado (nada faltando, ou só aplicado), sem material",
+    [IND.situacaoDoMaterial([{ prev: 1, apl: 0 }]), IND.situacaoDoMaterial([{ prev: 2, apl: 1 }, { prev: 5.5, apl: 0 }]),
+      IND.situacaoDoMaterial([{ prev: 2, apl: 2 }, { prev: 0, apl: 1 }]), IND.situacaoDoMaterial([])], ["aguarda", "parcial", "aplicado", ""]);
+  igual("abreDepois: a aberta com a abertura depois da data do export (fica fora do backlog do dia); a de hoje, a encerrada e a sem data, não",
+    [{ sit: "A", abertura: "2026-11-25" }, { sit: "A", abertura: "2026-11-24" }, { sit: "F", abertura: "2026-11-25", fim: "2026-11-26" }, { sit: "P", abertura: "" }]
+      .map((o) => IND.abreDepois(o, "2026-11-24")), [true, false, false, false]);
+  {
+    // abertas no Protheus com a abertura depois do export (dado inventado): abertas agora, mas o backlog do dia não as conta
+    const l = [{ sit: "A", abertura: "2026-11-10" }, { sit: "A", abertura: "2026-11-25" }, { sit: "A", abertura: "2026-11-25" }];
+    const mv = IND.movimento(l, { de: "2026-11-23", ate: "2026-11-29", base: "2026-11-24" });
+    igual("as abertas com a abertura depois do export: 3 abertas agora, 1 no backlog do dia, e a conta fecha",
+      [l.filter((o) => o.sit !== "F").length, mv.final, l.filter((o) => IND.abreDepois(o, "2026-11-24")).length, mv.diferenca], [3, 1, 2, 0]);
+  }
   ok("terminouEm: a encerrada pela saída (nunca antes da abertura); a aberta pelo fim real; sem nenhum, vazio",
     IND.terminouEm({ sit: "F", fim: "2026-11-02", abertura: "2026-11-11" }) === "2026-11-11" && IND.terminouEm({ sit: "A", fimReal: "2026-11-06" }) === "2026-11-06" &&
     IND.terminouEm({ sit: "P" }) === "");

@@ -31,6 +31,7 @@ export function iniciarPainel(D, { baixar, raiz = document, aba = '', aoTrocarAb
   const focado = () => (raiz.activeElement !== undefined ? raiz.activeElement : document.activeElement);
   const nf = new Intl.NumberFormat('pt-BR');
   const nh = new Intl.NumberFormat('pt-BR', { maximumFractionDigits: 1 });
+  const nq = new Intl.NumberFormat('pt-BR', { maximumFractionDigits: 3 });
   const pc = new Intl.NumberFormat('pt-BR', { style: 'percent', maximumFractionDigits: 0 });
   const br = (iso) => (iso ? iso.slice(8, 10) + '/' + iso.slice(5, 7) + '/' + iso.slice(0, 4) : '');
   const dm = (iso) => iso.slice(8, 10) + '/' + iso.slice(5, 7);
@@ -103,8 +104,19 @@ export function iniciarPainel(D, { baixar, raiz = document, aba = '', aoTrocarAb
   const OS_TUDO = D.os.map((a, i) => ({ i, os: a[0], filial: a[1], frota: a[2], equip: D.equip[a[3]] || '', servico: a[4], abertura: a[5], sit: a[6], fim: a[7],
     tipo: a[8] === 'P' ? 'Preventiva' : 'Corretiva', tercSTJ: a[9] === 'S', cat: CATS[a[10]] || 'Sem categoria', classe: CLS[a[10]] || 'S', liberada: a[11] || '',
     obs: a[12] || '', servCod: a[13] || '', contador: a[14] || '', ccusto: a[15] || '', inicioMan: a[16] || '', tercSTL: a[17] === 'S',
-    espTxt: a[18] || '', espList: a[18] ? a[18].split('; ') : [], progEm: a[19] || '', abertaPor: a[20] || '', origemHist: a[21] === 'H', fimReal: a[22] || '', quem: [] }));
+    espTxt: a[18] || '', espList: a[18] ? a[18].split('; ') : [], progEm: a[19] || '', abertaPor: a[20] || '', origemHist: a[21] === 'H', fimReal: a[22] || '', quem: [], mat: [] }));
   for (const [nome, l] of Object.entries(D.exec)) for (const [i, h, hp, prev, real] of l) OS_TUDO[i].quem.push({ nome, h: h || 0, hp: hp || 0, prev: prev || '', real: real || '' });
+  // (24/11/2026) o material (o insumo Produto da STL): previsto × aplicado, produto por produto
+  const PROD = D.prod || [], DESTINO = { S: 'Substituição', A: 'Apoio', T: 'Troca' };
+  const TEM_MATERIAL = !!D.mat;
+  for (const [i, l] of Object.entries(D.mat || {})) {
+    const o = OS_TUDO[i];
+    if (!o) continue;
+    for (const [p, prev, apl, prevEm, aplEm, sa, dest] of l) {
+      const [cod, nome, un] = PROD[p] || ['', '', ''];
+      o.mat.push({ cod, nome: nome || cod, un: un || '', prev: prev || 0, apl: apl || 0, prevEm: prevEm || '', aplEm: aplEm || '', sa: sa || '', dest: DESTINO[dest] || '' });
+    }
+  }
   for (const o of OS_TUDO) {
     o.quem.sort((a, b) => a.nome.localeCompare(b.nome, 'pt'));
     o.pessoas = o.quem.filter((q) => q.nome !== TERCEIRO);
@@ -125,7 +137,11 @@ export function iniciarPainel(D, { baixar, raiz = document, aba = '', aoTrocarAb
     o.faixa = o.sit === 'F' || o.dias == null ? -1 : o.dias <= 30 ? 0 : o.dias <= 60 ? 1 : o.dias <= 90 ? 2 : 3;
     o.quemTxt = o.grupo === 'T' ? 'Terceirizada' : o.pessoas.map((q) => q.nome).join(', ') || 'Sem executante';
     o.k = IND.chaveOS(o.filial, o.os);
-    o.busca = norm([o.os, o.frota, o.servico, o.equip, o.cat, CLASSE[o.classe], o.tipo, o.quemTxt, o.obs, o.servCod, o.ccusto, o.espTxt, o.abertaPor, o.abertaPor.replace(/\D/g, '')].join(' '));
+    o.mat.sort((a, b) => (b.prev - b.apl > 1e-9) - (a.prev - a.apl > 1e-9) || a.nome.localeCompare(b.nome, 'pt'));
+    o.matSit = IND.situacaoDoMaterial(o.mat);
+    // na busca, também o produto (código e nome): achar as OS que pedem uma peça
+    o.busca = norm([o.os, o.frota, o.servico, o.equip, o.cat, CLASSE[o.classe], o.tipo, o.quemTxt, o.obs, o.servCod, o.ccusto, o.espTxt, o.abertaPor, o.abertaPor.replace(/\D/g, ''),
+      ...o.mat.map((m) => m.cod + ' ' + m.nome)].join(' '));
   }
   // (11/11/2026, pedido do Mateus) as preventivas (com Plano Manut. no Protheus) ficam fora da carteira: os números,
   // os gráficos e as listas da carteira são das corretivas; as preventivas têm a aba delas (OS preventivas)
@@ -180,7 +196,7 @@ export function iniciarPainel(D, { baixar, raiz = document, aba = '', aoTrocarAb
   // Frota, Situação, Executante (com "Sem executante" no alto) e Programação; o resto em "Mais
   // filtros", à vista, em grupos (v6, 03/11/2026: o "+ Filtro" da v5 escondia os campos).
   const ABAS = ['geral', 'indicadores', 'programacao', 'avanco', 'pendentes', 'carteira', 'preventivas', 'frotas', 'executantes', 'auditoria'];
-  const MULTI = ['frota', 'sit', 'prog', 'exec', 'esp', 'equip', 'serv', 'ccusto', 'filial', 'idade', 'prev', 'mesAb', 'mesFim', 'lanc'];
+  const MULTI = ['frota', 'sit', 'prog', 'exec', 'esp', 'equip', 'serv', 'ccusto', 'filial', 'idade', 'prev', 'mesAb', 'mesFim', 'lanc', 'mat'];
   const PRINC = ['frota', 'sit', 'exec', 'prog'];
   const GUARDA_MAIS = 'painel-os-mais-filtros';
   const lerMais = () => { try { return localStorage.getItem(GUARDA_MAIS) === '1'; } catch (e) { return false; } };
@@ -216,6 +232,9 @@ export function iniciarPainel(D, { baixar, raiz = document, aba = '', aoTrocarAb
     aplicar(() => { F.periodo = 'livre'; F.per = x; });
   }
   const PREV = { vencida: 'Prevista e a data já passou', futura: 'Prevista de hoje em diante', sem: 'Sem data prevista na STL' };
+  // (24/11/2026) o material da OS (IND.situacaoDoMaterial): [nome, explicação]
+  const MATERIAL = { aguarda: ['Aguardando material', 'previsto e nada aplicado ainda'], parcial: ['Parte aplicada', 'falta parte do previsto'],
+    aplicado: ['Material aplicado', 'nada faltando'], sem: ['Sem material', 'nenhum produto na STL'] };
   const SEM_EQUIP = 'Sem equipamento', SEM_CC = 'Sem centro de custo';
   const ordPt = (a, b) => a.localeCompare(b, 'pt', { numeric: true });
   const mesRot = (m) => MESES[Number(m.slice(5, 7)) - 1] + ' de ' + m.slice(0, 4);
@@ -233,6 +252,7 @@ export function iniciarPainel(D, { baixar, raiz = document, aba = '', aoTrocarAb
     idade: (o) => (o.faixa >= 0 ? [String(o.faixa)] : []), prev: (o) => (o.prevEstado ? [o.prevEstado] : []),
     mesAb: (o) => (o.abertura ? [o.abertura.slice(0, 7)] : []), mesFim: (o) => (o.fim ? [o.fim.slice(0, 7)] : []),
     lanc: (o) => (o.sit === 'F' ? [o.lancDepois ? 's' : 'n'] : []),
+    mat: (o) => [o.matSit || 'sem'],
   };
   // `g`: o grupo no "+ Filtro"; a ordem aqui é a ordem lá
   const DEF = {
@@ -254,6 +274,8 @@ export function iniciarPainel(D, { baixar, raiz = document, aba = '', aoTrocarAb
       ...NOMES.filter((n) => !aponta(n)).map((v) => ({ v, rot: v, sub: foraTxt(v), grupo: `Sem apontar há mais de ${DIAS_FORA} dias` }))] },
     esp: { rot: 'Especialidade prevista', g: 'Quem fecha', dica: 'na STL, ainda sem uma pessoa', ops: () => ESPS.map((v) => ({ v, rot: v })) },
     prev: { rot: 'Data prevista', g: 'Quem fecha', dica: 'da mão de obra na STL, nas para fechar', ops: () => Object.entries(PREV).map(([v, rot]) => ({ v, rot })) },
+    mat: { rot: 'Material', g: 'Material', dica: TEM_MATERIAL ? 'o produto na STL: previsto × aplicado' : 'a STL desta atualização veio sem os produtos',
+      ops: () => Object.entries(MATERIAL).map(([v, [rot, sub]]) => ({ v, rot, sub, cor: v === 'aguarda' ? COR.alerta : null })) },
     mesAb: { rot: 'Mês de abertura', g: 'Datas', busca: true, ops: () => MESES_AB.map((v) => ({ v, rot: mesRot(v) })) },
     mesFim: { rot: 'Mês da finalização', g: 'Datas', busca: true, ops: () => MESES_FIM.map((v) => ({ v, rot: mesRot(v) })) },
   };
@@ -1061,6 +1083,8 @@ export function iniciarPainel(D, { baixar, raiz = document, aba = '', aoTrocarAb
       ver: (o) => (o.lancDepois ? el('span', {}, diasDe(o), el('span', { class: 'lanc', text: 'lançada depois', title: `Aberta no Protheus ${plural(o.lancDepois, 'dia', 'dias')} depois do fim do serviço; o tempo conta do início da manutenção` })) : diasDe(o)) },
     { k: 'quemTxt', rot: 'Executante', padrao: true, cls: (o) => 'quem' + (o.grupo === 'S' ? ' fraco' : ''),
       ver: (o) => (o.grupo === 'S' && o.espTxt ? el('span', {}, 'Sem executante', el('small', { style: 'display:block;color:var(--muito-fraco)', text: 'prevista: ' + o.espTxt })) : o.quemTxt) },
+    { k: 'mat', rot: 'Material', ord: (o) => ['aguarda', 'parcial', 'aplicado', ''].indexOf(o.matSit),
+      ver: (o) => (o.matSit ? el('span', { class: 'mat-sit mat-' + o.matSit, text: MATERIAL[o.matSit][0] }) : '—') },
     { k: 'horas', rot: 'Horas apontadas', num: true, h: true, ver: (o) => (o.horas ? nh.format(o.horas) + ' h' : '—') },
     { k: 'hPrev', rot: 'Horas previstas', num: true, h: true, ver: (o) => (o.hPrev ? nh.format(o.hPrev) + ' h' : '—') },
     { k: 'contador', rot: 'Contador', num: true, ord: (o) => Number(o.contador) || -1, ver: (o) => (o.contador ? nf.format(Number(o.contador) || 0) : '—') },
@@ -1233,6 +1257,19 @@ export function iniciarPainel(D, { baixar, raiz = document, aba = '', aoTrocarAb
           el('td', { class: 'n' + (q.prev && q.prev < D.base && aberta ? ' velha' : ''), text: dma(q.prev) || '—' }),
           el('td', { class: 'n', text: dma(q.real) || '—' }),
           el('td', { class: 'n', text: q.h || q.hp ? nh.format(q.h) + (q.hp ? ' de ' + nh.format(q.hp) : '') + ' h' : '—' }))))))) : null;
+    // (24/11/2026) o material: o produto na STL, previsto (com a SA, a solicitação ao armazém) × aplicado (a baixa do estoque)
+    const qtd = (v, un) => nq.format(v) + (un ? ' ' + un : '');
+    const material = o.mat.length ? el('div', { class: 'det-bloco' }, el('h4', { text: 'Material · ' + MATERIAL[o.matSit][0] }),
+      el('div', { class: 'tab' }, el('table', { class: 'mao mat' },
+        el('thead', {}, el('tr', {}, ...['Produto', 'Previsto', 'Aplicado', 'SA'].map((x, i) => el('th', { class: i ? 'n' : null, text: x })))),
+        el('tbody', {}, ...o.mat.map((m) => {
+          const falta = m.prev - m.apl > 1e-9;
+          return el('tr', { class: falta ? 'falta' : null },
+            el('td', {}, m.nome, el('small', { class: 'mat-sub', text: [m.cod, m.dest, m.prevEm ? 'previsto para ' + dma(m.prevEm) : '', m.aplEm ? 'aplicado em ' + dma(m.aplEm) : ''].filter(Boolean).join(' · ') })),
+            el('td', { class: 'n', text: m.prev ? qtd(m.prev, m.un) : '—' }),
+            el('td', { class: 'n' + (falta ? ' velha' : ''), text: m.apl ? qtd(m.apl, m.un) : falta ? 'nada ainda' : '—' }),
+            el('td', { class: 'n', text: m.sa || '—' }));
+        }))))) : null;
     const linha = (rot, v) => (v == null || v === '' ? [] : [el('dt', { text: rot }), el('dd', {}, v)]);
     const mais = [...linha('Filial', o.filial), ...linha('Código do serviço', o.servCod), ...linha('Programação', CLASSE[o.classe]),
       ...linha('Início da manutenção', br(o.inicioMan)), ...linha('Lançada no Protheus', o.lancDepois ? `${plural(o.lancDepois, 'dia', 'dias')} depois do fim do serviço` : ''),
@@ -1245,6 +1282,7 @@ export function iniciarPainel(D, { baixar, raiz = document, aba = '', aoTrocarAb
       el('div', { class: 'det-fatos' }, ...fatos),
       o.obs ? el('div', { class: 'det-bloco' }, el('h4', { text: 'Observação' }), el('p', { class: 'obs-txt', text: o.obs })) : null,
       mao,
+      material,
       mais.length ? el('details', { class: 'det-mais' }, el('summary', { text: 'Mais detalhes' }), el('dl', {}, ...mais)) : null,
       el('div', { class: 'det-pe' }, el('button', { type: 'button', class: 'botao', text: 'Ver todas as OS da ' + o.frota,
         on: { click: () => { fecharDetalhe(); aplicar(() => so('frota', o.frota), 'frotas'); } } })));
@@ -1317,8 +1355,11 @@ export function iniciarPainel(D, { baixar, raiz = document, aba = '', aoTrocarAb
       el('i', { style: `flex:${lib};background:${COR.A}` }), el('i', { style: `flex:${pen};background:${COR.P}` })) : null;
     const irSit = (...s) => aplicar(() => so('sit', ...s), 'carteira');
     const sem7 = contaProg(semSituacao().todas, sel);
+    // (24/11/2026) abertas no Protheus com a abertura depois do export: estão aqui, mas o backlog do dia só as conta na data
+    const futuras = ab.filter((o) => IND.abreDepois(o, D.base)).length;
     $('#kpis').replaceChildren(
-      kpi('Abertas agora', nf.format(ab.length), `${nf.format(lib)} liberadas · ${nf.format(pen)} aguardando`, { trilho, fazer: () => irSit('A', 'P') }),
+      kpi('Abertas agora', nf.format(ab.length), `${nf.format(lib)} liberadas · ${nf.format(pen)} aguardando` +
+        (futuras ? ` · ${nf.format(futuras)} com abertura depois de ${dm(D.base)}` : ''), { trilho, fazer: () => irSit('A', 'P') }),
       kpi('Há mais de 90 dias', nf.format(v90), ab.length ? `${pc.format(v90 / ab.length)} das abertas · mais de 60: ${nf.format(v60)} · de 30: ${nf.format(v30)}` : '—',
         { cls: v90 ? 'ruim' : '', cor: COR.alerta, fazer: () => aplicar(() => so('idade', '3'), 'carteira') }),
       kpi('Sem executante', nf.format(sem), ab.length ? `${pc.format(sem / ab.length)} das abertas` : '—', { cls: sem ? 'ruim' : '', cor: COR.alerta, fazer: () => aplicar(() => so('exec', 'g:S'), 'carteira') }));
@@ -2089,7 +2130,7 @@ export function iniciarPainel(D, { baixar, raiz = document, aba = '', aoTrocarAb
     el('span', { class: 'rot' }, cor ? el('i', { class: 'ponto', style: 'background:' + cor }) : null, rot), el('span', { class: 'val ' + cls, text: val }), el('span', { class: 'pe', text: pe }), comp);
 
   /** A conferência do backlog de um período: a conta, linha por linha, e se ela fecha (11/11/2026). */
-  function cartaoConferencia(mv, sel) {
+  function cartaoConferencia(mv, sel, futuras = 0) {
     const lin = (rot, v, cls = '') => el('tr', { class: cls }, el('th', { scope: 'row', text: rot }), el('td', { text: v }));
     const fecha = mv.diferenca === 0;
     const canc = Array.isArray(D.canceladas) ? D.canceladas.length : null;
@@ -2098,6 +2139,7 @@ export function iniciarPainel(D, { baixar, raiz = document, aba = '', aoTrocarAb
       canc === null ? 'As canceladas no Protheus ficam fora da carteira (não entram nem saem). O painel passa a contá-las a partir da próxima atualização.'
         : `${plural(canc, 'OS cancelada', 'OS canceladas')} no Protheus ${canc === 1 ? 'fica' : 'ficam'} fora da carteira: não entram nem saem.`,
       mv.semAbertura ? `${plural(mv.semAbertura, 'OS sem data de abertura fica', 'OS sem data de abertura ficam')} fora da conta (veja a Auditoria).` : '',
+      futuras ? `${plural(futuras, 'OS aberta', 'OS abertas')} no Protheus com a abertura depois de ${br(D.base)} ${futuras === 1 ? 'fica' : 'ficam'} fora do backlog até o dia da abertura (na Auditoria, Datas depois do export).` : '',
       `Do Protheus de ${br(D.base)}: cada dia refeito pelas datas de abertura e de fim. O que mudou de uma atualização para outra está na aba Auditoria.`].filter(Boolean);
     return el('article', { class: 'cartao c6', id: 'av-conferencia', 'data-imagem': true },
       el('div', { class: 'cab' }, el('div', {}, el('h2', { text: 'Conferência do backlog' }), el('p', { class: 'nota', text: sel.rot })), el('div', { class: 'acoes' })),
@@ -2298,6 +2340,7 @@ export function iniciarPainel(D, { baixar, raiz = document, aba = '', aoTrocarAb
     const sel = periodoSel(), noAtual = sel.ate >= D.base;
     // a conta do período (a mesma da Visão geral e dos Indicadores) e a do período anterior, para comparar
     const mv = IND.movimento(todas, { de: sel.de, ate: sel.ate, base: D.base });
+    const futAv = noAtual ? todas.filter((o) => IND.abreDepois(o, D.base)).length : 0;
     const pa = IND.anterior({ desde: sel.de, ate: sel.ate, base: D.base, unidade: sel.unidade });
     const mvA = IND.movimento(todas, { de: pa.desde, ate: pa.ate, base: D.base });
     const rotAnt = pa.desde === pa.ate ? dm(pa.desde) : `${dm(pa.desde)} a ${dm(pa.ate)}`;
@@ -2314,7 +2357,8 @@ export function iniciarPainel(D, { baixar, raiz = document, aba = '', aoTrocarAb
         { fazer: () => verLista('entrou'), comp: comparacao(mv.entradas, mvA.entradas, null, nf0, rotAnt) }),
       kpiCom('Encerradas', menos(mv.saidas), `${nf.format(mv.saidasAntigas)} do backlog inicial · ${nf.format(mv.saidasNovas)} abertas no período`, COR.F,
         { fazer: () => verLista('saiu'), comp: comparacao(mv.saidas, mvA.saidas, 'mais', nf0, rotAnt) }),
-      kpiCom(noAtual ? 'Backlog atual' : 'Backlog final', nf.format(mv.final), `em aberto em ${dm(mv.ate)}`, 'var(--fraco)',
+      kpiCom(noAtual ? 'Backlog atual' : 'Backlog final', nf.format(mv.final), `em aberto em ${dm(mv.ate)}` +
+        (futAv ? ` · sem ${plural(futAv, 'aberta', 'abertas')} com abertura depois de ${dm(D.base)}` : ''), 'var(--fraco)',
         { fazer: () => verLista('fim'), comp: comparacao(mv.final, mvA.final, 'menos', nf0, rotAnt) }),
       kpiCom('Variação', sinal(mv.variacao) + (mv.variacaoPct != null && mv.variacao ? ` (${sinalPc(mv.variacaoPct)})` : ''),
         (mv.variacao < 0 ? 'a carteira diminuiu' : mv.variacao > 0 ? 'a carteira cresceu' : 'a carteira ficou igual') +
@@ -2398,7 +2442,7 @@ export function iniciarPainel(D, { baixar, raiz = document, aba = '', aoTrocarAb
     raiz.replaceChildren(el('div', { class: 'grade' }, topo, prog, seq,
       recolhido('av-lista', { abrir: 'Ver a lista das OS', fechar: 'Esconder a lista' }, lista),
       recolhido('av-detalhes', { abrir: 'Detalhes da análise (a conferência, a entrada e saída e o histórico)', fechar: 'Esconder os detalhes' },
-        cartaoConferencia(mv, sel), es, hist),
+        cartaoConferencia(mv, sel, futAv), es, hist),
       maisAnalises('avanco', ne, cada, tab)));
     const varH = (l) => l.fim - l.tinha, encH = (l) => l.fechou + l.entrouFechou;
     tabela(tHist, { id: 'av-hist', linhas: janela, padrao: { k: 'de', dir: 'desc' }, aoClicar: (l) => irPeriodo(l), cols: [
@@ -2629,7 +2673,8 @@ export function iniciarPainel(D, { baixar, raiz = document, aba = '', aoTrocarAb
           (A.foraBensTotal > 15 ? ` · e mais ${plural(A.foraBensTotal - 15, 'bem', 'bens')}` : '') }),
         el('p', { class: 'nota', text: 'Estes bens têm OS na STJ, mas não estão na lista de frotas do PCM: as OS deles não entram no painel.' })) : null);
     const lista = el('article', { class: 'cartao c12', id: 'aud-lista' });
-    raiz.replaceChildren(el('div', { class: 'grade' }, cartaoConferencia(mv, sel), conferir, funil, porFil, atencao, comparar, historico, lista));
+    raiz.replaceChildren(el('div', { class: 'grade' }, cartaoConferencia(mv, sel, sel.ate >= D.base ? todas.filter((o) => IND.abreDepois(o, D.base)).length : 0),
+      conferir, funil, porFil, atencao, comparar, historico, lista));
     if (filiais) {
       tabela(tFil, { id: 'aud-fil', linhas: filiais.map(([f, x]) => ({ f, ...x, saidas: x.repetidas + x.semFim + x.antesDe + (x.semNumero || 0), painel: x.corretivas + x.preventivas })), padrao: { k: 'linhas', dir: 'desc' },
         cols: [{ k: 'f', rot: 'Filial' }, { k: 'linhas', rot: 'Linhas da STJ', num: true }, { k: 'fora', rot: 'Bens fora da lista', num: true }, { k: 'canceladas', rot: 'Canceladas', num: true },
@@ -3047,10 +3092,10 @@ export function iniciarPainel(D, { baixar, raiz = document, aba = '', aoTrocarAb
     try {
       const hv = (v) => (v ? String(v).replace('.', ',') : '');
       const linhas = [['OS', 'Filial', 'Frota', 'Equipamento', 'Código do serviço', 'Serviço', 'Categoria', 'Programação', 'Tipo', 'Situação', 'Aberta em', 'Liberada em',
-        'Programada para', 'Prevista na STL', 'Início da manutenção', 'Finalizada em', 'Dias', 'Lançada depois (dias)', 'Quem fecha', 'Executantes', 'Especialidade prevista', 'Horas previstas', 'Horas apontadas',
+        'Programada para', 'Prevista na STL', 'Início da manutenção', 'Finalizada em', 'Dias', 'Lançada depois (dias)', 'Quem fecha', 'Executantes', 'Material', 'Especialidade prevista', 'Horas previstas', 'Horas apontadas',
         'Contador', 'Centro de custo', 'Observação'],
         ...lista.map((o) => [o.os, o.filial, o.frota, o.equip, o.servCod, o.servico, o.cat, CLASSE[o.classe], o.tipo, SIT[o.sit], br(o.abertura), br(o.liberada),
-          br(o.progEm), br(o.prev), br(o.inicioMan), br(o.fim), o.dias ?? '', o.lancDepois || '', GRUPO[o.grupo], o.quemTxt, o.espTxt, hv(o.hPrev), hv(o.horas), o.contador, o.ccusto, o.obs])];
+          br(o.progEm), br(o.prev), br(o.inicioMan), br(o.fim), o.dias ?? '', o.lancDepois || '', GRUPO[o.grupo], o.quemTxt, o.matSit ? MATERIAL[o.matSit][0] : TEM_MATERIAL ? MATERIAL.sem[0] : '', o.espTxt, hv(o.hPrev), hv(o.horas), o.contador, o.ccusto, o.obs])];
       const blob = new Blob(['﻿' + linhas.map((l) => l.map(celulaCSV).join(';')).join('\r\n')], { type: 'text/csv;charset=utf-8' });
       const d = await downloadsP;
       if (!d) throw { code: 'unavailable' };
