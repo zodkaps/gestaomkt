@@ -29,6 +29,8 @@ const DESENHOS = {
   // o alto da tela: buscar o que os outros lançaram, e trocar claro/escuro
   atualizar: '<path d="M20 11a8 8 0 0 0-14.3-4.9L4 8"/><path d="M4 3.5V8h4.5"/><path d="M4 13a8 8 0 0 0 14.3 4.9L20 16"/><path d="M20 20.5V16h-4.5"/>',
   tema: '<circle cx="12" cy="12" r="8.5"/><path d="M12 3.5a8.5 8.5 0 0 0 0 17z" fill="currentColor" stroke="none"/>',
+  // (24/11/2026) recolher e abrir a barra lateral
+  lateral: '<rect x="3.5" y="4.5" width="17" height="15" rx="2.5"/><path d="M9.5 4.5v15"/><path d="M15.5 9.5L13 12l2.5 2.5"/>',
 };
 
 /** O ícone como <svg>, na cor do texto em volta. */

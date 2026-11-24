@@ -3146,6 +3146,64 @@ ok("e o Diagnóstico não manda rodar SQL por causa de sessão",
   ok("com o mouse nada muda: passar mostra a dica (sem o aviso do toque) e o clique abre a Carteira na hora",
     !!passou && !passou.includes("Toque de novo") && (await pcx.evaluate(() => location.hash)).includes("aba=carteira"), passou.slice(0, 120));
   await pcx.context().close();
+  // (24/11/2026) a rolagem com o dedo: em cima da tabela da Carteira, quem anda é a página (a tabela rolava por dentro,
+  // até 70% da tela, e o dedo ficava preso nela)
+  {
+    const tb = await (await nav.newContext({ viewport: { width: 800, height: 1280 }, isMobile: true, hasTouch: true })).newPage();
+    vigiarCSP(tb);
+    await tb.goto(site.endereco, { waitUntil: "networkidle" });
+    await entrarComo(tb, "Mateus");
+    await tb.evaluate(() => { location.hash = "#/os?aba=carteira"; });
+    await tb.waitForSelector("#c-carteira tbody tr", { timeout: 30000 });
+    await tb.waitForTimeout(400);
+    // com poucas OS de teste a página não tem o que rolar: alonga o fim dela para a conta valer; e a tabela vai para
+    // perto do alto da tela, para o dedo começar em cima dela
+    await tb.evaluate(() => { const e = document.createElement("div"); e.style.height = "1600px"; document.querySelector("#tela").append(e); });
+    await tb.evaluate(() => { const r = document.querySelector(".os-host").shadowRoot.querySelector("#c-carteira .tab").getBoundingClientRect(); scrollBy(0, r.top - 300); });
+    await tb.waitForTimeout(400);
+    const bt = await (await tb.$("#c-carteira .tab")).boundingBox();
+    const x = Math.round(bt.x + bt.width / 2), y = Math.round(bt.y + Math.min(bt.height / 2, 120));
+    const antes = await tb.evaluate(() => scrollY);
+    const cdp = await tb.context().newCDPSession(tb);
+    await cdp.send("Input.dispatchTouchEvent", { type: "touchStart", touchPoints: [{ x, y }] });
+    for (let i = 1; i <= 12; i++) { await cdp.send("Input.dispatchTouchEvent", { type: "touchMove", touchPoints: [{ x, y: y - (250 * i) / 12 }] }); await tb.waitForTimeout(16); }
+    await cdp.send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] });
+    await tb.waitForTimeout(700);
+    const rolou = { pagina: Math.round((await tb.evaluate(() => scrollY)) - antes),
+      dentro: await tb.evaluate(() => document.querySelector(".os-host").shadowRoot.querySelector("#c-carteira .tab").scrollTop) };
+    ok("no tablet, o dedo em cima da tabela da Carteira rola a página (e não a tabela por dentro)", rolou.pagina > 100 && rolou.dentro === 0, JSON.stringify(rolou));
+    await tb.context().close();
+  }
+}
+
+// ── a barra lateral recolhida (24/11/2026) ───────────────────────────────────
+// O botão no canto do logo deixa o menu só com os ícones (64 px) e a tela ganha a largura; a escolha fica no aparelho.
+{
+  const pm = await (await nav.newContext({ viewport: { width: 1280, height: 860 } })).newPage();
+  vigiarCSP(pm);
+  await pm.goto(site.endereco, { waitUntil: "networkidle" });
+  await entrarComo(pm, "Mateus");
+  await pm.waitForTimeout(500);
+  const medir = () => pm.evaluate(() => ({ menu: Math.round(document.querySelector("#menu").getBoundingClientRect().width),
+    tela: Math.round(document.querySelector("#tela").getBoundingClientRect().width), rotulo: document.querySelector("#brecolher").getAttribute("aria-label"),
+    nomes: [...document.querySelectorAll("#menu nav a > span:not(.cont)")].filter((s) => s.offsetWidth > 0).length }));
+  const aberto = await medir();
+  await pm.click("#brecolher");
+  await pm.waitForTimeout(300);
+  const recolhido = await medir();
+  await pm.reload({ waitUntil: "networkidle" });
+  await pm.waitForSelector("#brecolher", { timeout: 10000 });
+  await pm.waitForTimeout(500);
+  const recarregado = await medir();
+  ok("o menu recolhe: só os ícones, 64 px, e a tela ganha a largura",
+    aberto.menu > 200 && aberto.nomes > 0 && aberto.rotulo === "Recolher o menu" &&
+    recolhido.menu === 64 && recolhido.nomes === 0 && recolhido.tela > aberto.tela + 100 && recolhido.rotulo === "Abrir o menu", JSON.stringify([aberto, recolhido]));
+  ok("e continua recolhido ao abrir de novo", recarregado.menu === 64 && recarregado.rotulo === "Abrir o menu", JSON.stringify(recarregado));
+  await pm.click("#brecolher");
+  await pm.waitForTimeout(300);
+  const deNovo = await medir();
+  ok("e abre de novo, com os nomes", deNovo.menu === aberto.menu && deNovo.nomes === aberto.nomes && deNovo.rotulo === "Recolher o menu", JSON.stringify(deNovo));
+  await pm.context().close();
 }
 
 // ── o site publicado com a página aberta (12/11/2026) ───────────────────────

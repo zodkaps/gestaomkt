@@ -265,6 +265,18 @@ A oficina devolver a frota atrasada **não** conta: o que se avalia é a operaç
   filtrava e mudava de aba, sem deixar ver o número). A caixa do filtro e o
   calendário do período cabem no que sobra da tela e rolam por dentro (deitado,
   o calendário passava do pé da tela).
+  Depois (24/11/2026, à tarde), a **rolagem com o dedo**: a tabela da Carteira, a
+  lista da Auditoria e as barras do Backlog por frota rolavam por dentro (até
+  70% e 78% da tela), e o dedo em cima delas rolava só a caixa, com a página
+  parada. Em tela de toque elas agora crescem com a página, e o dedo rola a
+  página em qualquer lugar. Dois toques rápidos não dão mais zoom; segurar o
+  dedo num gráfico não seleciona o texto; e, com o tablet deitado, a barra de
+  filtros não fica presa no alto (eram uns 130 px a menos de leitura).
+- **A barra lateral recolhe** (24/11/2026): o botão no canto do logo deixa o
+  menu só com os ícones, e a tela ganha a largura (no tablet deitado, o painel
+  passa de 1.048 para 1.216 px). O mesmo botão abre de novo, e a escolha fica
+  guardada no aparelho. No celular o menu é a barra de baixo e o botão não
+  aparece.
 - **O painel de OS mais limpo** (13/11/2026), sem tirar aba, filtro, gráfico,
   cálculo ou função. A **Visão geral** começa num cartão só, o **Resumo**: a
   frase do rumo da carteira em uma linha e os sete números, cada um uma vez —

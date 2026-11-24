@@ -189,6 +189,19 @@ async function conferirAcessoOs() {
   if (v !== acessoOs) { acessoOs = v; pintarMenu(alvo().id); }
 }
 
+/** A barra lateral recolhida (24/11/2026): só os ícones, e a tela ganha a largura. */
+const menuRecolhido = () => document.documentElement.dataset.menu === "recolhido";
+function pintarRecolher(recolhido) {
+  if (recolhido) document.documentElement.dataset.menu = "recolhido";
+  else delete document.documentElement.dataset.menu;
+  const b = $("#brecolher");
+  if (!b) return;
+  const t = recolhido ? "Abrir o menu" : "Recolher o menu";
+  b.title = t;
+  b.setAttribute("aria-label", t);
+  b.setAttribute("aria-expanded", String(!recolhido));
+}
+
 function pintarMenu(id) {
   const nav = $("#menu nav");
   limpar(nav);
@@ -204,7 +217,7 @@ function pintarMenu(id) {
     }
     let n = null;
     try { n = t.contar ? t.contar() : null; } catch (e) { n = null; }
-    nav.append(el("a", { href: "#/" + t.id, class: t.id === id ? "ativo" : "" },
+    nav.append(el("a", { href: "#/" + t.id, class: t.id === id ? "ativo" : "", title: menuRecolhido() ? t.nome : null },
       el("b", {}, icone(t.icone)), el("span", {}, t.nome),
       n ? el("span", { class: "cont" }, String(n)) : null));
   }
@@ -621,6 +634,17 @@ async function comecar() {
     bAtualizar.addEventListener("click", atualizarAgora);
   }
   $("#btema").replaceChildren(icone("tema", 18));
+  // (24/11/2026) recolher a barra lateral, para a tela (o painel de OS, no tablet deitado) ganhar largura. A escolha
+  // fica neste aparelho; no celular a barra é a de baixo e o botão não aparece.
+  $("#menu .marca").append(el("button", { id: "brecolher", type: "button", class: "discreto",
+    onclick: async () => {
+      const recolhido = !menuRecolhido();
+      pintarRecolher(recolhido);
+      pintarMenu(alvo().id);
+      dispatchEvent(new Event("resize"));        // os gráficos se refazem na largura nova
+      await dados.gravarMeta("menu_recolhido", recolhido).catch(() => {});
+    } }, icone("lateral", 18)));
+  pintarRecolher(!!(await dados.lerMeta("menu_recolhido", false)));
 
   // As faixas que rolam para o lado (as abas da Avaliação, os passos e as
   // categorias no celular) escondem o que passa da borda, sem barra de rolagem.

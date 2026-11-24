@@ -872,4 +872,13 @@ h2, h3, .aba, .kpi .val, .porta-caixa h2 { font-family: var(--fonte-marca, inher
   .concil-ver { padding-block: 9px; }
   input[type="checkbox"], input[type="radio"] { width: 20px; height: 20px; }
   .dica { font-size: 13.5px; }
+  /* (24/11/2026) a rolagem com o dedo: a tabela e a lista de barras rolavam por dentro (até 70% e 78% da tela), e o
+     dedo em cima delas rolava só a caixa — a página não andava. Agora elas crescem com a página; a tabela larga
+     continua rolando para o lado. */
+  .tab, .bt-rolagem { max-height: none; overflow-y: visible; }
+  /* dois toques rápidos não dão zoom (o toque em dois tempos dos gráficos), e segurar o dedo no gráfico não seleciona */
+  .tab, .rolar-x, .bt-rolagem, .detalhe, .pop, .pop-lista, .pop-campos, .abas, .colunas-lista { touch-action: manipulation; }
+  .graf svg { -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
 }
+/* o tablet deitado (e o celular deitado): a barra de filtros não fica presa no alto — eram uns 130 px a menos de leitura */
+@media (pointer: coarse) and (max-height: 900px) { .barra { position: static; } }

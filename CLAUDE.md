@@ -171,6 +171,14 @@ Mudou arquivo em `js/`? Acrescentar em `sw.js` (lista e versão) — o
   segundo faz; com o mouse, igual a antes. Gráfico novo com ação usa ele, não
   `.on('click')`, e o "saiu de cima" usa `sairDoMouse`. Alvo de toque: 40 px, no
   `@media (pointer: coarse)` do fim do `css/os.css`.
+- Na tela de toque, tabela e lista de barras não rolam por dentro (24/11/2026):
+  o dedo ficava preso nelas e a página não andava. Elas crescem com a página
+  (a tabela larga ainda rola para o lado). Caixa nova com rolagem própria, só
+  se for janela por cima (ficha, filtro). O `html` tem `touch-action:
+  manipulation` (dois toques não dão zoom).
+- A barra lateral recolhe (`#brecolher` em `js/app.js`, 24/11/2026): o `html`
+  ganha `data-menu="recolhido"`, o `--menu` vai a 64 px e a escolha fica em
+  `menu_recolhido`. Quem depende da largura do menu usa `var(--menu)`.
 - Cartão novo no painel de OS: à vista só se for essencial para a aba; o
   secundário vai para o "Mais análises" dela (`maisAnalises` em
   `js/os/painel.js`), que fica fechado mas montado — o relatório captura de lá.
