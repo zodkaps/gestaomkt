@@ -31,7 +31,6 @@ export function iniciarPainel(D, { baixar, raiz = document, aba = '', aoTrocarAb
   const focado = () => (raiz.activeElement !== undefined ? raiz.activeElement : document.activeElement);
   const nf = new Intl.NumberFormat('pt-BR');
   const nh = new Intl.NumberFormat('pt-BR', { maximumFractionDigits: 1 });
-  const nq = new Intl.NumberFormat('pt-BR', { maximumFractionDigits: 3 });
   const pc = new Intl.NumberFormat('pt-BR', { style: 'percent', maximumFractionDigits: 0 });
   const br = (iso) => (iso ? iso.slice(8, 10) + '/' + iso.slice(5, 7) + '/' + iso.slice(0, 4) : '');
   const dm = (iso) => iso.slice(8, 10) + '/' + iso.slice(5, 7);
@@ -104,19 +103,8 @@ export function iniciarPainel(D, { baixar, raiz = document, aba = '', aoTrocarAb
   const OS_TUDO = D.os.map((a, i) => ({ i, os: a[0], filial: a[1], frota: a[2], equip: D.equip[a[3]] || '', servico: a[4], abertura: a[5], sit: a[6], fim: a[7],
     tipo: a[8] === 'P' ? 'Preventiva' : 'Corretiva', tercSTJ: a[9] === 'S', cat: CATS[a[10]] || 'Sem categoria', classe: CLS[a[10]] || 'S', liberada: a[11] || '',
     obs: a[12] || '', servCod: a[13] || '', contador: a[14] || '', ccusto: a[15] || '', inicioMan: a[16] || '', tercSTL: a[17] === 'S',
-    espTxt: a[18] || '', espList: a[18] ? a[18].split('; ') : [], progEm: a[19] || '', abertaPor: a[20] || '', origemHist: a[21] === 'H', fimReal: a[22] || '', quem: [], mat: [] }));
+    espTxt: a[18] || '', espList: a[18] ? a[18].split('; ') : [], progEm: a[19] || '', abertaPor: a[20] || '', origemHist: a[21] === 'H', fimReal: a[22] || '', quem: [] }));
   for (const [nome, l] of Object.entries(D.exec)) for (const [i, h, hp, prev, real] of l) OS_TUDO[i].quem.push({ nome, h: h || 0, hp: hp || 0, prev: prev || '', real: real || '' });
-  // (24/11/2026) o material (o insumo Produto da STL): previsto × aplicado, produto por produto
-  const PROD = D.prod || [], DESTINO = { S: 'Substituição', A: 'Apoio', T: 'Troca' };
-  const TEM_MATERIAL = !!D.mat;
-  for (const [i, l] of Object.entries(D.mat || {})) {
-    const o = OS_TUDO[i];
-    if (!o) continue;
-    for (const [p, prev, apl, prevEm, aplEm, sa, dest] of l) {
-      const [cod, nome, un] = PROD[p] || ['', '', ''];
-      o.mat.push({ cod, nome: nome || cod, un: un || '', prev: prev || 0, apl: apl || 0, prevEm: prevEm || '', aplEm: aplEm || '', sa: sa || '', dest: DESTINO[dest] || '' });
-    }
-  }
   for (const o of OS_TUDO) {
     o.quem.sort((a, b) => a.nome.localeCompare(b.nome, 'pt'));
     o.pessoas = o.quem.filter((q) => q.nome !== TERCEIRO);
@@ -137,11 +125,7 @@ export function iniciarPainel(D, { baixar, raiz = document, aba = '', aoTrocarAb
     o.faixa = o.sit === 'F' || o.dias == null ? -1 : o.dias <= 30 ? 0 : o.dias <= 60 ? 1 : o.dias <= 90 ? 2 : 3;
     o.quemTxt = o.grupo === 'T' ? 'Terceirizada' : o.pessoas.map((q) => q.nome).join(', ') || 'Sem executante';
     o.k = IND.chaveOS(o.filial, o.os);
-    o.mat.sort((a, b) => (b.prev - b.apl > 1e-9) - (a.prev - a.apl > 1e-9) || a.nome.localeCompare(b.nome, 'pt'));
-    o.matSit = IND.situacaoDoMaterial(o.mat);
-    // na busca, também o produto (código e nome): achar as OS que pedem uma peça
-    o.busca = norm([o.os, o.frota, o.servico, o.equip, o.cat, CLASSE[o.classe], o.tipo, o.quemTxt, o.obs, o.servCod, o.ccusto, o.espTxt, o.abertaPor, o.abertaPor.replace(/\D/g, ''),
-      ...o.mat.map((m) => m.cod + ' ' + m.nome)].join(' '));
+    o.busca = norm([o.os, o.frota, o.servico, o.equip, o.cat, CLASSE[o.classe], o.tipo, o.quemTxt, o.obs, o.servCod, o.ccusto, o.espTxt, o.abertaPor, o.abertaPor.replace(/\D/g, '')].join(' '));
   }
   // (11/11/2026, pedido do Mateus) as preventivas (com Plano Manut. no Protheus) ficam fora da carteira: os números,
   // os gráficos e as listas da carteira são das corretivas; as preventivas têm a aba delas (OS preventivas)
@@ -196,7 +180,7 @@ export function iniciarPainel(D, { baixar, raiz = document, aba = '', aoTrocarAb
   // Frota, Situação, Executante (com "Sem executante" no alto) e Programação; o resto em "Mais
   // filtros", à vista, em grupos (v6, 03/11/2026: o "+ Filtro" da v5 escondia os campos).
   const ABAS = ['geral', 'indicadores', 'programacao', 'avanco', 'pendentes', 'carteira', 'preventivas', 'frotas', 'executantes', 'auditoria'];
-  const MULTI = ['frota', 'sit', 'prog', 'exec', 'esp', 'equip', 'serv', 'ccusto', 'filial', 'idade', 'prev', 'mesAb', 'mesFim', 'lanc', 'mat'];
+  const MULTI = ['frota', 'sit', 'prog', 'exec', 'esp', 'equip', 'serv', 'ccusto', 'filial', 'idade', 'prev', 'mesAb', 'mesFim', 'lanc'];
   const PRINC = ['frota', 'sit', 'exec', 'prog'];
   const GUARDA_MAIS = 'painel-os-mais-filtros';
   const lerMais = () => { try { return localStorage.getItem(GUARDA_MAIS) === '1'; } catch (e) { return false; } };
@@ -232,9 +216,6 @@ export function iniciarPainel(D, { baixar, raiz = document, aba = '', aoTrocarAb
     aplicar(() => { F.periodo = 'livre'; F.per = x; });
   }
   const PREV = { vencida: 'Prevista e a data já passou', futura: 'Prevista de hoje em diante', sem: 'Sem data prevista na STL' };
-  // (24/11/2026) o material da OS (IND.situacaoDoMaterial): [nome, explicação]
-  const MATERIAL = { aguarda: ['Aguardando material', 'previsto e nada aplicado ainda'], parcial: ['Parte aplicada', 'falta parte do previsto'],
-    aplicado: ['Material aplicado', 'nada faltando'], sem: ['Sem material', 'nenhum produto na STL'] };
   const SEM_EQUIP = 'Sem equipamento', SEM_CC = 'Sem centro de custo';
   const ordPt = (a, b) => a.localeCompare(b, 'pt', { numeric: true });
   const mesRot = (m) => MESES[Number(m.slice(5, 7)) - 1] + ' de ' + m.slice(0, 4);
@@ -252,7 +233,6 @@ export function iniciarPainel(D, { baixar, raiz = document, aba = '', aoTrocarAb
     idade: (o) => (o.faixa >= 0 ? [String(o.faixa)] : []), prev: (o) => (o.prevEstado ? [o.prevEstado] : []),
     mesAb: (o) => (o.abertura ? [o.abertura.slice(0, 7)] : []), mesFim: (o) => (o.fim ? [o.fim.slice(0, 7)] : []),
     lanc: (o) => (o.sit === 'F' ? [o.lancDepois ? 's' : 'n'] : []),
-    mat: (o) => [o.matSit || 'sem'],
   };
   // `g`: o grupo no "+ Filtro"; a ordem aqui é a ordem lá
   const DEF = {
@@ -274,8 +254,6 @@ export function iniciarPainel(D, { baixar, raiz = document, aba = '', aoTrocarAb
       ...NOMES.filter((n) => !aponta(n)).map((v) => ({ v, rot: v, sub: foraTxt(v), grupo: `Sem apontar há mais de ${DIAS_FORA} dias` }))] },
     esp: { rot: 'Especialidade prevista', g: 'Quem fecha', dica: 'na STL, ainda sem uma pessoa', ops: () => ESPS.map((v) => ({ v, rot: v })) },
     prev: { rot: 'Data prevista', g: 'Quem fecha', dica: 'da mão de obra na STL, nas para fechar', ops: () => Object.entries(PREV).map(([v, rot]) => ({ v, rot })) },
-    mat: { rot: 'Material', g: 'Material', dica: TEM_MATERIAL ? 'o produto na STL: previsto × aplicado' : 'a STL desta atualização veio sem os produtos',
-      ops: () => Object.entries(MATERIAL).map(([v, [rot, sub]]) => ({ v, rot, sub, cor: v === 'aguarda' ? COR.alerta : null })) },
     mesAb: { rot: 'Mês de abertura', g: 'Datas', busca: true, ops: () => MESES_AB.map((v) => ({ v, rot: mesRot(v) })) },
     mesFim: { rot: 'Mês da finalização', g: 'Datas', busca: true, ops: () => MESES_FIM.map((v) => ({ v, rot: mesRot(v) })) },
   };
@@ -1093,8 +1071,6 @@ export function iniciarPainel(D, { baixar, raiz = document, aba = '', aoTrocarAb
       ver: (o) => (o.lancDepois ? el('span', {}, diasDe(o), el('span', { class: 'lanc', text: 'lançada depois', title: `Aberta no Protheus ${plural(o.lancDepois, 'dia', 'dias')} depois do fim do serviço; o tempo conta do início da manutenção` })) : diasDe(o)) },
     { k: 'quemTxt', rot: 'Executante', padrao: true, cls: (o) => 'quem' + (o.grupo === 'S' ? ' fraco' : ''),
       ver: (o) => (o.grupo === 'S' && o.espTxt ? el('span', {}, 'Sem executante', el('small', { style: 'display:block;color:var(--muito-fraco)', text: 'prevista: ' + o.espTxt })) : o.quemTxt) },
-    { k: 'mat', rot: 'Material', ord: (o) => ['aguarda', 'parcial', 'aplicado', ''].indexOf(o.matSit),
-      ver: (o) => (o.matSit ? el('span', { class: 'mat-sit mat-' + o.matSit, text: MATERIAL[o.matSit][0] }) : '—') },
     { k: 'horas', rot: 'Horas apontadas', num: true, h: true, ver: (o) => (o.horas ? nh.format(o.horas) + ' h' : '—') },
     { k: 'hPrev', rot: 'Horas previstas', num: true, h: true, ver: (o) => (o.hPrev ? nh.format(o.hPrev) + ' h' : '—') },
     { k: 'contador', rot: 'Contador', num: true, ord: (o) => Number(o.contador) || -1, ver: (o) => (o.contador ? nf.format(Number(o.contador) || 0) : '—') },
@@ -1267,19 +1243,6 @@ export function iniciarPainel(D, { baixar, raiz = document, aba = '', aoTrocarAb
           el('td', { class: 'n' + (q.prev && q.prev < D.base && aberta ? ' velha' : ''), text: dma(q.prev) || '—' }),
           el('td', { class: 'n', text: dma(q.real) || '—' }),
           el('td', { class: 'n', text: q.h || q.hp ? nh.format(q.h) + (q.hp ? ' de ' + nh.format(q.hp) : '') + ' h' : '—' }))))))) : null;
-    // (24/11/2026) o material: o produto na STL, previsto (com a SA, a solicitação ao armazém) × aplicado (a baixa do estoque)
-    const qtd = (v, un) => nq.format(v) + (un ? ' ' + un : '');
-    const material = o.mat.length ? el('div', { class: 'det-bloco' }, el('h4', { text: 'Material · ' + MATERIAL[o.matSit][0] }),
-      el('div', { class: 'tab' }, el('table', { class: 'mao mat' },
-        el('thead', {}, el('tr', {}, ...['Produto', 'Previsto', 'Aplicado', 'SA'].map((x, i) => el('th', { class: i ? 'n' : null, text: x })))),
-        el('tbody', {}, ...o.mat.map((m) => {
-          const falta = m.prev - m.apl > 1e-9;
-          return el('tr', { class: falta ? 'falta' : null },
-            el('td', {}, m.nome, el('small', { class: 'mat-sub', text: [m.cod, m.dest, m.prevEm ? 'previsto para ' + dma(m.prevEm) : '', m.aplEm ? 'aplicado em ' + dma(m.aplEm) : ''].filter(Boolean).join(' · ') })),
-            el('td', { class: 'n', text: m.prev ? qtd(m.prev, m.un) : '—' }),
-            el('td', { class: 'n' + (falta ? ' velha' : ''), text: m.apl ? qtd(m.apl, m.un) : falta ? 'nada ainda' : '—' }),
-            el('td', { class: 'n', text: m.sa || '—' }));
-        }))))) : null;
     const linha = (rot, v) => (v == null || v === '' ? [] : [el('dt', { text: rot }), el('dd', {}, v)]);
     const mais = [...linha('Filial', o.filial), ...linha('Código do serviço', o.servCod), ...linha('Programação', CLASSE[o.classe]),
       ...linha('Início da manutenção', br(o.inicioMan)), ...linha('Lançada no Protheus', o.lancDepois ? `${plural(o.lancDepois, 'dia', 'dias')} depois do fim do serviço` : ''),
@@ -1292,7 +1255,6 @@ export function iniciarPainel(D, { baixar, raiz = document, aba = '', aoTrocarAb
       el('div', { class: 'det-fatos' }, ...fatos),
       o.obs ? el('div', { class: 'det-bloco' }, el('h4', { text: 'Observação' }), el('p', { class: 'obs-txt', text: o.obs })) : null,
       mao,
-      material,
       mais.length ? el('details', { class: 'det-mais' }, el('summary', { text: 'Mais detalhes' }), el('dl', {}, ...mais)) : null,
       el('div', { class: 'det-pe' }, el('button', { type: 'button', class: 'botao', text: 'Ver todas as OS da ' + o.frota,
         on: { click: () => { fecharDetalhe(); aplicar(() => so('frota', o.frota), 'frotas'); } } })));
@@ -3102,10 +3064,10 @@ export function iniciarPainel(D, { baixar, raiz = document, aba = '', aoTrocarAb
     try {
       const hv = (v) => (v ? String(v).replace('.', ',') : '');
       const linhas = [['OS', 'Filial', 'Frota', 'Equipamento', 'Código do serviço', 'Serviço', 'Categoria', 'Programação', 'Tipo', 'Situação', 'Aberta em', 'Liberada em',
-        'Programada para', 'Prevista na STL', 'Início da manutenção', 'Finalizada em', 'Dias', 'Lançada depois (dias)', 'Quem fecha', 'Executantes', 'Material', 'Especialidade prevista', 'Horas previstas', 'Horas apontadas',
+        'Programada para', 'Prevista na STL', 'Início da manutenção', 'Finalizada em', 'Dias', 'Lançada depois (dias)', 'Quem fecha', 'Executantes', 'Especialidade prevista', 'Horas previstas', 'Horas apontadas',
         'Contador', 'Centro de custo', 'Observação'],
         ...lista.map((o) => [o.os, o.filial, o.frota, o.equip, o.servCod, o.servico, o.cat, CLASSE[o.classe], o.tipo, SIT[o.sit], br(o.abertura), br(o.liberada),
-          br(o.progEm), br(o.prev), br(o.inicioMan), br(o.fim), o.dias ?? '', o.lancDepois || '', GRUPO[o.grupo], o.quemTxt, o.matSit ? MATERIAL[o.matSit][0] : TEM_MATERIAL ? MATERIAL.sem[0] : '', o.espTxt, hv(o.hPrev), hv(o.horas), o.contador, o.ccusto, o.obs])];
+          br(o.progEm), br(o.prev), br(o.inicioMan), br(o.fim), o.dias ?? '', o.lancDepois || '', GRUPO[o.grupo], o.quemTxt, o.espTxt, hv(o.hPrev), hv(o.horas), o.contador, o.ccusto, o.obs])];
       const blob = new Blob(['﻿' + linhas.map((l) => l.map(celulaCSV).join(';')).join('\r\n')], { type: 'text/csv;charset=utf-8' });
       const d = await downloadsP;
       if (!d) throw { code: 'unavailable' };

@@ -857,13 +857,6 @@ h2, h3, .aba, .kpi .val, .porta-caixa h2 { font-family: var(--fonte-marca, inher
    pequena (a linha do Protheus, os títulos da tabela, os rótulos dos grupos) */
 :host([data-tema="claro"]) { --muito-fraco: #66707c; }
 
-/* ── o material da OS (24/11/2026): o produto na STL, previsto × aplicado ── */
-.mat .mat-sub { display: block; font-size: 11.5px; color: var(--muito-fraco); }
-.mat tr.falta td:first-child { box-shadow: inset 3px 0 0 var(--alerta); }
-.mat-sit { font-weight: 650; }
-.mat-sit.mat-aguarda { color: var(--alerta-t); }
-.mat-sit.mat-parcial { color: var(--pendente-t); }
-.mat-sit.mat-aplicado { color: var(--finalizada-t); }
 
 /* ── tablet e celular, com o dedo (24/11/2026) ──
    Os alvos com uns 40 px de altura (antes de 14 a 34) e as caixinhas de marcar maiores. Só em tela de toque:

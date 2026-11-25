@@ -286,8 +286,7 @@ export function montar({ stj, stl, frotas, base, desde = "2024-01-01", ult0 = {}
   const gente = new Map();              // "filial|os" -> Map(código -> pessoa)
   const tercStl = new Set(), espec = new Map();
   const ultimo = new Map(Object.entries(ult0).map(([n, u]) => [n, { real: u.real || "", plan: u.plan || "" }]));
-  let nStl = 0, nProd = 0;
-  const mat = new Map();                // "filial|os" -> Map(código do produto -> o previsto e o aplicado)
+  let nStl = 0;
   for (const t of stl) for (const g of leitor(t)()) {
     nStl++;
     const ti = txt(g("Tipo Insumo"));
@@ -295,25 +294,6 @@ export function montar({ stj, stl, frotas, base, desde = "2024-01-01", ult0 = {}
     if ((ti === "Terceiro" || ti === "Especialidade") && chaves.has(k)) {
       if (ti === "Terceiro") tercStl.add(k);
       else { if (!espec.has(k)) espec.set(k, new Set()); espec.get(k).add(frase(txt(g("Nome Insumo"))) || txt(g("Código"))); }
-      continue;
-    }
-    // (24/11/2026) o material da OS: o insumo Produto. PLAN é o previsto (com a SA, a solicitação ao armazém); REAL,
-    // o aplicado (a baixa do estoque). Por OS e por produto: as quantidades, a data prevista mais cedo, a data da
-    // última aplicação, as SAs e o destino (Substituição, Apoio, Troca: a primeira letra).
-    if (ti === "Produto") {
-      nProd++;
-      const cod = txt(g("Código"));
-      if (!cod || !chaves.has(k)) continue;
-      if (!mat.has(k)) mat.set(k, new Map());
-      const ps = mat.get(k);
-      if (!ps.has(cod)) ps.set(cod, { cod, nome: txt(g("Nome Insumo")).replace(/\s+/g, " "), un: g.tem("Unidade") ? txt(g("Unidade")) : "",
-        prev: 0, apl: 0, prevEm: "", aplEm: "", sa: new Set(), dest: "" });
-      const x = ps.get(cod), q = num(g("Quantidade")), dia = iso(g("Data Início"));
-      if (txt(g("Tipo")) === "REAL") { x.apl += q; if (dia && dia > x.aplEm) x.aplEm = dia; }
-      else { x.prev += q; if (dia && (!x.prevEm || dia < x.prevEm)) x.prevEm = dia; }
-      const sa = g.tem("Numero da SA") ? txt(g("Numero da SA")).replace(/^0+(?=\d)/, "") : "";
-      if (sa && sa !== "0") x.sa.add(sa);
-      if (!x.dest && g.tem("Destino")) x.dest = txt(g("Destino")).charAt(0).toUpperCase();
       continue;
     }
     if (ti !== "Mão de Obra") continue;
@@ -340,15 +320,7 @@ export function montar({ stj, stl, frotas, base, desde = "2024-01-01", ult0 = {}
       if (dia && (!e.prevEm || dia < e.prevEm)) e.prevEm = dia;
     }
   }
-  const r2 = (x) => Math.round(x * 100) / 100, r3 = (x) => Math.round(x * 1000) / 1000;
-  const matRows = [];
-  for (const [k, ps] of [...mat].sort((a, b) => cmp(a[0], b[0]))) {
-    const [filial, os] = k.split("|");
-    for (const x of ps.values()) matRows.push({ filial, os, cod: x.cod, nome: x.nome, un: x.un, prev: r3(x.prev), apl: r3(x.apl),
-      prevEm: x.prevEm, aplEm: x.aplEm, sa: [...x.sa].sort().join(", "), dest: x.dest });
-  }
-  aud.linhasProduto = nProd;
-  aud.osComMaterial = mat.size;
+  const r2 = (x) => Math.round(x * 100) / 100;
   const execRows = [];
   for (const k of [...gente.keys()].sort()) for (const e of gente.get(k).values()) {
     const [filial, os] = k.split("|");
@@ -364,7 +336,7 @@ export function montar({ stj, stl, frotas, base, desde = "2024-01-01", ult0 = {}
   const frotasRows = [...nossas].map((b) => ({ frota: frota(b), bem: b, equipamento: nomesBem.get(b) || "" }))
     .sort((a, b) => (/^\d+$/.test(a.bem) ? Number(a.bem) : 1e9) - (/^\d+$/.test(b.bem) ? Number(b.bem) : 1e9));
   aud.linhasSTL = nStl;
-  return { osRows, execRows, matRows, frotasRows, ultimo: Object.fromEntries(ultimo), base, nStj, nStl, repetidas, canceladas, auditoria: aud };
+  return { osRows, execRows, frotasRows, ultimo: Object.fromEntries(ultimo), base, nStj, nStl, repetidas, canceladas, auditoria: aud };
 }
 
 // ── o bloco de dados do painel (pagina.py) ───────────────────────────────────
@@ -396,15 +368,6 @@ export function dadosDoPainel(m, extra = {}) {
     for (const [j, campo] of [[2, "prevista_para"], [3, "apontada_em"]]) if (e[campo] && (!x[j] || e[campo] < x[j])) x[j] = e[campo];
   }
   const nomes = [...quem.keys()].sort(cmp);
-  // (24/11/2026) o material: os produtos à parte ([código, nome, unidade]) e, por índice da OS,
-  // [[produto, previsto, aplicado, previsto para, aplicado em, SAs, destino S/A/T], ...]
-  const prods = new Map(), mat = {};
-  for (const r of m.matRows || []) {
-    const i = indice.get(chaveOS(r.filial, r.os));
-    if (i === undefined) continue;
-    if (!prods.has(r.cod)) prods.set(r.cod, [prods.size, r.nome, r.un]);
-    (mat[i] || (mat[i] = [])).push([prods.get(r.cod)[0], r.prev, r.apl, r.prevEm, r.aplEm, r.sa, r.dest]);
-  }
   const D = {
     base: m.base,
     ...extra,
@@ -422,8 +385,6 @@ export function dadosDoPainel(m, extra = {}) {
     // nome -> [[índice da OS, horas apontadas, horas previstas, prevista para, apontada em], ...]
     exec: Object.fromEntries(nomes.map((n) => [n, [...quem.get(n).entries()].sort((a, b) => a[0] - b[0]).map(([i, x]) => [i, ...x])])),
     frotas_lista: m.frotasRows.map((f) => f.frota),
-    prod: [...prods].map(([c, [, n, u]]) => [c, n, u]),
-    mat,
     // as canceladas (fora da carteira): [OS, filial, frota, abertura]; e o funil do Protheus ao painel
     canceladas: (m.canceladas || []).map((c) => [c.os, c.filial, c.frota, c.abertura]),
     auditoria: m.auditoria || null,

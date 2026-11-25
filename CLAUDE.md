@@ -103,12 +103,11 @@ nem a equipe, e no site o menu só tem a OS Makro. Regras:
   (`planosDaCopia`, podado por `podarPlanos`): os Indicadores usam ele em vez de
   baixar a cópia; o cartão da semana baixa. As com data e sem executante na
   cópia ficam fora do plano e aparecem à parte (`semExecutanteDaCopia`).
-- O **material da OS** (24/11/2026) vem do insumo *Produto* da STL, lido em
-  `montar.js`: PLAN é o previsto (com a SA, a solicitação ao armazém), REAL o
-  aplicado (a baixa do estoque). No painel: `D.prod` (os produtos) e `D.mat`
-  (por OS); a situação é `IND.situacaoDoMaterial` (aguardando, parte aplicada,
-  aplicado, sem material). Aparece na ficha da OS, no filtro Material, na coluna
-  Material da Carteira e na busca. A STL sem os produtos dá o material vazio.
+- O **material da OS** (o insumo *Produto* da STL) entrou em 24/11/2026 e saiu
+  em 25/11/2026, a pedido do Mateus: o painel não precisa dos insumos. O
+  `montar.js` ignora a linha de Produto (da STL só lê Mão de Obra, Terceiro e
+  Especialidade) e o pacote não leva produto. O código está no commit 457eaf7,
+  se um dia voltar.
 - A OS aberta com a abertura (Dt. Original) depois da data do export está nas
   "Abertas agora", mas só entra no backlog no dia da abertura (`IND.abreDepois`).
   A regra não muda: a Visão geral, o Avanço e a Conferência avisam quantas são.

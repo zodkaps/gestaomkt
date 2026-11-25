@@ -113,10 +113,7 @@ export function funilDaSTJ(a, desde) {
       linha("− encerradas sem a data de fim", soma("semFim")),
       linha(`− encerradas antes de ${br(desde)}`, soma("antesDe")),
       linha(`= no painel: ${nf.format(soma("corretivas"))} corretivas (a carteira) e ${nf.format(soma("preventivas"))} preventivas`, noPainel),
-      linha("+ da base histórica (OS de antes de 2026)", a.daBaseHistorica || 0),
-      // (24/11/2026) o material: as linhas de produto da STL e em quantas OS do painel ele entrou
-      a.linhasProduto != null ? linha(a.linhasProduto ? `Material na STL: ${nf.format(a.linhasProduto)} linhas de produto, em OS do painel` :
-        "Material na STL: nenhuma linha de produto (a STL veio sem os produtos)", a.osComMaterial || 0) : null),
+      linha("+ da base histórica (OS de antes de 2026)", a.daBaseHistorica || 0)),
     fil.length > 1 ? el("table", { class: "imp-funil-tab" },
       el("thead", {}, el("tr", {}, ...["Filial", "Linhas da STJ", "Bens fora da lista", "Canceladas", "Outras saídas", "No painel"].map((x) => el("th", { text: x })))),
       el("tbody", {}, ...fil.map(([f, x]) => el("tr", {}, el("td", { text: f }), ...[x.linhas, x.fora, x.canceladas, x.repetidas + x.semFim + x.antesDe + (x.semNumero || 0), x.corretivas + x.preventivas]

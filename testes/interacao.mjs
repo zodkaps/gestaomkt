@@ -2418,7 +2418,8 @@ ok("e o Diagnóstico não manda rodar SQL por causa de sessão",
   const fSTJout = excel("STJ_outubro.xlsx", [["STJ"], CAB_STJ, ...linhasSTJ]);
   const fSTJ = excel("STJ.xlsx", [["STJ"], CAB_STJ, os("100000", "0255", "2026-01-05", "Sim", "Liberado", "2026-02-01"), ...linhasSTJ]);
   const CAB_STL = ["Filial", "Ordem", "Tipo", "Tipo Insumo", "Código", "Nome Insumo", "Quantidade", "Data Início", "Unidade", "Numero da SA", "Destino"];
-  // (24/11/2026) com o material: um produto previsto (com a SA) e nada aplicado na 100001; um aplicado na 100003
+  // a STL de verdade traz também o insumo Produto (o material): o painel não o lê (saiu em 25/11/2026), e ele fica aqui
+  // para provar que a linha de Produto não muda nada
   const fSTL = excel("STL_1.xlsx", [CAB_STL, ["010101", "100001", "PLAN", "Mão de Obra", "000111", "FULANO DE TESTE", 2, D("2026-11-04"), "H", "", ""],
     ["010101", "100003", "REAL", "Mão de Obra", "000111", "FULANO DE TESTE", 1.5, D("2026-11-03"), "H", "", ""],
     ["010101", "100001", "PLAN", "Produto", "PEC-TESTE-1", "PECA DE TESTE", 2, D("2026-11-04"), "UN", "000321", "Substituição"],
@@ -2505,38 +2506,27 @@ ok("e o Diagnóstico não manda rodar SQL por causa de sessão",
   ok("e a aba Não liberadas com 1", (await mt.textContent("#n-pendentes")) === "1");
   ok("a preventiva fica fora da carteira: a aba OS preventivas com 1", (await mt.textContent("#n-preventivas")) === "1" && (await mt.textContent("#sub")).includes("1 preventiva (à parte)"),
     await mt.textContent("#sub"));
-  // (24/11/2026) o material (o produto na STL): na ficha da OS, na busca e no filtro Material
+  // (25/11/2026) o material saiu do painel, a pedido do Mateus: a STL de teste ainda traz o insumo Produto (como a de
+  // verdade), e nada dele aparece: nem na ficha da OS, nem na busca, nem em Mais filtros, nem em Colunas
   {
     await mt.evaluate(() => { location.hash = "#/os?aba=carteira"; });
     await mt.waitForSelector("#c-carteira tbody tr", { timeout: 30000 });
     await mt.click('#c-carteira tbody tr:has-text("100001")');
     await mt.waitForSelector(".detalhe", { timeout: 10000 });
-    // o texto como escrito (o título da seção aparece em maiúsculas na tela, pelo CSS)
     const ficha = (await mt.$eval(".detalhe", (d) => d.textContent)).replace(/\s+/g, " ");
-    ok("a ficha da OS mostra o material: o produto previsto, a SA e o que falta (nada aplicado ainda)",
-      ficha.includes("Material · Aguardando material") && ficha.includes("PECA DE TESTE") && ficha.includes("2 UN") && ficha.includes("nada ainda") && ficha.includes("321") &&
-      ficha.includes("previsto para 04/11"), ficha.slice(0, 400));
     await mt.keyboard.press("Escape");
     await mt.waitForTimeout(200);
     await mt.fill("#f-q", "peca de teste");
     await mt.waitForTimeout(600);
     const achou = await mt.$$eval("#c-carteira tbody tr", (v) => v.map((x) => x.textContent.slice(0, 6)));
-    ok("a busca acha a OS pelo produto", achou.length === 1 && achou[0] === "100001", achou.join(" | "));
     await mt.fill("#f-q", "");
     await mt.waitForTimeout(400);
     if ((await mt.getAttribute(".pill-mais", "aria-expanded")) !== "true") await mt.click(".pill-mais");
-    await mt.click('#mais-painel .pill[data-k="mat"]');
-    await mt.waitForSelector("#pop .pop-op", { timeout: 5000 });
-    const ops = await mt.$$eval("#pop .pop-op", (v) => v.map((x) => x.textContent.replace(/\s+/g, " ").trim()));
-    ok("o filtro Material: aguardando, parte aplicada, aplicado e sem material, cada um com quantas OS",
-      ops.length === 4 && ops[0].startsWith("Aguardando material") && ops[0].endsWith("1") && ops[2].startsWith("Material aplicado") && ops[3].startsWith("Sem material"), ops.join(" | "));
-    await mt.click('#pop .pop-op:has-text("Aguardando material") input');
-    await mt.waitForTimeout(500);
-    const soAguarda = await mt.$$eval("#c-carteira tbody tr", (v) => v.map((x) => x.textContent.slice(0, 6)));
-    ok("e filtrando 'Aguardando material', a Carteira fica só com a OS que espera o produto", soAguarda.join("|") === "100001", soAguarda.join(" | "));
-    await mt.click('#pop .pop-op:has-text("Aguardando material") input');
-    await mt.keyboard.press("Escape");
-    await mt.waitForTimeout(300);
+    const mais = await mt.$eval("#mais-painel", (e) => e.textContent);
+    const cols = await mt.$$eval("#c-carteira .colunas-lista label", (v) => v.map((x) => x.textContent.trim()));
+    ok("o material saiu: a ficha da OS com produto na STL não o mostra, a busca não acha pelo produto, e não há filtro nem coluna Material",
+      ficha.includes("Mão de obra") && !/Material|PECA DE TESTE/i.test(ficha) && !achou.includes("100001") && !/Material/.test(mais) && cols.length > 0 && !cols.includes("Material"),
+      JSON.stringify({ ficha: ficha.slice(0, 160), achou, cols }));
   }
   // abrir de novo, num aparelho que já tem: vem do guardado, igual
   await mt.goto(site.endereco + "#/os?aba=executantes", { waitUntil: "networkidle" });

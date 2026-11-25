@@ -69,15 +69,6 @@ export const terminouEm = (o) => (o.sit === "F" ? saidaDe(o) : o.fimReal || "");
  *  nenhuma: é o aviso quando "Abertas agora" fica maior que o backlog do dia. */
 export const abreDepois = (o, base) => o.sit !== "F" && !!o.abertura && o.abertura > base;
 
-/** O material da OS (24/11/2026: o insumo Produto da STL), produto por produto: `prev` o previsto (PLAN, que gera a
- *  solicitação ao armazém) e `apl` o aplicado (REAL, a baixa do estoque). "aguarda": falta material e nada foi
- *  aplicado; "parcial": parte aplicada e parte faltando; "aplicado": nada faltando; "": sem material na STL. */
-export function situacaoDoMaterial(itens) {
-  if (!itens || !itens.length) return "";
-  if (!itens.some((m) => (m.prev || 0) - (m.apl || 0) > 1e-9)) return "aplicado";
-  return itens.some((m) => (m.apl || 0) > 0) ? "parcial" : "aguarda";
-}
-
 /** Em aberto no fim do dia `d`: entrou até ele e não saiu até ele. */
 export const emAberto = (o, d) => !!o.abertura && o.abertura <= d && !(o.sit === "F" && (!o.fim || saidaDe(o) <= d));
 
