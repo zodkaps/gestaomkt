@@ -2161,5 +2161,34 @@ titulo("sw.js e as páginas — o que funciona sem rede, e o que a página deixa
   }
 }
 
+titulo("o CSS — as chaves, e o :hover do painel só com mouse");
+{
+  const { readdir } = await import("node:fs/promises");
+  // sem os comentários e sem o que está entre aspas (o content: " ↓" e os [aria-sort="..."])
+  const limpo = (t) => t.replace(/\/\*[\s\S]*?\*\//g, "").replace(/"[^"]*"|'[^']*'/g, '""');
+  // (24/11/2026) uma linha que sobrou de uma regra apagada, com a "}" dela, fazia o navegador jogar fora a regra seguinte
+  for (const f of (await readdir(resolve(RAIZ, "css"))).filter((x) => x.endsWith(".css"))) {
+    let p = 0, solta = false;
+    for (const ch of limpo(await readFile(resolve(RAIZ, "css", f), "utf8"))) { if (ch === "{") p++; else if (ch === "}" && --p < 0) { solta = true; p = 0; } }
+    ok(`css/${f}: toda chave que abre fecha, e nenhuma fecha sobrando (a sobra apaga a regra seguinte sem aviso)`, !solta && p === 0, `profundidade no fim: ${p}${solta ? ", uma } sobrando" : ""}`);
+  }
+  // (24/11/2026) no tablet o :hover prende no último lugar tocado: no painel, a barra ficava acesa e as outras apagadas
+  // depois de rolar. Todo :hover do css/os.css fica dentro de @media (hover: hover); no toque o destaque é o .tocada.
+  const t = limpo(await readFile(resolve(RAIZ, "css/os.css"), "utf8"));
+  const pilha = [], soltos = [];
+  let ini = 0;
+  for (let i = 0; i < t.length; i++) {
+    if (t[i] === "{") {
+      const prel = t.slice(ini, i).trim();
+      if (!prel.startsWith("@") && prel.includes(":hover") && !pilha.some((q) => /^@media[^{]*\(\s*hover\s*:\s*hover\s*\)/.test(q))) soltos.push(prel.slice(0, 80));
+      pilha.push(prel);
+      ini = i + 1;
+    } else if (t[i] === "}") { pilha.pop(); ini = i + 1; } else if (t[i] === ";") ini = i + 1;
+  }
+  ok("css/os.css: todo :hover fica dentro de @media (hover: hover) (no toque ele prende no último lugar tocado)", !soltos.length, soltos.join(" | "));
+  ok("e o toque tem o destaque dele: a coluna e a fatia da dica aberta (.tocada)",
+    /\.graf svg:has\(\.col\.tocada\) \.col:not\(\.tocada\)/.test(t) && /\.rosca svg:has\(\.fatia\.tocada\) \.fatia:not\(\.tocada\)/.test(t));
+}
+
 console.log(`\n${passou} passaram, ${falhou} falharam`);
 if (falhou) { for (const f of falhas) console.log(`  × ${f}`); process.exit(1); }

@@ -683,7 +683,17 @@ export function iniciarPainel(D, { baixar, raiz = document, aba = '', aoTrocarAb
       fn.call(this, ev, d);
     });
   }
+  // (24/11/2026) o destaque do toque: com o mouse, a coluna sob ele fica acesa e as outras recuam (o :hover do
+  // css/os.css, que agora vale só com mouse). No toque o :hover ficava preso na última barra tocada, com as outras
+  // apagadas até tocar noutro canto. Agora a barra (ou a fatia) da dica ganha o .tocada, e perde quando a dica fecha.
+  let marcada = null;
+  const marcarTocada = (e) => {
+    if (marcada && marcada !== e) marcada.classList.remove('tocada');
+    marcada = e || null;
+    if (marcada) marcada.classList.add('tocada');
+  };
   function mostrarDica(ev, titulo, linhas) {
+    if (doDedo) marcarTocada(ev.target && ev.target.closest ? ev.target.closest('.col, .fatia') : null);
     const doToque = !liberado && tocado && ev.target && tocado.contains(ev.target);
     dica.replaceChildren(el('span', { class: 't', text: titulo }), ...linhas.map(([nome, valor, cor]) =>
       el('span', { class: 'l' }, cor ? el('i', { class: 'ponto', style: 'background:' + cor }) : null, nome, el('b', { text: valor }))),
@@ -696,7 +706,7 @@ export function iniciarPainel(D, { baixar, raiz = document, aba = '', aoTrocarAb
     dica.style.left = Math.max(8, x) + 'px';
     dica.style.top = y + 'px';
   }
-  const esconderDica = () => { dica.hidden = true; };
+  const esconderDica = () => { dica.hidden = true; marcarTocada(null); };
   // o mouse saiu de cima do pedaço: fecha a dica. Depois de um toque o navegador manda o mesmo aviso, e aí ela fica.
   const sairDoMouse = () => { if (!doDedo) esconderDica(); };
   ouvir(window, 'scroll', esconderDica, { passive: true });

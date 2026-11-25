@@ -176,6 +176,11 @@ Mudou arquivo em `js/`? Acrescentar em `sw.js` (lista e versão) — o
   (a tabela larga ainda rola para o lado). Caixa nova com rolagem própria, só
   se for janela por cima (ficha, filtro). O `html` tem `touch-action:
   manipulation` (dois toques não dão zoom).
+- Todo `:hover` do `css/os.css` fica dentro de `@media (hover: hover)`
+  (24/11/2026): no tablet ele prendia no último lugar tocado (depois de rolar,
+  uma barra acesa e as outras apagadas). No toque, o destaque do gráfico é o
+  `.tocada`, que `mostrarDica` põe e `esconderDica` tira. O `testes/rodar.js`
+  acusa `:hover` fora do `@media` e chave sobrando no CSS.
 - A barra lateral recolhe (`#brecolher` em `js/app.js`, 24/11/2026): o `html`
   ganha `data-menu="recolhido"`, o `--menu` vai a 64 px e a escolha fica em
   `menu_recolhido`. Quem depende da largura do menu usa `var(--menu)`.

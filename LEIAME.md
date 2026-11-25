@@ -272,6 +272,12 @@ A oficina devolver a frota atrasada **não** conta: o que se avalia é a operaç
   página em qualquer lugar. Dois toques rápidos não dão mais zoom; segurar o
   dedo num gráfico não seleciona o texto; e, com o tablet deitado, a barra de
   filtros não fica presa no alto (eram uns 130 px a menos de leitura).
+  E o **destaque que prendia**: no gráfico, a barra sob o mouse fica acesa e as
+  outras recuam. No tablet esse "sob o mouse" ficava preso no último toque, e
+  depois de rolar a página uma barra continuava acesa e as outras apagadas, sem
+  dica nenhuma. Agora o destaque, no toque, vai junto com a dica: aparece com
+  ela e some quando ela fecha (rolou, tocou fora, trocou de aba). Com o mouse,
+  igual a antes.
 - **A barra lateral recolhe** (24/11/2026): o botão no canto do logo deixa o
   menu só com os ícones, e a tela ganha a largura (no tablet deitado, o painel
   passa de 1.048 para 1.216 px). O mesmo botão abre de novo, e a escolha fica

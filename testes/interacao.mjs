@@ -3146,6 +3146,43 @@ ok("e o Diagnóstico não manda rodar SQL por causa de sessão",
   ok("com o mouse nada muda: passar mostra a dica (sem o aviso do toque) e o clique abre a Carteira na hora",
     !!passou && !passou.includes("Toque de novo") && (await pcx.evaluate(() => location.hash)).includes("aba=carteira"), passou.slice(0, 120));
   await pcx.context().close();
+  // (24/11/2026) o destaque do toque: com a dica aberta, a barra tocada fica acesa e as outras recuam; a dica fechou
+  // (rolou a página), o destaque vai junto. Antes o :hover prendia: depois de rolar, a barra que ficava sob o dedo
+  // acendia e as outras ficavam apagadas, sem dica nenhuma. No gráfico da idade da Visão geral, que tem várias colunas
+  // nos dados de teste (o do Backlog por executante tem uma pessoa só aqui); o destaque é o mesmo em todos.
+  {
+    const tb = await (await nav.newContext({ viewport: { width: 800, height: 1280 }, isMobile: true, hasTouch: true })).newPage();
+    vigiarCSP(tb);
+    await tb.goto(site.endereco, { waitUntil: "networkidle" });
+    await entrarComo(tb, "Mateus");
+    await tb.evaluate(() => { location.hash = "#/os?aba=geral"; });
+    await tb.waitForSelector("#g-idade svg .col path", { timeout: 30000 });
+    await tb.waitForTimeout(500);
+    await tb.evaluate(() => { const e = document.createElement("div"); e.style.height = "1600px"; document.querySelector("#tela").append(e); });
+    const p0 = await tb.$("#g-idade svg .col path");
+    await p0.scrollIntoViewIfNeeded();
+    await tb.waitForTimeout(400);
+    const b0 = await p0.boundingBox();
+    const medir = () => tb.evaluate(() => {
+      const s = document.querySelector(".os-host").shadowRoot, d = s.querySelector("#dica");
+      const ops = [...s.querySelectorAll("#g-idade svg .col")].map((g) => Number(getComputedStyle(g).opacity));
+      return { dica: !!d && !d.hidden, tocadas: s.querySelectorAll(".tocada").length, apagadas: ops.filter((o) => o < 0.99).length, barras: ops.length };
+    });
+    await tb.touchscreen.tap(b0.x + b0.width / 2, b0.y + b0.height / 2);
+    await tb.waitForTimeout(500);
+    const aberta = await medir();
+    const cdp = await tb.context().newCDPSession(tb);
+    await cdp.send("Input.dispatchTouchEvent", { type: "touchStart", touchPoints: [{ x: 400, y: 1000 }] });
+    for (let i = 1; i <= 12; i++) { await cdp.send("Input.dispatchTouchEvent", { type: "touchMove", touchPoints: [{ x: 400, y: 1000 - (200 * i) / 12 }] }); await tb.waitForTimeout(16); }
+    await cdp.send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] });
+    await tb.waitForTimeout(700);
+    const rolou = await medir();
+    ok("no tablet, com a dica aberta a coluna tocada fica acesa e as outras recuam",
+      aberta.dica && aberta.barras > 1 && aberta.tocadas === 1 && aberta.apagadas === aberta.barras - 1, JSON.stringify(aberta));
+    ok("e, rolada a página (a dica fecha), nenhuma coluna fica apagada: o destaque não prende no último toque",
+      !rolou.dica && rolou.tocadas === 0 && rolou.apagadas === 0, JSON.stringify(rolou));
+    await tb.context().close();
+  }
   // (24/11/2026) a rolagem com o dedo: em cima da tabela da Carteira, quem anda é a página (a tabela rolava por dentro,
   // até 70% da tela, e o dedo ficava preso nela)
   {
