@@ -2586,6 +2586,9 @@ ok("e o Diagnóstico não manda rodar SQL por causa de sessão",
   ok("e a aba vai para o endereço", mt.url().endsWith("#/os?aba=indicadores"), mt.url());
   const comp = await mt.$$eval("#c-ind-comp tbody tr", (v) => v.map((x) => [...x.children].map((c) => c.textContent).join("|")));
   ok("o comparativo com o período anterior: o backlog no fim, a diferença e a leitura", comp.some((x) => x.startsWith("Backlog no fim|2|")), comp.slice(0, 5).join(" ; "));
+  // (25/11/2026, pedido do Mateus) as preventivas são sistemáticas: o índice de preventiva e a rosca corretiva × preventiva saíram
+  ok("as preventivas fora dos Indicadores: sem o índice de preventiva (nem no comparativo) e sem a rosca corretiva × preventiva",
+    ind.length > 0 && !ind.some((x) => /preventiva/i.test(x)) && !comp.some((x) => /preventiva/i.test(x)) && !(await mt.$("#c-tipo")) && !!(await mt.$("#c-sit")), ind.join(" | "));
   const grafs = await Promise.all(["#g-ind-backlog svg", "#g-ind-ne svg", "#g-ind-saldo svg", "#g-ind-taxa svg"].map((x) => mt.$$(x).then((l) => l.length)));
   ok("e os gráficos da evolução: o backlog com a tendência, novas × encerradas, o saldo e encerradas ÷ novas", grafs.every((n) => n === 1), grafs.join(","));
   const regraVisivel = () => mt.isVisible("#indicadores .kpi.ind .regra >> nth=0");
@@ -2943,7 +2946,9 @@ ok("e o Diagnóstico não manda rodar SQL por causa de sessão",
   await mt.click('#detalhe label:has-text("Preventivas em aberto")');
   await mt.waitForTimeout(200);
   const resPrev = (await mt.textContent("#detalhe .folha-resumo")).replace(/\s+/g, " ");
-  ok("e com as preventivas em aberto, a 100007 entra (à parte, no fim da frota)", resPrev.startsWith("Vai sair: 1 frota · 3 OS ·"), resPrev);
+  // (25/11/2026) a preventiva vai na lista, à parte, mas não conta nas OS da frota (é sistemática)
+  ok("e com as preventivas em aberto, a 100007 entra à parte, no fim da frota, sem contar nas OS",
+    resPrev === "Vai sair: 1 frota · 2 OS + 1 preventiva à parte · 0 com sinal de já feita · 2 repetidas · e o resumo por frota no fim.", resPrev);
   const [dConf] = await Promise.all([mt.waitForEvent("download", { timeout: 20000 }), mt.click('#detalhe button:has-text("Baixar o PDF")')]);
   const bConf = await readFile(await dConf.path());
   ok("a lista de conferência sai em PDF", bConf.subarray(0, 5).toString() === "%PDF-" && /^carteira-conferencia-f-\d+-2026-11-05\.pdf$/.test(dConf.suggestedFilename()), dConf.suggestedFilename());

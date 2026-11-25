@@ -120,6 +120,10 @@ nem a equipe, e no site o menu só tem a OS Makro. Regras:
 - As preventivas (Plano Manut. ≠ 000000) ficam fora da carteira (pedido do
   Mateus, 11/11/2026): no `painel.js`, `OS` são as corretivas e `OS_PREV` as
   preventivas, com a aba OS preventivas. Conta nova da carteira usa `OS`.
+  Desde 25/11/2026 (são sistemáticas) não entram em número de OS nenhum: o
+  índice de preventiva e a rosca corretiva × preventiva saíram dos Indicadores,
+  e na folha de conferência a preventiva vai à parte, fora das contas da frota
+  (`n.os`, "+ N preventivas à parte").
 - A lista de frotas do PCM se cola na caixa *Frotas do PCM* de *Atualizar com
   o Protheus* e fica no bucket (`frotas.json.gz`); sem ela, vale a da base
   histórica. Número de frota não vai para o repositório.

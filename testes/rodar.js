@@ -1768,7 +1768,8 @@ titulo("os/indicadores.js — cada fórmula com as contas feitas à mão");
   // c (semana de 19 a 25/10) e g (terça 03/11: a semana acabou no domingo 08/11) cumpriram; d (14/10) fechou em 30/10; f é do futuro
   igual("aderência: das 3 programadas de semana já fechada, 2 finalizadas até o domingo", [k.programadas, k.cumpridas, k.aderencia], [3, 2, 2 / 3]);
   igual("prevista vencida: 1 das 2 abertas da equipe", [k.nEquipe, k.nVencidas, k.vencida], [2, 1, 0.5]);
-  igual("preventiva 50%; programado 2 de 3 (sem as outras); cobertura 2 de 3", [k.preventiva, k.programado, k.cobertura], [0.5, 2 / 3, 2 / 3]);
+  // (25/11/2026, pedido do Mateus) o índice de preventiva saiu: as preventivas são sistemáticas e não entram nos Indicadores
+  igual("programado 2 de 3 (sem as outras); cobertura 2 de 3; e sem índice de preventiva", [k.programado, k.cobertura, "preventiva" in k], [2 / 3, 2 / 3, false]);
   igual("espera de liberação: mediana 1 dia (só as liberadas no período)", [k.esperaLiberacao, k.nLiberadas], [1, 1]);
   igual("horas: 8 no período, 4 por OS que apontou; aberta depois do serviço: 1 de 4", [k.horas, k.horasPorOS, k.abertasDepois], [8, 4, 0.25]);
   const vazio = IND.indicadores([], { desde: "2026-10-13", ate: "2026-11-09", base: "2026-11-09" });

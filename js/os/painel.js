@@ -1427,15 +1427,6 @@ export function iniciarPainel(D, { baixar, raiz = document, aba = '', aoTrocarAb
   const fmtDias = (v) => (v == null ? '—' : plural(Math.round(v * 10) / 10, 'dia', 'dias').replace(/^(\d+)\.(\d)/, '$1,$2'));
   const fmtPc = (v) => (v == null ? '—' : pc.format(v));
   const fmtSem = (v) => (v == null ? '—' : nh.format(v) + (v === 1 ? ' semana' : ' semanas'));
-  /** O índice de preventiva (11/11/2026): as preventivas estão fora da carteira, mas o índice compara as duas — das
-   *  encerradas no período (corretivas e preventivas), quantas eram preventivas. Acerta `k` (de IND.indicadores). */
-  function comPreventivas(k, p) {
-    const fim = p.ate < D.base ? p.ate : D.base;
-    k.nPreventivas = recorte({ sem: 'sit', lista: OS_PREV }).todas.filter((o) => { const sd = IND.saidaDe(o); return !!sd && sd >= p.desde && sd <= fim; }).length;
-    k.fechadasTodas = k.fechadas + k.nPreventivas;
-    k.preventiva = k.fechadasTodas ? k.nPreventivas / k.fechadasTodas : null;
-    return k;
-  }
   /** A aderência de um período (19/11/2026, pedido do Mateus): a soma das semanas que começam nele e já acabaram — em cada
    *  uma, das programadas para ela (data da STJ ou previsão da STL, com executante), as que terminaram dentro dela
    *  (IND.progFin). A mesma conta do gráfico da Programação, semana a semana. (O plano de segunda saiu da tela: na segunda
@@ -1463,7 +1454,7 @@ export function iniciarPainel(D, { baixar, raiz = document, aba = '', aoTrocarAb
       ['Backlog no fim', k.carteira, a.carteira, 'n', 'menos'], ['Saldo (novas − encerradas)', k.saldo, a.saldo, 'n', 'menos'],
       ['Encerradas ÷ novas', k.atendimento, a.atendimento, 'pc', 'mais'], ['Fechadas por semana', k.ritmo, a.ritmo, 'h', 'mais'],
       ['Tempo para fechar (mediana)', k.tempoMediana, a.tempoMediana, 'd', 'menos'], ['Fechadas em até 7 dias', k.ate7, a.ate7, 'pc', 'mais'],
-      ['Aderência à programação', k.aderencia, a.aderencia, 'pc', 'mais'], ['Índice de preventiva', k.preventiva, a.preventiva, 'pc', 'mais'],
+      ['Aderência à programação', k.aderencia, a.aderencia, 'pc', 'mais'],
       ['Trabalho programado', k.programado, a.programado, 'pc', 'mais'], ['Horas apontadas', k.horas, a.horas, 'h', null],
       ['Abertas depois do serviço', k.abertasDepois, a.abertasDepois, 'pc', 'menos']];
     const fmtC = (v, tp) => (v == null ? '—' : tp === 'pc' ? pc.format(v) : tp === 'd' ? fmtDias(v) : tp === 'h' ? nh.format(v) : nf.format(v));
@@ -1487,7 +1478,6 @@ export function iniciarPainel(D, { baixar, raiz = document, aba = '', aoTrocarAb
     const raiz = $('#indicadores');
     const p = { desde: R.p.desde, ate: R.p.ate, base: D.base }, pa = IND.anterior({ ...p, unidade: unidadeDe(R.p.desde, R.p.ate) });
     const k = IND.indicadores(R.todas, p), a = IND.indicadores(R.todas, pa);
-    comPreventivas(k, p); comPreventivas(a, pa);
     comAderenciaDaSemana(k, p, R.todas); comAderenciaDaSemana(a, pa, R.todas);
     const nomeAnt = pa.desde === pa.ate ? dma(pa.desde) : `${dma(pa.desde)} a ${dma(pa.ate)}`;
     // a comparação: a seta, "melhor" ou "pior" escrito (a cor nunca sozinha) e o número de antes
@@ -1539,8 +1529,6 @@ export function iniciarPainel(D, { baixar, raiz = document, aba = '', aoTrocarAb
           ind('Idade da carteira', fmtDias(k.idadeMediana), `mediana das abertas · ${fmtPc(k.mais90)} com mais de 90 dias (${nf.format(k.nMais90)})`,
             { cls: k.mais90 > 0.5 ? 'ruim' : '', fazer: () => aplicar(() => so('idade', '3'), 'carteira') })),
         grupo('Planejamento e mão de obra', 'como o trabalho chega',
-          ind('Índice de preventiva', fmtPc(k.preventiva), `das encerradas no período (corretivas e preventivas), as preventivas: ${nf.format(k.nPreventivas)} de ${nf.format(k.fechadasTodas)}`,
-            { comp: compara(k.preventiva, a.preventiva, 'mais', fmtPc) }),
           ind('Trabalho programado', fmtPc(k.programado), `Categoria programada ÷ (programada + não programada), nas fechadas (${nf.format(k.nProgP)} de ${nf.format(k.nProgP + k.nProgN)})`,
             { comp: compara(k.programado, a.programado, 'mais', fmtPc) }),
           ind('Horas apontadas', nh.format(k.horas) + ' h', k.horasPorOS == null ? 'nenhuma fechada no período com apontamento' : `nas fechadas no período · ${nh.format(k.horasPorOS)} h por OS com apontamento`,
@@ -1571,7 +1559,6 @@ export function iniciarPainel(D, { baixar, raiz = document, aba = '', aoTrocarAb
         cartaoGraf('c-ind-ne', 'Novas e encerradas', `Em cada ${unidI}: a entrada pela abertura e a saída pelo fim · embaixo, o saldo`, 'c12', [['Novas OS', 'var(--nova)'], ['Encerradas', COR.F]]),
         cartaoGraf('c-ind-saldo', 'Saldo da carteira', `Novas − encerradas em cada ${unidI}`, 'c6', [['Cresceu (entrou mais do que saiu)', COR.alerta], ['Diminuiu (saiu mais do que entrou)', COR.F]]),
         cartaoGraf('c-ind-taxa', 'Encerradas ÷ novas', `Em cada ${unidI} · acima de 100% a carteira diminui`, 'c6'),
-        cartaoGraf('c-tipo', 'Corretiva e preventiva', 'Encerradas no período', 'c6'),
         cartaoGraf('c-sit', 'Situação das abertas', 'Abertas hoje', 'c6'))));
     $('#c-ind-backlog .acoes').prepend(el('div', { class: 'ctl' }, segSerie(selI)));
     const serieI = serieCarteira(R.todas, selI, escI);
@@ -1582,10 +1569,7 @@ export function iniciarPainel(D, { baixar, raiz = document, aba = '', aoTrocarAb
     linhaTempo($('#g-ind-taxa'), { linhas: serieI.map((l) => ({ ...l, taxa: l.taxaEncerramento })), k: 'taxa', titulo: 'Encerradas ÷ novas', fmt: (v) => pc.format(v), area: false, passoMin: 40,
       nomes: (l) => [l.curto, ''], ref: { v: 1, rot: '100%' }, marcado: (l) => toca(l, selI), aoClicar: (l) => irPeriodo(l),
       dica: (l) => [['Encerradas ÷ novas', l.taxaEncerramento == null ? '—' : pc.format(l.taxaEncerramento)], ...dicaMov(l)] });
-    const fe = R.fechadas, ab = R.abertas;
-    rosca($('#g-tipo'), [{ nome: 'Preventiva', valor: k.nPreventivas, cor: COR.prog, v: 'Preventiva' },
-      { nome: 'Corretiva', valor: fe.length, cor: COR.nprog, v: 'Corretiva' }],
-      { titulo: 'Corretiva e preventiva', sub: 'encerradas', aoClicar: (f) => (f.v === 'Preventiva' ? irPara('preventivas') : aplicar(() => so('sit', 'F'), 'carteira')) });
+    const ab = R.abertas;
     rosca($('#g-sit'), [{ nome: 'Liberadas para execução', valor: ab.filter((o) => o.sit === 'A').length, cor: COR.A, v: 'A' },
       { nome: 'Aguardando liberação', valor: ab.filter((o) => o.sit === 'P').length, cor: COR.P, v: 'P' }],
       { titulo: 'Situação das abertas', sub: 'abertas', aoClicar: (f) => aplicar(() => so('sit', f.v), 'carteira') });
@@ -3634,8 +3618,8 @@ export function iniciarPainel(D, { baixar, raiz = document, aba = '', aoTrocarAb
     const pa = IND.anterior({ desde: sel.de, ate: sel.ate, base, unidade: sel.unidade });
     const mvA = IND.movimento(todas, { de: pa.desde, ate: pa.ate, base });
     const esc = escSerie(sel), serie = serieCarteira(todas, sel, esc), x = contaProg(todas, sel);
-    const k = comAderenciaDaSemana(comPreventivas(IND.indicadores(todas, { desde: sel.de, ate: sel.ate, base }), { desde: sel.de, ate: sel.ate }), { desde: sel.de, ate: sel.ate }, todas),
-      a = comAderenciaDaSemana(comPreventivas(IND.indicadores(todas, { desde: pa.desde, ate: pa.ate, base }), { desde: pa.desde, ate: pa.ate }), { desde: pa.desde, ate: pa.ate }, todas);
+    const k = comAderenciaDaSemana(IND.indicadores(todas, { desde: sel.de, ate: sel.ate, base }), { desde: sel.de, ate: sel.ate }, todas),
+      a = comAderenciaDaSemana(IND.indicadores(todas, { desde: pa.desde, ate: pa.ate, base }), { desde: pa.desde, ate: pa.ate }, todas);
     const fim = sel.ate < base ? sel.ate : base;
     const osPer = todas.filter((o) => { const sd = IND.saidaDe(o); return (o.abertura && o.abertura >= sel.de && o.abertura <= fim) || (sd && sd >= sel.de && sd <= fim); });
     const mov = (o) => { const ent = o.abertura >= sel.de, sd = IND.saidaDe(o), saiu = !!sd && sd >= sel.de && sd <= fim; return ent && saiu ? 'Entrou e saiu no período' : ent ? 'Entrou (segue em aberto)' : 'Saiu (do backlog inicial)'; };
@@ -3746,14 +3730,17 @@ export function iniciarPainel(D, { baixar, raiz = document, aba = '', aoTrocarAb
     const por = d3.group(usar, (x) => x.o.frota);
     return frotas.filter((f) => por.has(f)).map((f) => {
       const l = por.get(f).sort((a, b) => (a.o.tipo === b.o.tipo ? 0 : a.o.tipo === 'Corretiva' ? -1 : 1) || ordem(a, b));
+      // (25/11/2026, pedido do Mateus) as preventivas são sistemáticas: vão na lista (à parte, no fim da frota), mas as contas da
+      // frota (as OS, a mais antiga, as com sinal, as repetidas, as de mais de 90 dias) são só das corretivas
       const corr = l.filter((x) => x.o.tipo === 'Corretiva');
-      return { f, equip: eqDe.get(f) || '', l, n: { lib: corr.filter((x) => x.o.sit === 'A').length, pend: corr.filter((x) => x.o.sit === 'P').length, prev: l.length - corr.length,
-        forte: l.filter((x) => x.s.some((q) => q.forte)).length, rep: l.filter((x) => x.s.some((q) => q.k === 'rep')).length,
-        v90: l.filter((x) => (x.o.dias || 0) > 90).length, antiga: d3.max(l, (x) => x.o.dias || 0) || 0 } };
+      return { f, equip: eqDe.get(f) || '', l, n: { os: corr.length, lib: corr.filter((x) => x.o.sit === 'A').length, pend: corr.filter((x) => x.o.sit === 'P').length, prev: l.length - corr.length,
+        forte: corr.filter((x) => x.s.some((q) => q.forte)).length, rep: corr.filter((x) => x.s.some((q) => q.k === 'rep')).length,
+        v90: corr.filter((x) => (x.o.dias || 0) > 90).length, antiga: d3.max(corr, (x) => x.o.dias || 0) || 0 } };
     });
   }
-  const contaFrota = (fl) => [plural(fl.l.length, 'OS', 'OS'), fl.n.lib ? plural(fl.n.lib, 'liberada', 'liberadas') : '', fl.n.pend ? `${nf.format(fl.n.pend)} aguardando` : '',
-    fl.n.prev ? plural(fl.n.prev, 'preventiva', 'preventivas') : '', `a mais antiga há ${nf.format(fl.n.antiga)} dias`,
+  const maisPrev = (n) => (n ? ` + ${plural(n, 'preventiva', 'preventivas')} à parte` : '');
+  const contaFrota = (fl) => [(fl.n.os ? plural(fl.n.os, 'OS', 'OS') : 'nenhuma OS corretiva') + maisPrev(fl.n.prev), fl.n.lib ? plural(fl.n.lib, 'liberada', 'liberadas') : '',
+    fl.n.pend ? `${nf.format(fl.n.pend)} aguardando` : '', fl.n.os ? `a mais antiga há ${nf.format(fl.n.antiga)} dias` : '',
     fl.n.forte ? `${nf.format(fl.n.forte)} com sinal de já feita` : '', fl.n.rep ? plural(fl.n.rep, 'repetida', 'repetidas') : ''].filter(Boolean).join(' · ');
   function abrirFolha(fixa = '') {
     voltaFoco = focado();
@@ -3782,9 +3769,9 @@ export function iniciarPainel(D, { baixar, raiz = document, aba = '', aoTrocarAb
       const desde = iso(ref - ((FOLHA.fech || 7) - 1) * DIA);
       conta.fech.textContent = nf.format(S.todas.filter((o) => set.has(o.frota) && o.sit === 'F' && IND.saidaDe(o) >= desde && IND.saidaDe(o) <= D.base).length);
       if (conf) {
-        const lc = listaConferencia(S, SP, quais()), n = d3.sum(lc, (x) => x.l.length);
+        const lc = listaConferencia(S, SP, quais()), n = d3.sum(lc, (x) => x.l.length), nC = d3.sum(lc, (x) => x.n.os);
         resumo.replaceChildren(n ? el('span', {}, 'Vai sair: ', el('b', { text: plural(lc.length, 'frota', 'frotas') }),
-          `${lc.length > 1 ? (FOLHA.novaPag ? ' (cada uma começando numa página)' : ' numa lista só') : ''} · ${plural(n, 'OS', 'OS')} · ` +
+          `${lc.length > 1 ? (FOLHA.novaPag ? ' (cada uma começando numa página)' : ' numa lista só') : ''} · ${plural(nC, 'OS', 'OS')}${maisPrev(n - nC)} · ` +
           `${nf.format(d3.sum(lc, (x) => x.n.forte))} com sinal de já feita · ${nf.format(d3.sum(lc, (x) => x.n.rep))} repetidas · e o resumo por frota no fim.`) : 'Nada para imprimir com estas opções.');
         baixar.disabled = baixarXls.disabled = !n;
         return;
@@ -3973,12 +3960,12 @@ export function iniciarPainel(D, { baixar, raiz = document, aba = '', aoTrocarAb
       const agora = new Date().toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' });
       const TINTA = [17, 24, 39], FRACO = [75, 85, 99], LINHA = [205, 210, 220];
       const SIT_COR = { A: [[231, 239, 255], [29, 78, 216]], P: [[255, 244, 214], [146, 64, 14]] };
-      const nOS = d3.sum(lista, (x) => x.l.length);
+      const nOS = d3.sum(lista, (x) => x.n.os), nPrev = d3.sum(lista, (x) => x.n.prev);
       const cabPag = () => {
         doc.setFont('helvetica', 'bold'); doc.setFontSize(11); doc.setTextColor(...TINTA);
         doc.text('Carteira para conferência e limpeza', M, 8.5);
         doc.setFont('helvetica', 'normal'); doc.setFontSize(8); doc.setTextColor(...FRACO);
-        doc.text(pdfTxt(`Protheus de ${br(D.base)} · impressa em ${agora} · ${plural(nOS, 'OS', 'OS')} em ${plural(lista.length, 'frota', 'frotas')}`), M + 70, 8.5);
+        doc.text(pdfTxt(`Protheus de ${br(D.base)} · impressa em ${agora} · ${plural(nOS, 'OS', 'OS')}${maisPrev(nPrev)} em ${plural(lista.length, 'frota', 'frotas')}`), M + 70, 8.5);
         doc.text('Conferido por: ____________________   Data: ___/___/______', W - M, 8.5, { align: 'right' });
         // na primeira página, o que cada caixa quer dizer
         if (doc.getCurrentPageInfo().pageNumber === 1) {
@@ -4026,7 +4013,7 @@ export function iniciarPainel(D, { baixar, raiz = document, aba = '', aoTrocarAb
         styles: { font: 'helvetica', fontSize: 7.4, cellPadding: 1.3, lineColor: LINHA, lineWidth: 0.1, textColor: TINTA },
         headStyles: { fillColor: [30, 41, 59], textColor: 255, fontStyle: 'bold', fontSize: 7.2 },
         head: [['Frota', 'Equipamento', 'OS na lista', 'Liberadas', 'Aguardando', 'Preventivas', 'Com sinal de feita', 'Repetidas', 'Mais de 90 dias', 'Encerradas', 'Canceladas', 'Mantidas']],
-        body: [...lista.map((fl) => [fl.f, pdfTxt(fl.equip), fl.l.length, fl.n.lib, fl.n.pend, fl.n.prev, fl.n.forte, fl.n.rep, fl.n.v90, '', '', '']),
+        body: [...lista.map((fl) => [fl.f, pdfTxt(fl.equip), fl.n.os, fl.n.lib, fl.n.pend, fl.n.prev, fl.n.forte, fl.n.rep, fl.n.v90, '', '', '']),
           [{ content: 'Total', styles: { fontStyle: 'bold' } }, '', nOS, soma('lib'), soma('pend'), soma('prev'), soma('forte'), soma('rep'), soma('v90'), '', '', '']],
         columnStyles: { 0: { cellWidth: 18 }, 1: { cellWidth: 52 }, 9: { cellWidth: 22 }, 10: { cellWidth: 22 }, 11: { cellWidth: 22 } },
         didDrawPage: cabPag });
@@ -4041,7 +4028,7 @@ export function iniciarPainel(D, { baixar, raiz = document, aba = '', aoTrocarAb
       const d = await downloadsP;
       if (!d) throw { code: 'unavailable' };
       await d.save({ filename: `carteira-conferencia-${lista.length === 1 ? slug(lista[0].f) : lista.length + '-frotas'}-${D.base}.pdf`, data: blob });
-      aviso.textContent = `PDF salvo · ${plural(n, 'página', 'páginas')} · ${plural(nOS, 'OS', 'OS')}.`;
+      aviso.textContent = `PDF salvo · ${plural(n, 'página', 'páginas')} · ${plural(nOS, 'OS', 'OS')}${maisPrev(nPrev)}.`;
     } catch (e) { tratarErro(e, aviso); } finally { botao.disabled = false; }
   }
   /** A mesma lista da conferência em CSV (abre no Excel), com as colunas para marcar. Sem o CPF de quem abriu. */
@@ -4059,7 +4046,8 @@ export function iniciarPainel(D, { baixar, raiz = document, aba = '', aoTrocarAb
       const d = await downloadsP;
       if (!d) throw { code: 'unavailable' };
       await d.save({ filename: `carteira-conferencia-${lista.length === 1 ? slug(lista[0].f) : lista.length + '-frotas'}-${D.base}.csv`, data: blob });
-      aviso.textContent = `Lista salva · ${plural(linhas.length - 1, 'OS', 'OS')}.`;
+      const nC = d3.sum(lista, (x) => x.n.os);
+      aviso.textContent = `Lista salva · ${plural(nC, 'OS', 'OS')}${maisPrev(linhas.length - 1 - nC)}.`;
     } catch (e) { tratarErro(e, aviso); } finally { botao.disabled = false; }
   }
 

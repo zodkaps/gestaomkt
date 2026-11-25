@@ -545,9 +545,9 @@ e preventivas, e **só ele ter acesso**.
   *Carteira* (abertas, backlog em semanas, idade, aguardando liberação),
   *Ritmo* (fechadas por semana, taxa de atendimento, saldo, entraram), *Prazo*
   (tempo para fechar, fechadas em até 7 dias, aderência à programação,
-  prevista vencida) e *Planejamento e mão de obra* (índice de preventiva,
-  trabalho programado, cobertura de mão de obra, horas apontadas, abertas
-  depois do serviço). Cada cartão compara com o período anterior de mesmo
+  prevista vencida) e *Planejamento e mão de obra* (trabalho programado,
+  cobertura de mão de obra, horas apontadas, abertas depois do serviço; o
+  índice de preventiva saiu em 25/11/2026). Cada cartão compara com o período anterior de mesmo
   tamanho (▲/▼ com *melhor* ou *pior* escrito); a regra de cada conta aparece
   no botão *Como é calculado*. As
   contas estão em `js/os/indicadores.js` e cada fórmula tem teste com as
@@ -735,10 +735,16 @@ e preventivas, e **só ele ter acesso**.
   Carteira, Frotas, Executantes, Auditoria, Resumo do dia e Relatório contam só
   as corretivas. As preventivas têm a aba **OS preventivas**: em aberto,
   abertas e encerradas no período, programadas, há mais de 90 dias, por frota
-  e a lista. O *Índice de preventiva* dos Indicadores segue comparando as duas
-  (das encerradas no período, quantas eram preventivas). O filtro *Tipo* saiu
+  e a lista. O filtro *Tipo* saiu
   da barra. A atualização com o Protheus e a Auditoria mostram as preventivas à
   parte, e a *Conferir com a STJ* lembra que a STJ traz as duas.
+  Em 25/11/2026 (pedido do Mateus: as preventivas são sistemáticas, não devem
+  contar no número de OS) saíram também dos Indicadores o *Índice de
+  preventiva* e a rosca *Corretiva e preventiva*, que somavam as encerradas das
+  duas. Na folha de conferência (Imprimir carteira), a preventiva marcada vai na
+  lista, à parte, no fim da frota, mas as contas da frota e do resumo (as OS, a
+  mais antiga, as com sinal de feita, as repetidas, as de mais de 90 dias) são
+  só das corretivas; a preventiva aparece como "+ N preventivas à parte".
 - **Publicar é por versão** (12/11/2026). Antes, gravar a atualização eram cinco
   envios soltos (a base histórica, a lista de frotas, a cópia do dia, o painel e
   o índice): se um falhasse no meio, o bucket ficava com pedaços de versões

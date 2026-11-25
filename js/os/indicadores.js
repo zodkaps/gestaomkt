@@ -146,7 +146,6 @@ export function indicadores(todas, { desde, ate, base }) {
   const vencidas = equipe.filter((o) => o.prevEstado === "vencida").length;
 
   // planejamento e mão de obra
-  const prev = fechadas.filter((o) => o.tipo === "Preventiva").length;
   const progP = fechadas.filter((o) => o.classe === "P").length, progN = fechadas.filter((o) => o.classe === "N").length;
   const comExec = abertas.filter((o) => o.grupo !== "S").length;
   const liberadas = todas.filter((o) => no(o.liberada) && o.abertura && o.liberada >= o.abertura);
@@ -164,7 +163,6 @@ export function indicadores(todas, { desde, ate, base }) {
     idadeMediana: mediana(diasA), mais90: fracao(v90, diasA.length), nMais90: v90,
     aderencia: fracao(cumpridas, elegiveis.length), cumpridas, programadas: elegiveis.length,
     vencida: fracao(vencidas, equipe.length), nVencidas: vencidas, nEquipe: equipe.length,
-    preventiva: fracao(prev, fechadas.length), nPreventivas: prev,
     programado: fracao(progP, progP + progN), nProgP: progP, nProgN: progN,
     cobertura: fracao(comExec, abertas.length), nComExec: comExec,
     esperaLiberacao: mediana(esperaLib), nLiberadas: liberadas.length,
