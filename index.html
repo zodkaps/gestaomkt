@@ -40,31 +40,31 @@
 <section class="porta" id="os-porta" aria-live="polite"><p class="porta-msg">Abrindo o painel…</p></section>
 <div class="os-cab" hidden><p id="sub"></p><div class="acoes"><button type="button" class="botao" id="os-relatorio" hidden>Relatório</button><button type="button" class="botao" id="os-resumo" hidden>Resumo do dia</button><button type="button" class="botao" id="os-atualizar" hidden>Atualizar com o Protheus</button></div></div>
 <nav class="abas" role="tablist" aria-label="Partes do painel" hidden>
-      <div class="aba-grupo" role="presentation"><span class="aba-grupo-rot" aria-hidden="true">Gestão</span>
+      <!-- (26/11/2026) uma linha só, na ordem do uso; o que não cabe na largura vai para o "Mais" (js/os/painel.js, arrumarAbas) -->
       <button class="aba" role="tab" type="button" id="aba-geral" data-aba="geral" aria-controls="geral">Visão geral</button>
-      <button class="aba" role="tab" type="button" id="aba-indicadores" data-aba="indicadores" aria-controls="indicadores">Indicadores</button></div>
-      <div class="aba-grupo" role="presentation"><span class="aba-grupo-rot" aria-hidden="true">Planejamento</span>
       <button class="aba" role="tab" type="button" id="aba-programacao" data-aba="programacao" aria-controls="programacao">Programação</button>
-      <button class="aba" role="tab" type="button" id="aba-avanco" data-aba="avanco" aria-controls="avanco">Avanço</button></div>
-      <div class="aba-grupo" role="presentation"><span class="aba-grupo-rot" aria-hidden="true">Execução</span>
-      <button class="aba" role="tab" type="button" id="aba-pendentes" data-aba="pendentes" aria-controls="pendentes">Não liberadas <span class="n" id="n-pendentes"></span></button>
-      <button class="aba" role="tab" type="button" id="aba-carteira" data-aba="carteira" aria-controls="carteira">Carteira de OS <span class="n" id="n-carteira"></span></button></div>
-      <div class="aba-grupo" role="presentation"><span class="aba-grupo-rot" aria-hidden="true">Análise</span>
-      <button class="aba" role="tab" type="button" id="aba-preventivas" data-aba="preventivas" aria-controls="preventivas">OS preventivas <span class="n" id="n-preventivas"></span></button>
-      <button class="aba" role="tab" type="button" id="aba-frotas" data-aba="frotas" aria-controls="frotas">Frotas <span class="n" id="n-frotas"></span></button>
+      <button class="aba" role="tab" type="button" id="aba-carteira" data-aba="carteira" aria-controls="carteira">Carteira de OS <span class="n" id="n-carteira"></span></button>
+      <button class="aba" role="tab" type="button" id="aba-tratativas" data-aba="tratativas" aria-controls="tratativas" hidden>Tratativas <span class="n n-trat" id="n-tratativas"></span></button>
       <button class="aba" role="tab" type="button" id="aba-executantes" data-aba="executantes" aria-controls="executantes">Executantes</button>
-      <button class="aba" role="tab" type="button" id="aba-auditoria" data-aba="auditoria" aria-controls="auditoria">Auditoria</button></div>
+      <button class="aba" role="tab" type="button" id="aba-frotas" data-aba="frotas" aria-controls="frotas">Frotas <span class="n" id="n-frotas"></span></button>
+      <button class="aba" role="tab" type="button" id="aba-avanco" data-aba="avanco" aria-controls="avanco">Avanço</button>
+      <button class="aba" role="tab" type="button" id="aba-indicadores" data-aba="indicadores" aria-controls="indicadores">Indicadores</button>
+      <button class="aba" role="tab" type="button" id="aba-pendentes" data-aba="pendentes" aria-controls="pendentes">Não liberadas <span class="n" id="n-pendentes"></span></button>
+      <button class="aba" role="tab" type="button" id="aba-preventivas" data-aba="preventivas" aria-controls="preventivas">OS preventivas <span class="n" id="n-preventivas"></span></button>
+      <button class="aba" role="tab" type="button" id="aba-auditoria" data-aba="auditoria" aria-controls="auditoria">Auditoria</button>
+      <span class="aba-mais-c"><button class="aba aba-mais" type="button" id="aba-mais" aria-haspopup="true" aria-expanded="false" aria-controls="aba-menu" hidden><span class="aba-mais-rot">Mais</span> <span class="seta" aria-hidden="true">▾</span></button>
+        <span class="aba-menu" id="aba-menu" hidden></span></span>
     </nav>
 <div class="barra" hidden>
     <div class="barra-cartao" role="search" aria-label="Filtros">
       <div class="pills">
-        <div class="pills-multi" id="pills-multi"></div>
         <span class="per-grupo"><button type="button" class="pill per-passo" id="f-per-ant" aria-label="Período anterior" title="O período anterior">‹</button>
         <button type="button" class="pill pill-per" id="f-periodo" aria-haspopup="dialog" aria-expanded="false" title="O período de todos os números: um pronto ou escolhido no calendário">
           <svg viewBox="0 0 16 16" aria-hidden="true"><rect x="2" y="3" width="12" height="11" rx="2.2" fill="none" stroke="currentColor" stroke-width="1.4"/><path d="M2 6.6h12M5.2 1.8v2.6M10.8 1.8v2.6" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>
           <span class="per-rot">Período</span><span class="pill-rot" id="f-periodo-txt"></span><span class="seta" aria-hidden="true">▾</span>
         </button><button type="button" class="pill per-passo" id="f-per-prox" aria-label="Próximo período" title="O período seguinte">›</button></span>
         <input class="pill-busca" id="f-q" type="search" placeholder="Buscar OS, frota, serviço, executante…" aria-label="Buscar" autocomplete="off">
+        <div class="pills-multi" id="pills-multi"></div>
       </div>
       <div class="mais-painel" id="mais-painel" hidden></div>
       <div class="chips" id="chips"></div>
@@ -144,6 +144,8 @@
   <section class="vista" id="carteira" role="tabpanel" aria-labelledby="aba-carteira" hidden>
     <article class="cartao c12" id="c-carteira"></article>
   </section>
+
+  <section class="vista" id="tratativas" role="tabpanel" aria-labelledby="aba-tratativas" hidden></section>
 
   <section class="vista" id="preventivas" role="tabpanel" aria-labelledby="aba-preventivas" hidden></section>
 

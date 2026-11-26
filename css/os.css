@@ -519,6 +519,76 @@ select { color-scheme: inherit; }
 .ctl .seg button[aria-pressed="true"] { background: var(--papel); color: var(--texto); box-shadow: 0 1px 2px rgba(16, 24, 40, .12); }
 .ctl select { height: 28px; border: 1px solid var(--linha); border-radius: 8px; background: var(--papel); font-size: 12.5px; padding: 0 6px; }
 
+/* ── as tratativas de OS (26/11/2026): o pedido do supervisor e a resposta de quem atualiza o painel ── */
+.os-trat { display: inline-flex; flex-direction: column; gap: 2px; }
+.tag-trat { display: inline-block; width: max-content; padding: 1px 7px; border-radius: 999px; background: var(--pendente-f); color: var(--pendente-t);
+  font-size: 10.5px; font-weight: 700; letter-spacing: .01em; }
+td.marca, th:first-child:has(.marca-l) { width: 34px; padding-right: 0; }
+.marca-l { display: inline-flex; align-items: center; justify-content: center; min-width: 26px; min-height: 26px; cursor: pointer; }
+.marca-l input { width: 17px; height: 17px; accent-color: var(--marca); cursor: pointer; }
+.marca-barra { position: fixed; left: 50%; transform: translateX(-50%); bottom: 18px; z-index: 40; display: flex; flex-wrap: wrap; align-items: center; gap: 10px;
+  padding: 10px 12px 10px 16px; background: var(--papel); border: 1px solid var(--linha); border-radius: 14px; box-shadow: 0 12px 32px rgba(15, 20, 35, .22);
+  max-width: calc(100vw - 24px); }
+.marca-n { font-weight: 700; font-size: 14px; }
+.trat-lista { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
+.trat { border: 1px solid var(--linha); border-radius: 12px; padding: 12px 14px; display: grid; gap: 6px; background: var(--papel); }
+.trat.t-pendente { border-left: 4px solid var(--pendente); }
+.trat.t-feita { border-left: 4px solid var(--finalizada); }
+.trat.t-recusada { border-left: 4px solid var(--alerta); }
+.trat.t-cancelada { border-left: 4px solid var(--ctx); opacity: .85; }
+.trat-cab { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 10px; }
+.trat-acao { padding: 2px 9px; border-radius: 999px; font-size: 12px; font-weight: 700; background: var(--papel2); color: var(--texto); }
+.trat-acao.a-reprogramar { background: var(--liberada-f); color: var(--liberada-t); }
+.trat-acao.a-finalizar { background: var(--finalizada-f); color: var(--finalizada-t); }
+.trat-acao.a-trocar { background: var(--pendente-f); color: var(--pendente-t); }
+.trat-acao.a-excluir { background: var(--alerta-f); color: var(--alerta-t); }
+.trat-os { font: inherit; font-weight: 700; font-size: 15px; color: var(--texto); background: none; border: 0; padding: 0; cursor: pointer; text-decoration: underline;
+  text-decoration-color: var(--linha); text-underline-offset: 3px; }
+.trat-frota { color: var(--fraco); font-size: 13px; min-width: 0; }
+.trat-texto { margin: 0; font-size: 14px; white-space: pre-wrap; overflow-wrap: anywhere; }
+.trat-linha { margin: 0; display: flex; flex-wrap: wrap; gap: 4px 16px; font-size: 12.5px; color: var(--fraco); }
+.trat-protheus.feito { color: var(--finalizada-t); font-weight: 650; }
+.trat-sit { margin: 0; font-size: 13px; }
+.trat-sit.s-pendente b { color: var(--pendente-t); }
+.trat-sit.s-feita b { color: var(--finalizada-t); }
+.trat-sit.s-recusada b { color: var(--alerta-t); }
+.trat-resp { color: var(--texto); overflow-wrap: anywhere; }
+.trat-acoes { display: flex; flex-wrap: wrap; gap: 8px; }
+.trat-acoes:empty { display: none; }
+.trat-form { display: grid; gap: 8px; width: 100%; }
+.trat-form p { margin: 0; font-weight: 650; }
+.trat-bts { display: flex; flex-wrap: wrap; gap: 8px; }
+.trat-erro { margin: 0; color: var(--alerta-t); font-size: 13px; font-weight: 650; }
+.trat-erro:empty { display: none; }
+.trat textarea, .detalhe textarea, .trat-acresc input, .trat-campo input { width: 100%; font: inherit; font-size: 14px; color: var(--texto); background: var(--papel);
+  border: 1px solid var(--linha); border-radius: 10px; padding: 8px 10px; resize: vertical; }
+.trat-oss { list-style: none; margin: 0 0 8px; padding: 0; display: grid; gap: 4px; }
+.trat-oss li { display: flex; align-items: center; gap: 6px; font-size: 13.5px; padding: 6px 8px; border-radius: 9px; background: var(--papel2); }
+.trat-oss li .tira { margin-left: auto; border: 0; background: none; color: var(--fraco); font-size: 18px; line-height: 1; cursor: pointer; padding: 2px 6px; border-radius: 6px; }
+.trat-acresc { display: flex; gap: 8px; }
+.trat-acresc input { flex: 1 1 auto; }
+.trat-opcoes { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 8px; margin-bottom: 8px; }
+.trat-opcao { display: flex; gap: 8px; align-items: flex-start; padding: 9px 10px; border: 1px solid var(--linha); border-radius: 10px; cursor: pointer; }
+.trat-opcao:has(input:checked) { border-color: var(--marca); background: var(--marca-clara); }
+.trat-opcao input { margin-top: 3px; accent-color: var(--marca); }
+.trat-opcao small { display: block; color: var(--fraco); font-size: 12px; }
+.trat-campo { display: grid; gap: 4px; margin-top: 6px; }
+.trat-campo > span { font-size: 12px; font-weight: 700; color: var(--fraco); text-transform: uppercase; letter-spacing: .03em; }
+.trat-ok { margin: 6px 0 0; font-size: 14px; }
+.det-trat { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; font-size: 13.5px; }
+.det-trat small { display: block; color: var(--fraco); }
+.det-trat li.t-pendente b { color: var(--pendente-t); }
+@media (hover: hover) { .trat-os:hover { text-decoration-color: currentColor; } .trat-oss li .tira:hover { color: var(--alerta-t); background: var(--alerta-f); } }
+/* no celular e no tablet em pé a lista vira cartão: a caixinha vai para o canto do cartão; a barra das marcadas sobe
+   acima da barra de baixo do site */
+@media (max-width: 640px) {
+  table.lista-os tr { position: relative; }
+  table.lista-os td[data-k="marca"] { position: absolute; top: 8px; right: 8px; }
+  table.lista-os td[data-k="marca"]::before { content: none !important; }
+  table.lista-os td[data-k="sit"] { margin-right: 30px; }
+}
+@media (max-width: 860px) { .marca-barra { bottom: calc(96px + env(safe-area-inset-bottom, 0px)); } }
+
 /* ── a porta (sem acesso, sem dados) e a caixa de atualizar ── */
 .porta { padding-block: 48px 64px; }
 .porta-msg { color: var(--fraco); font-size: 14px; }
@@ -686,10 +756,8 @@ button.aud-n:focus-visible { outline: 2px solid var(--marca); }
 /* ── conferir com a STJ (11/11/2026): as linhas de título da conta ── */
 .concil tr.tit th, .concil tr.tit td { color: var(--texto); font-weight: 700; }
 
-/* (11/11/2026) com a aba OS preventivas são dez: no computador elas quebram a linha em vez de sumir à direita;
-   (24/11/2026) desde 600 px, para o tablet em pé ver todas (antes Frotas, Executantes e Auditoria ficavam escondidas) */
+/* (11/11/2026) com a aba OS preventivas são dez; (26/11/2026) numa linha só, com o "Mais" (no fim deste arquivo) */
 .aba { padding: 10px 12px 9px; }
-@media (min-width: 600px) { .abas { flex-wrap: wrap; overflow-x: visible; } }
 
 /* ── o caminho das linhas da STJ (11/11/2026): na atualização ── */
 .imp-funil { border: 1px solid var(--linha); border-radius: 10px; padding: 10px 12px; font-size: 13px; }
@@ -733,13 +801,7 @@ span.fraco { color: var(--muito-fraco); font-size: 12px; }
 /* (12/11/2026) o rótulo que separa a posição atual (a carteira do último export) da movimentação do período */
 .rot-secao { margin: 18px 0 8px; font-size: 13px; font-weight: 650; color: var(--fraco); }
 
-/* (12/11/2026) as abas em quatro grupos: o nome do grupo em cima, as abas dele embaixo; nenhuma aba saiu */
-.abas { align-items: flex-end; column-gap: 6px; }
-.aba-grupo { display: flex; flex: none; align-items: flex-end; position: relative; padding-top: 18px; }
-.aba-grupo + .aba-grupo { border-left: 1px solid var(--linha); padding-left: 6px; }
-.aba-grupo-rot { position: absolute; top: 2px; left: 0; padding-left: 12px; white-space: nowrap; font-size: 10.5px; font-weight: 700;
-  letter-spacing: .06em; text-transform: uppercase; color: var(--muito-fraco); }
-.aba-grupo + .aba-grupo .aba-grupo-rot { padding-left: 18px; }
+/* (12/11/2026) as abas em quatro grupos com nome; (26/11/2026) os grupos saíram: uma linha só, na ordem do uso */
 .aba:focus-visible { outline: 2px solid var(--marca); outline-offset: -2px; border-radius: 6px; }
 
 /* (12/11/2026) o CPF de quem abriu, mascarado na ficha, e o "mostrar" */
@@ -884,3 +946,37 @@ h2, h3, .aba, .kpi .val, .porta-caixa h2 { font-family: var(--fonte-marca, inher
 }
 /* o tablet deitado (e o celular deitado): a barra de filtros não fica presa no alto — eram uns 130 px a menos de leitura */
 @media (pointer: coarse) and (max-height: 900px) { .barra { position: static; } }
+
+/* ── as abas numa linha e a barra de filtros numa linha (26/11/2026, pedido do Mateus: estava complexo demais) ──
+   As abas na ordem do uso, sem os rótulos de grupo; o que não cabe na largura vai para o "Mais" (arrumarAbas, em
+   js/os/painel.js), e a aba aberta, se estiver lá, dá o nome ao botão. A barra: o período, a busca e "Filtros", que
+   abre todos os filtros (os quatro de todo dia primeiro); o que está ligado aparece embaixo, com o ×. */
+.abas { flex-wrap: nowrap; overflow: visible; align-items: stretch; column-gap: 2px; }
+.aba { flex: none; white-space: nowrap; }
+.aba-mais-c { position: relative; display: flex; flex: none; }
+.aba-mais { display: inline-flex; align-items: center; gap: 4px; }
+.aba-mais .seta { font-size: 10px; }
+.aba-mais.on { color: var(--marca); border-bottom-color: var(--marca); }
+.aba-menu { position: absolute; top: calc(100% + 4px); right: 0; z-index: 35; min-width: 14rem; padding: 6px; display: grid; gap: 2px;
+  background: var(--papel); border: 1px solid var(--linha); border-radius: 12px; box-shadow: 0 12px 32px rgba(15, 20, 35, .18); }
+.aba-menu .aba { width: 100%; margin: 0; border: 0; border-radius: 8px; padding: 10px 12px; display: flex; align-items: center; justify-content: space-between;
+  gap: 12px; text-align: left; }
+.aba-menu .aba[aria-selected="true"] { background: var(--marca-clara); }
+@media (hover: hover) { .aba-menu .aba:hover { background: var(--papel2); } }
+.aba .n:empty { display: none; }
+.aba .n-trat:not(:empty) { background: var(--pendente-f); color: var(--pendente-t); }
+/* uma linha quando cabe; senão a busca e os Filtros descem juntos (o período não encolhe) */
+.pills { flex-wrap: wrap; }
+.pills .per-grupo { flex: none; max-width: 100%; }
+.pills .pill-busca { flex: 1 1 14rem; min-width: 14rem; max-width: none; }
+.pills-multi { display: flex; flex: none; }
+.pill-mais { display: inline-flex; align-items: center; gap: 6px; }
+.pill-mais svg { width: 15px; height: 15px; flex: none; }
+.pill-n { display: inline-flex; align-items: center; justify-content: center; min-width: 19px; height: 19px; padding: 0 6px; border-radius: 999px;
+  background: var(--marca); color: var(--marca-texto); font-size: 11px; font-weight: 700; font-variant-numeric: tabular-nums; }
+@media (max-width: 760px) {
+  .pills .per-grupo { flex: 1 1 100%; }
+}
+@media (max-width: 560px) {
+  .pills .pill-busca { flex: 1 1 0; width: auto; min-width: 0; }
+}

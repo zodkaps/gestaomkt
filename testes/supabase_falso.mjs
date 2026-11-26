@@ -291,6 +291,16 @@ createServer(async (req, res) => {
         if (e.autor !== eu.nome) {
           return json(res, 403, { message: `new row violates row-level security policy (autor ${e.autor} ≠ ${eu.nome})` });
         }
+        // (26/11/2026) as tratativas de OS (sql/08_tratativas.sql): pede o PCM que vê o painel; trata quem o atualiza,
+        // e a recusa leva o motivo
+        if (e.alvo_tipo === "tratativa") {
+          const ve = eu.papel === "pcm" && !!eu.os_makro, atualiza = ve && !!eu.os_makro_atualiza;
+          const ok = (["trat_pedida", "trat_cancelada"].includes(e.tipo) && ve) || (["trat_feita", "trat_reaberta"].includes(e.tipo) && atualiza)
+            || (e.tipo === "trat_recusada" && atualiza && String(e.motivo || "").trim().length > 0);
+          if (!ok) return json(res, 403, { message: `new row violates row-level security policy (${eu.nome} não lança ${e.tipo} em tratativa)` });
+        } else if (!["atividade", "movimentacao", "preventiva", "semana"].includes(e.alvo_tipo)) {
+          return json(res, 403, { message: `new row violates row-level security policy (alvo ${e.alvo_tipo})` });
+        }
         // o PCM lança tudo; a operação, só o que é dela; a consulta, nada (sql/02_acesso.sql)
         if (eu.papel !== "pcm" &&
             !(eu.papel === "operacao" && TIPOS_OPERACAO[e.alvo_tipo] && TIPOS_OPERACAO[e.alvo_tipo].has(e.tipo))) {

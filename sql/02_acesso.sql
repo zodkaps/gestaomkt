@@ -72,6 +72,9 @@ drop policy if exists eventos_leitura on public.eventos;
 create policy eventos_leitura on public.eventos
   for select to authenticated using (public.papel_atual() in ('pcm', 'operacao'));
 
+-- (26/11/2026) O 08_tratativas.sql refaz esta política com as tratativas de OS do
+-- painel (ele precisa do ve_os() e do atualiza_os(), que só existem depois do 04
+-- e do 06). Rodou este arquivo de novo? Rode o 08 depois dele.
 drop policy if exists eventos_insere on public.eventos;
 create policy eventos_insere on public.eventos
   for insert to authenticated with check (

@@ -276,6 +276,31 @@ A oficina devolver a frota atrasada **não** conta: o que se avalia é a operaç
   dica nenhuma. Agora o destaque, no toque, vai junto com a dica: aparece com
   ela e some quando ela fecha (rolou, tocou fora, trocou de aba). Com o mouse,
   igual a antes.
+- **As tratativas de OS** (26/11/2026, pedido do Mateus): uma aba para o
+  acompanhamento entre o supervisor e quem trata as OS no Protheus. O supervisor
+  (o Lucas) marca as OS na lista — a caixinha na frente de cada uma; marcadas,
+  aparece no pé da tela "N OS marcadas · Pedir tratativa" — ou pede pela ficha
+  da OS, e escolhe o que precisa: **reprogramar** (com a nova data),
+  **finalizar a OS**, **trocar** (executante, serviço…), **excluir ou
+  cancelar**, ou outra, com o detalhe. Na aba **Tratativas** o Mateus vê os
+  pendentes, do mais antigo para o mais novo, com o que o Protheus diz da OS
+  agora (encerrada, programada na data pedida…), e responde: **Confirmar:
+  feita** (com uma nota, se quiser) ou **Recusar** (com a justificativa, que é
+  obrigatória). Quem pediu pode cancelar o próprio pedido enquanto está
+  pendente, e o Mateus pode reabrir um feito ou recusado. A OS com pedido
+  pendente leva a etiqueta na lista, e a ficha mostra o histórico dela. Os
+  pedidos ficam na fita de eventos, e o banco só aceita o pedido de quem é do
+  PCM e vê o painel, e a resposta de quem atualiza o painel. A consulta não vê.
+- **As abas e os filtros mais simples** (26/11/2026, pedido do Mateus): as
+  abas numa linha só, na ordem do uso (Visão geral, Programação, Carteira,
+  Tratativas, Executantes, Frotas, Avanço, Indicadores, Não liberadas, OS
+  preventivas, Auditoria), sem os rótulos de grupo; o que não cabe na largura
+  fica no botão **Mais**, que leva o nome da aba aberta quando ela está lá.
+  Nenhuma aba saiu. A barra de filtros virou uma linha: o período, a busca e
+  **Filtros**, que abre todos os filtros (Frota, Situação, Executante e
+  Programação primeiro, depois os outros grupos e os guardados); o que está
+  ligado aparece embaixo, com o ×. No computador o conteúdo começa 120 px mais
+  acima, e no tablet em pé, 126 px.
 - **A barra lateral recolhe** (24/11/2026): o botão no canto do logo deixa o
   menu só com os ícones, e a tela ganha a largura (no tablet deitado, o painel
   passa de 1.048 para 1.216 px). O mesmo botão abre de novo, e a escolha fica

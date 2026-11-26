@@ -16,6 +16,9 @@
 import * as dados from "../dados.js";
 import * as nuvem from "../nuvem.js";
 import * as pessoas from "../pessoas.js";
+import * as ev from "../eventos.js";
+import { BANCO_ACEITA_TRATATIVAS } from "../config.js";
+import { montarTratativas } from "../os/tratativas.js";
 import { iniciarPainel } from "../os/painel.js";
 import { abrirImportar, abrirVolta, baixarJSON, arquivosDoPainel, diasGuardados, baixarDia, lerImportacoes } from "../os/importar.js";
 import { mesclarIndice, arquivoDaVersao } from "../os/publicar.js";
@@ -129,14 +132,37 @@ export async function montar(raiz, ctx, params = new URLSearchParams()) {
     voltar: podeAtualizar ? (linha) => abrirVolta({ linha, publicada: { D: atualD, meta: atualMeta }, versaoAberta, quem: pessoas.nome() || "—",
       aoGravar: gravouNovo, raiz: sombra }) : null,
   });
-  let podeAtualizar = false;
+  let podeAtualizar = false, podeVer = null;
+  // (26/11/2026) as tratativas de OS: os pedidos moram na fita (eventos), e o banco confere quem pode o quê
+  // (sql/08_tratativas.sql). Só o PCM lança na fita; pede quem vê o painel, trata quem o atualiza. Sem o 08 no banco
+  // (BANCO_ACEITA_TRATATIVAS), ou sem conexão para saber quem é quem, nada aparece. Grava direto no banco, fora da fila
+  // do aparelho: um pedido recusado não prende os outros lançamentos da pessoa — o erro aparece na hora, e nada fica.
+  const tratativas = () => {
+    if (!BANCO_ACEITA_TRATATIVAS || podeVer !== true || pessoas.papel() !== "pcm" || !nuvem.ligada()) return null;
+    return {
+      quem: pessoas.nome() || "",
+      podePedir: true,
+      podeTratar: podeAtualizar,
+      lista: () => montarTratativas(ev.log),
+      ouvir: (fn) => ev.ouvir(fn),
+      novoId: () => ev.novoId(),
+      async gravar(evs) {
+        const quem = pessoas.nome();
+        if (!quem) throw new Error("entre de novo: o site não sabe quem você é");
+        const completos = evs.map((e) => ({ id: ev.novoId(), ts: ev.agora(), autor: quem, origem: "manual", motivo: "", dados: {}, ...e }));
+        await nuvem.enviar(completos);
+        await ev.receber(completos);
+        return completos;
+      },
+    };
+  };
   function mostrar(D, aviso = "", meta = null) {
     atualD = D;
     atualMeta = meta;
     if (avisoDepois && !aviso) { aviso = avisoDepois; avisoDepois = ""; }
     $("#os-porta").hidden = true;
     for (const s of [".os-cab", ".abas", ".barra", ".pg"]) $(s).hidden = false;
-    painel = iniciarPainel(aviso ? { ...D, aviso } : D, { baixar, raiz: sombra, aba: params.get("aba") || "", meta,
+    painel = iniciarPainel(aviso ? { ...D, aviso } : D, { baixar, raiz: sombra, aba: params.get("aba") || "", meta, trat: tratativas(),
       // as cópias guardadas de cada atualização: a Auditoria compara duas
       fontes: fontes(podeAtualizar),
       // o relatório sai no tema claro: o site fica claro só enquanto os cartões viram imagem
@@ -179,6 +205,7 @@ export async function montar(raiz, ctx, params = new URLSearchParams()) {
     const botaoAtualizar = $("#os-atualizar");
     botaoAtualizar.hidden = !(pode && atualiza);
     podeAtualizar = !!(pode && atualiza);
+    podeVer = pode;
     if (pode && atualiza) botaoAtualizar.addEventListener("click", () => abrirImportar({ atual: () => atualD, metaAtual: () => atualMeta, versaoAberta,
       quem: pessoas.nome() || "—", aoGravar: gravouNovo, raiz: sombra }));
     try { await carregarD3(); } catch (e) { if (vale()) porta("Não deu para abrir o painel", e.message, tentarDeNovo()); return; }

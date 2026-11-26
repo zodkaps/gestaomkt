@@ -30,7 +30,9 @@ export function servirCopia({ nuvem, porta = 8125, pasta = "/tmp/mkt-copia-teste
     `export const NUVEM = { url: ${JSON.stringify(nuvem)},\n  chave: "chave-de-teste-com-mais-de-trinta-caracteres" };`);
   if (trocado === real) throw new Error("não achei o bloco NUVEM em js/config.js");
   // O banco de mentira já tem a regra nova: aceita o fechamento da semana.
-  const comFechamento = trocado.replace("BANCO_ACEITA_FECHAMENTO = false", "BANCO_ACEITA_FECHAMENTO = true");
+  const comFechamento = trocado.replace("BANCO_ACEITA_FECHAMENTO = false", "BANCO_ACEITA_FECHAMENTO = true")
+    // e as tratativas de OS do painel (sql/08_tratativas.sql)
+    .replace("BANCO_ACEITA_TRATATIVAS = false", "BANCO_ACEITA_TRATATIVAS = true");
   writeFileSync(join(pasta, "js/config.js"), comFechamento);
   // A política de conteúdo (CSP) das páginas só deixa falar com *.supabase.co;
   // na cópia, ela passa a aceitar também o banco de mentira — e só ele.

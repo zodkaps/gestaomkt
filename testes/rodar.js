@@ -2126,6 +2126,64 @@ titulo("os/publicar.js — a atualização publica inteira ou não publica (12/1
   igual("o nome da versão na tela", [P.rotuloDaVersao("2026-11-12_140312_k3fz"), P.rotuloDaVersao("2026-11-12_140312_k3fz-volta")], ["12/11 14:03", "12/11 14:03"]);
 }
 
+titulo("os/tratativas.js — o supervisor pede, quem atualiza o painel trata (26/11/2026)");
+{
+  const TR = await import("../js/os/tratativas.js");
+  // a fita inventada de três pedidos: um feito, um recusado depois de uma recusa sem motivo, um cancelado por quem pediu
+  const e = (id, tipo, autor, ts, alvo, extra = {}) => ({ id, tipo, autor, ts, alvo, alvo_tipo: "tratativa", dados: {}, motivo: "", ...extra });
+  const fita = [
+    e("1", "trat_pedida", "Lucas", "2026-11-26T10:00:00Z", "T1", { dados: { os: "100001", filial: "010101", k: "010101|100001", frota: "F-1", servico: "TROCAR LONA", acao: "finalizar", texto: " já foi feita " } }),
+    e("2", "trat_pedida", "Lucas", "2026-11-26T10:05:00Z", "T2", { dados: { os: "100002", acao: "reprogramar", para: "2026-11-28" } }),
+    e("3", "trat_pedida", "Lucas", "2026-11-26T10:10:00Z", "T3", { dados: { os: "100003", acao: "nada-disso", texto: "x".repeat(900), para: "amanhã" } }),
+    e("4", "trat_cancelada", "Mayra", "2026-11-26T10:20:00Z", "T3"),                       // não foi quem pediu: não vale
+    e("5", "trat_recusada", "Mateus", "2026-11-26T10:30:00Z", "T2", { motivo: "   " }),     // recusa sem motivo: não vale
+    e("6", "trat_feita", "Mateus", "2026-11-26T11:00:00Z", "T1"),
+    e("7", "trat_recusada", "Mateus", "2026-11-26T11:05:00Z", "T1", { motivo: "atrasada" }), // já feita: o primeiro vale
+    e("8", "trat_recusada", "Mateus", "2026-11-26T11:10:00Z", "T2", { motivo: "Já está programada para 28/11" }),
+    e("9", "trat_cancelada", "Lucas", "2026-11-26T11:20:00Z", "T3"),
+    e("10", "trat_feita", "Mateus", "2026-11-26T11:30:00Z", "T9"),                          // pedido que não está na fita
+    e("11", "trat_pedida", "Lucas", "2026-11-26T12:00:00Z", "T1", { dados: { os: "999999" } }), // o mesmo pedido de novo: não muda
+    { id: "12", tipo: "concluida", autor: "Mateus", ts: "2026-11-26T12:00:00Z", alvo: "A-1", alvo_tipo: "atividade", dados: {} },
+  ];
+  const m = TR.montarTratativas(fita);
+  igual("três pedidos: o feito, o recusado (com o motivo) e o cancelado por quem pediu; o resto da fita fica de fora",
+    [...m.values()].map((t) => [t.id, t.os, t.acao, t.situacao, t.por, t.resposta]),
+    [["T1", "100001", "finalizar", "feita", "Mateus", ""], ["T2", "100002", "reprogramar", "recusada", "Mateus", "Já está programada para 28/11"],
+      ["T3", "100003", "outra", "cancelada", "Lucas", ""]]);
+  const t3 = m.get("T3");
+  igual("o que vem da fita é limpo: ação desconhecida vira 'outra', o texto é cortado, a data inválida fica vazia; o texto do pedido sem os espaços da ponta não muda aqui",
+    [t3.texto.length, t3.para, m.get("T2").para, m.get("T1").texto], [500, "", "2026-11-28", " já foi feita "]);
+  igual("os passos de cada pedido (o que valeu)", m.get("T1").passos.map((p) => p.tipo), ["trat_pedida", "trat_feita"]);
+  const reab = TR.montarTratativas([...fita, e("13", "trat_reaberta", "Mateus", "2026-11-26T13:00:00Z", "T2"), e("14", "trat_reaberta", "Mateus", "2026-11-26T13:00:00Z", "T3")]);
+  igual("reabrir: o recusado volta a pendente (sem a resposta); o cancelado, não", [reab.get("T2").situacao, reab.get("T2").resposta, reab.get("T3").situacao],
+    ["pendente", "", "cancelada"]);
+  igual("a lista: os pendentes primeiro (o mais antigo antes), depois os respondidos (o mais recente antes)",
+    TR.ordenar([...reab.values()]).map((t) => t.id), ["T2", "T3", "T1"]);
+  igual("o que falta no pedido", [TR.faltaNoPedido({ acao: "" }), TR.faltaNoPedido({ acao: "finalizar" }), TR.faltaNoPedido({ acao: "reprogramar" }),
+    TR.faltaNoPedido({ acao: "reprogramar", para: "2026-11-30" }), TR.faltaNoPedido({ acao: "trocar", texto: "  " }), TR.faltaNoPedido({ acao: "excluir", texto: "o insumo" })],
+    ["Escolha a tratativa.", "", "Diga a nova data ou escreva para quando.", "", "Escreva o que trocar.", ""]);
+  const ev2 = TR.pedidos([{ os: "100001", filial: "010101", k: "010101|100001", frota: "F-1", servico: "TROCAR LONA" }, { os: "100002", filial: "010101", k: "010101|100002", frota: "F-1", servico: "SOLDA" }],
+    { acao: "finalizar", texto: "  feitas  ", para: "2026-11-30" }, ["a", "b"]);
+  igual("um pedido para cada OS marcada, cada um com o seu id; a data só vai na reprogramação",
+    ev2.map((x) => [x.tipo, x.alvo_tipo, x.alvo, x.dados.os, x.dados.texto, x.dados.para]), [["trat_pedida", "tratativa", "a", "100001", "feitas", ""], ["trat_pedida", "tratativa", "b", "100002", "feitas", ""]]);
+  let semMotivo = "";
+  try { TR.resposta("T1", "trat_recusada", "  "); } catch (x) { semMotivo = x.message; }
+  igual("a recusa sem justificativa não sai; a confirmação sai com a nota", [semMotivo, TR.resposta("T1", "trat_feita", " ok ").motivo], ["A recusa precisa da justificativa.", "ok"]);
+  igual("o que o Protheus diz: encerrada (feito, para finalizar), programada na data pedida, aberta, cancelada, fora do painel",
+    [TR.noProtheus({ acao: "finalizar" }, { sit: "F", fim: "2026-11-27" }), TR.noProtheus({ acao: "reprogramar", para: "2026-11-28" }, { sit: "A", progEm: "2026-11-28" }),
+      TR.noProtheus({ acao: "trocar" }, { sit: "P", progEm: "" }), TR.noProtheus({ acao: "excluir" }, null, true), TR.noProtheus({ acao: "finalizar" }, null)],
+    [{ txt: "encerrada no Protheus em 27/11", feito: true }, { txt: "programada para 28/11 no Protheus", feito: true }, { txt: "aberta, aguardando liberação", feito: false },
+      { txt: "cancelada no Protheus", feito: true }, { txt: "não está no painel", feito: false }]);
+  igual("a fita do site ignora as tratativas: nenhuma atividade nasce delas", ev.reconstruir(fita).atividade.size, 0);
+  // as duas cópias da política (o 08 e o servidor de mentira) e a chave do config
+  const cfgT = await import("../js/config.js");
+  const sql08 = await readFile(resolve(RAIZ, "sql/08_tratativas.sql"), "utf8");
+  ok("o 08 abre a tratativa para o PCM que vê o painel (pedir, cancelar) e para quem atualiza (confirmar, recusar com motivo, reabrir), e põe o alvo na lista",
+    /tipo in \('trat_pedida', 'trat_cancelada'\) and public\.ve_os\(\)/.test(sql08) && /tipo in \('trat_feita', 'trat_reaberta'\) and public\.atualiza_os\(\)/.test(sql08) &&
+    /tipo = 'trat_recusada' and public\.atualiza_os\(\) and length\(btrim/.test(sql08) && /'semana', 'tratativa'\)/.test(sql08));
+  ok("e a chave do config diz se o banco já aceita (sem ela, a aba não aparece)", typeof cfgT.BANCO_ACEITA_TRATATIVAS === "boolean");
+}
+
 titulo("sw.js e as páginas — o que funciona sem rede, e o que a página deixa rodar");
 {
   const { readdir } = await import("node:fs/promises");

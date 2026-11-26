@@ -36,6 +36,11 @@ p.on("console", m => { if (m.type() === "error" && !/Failed to load resource/.te
 // script, um estilo, uma chamada ou um worker que o site precisa e não pode.
 const recusasCSP = [];
 const vigiarCSP = pg => pg.on("console", m => { if (/Content Security Policy/i.test(m.text())) recusasCSP.push(m.text().slice(0, 200)); });
+// (26/11/2026) as abas do painel de OS numa linha só: a que não cabe na largura está no "Mais" — abre o menu antes
+const irAba = async (pg, id) => {
+  if (await pg.$eval("#aba-" + id, b => !!b.closest(".aba-menu"))) { await pg.click("#aba-mais"); await pg.waitForTimeout(100); }
+  await pg.click("#aba-" + id);
+};
 vigiarCSP(p);
 
 await p.goto(COM_OFICINA, { waitUntil: "networkidle" });
@@ -2579,7 +2584,7 @@ ok("e o Diagnóstico não manda rodar SQL por causa de sessão",
   }
   // os indicadores (09/11/2026): base 05/11, 12 semanas — entraram 3 (01/10, 20/10, 25/10), fechou 1 (03/11), 2 abertas
   const periodoPronto = async (rot) => { await mt.click("#f-periodo"); await mt.click(`#pop .per-op:has-text("${rot}")`); await mt.waitForTimeout(300); };
-  await mt.click("#aba-indicadores");
+  await irAba(mt, "indicadores");
   await periodoPronto("Últimas 12 semanas");
   const ind = await mt.$$eval("#indicadores .kpi.ind", (v) => v.map((x) => x.querySelector(".rot").textContent + "=" + x.querySelector(".val").textContent));
   ok("Indicadores: backlog no fim 2, taxa de atendimento 33% (1 de 3), saldo +2", ["Backlog no fim do período=2", "Taxa de atendimento=33%", "Saldo da carteira=+2"].every((x) => ind.includes(x)), ind.join(" | "));
@@ -2596,7 +2601,7 @@ ok("e o Diagnóstico não manda rodar SQL por causa de sessão",
   await mt.click('#indicadores button:has-text("Como é calculado")');
   ok("a conta de cada indicador fica recolhida até pedir em \"Como é calculado\"", semRegra && await regraVisivel());
   // a OS abre numa caixa no meio da tela, com o essencial à vista e o resto em "Mais detalhes"
-  await mt.click("#aba-carteira");
+  await irAba(mt, "carteira");
   await mt.waitForSelector("#c-carteira tbody tr", { timeout: 10000 });
   await mt.click("#c-carteira tbody tr >> nth=0");
   await mt.waitForTimeout(300);
@@ -2619,9 +2624,13 @@ ok("e o Diagnóstico não manda rodar SQL por causa de sessão",
   await mt.keyboard.press("Escape");
   await mt.waitForTimeout(200);
   ok("e o Esc fecha a caixa", await mt.isHidden("#detalhe"));
-  // as abas pelo teclado (12/11/2026): só a aberta fica no Tab; setas, Home e End andam; Enter abre
+  // as abas pelo teclado (12/11/2026): só a aberta fica no Tab; setas, Home e End andam; Enter abre. (26/11/2026) Numa
+  // linha só: as da linha e o "Mais" (o que não cabe); no menu, as setas para baixo e para cima, e Enter abre
   const focoAba = () => mt.evaluate(() => document.querySelector(".os-host").shadowRoot.activeElement?.id || "");
-  const tabsZero = await mt.$$eval(".abas .aba", (l) => l.filter((b) => b.tabIndex === 0).map((b) => b.id));
+  const linha = await mt.evaluate(() => { const nav = document.querySelector(".os-host").shadowRoot.querySelector(".abas");
+    return [...nav.children].filter((x) => x.classList.contains("aba") && !x.hidden).map((x) => x.id)
+      .concat(nav.querySelector("#aba-mais").hidden ? [] : ["aba-mais"]); });
+  const tabsZero = await mt.$$eval(".abas .aba[data-aba]", (l) => l.filter((b) => b.tabIndex === 0).map((b) => b.id));
   await mt.focus("#aba-carteira");
   await mt.keyboard.press("ArrowRight");
   const f1 = await focoAba();
@@ -2631,24 +2640,39 @@ ok("e o Diagnóstico não manda rodar SQL por causa de sessão",
   const f3 = await focoAba();
   await mt.keyboard.press("ArrowLeft");
   const f4 = await focoAba();
-  await mt.keyboard.press("Enter");
-  await mt.waitForTimeout(300);
-  ok("abas pelo teclado: só a aberta no Tab; seta, End e Home andam (dando a volta), e Enter abre",
-    tabsZero.join() === "aba-carteira" && f1 === "aba-preventivas" && f2 === "aba-auditoria" && f3 === "aba-geral" && f4 === "aba-auditoria" &&
-    (await mt.getAttribute("#aba-auditoria", "aria-selected")) === "true", JSON.stringify({ tabsZero, f1, f2, f3, f4 }));
-  ok("as abas em quatro grupos, as dez à vista", (await mt.$$eval(".abas .aba-grupo-rot", (l) => l.map((x) => x.textContent))).join() === "Gestão,Planejamento,Execução,Análise" &&
-    (await mt.$$(".abas .aba")).length === 10);
-  await mt.click("#aba-carteira");
+  ok("abas pelo teclado: só a aberta no Tab; seta, End e Home andam pela linha (dando a volta)",
+    tabsZero.join() === "aba-carteira" && f1 === linha[linha.indexOf("aba-carteira") + 1] && f2 === linha[linha.length - 1] && f3 === "aba-geral" && f4 === linha[linha.length - 1],
+    JSON.stringify({ linha, tabsZero, f1, f2, f3, f4 }));
+  const tudo = await mt.evaluate(() => { const s = document.querySelector(".os-host").shadowRoot, nav = s.querySelector(".abas");
+    return { grupos: s.querySelectorAll(".aba-grupo-rot").length, total: s.querySelectorAll(".aba[data-aba]:not([hidden])").length,
+      noMenu: s.querySelectorAll(".aba-menu .aba[data-aba]").length, altura: Math.round(nav.getBoundingClientRect().height) }; });
+  ok("as abas numa linha só, sem os grupos: as onze à vista ou no Mais (nenhuma sumiu)", tudo.grupos === 0 && tudo.total === 11 && tudo.altura < 60, JSON.stringify(tudo));
+  // o "Mais": abre pelo teclado, a seta anda, Enter abre a aba, e o botão leva o nome dela
+  if (tudo.noMenu) {
+    await mt.focus("#aba-mais");
+    await mt.keyboard.press("Enter");
+    await mt.waitForTimeout(150);
+    const m1 = await focoAba();
+    await mt.keyboard.press("End");
+    const m2 = await focoAba();
+    await mt.keyboard.press("Enter");
+    await mt.waitForTimeout(300);
+    const nomeMais = await mt.evaluate(() => document.querySelector(".os-host").shadowRoot.querySelector("#aba-mais .aba-mais-rot").textContent);
+    ok("o Mais pelo teclado: abre o menu, End vai na última (Auditoria), Enter abre, e o botão leva o nome dela",
+      !!m1 && m2 === "aba-auditoria" && (await mt.getAttribute("#aba-auditoria", "aria-selected")) === "true" && nomeMais === "Auditoria" &&
+      await mt.evaluate(() => document.querySelector(".os-host").shadowRoot.querySelector("#aba-menu").hidden), JSON.stringify({ m1, m2, nomeMais }));
+  } else ok("o Mais só aparece quando falta lugar (aqui, coube tudo)", await mt.evaluate(() => document.querySelector(".os-host").shadowRoot.querySelector("#aba-mais").hidden));
+  await irAba(mt, "carteira");
   await mt.waitForTimeout(200);
   // programadas × finalizadas (10/11/2026): em novembro (dados de 05/11), a 100001 — programada pela previsão da STL para
   // 04/11 (19/11/2026: a data da STJ ou da STL) —, e a 100003 (programada para 25/10, o dia da abertura) finalizada em 03/11
   // conta como finalizada de fora da programação
-  await mt.click("#aba-geral");
+  await irAba(mt, "geral");
   await periodoPronto("Mês atual");
   const notaPF = await mt.textContent("#nota-progfin");
   ok("Visão geral: as programadas e as encerradas no período da barra (o mês)",
     notaPF.startsWith("Mês atual") && notaPF.includes(": 1 programada ·") && notaPF.includes("1 encerrada no total (1 extra programação)"), notaPF);
-  await mt.click("#aba-programacao");
+  await irAba(mt, "programacao");
   await mt.waitForTimeout(300);
   // (13/11/2026) a lista das OS começa fechada: abre pelo clique num número, na barra ou no "Ver a lista das OS"
   ok("Programação: a lista das OS começa fechada, com o botão para abrir", !(await mt.isVisible("#pg-lista")) &&
@@ -2730,8 +2754,8 @@ ok("e o Diagnóstico não manda rodar SQL por causa de sessão",
       planosPub.length > 0 && segundas.every((s) => new Date(s + "T00:00:00Z").getUTCDay() === 1), JSON.stringify(planosPub));
   });
   await mt.reload({ waitUntil: "networkidle" });
-  await mt.waitForSelector("#aba-programacao", { timeout: 30000 });
-  await mt.click("#aba-programacao");
+  await mt.waitForSelector("#aba-programacao", { state: "attached", timeout: 30000 });
+  await irAba(mt, "programacao");
   await periodoPronto("Semana atual");
   // (19/11/2026) o plano de segunda saiu da tela (na segunda o Protheus ainda não tem a programação da semana): a
   // Programação abre com o gráfico semana a semana e a próxima semana. Na semana 45 (dados de 05/11), a 100001 está
@@ -2746,7 +2770,7 @@ ok("e o Diagnóstico não manda rodar SQL por causa de sessão",
   const kSem = await mt.$$eval("#programacao .pg-top .kpi .val", (v) => v.map((x) => x.textContent));
   ok("e a semana 45 pela data da STL: a 100001 (prevista para 04/11) é programada, ainda não executada", kSem.join("|") === "1|0|1|0%", kSem.join(" | "));
   // os Indicadores somam as semanas já fechadas do período, cada uma pela conta da Programação
-  await mt.click("#aba-indicadores");
+  await irAba(mt, "indicadores");
   await periodoPronto("Mês anterior");
   await mt.waitForTimeout(400);
   const indAd = await mt.$eval('#c-ind-kpis .kpi:has(.rot:text-is("Aderência à programação"))', (k) => [k.querySelector(".val").textContent, k.querySelector(".regra").textContent]);
@@ -2758,9 +2782,9 @@ ok("e o Diagnóstico não manda rodar SQL por causa de sessão",
     for (const c of ["dias/2026-11-02.json.gz", "dias/2026-10-26.json.gz", "importacoes.json.gz"]) await mkt.nuvem.apagarArquivo("painel-os", c);
   });
   await mt.reload({ waitUntil: "networkidle" });
-  await mt.waitForSelector("#aba-preventivas", { timeout: 30000 });
+  await mt.waitForSelector("#aba-preventivas", { state: "attached", timeout: 30000 });
   // a aba OS preventivas: a 100007, em aberto
-  await mt.click("#aba-preventivas");
+  await irAba(mt, "preventivas");
   await mt.waitForSelector("#prev-topo .kpi", { timeout: 10000 });
   const kPrev = await mt.$$eval("#prev-topo .kpi .val", (v) => v.map((x) => x.textContent));
   ok("a aba OS preventivas: 1 em aberto, e a lista traz a 100007", kPrev[0] === "1" && (await mt.innerText("#prev-lista")).includes("100007"), kPrev.join(" | "));
@@ -2777,7 +2801,7 @@ ok("e o Diagnóstico não manda rodar SQL por causa de sessão",
   await mt.waitForTimeout(300);
   ok("e volta", !(await mt.innerText("#prev-lista")).includes("com data no período e sem executante"));
   // o avanço: na semana 45 (02 a 08/11, dados de 05/11) tinha 3 no começo, nenhuma nova, 1 encerrada, ficou com 2
-  await mt.click("#aba-avanco");
+  await irAba(mt, "avanco");
   await periodoPronto("Semana atual");
   await mt.waitForSelector(".av-kpis", { timeout: 10000 });
   const av = await mt.$$eval(".av-kpis .kpi .val", v => v.slice(0, 4).map(x => x.textContent).join("|"));
@@ -2814,7 +2838,7 @@ ok("e o Diagnóstico não manda rodar SQL por causa de sessão",
   const out = await mt.$$eval(".av-kpis .kpi .val", v => v.slice(0, 4).map(x => x.textContent).join("|"));
   ok("em outubro: nada no começo, entraram 3, nenhuma encerrada, ficaram 3", out === "0|+3|0|3", out);
   // a auditoria (11/11/2026): o funil do Protheus ao painel, os pontos de atenção e as cópias guardadas
-  await mt.click("#aba-auditoria");
+  await irAba(mt, "auditoria");
   await mt.waitForSelector("#aud-funil", { timeout: 10000 });
   await mt.waitForFunction(() => !/Lendo/.test(document.querySelector(".os-host").shadowRoot.querySelector("#aud-comparar").textContent), null, { timeout: 15000 });
   const funil = (await mt.innerText("#aud-funil")).replace(/\s+/g, " ");
@@ -2826,7 +2850,7 @@ ok("e o Diagnóstico não manda rodar SQL por causa de sessão",
   ok("e a comparação pede duas cópias (só há a desta atualização)", (await mt.innerText("#aud-comparar")).includes("Só há a cópia de 05/11/2026"), await mt.innerText("#aud-comparar"));
   ok("e o histórico das atualizações tem a linha desta", (await mt.innerText("#aud-historico")).includes("05/11/2026"), (await mt.innerText("#aud-historico")).slice(0, 200));
   // o período das finalizadas no calendário (09/11/2026): um pronto, e depois o começo e o fim clicando
-  await mt.click("#aba-geral");
+  await irAba(mt, "geral");
   await mt.click("#f-periodo");
   await mt.waitForSelector("#pop .cal-dia");
   await mt.click('#pop .per-op:has-text("Em 2026")');
@@ -2856,12 +2880,12 @@ ok("e o Diagnóstico não manda rodar SQL por causa de sessão",
   await mt.waitForTimeout(300);
   // os downloads do painel — a lista em CSV, o gráfico em imagem e a carteira em PDF (o gerador carrega
   // de vendor/ só agora) —, todos debaixo da política de conteúdo da página
-  await mt.click("#aba-carteira");
+  await irAba(mt, "carteira");
   await mt.waitForTimeout(500);
   const [dCSV] = await Promise.all([mt.waitForEvent("download", { timeout: 8000 }), mt.click("#carteira .baixar-csv >> visible=true")]);
   const tCSV = await readFile(await dCSV.path(), "utf8");
   ok("a lista da carteira sai em CSV para o Excel: cabeçalho e as OS", tCSV.startsWith("\uFEFFOS;Filial;Frota;") && tCSV.includes("100001"), tCSV.slice(0, 80));
-  await mt.click("#aba-geral");
+  await irAba(mt, "geral");
   await mt.waitForTimeout(500);
   // mandar no grupo (10/11/2026): o Enviar de cada cartão abre o menu — imagem (copiar, baixar) e os números
   await mt.click("#c-frotas .baixar");
@@ -2892,7 +2916,7 @@ ok("e o Diagnóstico não manda rodar SQL por causa de sessão",
   await mt.keyboard.press("Escape");
   ok("o Esc fecha o menu do Enviar", await mt.isHidden("#c-frotas .menu-env"));
   // o cartão só de números (o Avanço) também sai como imagem
-  await mt.click("#aba-avanco");
+  await irAba(mt, "avanco");
   await mt.waitForSelector(".av-kpis", { timeout: 10000 });
   await mt.click("#avanco .cartao >> nth=0 >> .baixar");
   const [dAv] = await Promise.all([mt.waitForEvent("download", { timeout: 8000 }), mt.click('#avanco .menu-env:visible button:has-text("Baixar imagem")')]);
@@ -2926,9 +2950,9 @@ ok("e o Diagnóstico não manda rodar SQL por causa de sessão",
   ok("e a imagem do resumo", (await readFile(await dRes.path())).subarray(1, 4).toString() === "PNG" && dRes.suggestedFilename() === "resumo-do-dia-2026-11-05.png", dRes.suggestedFilename());
   await mt.keyboard.press("Escape");
   await mt.waitForTimeout(200);
-  await mt.click("#aba-geral");
+  await irAba(mt, "geral");
   await mt.waitForTimeout(300);
-  await mt.click("#aba-carteira");
+  await irAba(mt, "carteira");
   await mt.waitForTimeout(300);
   await mt.click('#c-carteira button:has-text("Imprimir carteira")');
   await mt.waitForTimeout(300);
@@ -3011,7 +3035,7 @@ ok("e o Diagnóstico não manda rodar SQL por causa de sessão",
   ok("publicou: o painel abre na versão nova (a de 06/11), com o nome dela", /Protheus de 06\/11\/2026 · versão \d\d\/\d\d \d\d:\d\d/.test(subB) && !arqs.includes("trava.json.gz") &&
     arqs.includes("versoes") && arqs.includes("historicos"), subB + " · " + arqs.join(","));
   // voltar para a versão de antes, pela Auditoria
-  await mt.click("#aba-auditoria");
+  await irAba(mt, "auditoria");
   await mt.waitForSelector("#aud-historico tbody tr", { timeout: 15000 });
   const hist = await mt.$$eval("#aud-historico tbody tr", (l) => l.map((tr) => tr.textContent.replace(/\s+/g, " ")));
   const nVoltar = (await mt.$$('#aud-historico tbody tr button:has-text("Voltar para esta")')).length;
@@ -3022,12 +3046,12 @@ ok("e o Diagnóstico não manda rodar SQL por causa de sessão",
   ok("a volta diz o que muda antes de confirmar", /passa a mostrar os dados do Protheus de 05\/11\/2026/.test(await mt.innerText("#os-importar")));
   await mt.click('#os-importar button:has-text("Voltar para esta versão")');
   await mt.waitForFunction(() => { const t = document.querySelector(".os-host").shadowRoot.querySelector("#sub"); return t && /05\/11\/2026/.test(t.textContent); }, null, { timeout: 30000 });
-  await mt.click("#aba-auditoria");
+  await irAba(mt, "auditoria");
   await mt.waitForSelector("#aud-historico tbody tr", { timeout: 15000 });
   const hist2 = await mt.$$eval("#aud-historico tbody tr", (l) => l.map((tr) => tr.textContent.replace(/\s+/g, " ")));
   ok("voltou: o painel mostra os dados de 05/11 de novo, e o histórico registra a volta", /Protheus de 05\/11\/2026/.test(await sub()) &&
     hist2.some((x) => /\(volta\)/.test(x) && /no ar/.test(x)), (await sub()) + " · " + hist2.join(" ;; "));
-  await mt.click("#aba-geral");
+  await irAba(mt, "geral");
   await mt.waitForTimeout(300);
   // o tema é o do site: o ◐ do alto troca o painel na hora, e a escolha fica
   const temaOS = () => mt.evaluate(() => document.querySelector(".os-host").dataset.tema);
@@ -3066,7 +3090,8 @@ ok("e o Diagnóstico não manda rodar SQL por causa de sessão",
   await abrirCarteira(pc);
   const cab = await pc.$$eval("#c-carteira thead th", (v) => v.map((x) => x.textContent.trim()));
   const chips = await pc.$$eval("#c-carteira .cart-chip", (v) => v.map((x) => `${x.querySelector("b").textContent} ${x.querySelector("span").textContent}`));
-  ok("a Carteira: o resumo que filtra no alto e a tabela com sete colunas", cab.join("|") === "OS|Frota|Serviço|Situação|Aberta em|Dias|Executante" &&
+  // (26/11/2026) na frente, a coluna da caixinha de marcar para tratativa (sem nome)
+  ok("a Carteira: o resumo que filtra no alto e a tabela com sete colunas (e a caixinha de marcar na frente)", cab.join("|") === "|OS|Frota|Serviço|Situação|Aberta em|Dias|Executante" &&
     chips.some((c) => /^\d+ abertas$/.test(c)) && chips.some((c) => /^\d+ aguardando liberação$/.test(c)) && chips.some((c) => /^\d+ sem executante$/.test(c)),
     cab.join("|") + " · " + chips.join(" · "));
   const chipP = '#c-carteira .cart-chip:has-text("aguardando liberação")';
@@ -3094,9 +3119,125 @@ ok("e o Diagnóstico não manda rodar SQL por causa de sessão",
   await cel.context().close();
 }
 
+// ── as tratativas de OS (26/11/2026, pedido do Mateus) ───────────────────────
+// O supervisor (aqui a Mayra: PCM, vê o painel e não atualiza — o perfil do Lucas no banco) marca as OS na Carteira e
+// pede a tratativa; o Mateus (atualiza o painel) confirma, recusa com a justificativa e reabre. A consulta não vê nada
+// disso, e o banco recusa a resposta de quem não atualiza (sql/08_tratativas.sql; aqui, o servidor de mentira).
+{
+  const abrirPainel = async (pg, quem, aba) => {
+    vigiarCSP(pg);
+    pg.on("pageerror", e => console.log(`  [erro na página (${quem})]`, e.message));
+    await pg.goto(site.endereco, { waitUntil: "networkidle" });
+    await entrarComo(pg, quem);
+    await pg.evaluate((a) => { location.hash = "#/os?aba=" + a; }, aba);
+    await pg.waitForSelector(".os-host", { timeout: 30000 });
+    await pg.waitForTimeout(1500);
+  };
+  const s = (pg, fn, arg) => pg.evaluate(([f, a]) => new Function("s", "a", f)(document.querySelector(".os-host").shadowRoot, a), [fn, arg]);
+  const my = await (await nav.newContext({ viewport: { width: 1280, height: 900 } })).newPage();
+  await abrirPainel(my, "Mayra", "carteira");
+  await my.waitForSelector("#c-carteira tbody tr", { timeout: 30000 });
+  const inicio = await s(my, "return { aba: !s.querySelector('#aba-tratativas').hidden, caixas: s.querySelectorAll('#c-carteira .marca-os').length, linhas: s.querySelectorAll('#c-carteira tbody tr').length }");
+  ok("quem pede tratativa (PCM que vê o painel) tem a aba Tratativas e a caixinha de marcar em cada OS da lista",
+    inicio.aba && inicio.caixas > 0 && inicio.caixas === inicio.linhas, JSON.stringify(inicio));
+  await my.click('#c-carteira tr:has-text("100001") .marca-os');
+  await my.click('#c-carteira tr:has-text("100002") .marca-os');
+  await my.waitForTimeout(200);
+  ok("marcadas duas, a barra do pé diz quantas e oferece pedir", (await s(my, "const b = s.querySelector('.marca-barra'); return b.hidden ? '' : b.textContent")).startsWith("2 OS marcadas"));
+  await my.click('.marca-barra button:has-text("Pedir tratativa")');
+  await my.waitForSelector("#detalhe .trat-opcoes", { timeout: 5000 });
+  const erroDe = () => s(my, "return [...s.querySelectorAll('#detalhe .trat-erro')].map((e) => e.textContent).filter(Boolean).join(' | ')");
+  await my.click('#detalhe button:has-text("Enviar o pedido")');
+  const e1 = await erroDe();
+  await my.click('#detalhe .trat-opcao:has-text("Trocar")');
+  await my.click('#detalhe button:has-text("Enviar o pedido")');
+  const e2 = await erroDe();
+  ok("o pedido não sai sem a tratativa escolhida, nem a troca sem dizer o quê", e1 === "Escolha a tratativa." && e2 === "Escreva o que trocar.", `${e1} / ${e2}`);
+  await my.fill("#detalhe textarea", "Trocar o executante para o terceiro");
+  await my.click('#detalhe button:has-text("Enviar o pedido")');
+  await my.waitForSelector("#detalhe .trat-ok", { timeout: 10000 });
+  const enviado = await s(my, "return s.querySelector('#detalhe .trat-ok').textContent");
+  await my.click('#detalhe button:has-text("Fechar")');
+  await my.waitForTimeout(300);
+  const tag = await s(my, "const tr = [...s.querySelectorAll('#c-carteira tbody tr')].find((x) => x.textContent.includes('100001')); return tr && tr.querySelector('.tag-trat') ? tr.querySelector('.tag-trat').textContent : ''");
+  ok("um pedido para cada OS marcada; a barra some, e a OS fica com a etiqueta da tratativa pendente na lista",
+    enviado.startsWith("2 pedidos foram gravados: trocar") && tag === "Trocar" && await s(my, "return s.querySelector('.marca-barra').hidden"), `${enviado} · etiqueta: ${tag}`);
+  // pela ficha: o mesmo pedido de novo não entra; outro, entra
+  await my.click('#c-carteira tbody tr:has-text("100001")');
+  await my.waitForSelector("#detalhe .det-trat", { timeout: 5000 });
+  const naFicha = await s(my, "return s.querySelector('#detalhe .det-trat').textContent");
+  await my.click('#detalhe button:has-text("Pedir tratativa")');
+  await my.click('#detalhe .trat-opcao:has-text("Trocar")');
+  await my.fill("#detalhe textarea", "De novo");
+  await my.click('#detalhe button:has-text("Enviar o pedido")');
+  const e3 = await erroDe();
+  await my.click('#detalhe .trat-opcao:has-text("Finalizar a OS")');
+  await my.click('#detalhe button:has-text("Enviar o pedido")');
+  await my.waitForSelector("#detalhe .trat-ok", { timeout: 10000 });
+  await my.click('#detalhe button:has-text("Ver as tratativas")');
+  await my.waitForTimeout(500);
+  ok("a ficha mostra a tratativa da OS; o mesmo pedido pendente não entra de novo, outro sim",
+    naFicha.includes("Trocar · Pendente") && e3.startsWith('Já tem pedido pendente de "Trocar" para: 100001'), `${naFicha.slice(0, 80)} / ${e3}`);
+  const vistaMy = await s(my, "return { url: location.hash, n: s.querySelector('#n-tratativas').textContent, itens: [...s.querySelectorAll('.trat')].map((t) => t.querySelector('.trat-os').textContent + '|' + [...t.querySelectorAll('.trat-acoes button')].map((b) => b.textContent).join('/')) }");
+  ok("na aba, os três pendentes (o mais antigo primeiro), a conta na aba, e quem pediu só pode cancelar (não confirma nem recusa)",
+    vistaMy.n === "3" && vistaMy.itens.length === 3 && vistaMy.itens.every((x) => x.endsWith("|Cancelar o pedido")), JSON.stringify(vistaMy));
+  await my.click('.trat >> nth=2 >> button:has-text("Cancelar o pedido")');
+  await my.click('.trat >> nth=2 >> button:has-text("Sim, cancelar o pedido")');
+  await my.waitForTimeout(800);
+  ok("e cancelar o próprio pedido tira ele dos pendentes", (await s(my, "return s.querySelector('#n-tratativas').textContent")) === "2");
+  // o banco recusa a resposta de quem não atualiza o painel, mesmo pedida direto (sem a tela)
+  const direto = await my.evaluate(async () => {
+    try { await mkt.nuvem.enviar([{ id: "trat-direto-1", ts: new Date().toISOString(), autor: "Mayra", tipo: "trat_feita", alvo_tipo: "tratativa", alvo: "qualquer", dados: {}, motivo: "", origem: "manual" }]); return "gravou"; }
+    catch (e) { return "recusou"; }
+  });
+  ok("o banco recusa a confirmação lançada por quem só vê o painel (mesmo sem passar pela tela)", direto === "recusou", direto);
+  await my.context().close();
+
+  // o Mateus trata: recusa (com a justificativa), confirma e reabre
+  const mm = await (await nav.newContext({ viewport: { width: 1280, height: 900 } })).newPage();
+  await abrirPainel(mm, "Mateus", "tratativas");
+  await mm.waitForSelector("#tratativas .trat", { timeout: 30000 });
+  await mm.waitForTimeout(500);
+  const vistaMm = await s(mm, "return [...s.querySelectorAll('.trat')].map((t) => [...t.querySelectorAll('.trat-acoes button')].map((b) => b.textContent).join('/'))");
+  ok("quem atualiza o painel vê os pendentes com Confirmar e Recusar (e não cancela o pedido de outra pessoa)",
+    vistaMm.length === 2 && vistaMm.every((x) => x === "Confirmar: feita/Recusar"), JSON.stringify(vistaMm));
+  await mm.click('.trat >> nth=1 >> button:has-text("Recusar")');
+  await mm.click('.trat >> nth=1 >> button:has-text("Recusar o pedido")');
+  const semMotivo = await s(mm, "return s.querySelectorAll('.trat')[1].querySelector('.trat-erro').textContent");
+  await mm.fill(".trat >> nth=1 >> textarea", "Já está programada no Protheus");
+  await mm.click('.trat >> nth=1 >> button:has-text("Recusar o pedido")');
+  await mm.waitForTimeout(800);
+  await mm.click('.trat >> nth=0 >> button:has-text("Confirmar: feita")');
+  await mm.click('.trat >> nth=0 >> button:has-text("Confirmar: feita")');
+  await mm.waitForTimeout(800);
+  const contas = await s(mm, "return s.querySelector('#tratativas .segm').textContent.replace(/\\s+/g, ' ').trim()");
+  ok("a recusa pede a justificativa; recusada uma e confirmada a outra, as contas batem", semMotivo === "Escreva a justificativa da recusa." &&
+    contas.replace(/\s+/g, "") === "Pendentes0Feitas1Recusadas1Canceladas1Todas3", `${semMotivo} · ${contas}`);
+  await mm.click('#tratativas .segm button:has-text("Todas")');
+  await mm.waitForTimeout(300);
+  const todas = await s(mm, "return [...s.querySelectorAll('.trat')].map((t) => t.querySelector('.trat-sit').textContent)");
+  ok("em Todas, a recusa com a justificativa e quem respondeu", todas.some((x) => x.startsWith("Recusada por Mateus") && x.includes("Justificativa: Já está programada no Protheus")) &&
+    todas.some((x) => x.startsWith("Feita por Mateus")) && todas.some((x) => x.startsWith("Cancelada por Mayra")), JSON.stringify(todas));
+  await mm.click('.trat.t-feita >> button:has-text("Reabrir")');
+  await mm.click('.trat.t-feita >> button:has-text("Sim, reabrir")');
+  await mm.waitForTimeout(800);
+  ok("reabrir volta o pedido para pendente", (await s(mm, "return s.querySelector('#n-tratativas').textContent")) === "1");
+  await mm.context().close();
+
+  // a consulta não vê as tratativas nem a caixinha (não lê a fita nem lança)
+  const vc = await (await nav.newContext({ viewport: { width: 1280, height: 900 } })).newPage();
+  await abrirPainel(vc, "Visitante", "tratativas");
+  await vc.waitForSelector("#c-carteira, #geral", { state: "attached", timeout: 30000 });
+  await vc.evaluate(() => { location.hash = "#/os?aba=carteira"; });
+  await vc.waitForTimeout(1500);
+  const consulta = await s(vc, "return { aba: !s.querySelector('#aba-tratativas').hidden, caixas: s.querySelectorAll('.marca-os').length }");
+  ok("a consulta (só vê o painel) não tem a aba Tratativas nem a caixinha de marcar", !consulta.aba && consulta.caixas === 0, JSON.stringify(consulta));
+  await vc.context().close();
+}
+
 // ── o painel de OS no tablet (24/11/2026) ────────────────────────────────────
-// Em pé (800 px), as dez abas à vista, em duas linhas (antes Frotas, Executantes e Auditoria ficavam escondidas à
-// direita); os filtros com 40 px de altura para o dedo; no gráfico que filtra, o primeiro toque mostra a dica com
+// Em pé (800 px), as abas numa linha só, com o "Mais" (26/11/2026; antes Frotas, Executantes e Auditoria ficavam
+// escondidas à direita); os filtros com 40 px de altura para o dedo; no gráfico que filtra, o primeiro toque mostra a dica com
 // "Toque de novo para abrir" e o segundo abre a lista. Com o mouse, o clique continua abrindo na hora.
 {
   const abrirExec = async (pg) => {
@@ -3109,13 +3250,17 @@ ok("e o Diagnóstico não manda rodar SQL por causa de sessão",
   };
   const tab = await (await nav.newContext({ viewport: { width: 800, height: 1280 }, isMobile: true, hasTouch: true })).newPage();
   await abrirExec(tab);
+  // (26/11/2026) as abas numa linha só: as que cabem à vista, o resto no "Mais"; nada escondido à direita
   const vista = await tab.evaluate(() => {
-    const s = document.querySelector(".os-host").shadowRoot, abas = s.querySelector(".abas"), aud = s.querySelector('.aba[data-aba="auditoria"]');
-    return { cabem: abas.scrollWidth <= abas.clientWidth + 1, auditoria: aud ? Math.round(aud.getBoundingClientRect().right) <= innerWidth : false,
+    const s = document.querySelector(".os-host").shadowRoot, abas = s.querySelector(".abas");
+    const naLinha = [...abas.children].filter((x) => x.classList.contains("aba") && !x.hidden), mais = s.querySelector("#aba-mais");
+    return { cabem: abas.scrollWidth <= abas.clientWidth + 1, linha: Math.round(abas.getBoundingClientRect().height),
+      dentro: naLinha.concat(mais.hidden ? [] : [mais]).every((b) => Math.round(b.getBoundingClientRect().right) <= innerWidth),
+      noMenu: s.querySelectorAll(".aba-menu .aba[data-aba]").length, mais: !mais.hidden,
       pill: Math.round(s.querySelector(".pill").getBoundingClientRect().height) };
   });
-  ok("no tablet em pé, as dez abas à vista (a Auditoria também) e os filtros com 40 px para o dedo",
-    vista.cabem && vista.auditoria && vista.pill >= 40, JSON.stringify(vista));
+  ok("no tablet em pé, as abas numa linha só (o que não cabe está no Mais, nada escondido à direita) e os filtros com 40 px para o dedo",
+    vista.cabem && vista.linha < 60 && vista.dentro && vista.mais === vista.noMenu > 0 && vista.pill >= 40, JSON.stringify(vista));
   const pedaco = await tab.$("#g-exec svg [data-acao] path");
   await pedaco.scrollIntoViewIfNeeded();
   await tab.waitForTimeout(500);

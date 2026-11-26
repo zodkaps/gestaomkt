@@ -14,6 +14,7 @@
 
 import { celulaCSV } from "../texto.js";
 import * as IND from "./indicadores.js";
+import * as TR from "./tratativas.js";
 import { rotuloDaVersao } from "./publicar.js";
 
 /** Desenha o painel com os dados `D` (o bloco que js/os/montar.js monta).
@@ -21,7 +22,7 @@ import { rotuloDaVersao } from "./publicar.js";
  *  `raiz`: onde o painel mora — a área isolada da tela OS Makro do site (js/tela/os.js), com o molde dele.
  *  `aba`: a aba para abrir; `aoTrocarAba(aba)`: avisa o site, que põe a aba no endereço.
  *  Devolve `{ parar }`: desliga o que o painel ouve na janela, para a tela sair limpa. */
-export function iniciarPainel(D, { baixar, raiz = document, aba = '', aoTrocarAba = null, meta = null, fontes = null, temaClaro = null } = {}) {
+export function iniciarPainel(D, { baixar, raiz = document, aba = '', aoTrocarAba = null, meta = null, fontes = null, temaClaro = null, trat = null } = {}) {
   const $ = (s) => raiz.querySelector(s);
   // o que o painel ouve fora dele (janela, documento) sai junto quando a tela fecha
   const fim = new AbortController();
@@ -179,7 +180,7 @@ export function iniciarPainel(D, { baixar, raiz = document, aba = '', aoTrocarAb
   // marcadas", todos menos eles); entre filtros, todos ao mesmo tempo. Na barra, os quatro de todo dia:
   // Frota, Situação, Executante (com "Sem executante" no alto) e Programação; o resto em "Mais
   // filtros", à vista, em grupos (v6, 03/11/2026: o "+ Filtro" da v5 escondia os campos).
-  const ABAS = ['geral', 'indicadores', 'programacao', 'avanco', 'pendentes', 'carteira', 'preventivas', 'frotas', 'executantes', 'auditoria'];
+  const ABAS = ['geral', 'indicadores', 'programacao', 'avanco', 'pendentes', 'carteira', 'tratativas', 'preventivas', 'frotas', 'executantes', 'auditoria'];
   const MULTI = ['frota', 'sit', 'prog', 'exec', 'esp', 'equip', 'serv', 'ccusto', 'filial', 'idade', 'prev', 'mesAb', 'mesFim', 'lanc'];
   const PRINC = ['frota', 'sit', 'exec', 'prog'];
   const GUARDA_MAIS = 'painel-os-mais-filtros';
@@ -187,7 +188,7 @@ export function iniciarPainel(D, { baixar, raiz = document, aba = '', aoTrocarAb
   const guardarMais = () => { try { localStorage.setItem(GUARDA_MAIS, V.mais ? '1' : '0'); } catch (e) { /* sem armazenamento */ } };
   const F = { periodo: 'semana', per: null, q: '', neg: new Set(), r: {} };
   for (const k of MULTI) F[k] = new Set();
-  const V = { aba: ABAS.includes(aba) ? aba : 'geral', ord: {}, cart: {}, execQuem: 'aponta', mais: lerMais(), frotaOrd: 'ab', tudo: {}, regras: false, serie: '', pg: { por: 'exec' }, aud: { dias: null, imp: null, a: '', b: '', res: null, cat: '', erro: '' },
+  const V = { aba: ABAS.includes(aba) && (aba !== 'tratativas' || trat) ? aba : 'geral', trat: { sit: 'pendente' }, ord: {}, cart: {}, execQuem: 'aponta', mais: lerMais(), frotaOrd: 'ab', tudo: {}, regras: false, serie: '', pg: { por: 'exec' }, aud: { dias: null, imp: null, a: '', b: '', res: null, cat: '', erro: '' },
     av: { por: 'exec', lista: 'saiu' } };
   // o período livre (09/11/2026): o começo e o fim escolhidos no calendário — ou andados pelas setas
   const periodo = () => (F.periodo === 'livre' && F.per
@@ -339,19 +340,26 @@ export function iniciarPainel(D, { baixar, raiz = document, aba = '', aoTrocarAb
   const pill = (k) => el('button', { type: 'button', class: 'pill' + (ativo(k) ? ' on' : '') + (F.neg.has(k) && ativo(k) ? ' neg' : ''), 'data-k': k,
     'aria-haspopup': 'true', 'aria-expanded': String(!!pop && pop.k === k), on: { click: (e) => alternarPop(k, e.currentTarget) } },
     el('span', { class: 'pill-rot', text: rotuloPill(k) }), el('span', { class: 'seta', 'aria-hidden': 'true', text: '▾' }));
+  // (26/11/2026, pedido do Mateus: a barra estava complexa demais) uma linha: o período, a busca e "Filtros" — que abre
+  // todos os filtros, os quatro de todo dia primeiro; o que estiver ligado aparece embaixo, numa etiqueta com ×
+  const ICONE_FILTRO = '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M2.5 3.5h11M4.8 8h6.4M7 12.5h2" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg>';
   function desenharPills() {
     pintarPeriodo();
-    const nOutros = OUTROS.filter(ativo).length;
-    $('#pills-multi').replaceChildren(...PRINC.map(pill),
-      el('button', { type: 'button', class: 'pill pill-mais' + (nOutros ? ' on' : ''), 'aria-expanded': String(V.mais), 'aria-controls': 'mais-painel',
-        on: { click: () => { V.mais = !V.mais; guardarMais(); fecharPop(true); desenharPills(); } } },
-        el('span', { class: 'pill-rot', text: 'Mais filtros' + (nOutros ? ' · ' + nOutros : '') }), el('span', { class: 'seta', 'aria-hidden': 'true', text: V.mais ? '▴' : '▾' })));
+    const nAtivos = CAMPOS.filter(ativo).length;
+    const bt = el('button', { type: 'button', class: 'pill pill-mais' + (nAtivos ? ' on' : ''), 'aria-expanded': String(V.mais), 'aria-controls': 'mais-painel',
+      title: V.mais ? 'Fechar os filtros' : 'Todos os filtros: frota, situação, executante, programação e os outros',
+      on: { click: () => { V.mais = !V.mais; guardarMais(); fecharPop(true); desenharPills(); } } });
+    bt.innerHTML = ICONE_FILTRO;
+    bt.append(el('span', { class: 'pill-rot', text: 'Filtros' }), nAtivos ? el('span', { class: 'pill-n', text: nf.format(nAtivos) }) : '',
+      el('span', { class: 'seta', 'aria-hidden': 'true', text: V.mais ? '▴' : '▾' }));
+    $('#pills-multi').replaceChildren(bt);
     const painel = $('#mais-painel');
     painel.hidden = !V.mais;
     if (!V.mais) return;
     const grupos = [...new Set(OUTROS.map((k) => defDe(k).g))];
-    painel.replaceChildren(...grupos.map((g) => el('div', { class: 'mais-grupo' }, el('span', { class: 'mais-tit', text: g }),
-      el('div', { class: 'mais-pills' }, ...OUTROS.filter((k) => defDe(k).g === g).map(pill)))), guardadosLinha());
+    painel.replaceChildren(el('div', { class: 'mais-grupo' }, el('span', { class: 'mais-tit', text: 'De todo dia' }), el('div', { class: 'mais-pills' }, ...PRINC.map(pill))),
+      ...grupos.map((g) => el('div', { class: 'mais-grupo' }, el('span', { class: 'mais-tit', text: g }),
+        el('div', { class: 'mais-pills' }, ...OUTROS.filter((k) => defDe(k).g === g).map(pill)))), guardadosLinha());
   }
 
   // a caixinha de cada filtro
@@ -621,20 +629,70 @@ export function iniciarPainel(D, { baixar, raiz = document, aba = '', aoTrocarAb
     desenhar();
     scrollTo({ top: 0 });
   }
-  raiz.querySelectorAll('.aba').forEach((b) => b.addEventListener('click', () => irPara(b.dataset.aba)));
-  // o teclado nas abas (12/11/2026), como manda o padrão das abas: a aba aberta é a única no Tab; as setas andam
-  // entre elas (Home e End, a primeira e a última), e Enter ou espaço abre a que estiver com o foco
   const nav = raiz.querySelector('.abas');
+  const maisAba = $('#aba-mais'), menuAbas = $('#aba-menu'), maisC = raiz.querySelector('.aba-mais-c');
+  const fecharMenuAbas = () => { if (!menuAbas || menuAbas.hidden) return; menuAbas.hidden = true; maisAba.setAttribute('aria-expanded', 'false'); };
+  raiz.querySelectorAll('.aba[data-aba]').forEach((b) => b.addEventListener('click', () => { const doMenu = !!b.closest('.aba-menu'); fecharMenuAbas(); irPara(b.dataset.aba); if (doMenu) maisAba.focus(); }));
+  // o teclado nas abas (12/11/2026), como manda o padrão das abas: a aba aberta é a única no Tab; as setas andam
+  // entre elas (Home e End, a primeira e a última), e Enter ou espaço abre a que estiver com o foco. (26/11/2026) As da
+  // linha e o "Mais"; no menu do "Mais", as setas para cima e para baixo, e o Esc fecha.
+  const naLinha = () => [...nav.children].filter((x) => x.classList.contains('aba') && !x.hidden).concat(maisAba && !maisAba.hidden ? [maisAba] : []);
   if (nav) nav.addEventListener('keydown', (e) => {
-    const abas = [...nav.querySelectorAll('.aba')], i = abas.indexOf(e.target);
+    if (menuAbas && menuAbas.contains(e.target)) {
+      const itens = [...menuAbas.querySelectorAll('.aba')], i = itens.indexOf(e.target);
+      if (e.key === 'Escape') { e.preventDefault(); fecharMenuAbas(); maisAba.focus(); return; }
+      const j = { ArrowDown: i + 1, ArrowUp: i - 1, Home: 0, End: itens.length - 1 }[e.key];
+      if (j === undefined) return;
+      e.preventDefault();
+      itens[(j + itens.length) % itens.length].focus();
+      return;
+    }
+    const abas = naLinha(), i = abas.indexOf(e.target);
     if (i < 0) return;
-    const j = { ArrowRight: i + 1, ArrowDown: i + 1, ArrowLeft: i - 1, ArrowUp: i - 1, Home: 0, End: abas.length - 1 }[e.key];
+    if (e.target === maisAba && e.key === 'ArrowDown') { e.preventDefault(); abrirMenuAbas(); return; }
+    const j = { ArrowRight: i + 1, ArrowLeft: i - 1, Home: 0, End: abas.length - 1 }[e.key];
     if (j === undefined) return;
     e.preventDefault();
     const alvo = abas[(j + abas.length) % abas.length];
     alvo.focus();                                   // só o foco anda; a aba aberta continua sendo a do Tab
     alvo.scrollIntoView({ block: 'nearest', inline: 'nearest' });
   });
+  // (26/11/2026, pedido do Mateus: a seleção de abas estava complexa demais) as abas numa linha só, na ordem do uso, sem
+  // os rótulos de grupo; o que não cabe na largura (tablet em pé, celular, menu do site aberto) vai para o "Mais" — e a
+  // aba aberta, se estiver lá, dá o nome ao botão. Refeito a cada desenho (a largura e os números das abas mudam).
+  function abrirMenuAbas() {
+    menuAbas.hidden = false;
+    maisAba.setAttribute('aria-expanded', 'true');
+    const a = menuAbas.querySelector('.aba.on') || menuAbas.querySelector('.aba');
+    if (a) a.focus();
+  }
+  if (maisAba) maisAba.addEventListener('click', () => { if (menuAbas.hidden) abrirMenuAbas(); else fecharMenuAbas(); });
+  ouvir(document, 'pointerdown', (e) => { if (menuAbas && !menuAbas.hidden && !maisC.contains(alvoDe(e))) fecharMenuAbas(); });
+  function arrumarAbas() {
+    if (!nav || !maisAba) return;
+    const todas = [...raiz.querySelectorAll('.aba[data-aba]')];
+    for (const b of todas) nav.insertBefore(b, maisC);
+    fecharMenuAbas();
+    maisAba.hidden = true;
+    const vis = todas.filter((b) => !b.hidden);
+    const cabe = nav.clientWidth;
+    if (!cabe) return;
+    const gap = parseFloat(getComputedStyle(nav).columnGap) || 0;
+    const larg = vis.map((b) => b.getBoundingClientRect().width + gap);
+    if (larg.reduce((s, w) => s + w, 0) <= cabe + 1) { pintarMaisAba(); return; }
+    maisAba.hidden = false;
+    const resto = cabe - maisAba.getBoundingClientRect().width - gap - 4;
+    let soma = 0, i = 0;
+    for (; i < vis.length && soma + larg[i] <= resto; i++) soma += larg[i];
+    for (const b of vis.slice(Math.max(1, i))) menuAbas.append(b);
+    pintarMaisAba();
+  }
+  function pintarMaisAba() {
+    const ativa = [...menuAbas.querySelectorAll('.aba[data-aba]')].find((b) => b.dataset.aba === V.aba);
+    maisAba.classList.toggle('on', !!ativa);
+    maisAba.setAttribute('aria-label', ativa ? `Mais partes do painel (aberta: ${ativa.firstChild.textContent.trim()})` : 'Mais partes do painel');
+    maisAba.querySelector('.aba-mais-rot').textContent = ativa ? ativa.firstChild.textContent.trim() : 'Mais';
+  }
 
   // ── a dica ──
   const dica = $('#dica');
@@ -1031,7 +1089,7 @@ export function iniciarPainel(D, { baixar, raiz = document, aba = '', aoTrocarAb
     const cab = el('tr', {}, ...cols.map((c) => el('th', { class: [c.num ? 'n' : '', c.esc ? 'esc' : ''].join(' ').trim() || null,
       'aria-sort': c.k === col.k ? (o.dir === 'asc' ? 'ascending' : 'descending') : 'none' },
       // a coluna sem nome (a de um botão por linha) não ordena: o cabeçalho dela não é botão
-      c.rot ? el('button', { type: 'button', text: c.rot, on: { click: () => { V.ord[id] = { k: c.k, dir: o.k === c.k && o.dir === 'desc' ? 'asc' : c.num ? 'desc' : 'asc' }; desenhar(); } } }) : null)));
+      c.cab ? c.cab() : c.rot ? el('button', { type: 'button', text: c.rot, on: { click: () => { V.ord[id] = { k: c.k, dir: o.k === c.k && o.dir === 'desc' ? 'asc' : c.num ? 'desc' : 'asc' }; desenhar(); } } }) : null)));
     const corpo = el('tbody');
     for (const r of l.slice(0, lim)) {
       const tr = el('tr', { class: aoClicar ? 'clica' : null, tabindex: aoClicar ? '0' : null });
@@ -1055,7 +1113,7 @@ export function iniciarPainel(D, { baixar, raiz = document, aba = '', aoTrocarAb
   // As colunas: as de sempre ficam fixas; as outras, cada um escolhe (fica guardado no navegador dele).
   const ordSit = (o) => (o.sit === 'F' ? 'Z' + o.fim : o.sit === 'P' ? 'B' : 'A') + String(1e6 - (o.dias || 0)).padStart(7, '0');
   const COLS = [
-    { k: 'os', rot: 'OS', fixa: true, cls: () => 'os' },
+    { k: 'os', rot: 'OS', fixa: true, cls: () => 'os', ver: (o) => comTratativa(o) },
     { k: 'frota', rot: 'Frota', fixa: true, frota: true, cls: () => 'frota' },
     { k: 'servico', rot: 'Serviço', fixa: true, cls: () => 'serv', ver: (o) => el('span', {}, o.servico, o.equip ? el('small', { text: o.equip }) : null) },
     { k: 'sit', rot: 'Situação', fixa: true, ver: (o) => badge(o), ord: ordSit },
@@ -1170,7 +1228,9 @@ export function iniciarPainel(D, { baixar, raiz = document, aba = '', aoTrocarAb
       el('div', { class: 'cab' }, el('div', {}, el('h2', { text: titulo }), el('p', { class: 'nota', text: nota })), el('div', { class: 'acoes' }, aviso, baixar, escolha)),
       ...(semSegm ? [] : [el('div', { class: 'cart-barra' }, segG || resumoCart || segm)]), caixa, pe);
     const extras = COLS_DA_LISTA[chave] || [];
-    const cols = COLS.filter((c) => (c.fixa || colunasOn.has(c.k) || extras.includes(c.k)) && !(semFrota && c.frota));
+    // (26/11/2026) quem pede tratativa marca as OS na lista (a caixinha na frente de cada uma)
+    const marca = colunaMarca(() => ordenadas.slice(0, est.lim));
+    const cols = [...(marca ? [marca] : []), ...COLS.filter((c) => (c.fixa || colunasOn.has(c.k) || extras.includes(c.k)) && !(semFrota && c.frota))];
     const ordenadas = tabela(caixa, { id: 'cart-' + chave, linhas: lista, lim: est.lim, padrao: { k: 'sit', dir: 'asc' }, aoClicar: abrirDetalhe, cols });
     const tb = caixa.querySelector('table');
     if (tb) { tb.classList.add('lista-os'); caixa.classList.add('tab-os'); }   // no celular, cada OS vira um cartão
@@ -1187,7 +1247,13 @@ export function iniciarPainel(D, { baixar, raiz = document, aba = '', aoTrocarAb
   // (idade, datas, previsão, quem fecha, horas) e o resto recolhido em "Mais detalhes" ──
   const detalhe = $('#detalhe'), fundo = $('#detalhe-fundo');
   let voltaFoco = null;
-  function fecharDetalhe() { detalhe.hidden = true; fundo.hidden = true; if (voltaFoco) voltaFoco.focus(); }
+  function fecharDetalhe() {
+    detalhe.hidden = true; fundo.hidden = true;
+    if (voltaFoco) voltaFoco.focus();
+    // (26/11/2026) a caixa tinha um pedido de tratativa: o que chegou da fita enquanto isso aparece agora
+    if (formTrat) formTrat = false;
+    if (tratEsperando) { tratEsperando = false; desenhar(); }
+  }
   fundo.addEventListener('click', fecharDetalhe);
   ouvir(window, 'keydown', (e) => {
     if (detalhe.hidden) return;
@@ -1255,8 +1321,10 @@ export function iniciarPainel(D, { baixar, raiz = document, aba = '', aoTrocarAb
       el('div', { class: 'det-fatos' }, ...fatos),
       o.obs ? el('div', { class: 'det-bloco' }, el('h4', { text: 'Observação' }), el('p', { class: 'obs-txt', text: o.obs })) : null,
       mao,
+      blocoTratativas(o),
       mais.length ? el('details', { class: 'det-mais' }, el('summary', { text: 'Mais detalhes' }), el('dl', {}, ...mais)) : null,
-      el('div', { class: 'det-pe' }, el('button', { type: 'button', class: 'botao', text: 'Ver todas as OS da ' + o.frota,
+      el('div', { class: 'det-pe' }, trat && trat.podePedir ? el('button', { type: 'button', class: 'botao prim', text: 'Pedir tratativa', on: { click: () => abrirPedido([o]) } }) : null,
+        el('button', { type: 'button', class: 'botao', text: 'Ver todas as OS da ' + o.frota,
         on: { click: () => { fecharDetalhe(); aplicar(() => so('frota', o.frota), 'frotas'); } } })));
   }
 
@@ -4051,11 +4119,237 @@ export function iniciarPainel(D, { baixar, raiz = document, aba = '', aoTrocarAb
     } catch (e) { tratarErro(e, aviso); } finally { botao.disabled = false; }
   }
 
+  // ── as tratativas de OS (26/11/2026, pedido do Mateus) ──
+  // O supervisor marca a OS que precisa de uma tratativa no Protheus (reprogramar, finalizar, trocar, excluir); quem
+  // atualiza o painel faz e confirma, ou recusa com a justificativa. A conta está em js/os/tratativas.js; os pedidos
+  // moram na fita, e o banco confere quem pode o quê (sql/08_tratativas.sql). Sem `trat` (o banco ainda sem o 08, ou
+  // quem não é do PCM), nada disto aparece. `trat`: { quem, podePedir, podeTratar, lista(), ouvir(fn), gravar(evs), novoId() }.
+  const OS_POR_K = new Map(OS_TUDO.map((o) => [o.k, o]));
+  const CANC_TRAT = new Set((D.canceladas || []).map((c) => IND.chaveOS(c[1], c[0])));
+  let TRATS = trat ? trat.lista() : new Map();
+  let formTrat = false;                 // um formulário de tratativa aberto: o que chega da fita espera ele fechar
+  let tratEsperando = false;
+  const marcadas = new Set();           // as OS marcadas nas listas para pedir tratativa (as chaves)
+  const tratDa = (k) => TR.ordenar([...TRATS.values()].filter((t) => t.k === k));
+  const pendentesDa = (k) => tratDa(k).filter((t) => t.situacao === 'pendente');
+  const nPendentes = () => [...TRATS.values()].filter((t) => t.situacao === 'pendente').length;
+  /** O número da OS nas listas, com a etiqueta da tratativa pendente. */
+  function comTratativa(o) {
+    const p = trat ? pendentesDa(o.k) : [];
+    if (!p.length) return o.os;
+    return el('span', { class: 'os-trat' }, o.os, el('small', { class: 'tag-trat', text: TR.ACOES[p[0].acao].rot + (p.length > 1 ? ` +${p.length - 1}` : ''),
+      title: 'Tratativa pendente: ' + p.map((t) => TR.ACOES[t.acao].rot + (t.texto ? ' (' + t.texto + ')' : '')).join('; ') }));
+  }
+  /** A caixinha de marcar de cada OS nas listas, para pedir tratativa de várias de uma vez. `visiveis()`: as linhas à vista. */
+  function colunaMarca(visiveis) {
+    if (!trat || !trat.podePedir) return null;
+    const todas = el('input', { type: 'checkbox', 'aria-label': 'Marcar todas as OS à vista para tratativa', title: 'Marcar todas à vista' });
+    todas.addEventListener('change', () => {
+      for (const o of visiveis()) { if (todas.checked) marcadas.add(o.k); else marcadas.delete(o.k); }
+      raiz.querySelectorAll('.marca-os').forEach((cb) => { cb.checked = marcadas.has(cb.dataset.k); });
+      pintarMarcadas();
+    });
+    return { k: 'marca', rot: '', fixa: true, cls: () => 'marca', cab: () => el('label', { class: 'marca-l', on: { click: (e) => e.stopPropagation() } }, todas),
+      ver: (o) => {
+        const cb = el('input', { type: 'checkbox', class: 'marca-os', 'data-k': o.k, 'aria-label': `Marcar a OS ${o.os} para tratativa` });
+        cb.checked = marcadas.has(o.k);
+        cb.addEventListener('change', () => { if (cb.checked) marcadas.add(o.k); else marcadas.delete(o.k); pintarMarcadas(); });
+        return el('label', { class: 'marca-l', on: { click: (e) => e.stopPropagation(), keydown: (e) => e.stopPropagation() } }, cb);
+      } };
+  }
+  // a barra das marcadas: fica no pé da tela enquanto houver OS marcada
+  const barraMarcadas = el('div', { class: 'marca-barra', role: 'region', 'aria-label': 'OS marcadas para tratativa', hidden: true });
+  raiz.append(barraMarcadas);
+  function pintarMarcadas() {
+    const n = [...marcadas].filter((k) => OS_POR_K.has(k)).length;
+    barraMarcadas.hidden = !n || !trat || !trat.podePedir;
+    if (barraMarcadas.hidden) return;
+    barraMarcadas.replaceChildren(el('span', { class: 'marca-n', text: `${plural(n, 'OS marcada', 'OS marcadas')}` }),
+      el('button', { type: 'button', class: 'botao prim', text: 'Pedir tratativa', on: { click: () => abrirPedido([...marcadas].map((k) => OS_POR_K.get(k)).filter(Boolean)) } }),
+      el('button', { type: 'button', class: 'botao', text: 'Desmarcar', on: { click: () => { marcadas.clear(); raiz.querySelectorAll('.marca-os, .marca-l input').forEach((cb) => { cb.checked = false; }); pintarMarcadas(); } } }));
+  }
+  /** Grava e conta o que aconteceu, na mensagem dada. Devolve se gravou. */
+  async function gravarTrat(evs, msg, botoes) {
+    botoes.forEach((b) => { b.disabled = true; });
+    msg.textContent = 'Gravando…';
+    try {
+      await trat.gravar(evs);
+      TRATS = trat.lista();
+      return true;
+    } catch (e) {
+      const m = (e && e.message) || String(e);
+      msg.textContent = /row-level security|permission|42501|403/i.test(m) ? 'O banco recusou: este acesso não pode fazer isto (peça ao Mateus para conferir a liberação).'
+        : /fetch|network|Failed|rede|conex/i.test(m) ? 'Sem conexão com o banco agora. Nada foi gravado: tente de novo quando tiver sinal.' : 'Não deu para gravar: ' + m;
+      botoes.forEach((b) => { b.disabled = false; });
+      return false;
+    }
+  }
+  /** O pedido de tratativa para uma ou mais OS (as marcadas, a da ficha, ou nenhuma: aí se acrescenta pelo número). */
+  function abrirPedido(oss) {
+    if (!trat || !trat.podePedir) return;
+    if (detalhe.hidden) voltaFoco = focado();
+    formTrat = true;
+    const sel = new Map(oss.map((o) => [o.k, o]));
+    const listaOS = el('ul', { class: 'trat-oss' });
+    const pintarOS = () => listaOS.replaceChildren(...[...sel.values()].map((o) => el('li', {}, el('b', { text: 'OS ' + o.os }), ` · ${o.frota}` + (o.servico ? ' · ' + o.servico : ''),
+      el('button', { type: 'button', class: 'tira', 'aria-label': `Tirar a OS ${o.os}`, title: 'Tirar', text: '×', on: { click: () => { sel.delete(o.k); pintarOS(); } } }))));
+    const numero = el('input', { type: 'text', inputmode: 'numeric', placeholder: 'Número da OS (pode ser mais de um)', 'aria-label': 'Acrescentar OS pelo número' });
+    const msgOS = el('p', { class: 'trat-erro', 'aria-live': 'polite' });
+    const acrescentar = () => {
+      const nums = numero.value.split(/[\s,;]+/).map((x) => x.replace(/^0+(?=\d)/, '')).filter(Boolean);
+      const falta = [];
+      for (const n of nums) {
+        const achou = OS_TUDO.filter((o) => o.os.replace(/^0+(?=\d)/, '') === n);
+        if (!achou.length) falta.push(n);
+        for (const o of achou) sel.set(o.k, o);
+      }
+      msgOS.textContent = falta.length ? `Não está no painel: ${falta.join(', ')}` : '';
+      numero.value = '';
+      pintarOS();
+    };
+    numero.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); acrescentar(); } });
+    const nomeAcao = 'trat-acao-' + Math.random().toString(36).slice(2, 7);
+    let acao = '';
+    const data = el('input', { type: 'date', 'aria-label': 'Nova data' });
+    const campoData = el('label', { class: 'trat-campo', hidden: true }, el('span', { text: 'Nova data' }), data);
+    const texto = el('textarea', { rows: '3', maxlength: String(TR.MAX_TEXTO), 'aria-label': 'O que fazer' });
+    const dicas = { reprogramar: 'Por que, ou para quando (se não tiver a data)', finalizar: 'O que foi feito, se quiser (opcional)', trocar: 'O que trocar e pelo quê (obrigatório)',
+      excluir: 'O que excluir ou cancelar, e por quê (obrigatório)', outra: 'O que precisa ser feito (obrigatório)' };
+    const opcoes = el('div', { class: 'trat-opcoes', role: 'radiogroup', 'aria-label': 'Qual tratativa' }, ...Object.entries(TR.ACOES).map(([k, a]) => {
+      const r = el('input', { type: 'radio', name: nomeAcao, value: k });
+      r.addEventListener('change', () => { acao = k; campoData.hidden = k !== 'reprogramar'; texto.placeholder = dicas[k]; msg.textContent = ''; });
+      return el('label', { class: 'trat-opcao' }, r, el('span', {}, el('b', { text: a.rot }), el('small', { text: a.dica })));
+    }));
+    const msg = el('p', { class: 'trat-erro', 'aria-live': 'polite' });
+    const enviar = el('button', { type: 'button', class: 'botao prim', text: 'Enviar o pedido' });
+    const cancelar = el('button', { type: 'button', class: 'botao', text: 'Cancelar', on: { click: () => fecharPedido() } });
+    enviar.addEventListener('click', async () => {
+      const oss2 = [...sel.values()];
+      const p = { acao, texto: texto.value, para: data.value };
+      const falta = !oss2.length ? 'Acrescente a OS (pelo número) ou marque na lista.' : TR.faltaNoPedido(p);
+      if (falta) { msg.textContent = falta; return; }
+      const repetidas = oss2.filter((o) => pendentesDa(o.k).some((t) => t.acao === acao));
+      if (repetidas.length) { msg.textContent = `Já tem pedido pendente de "${TR.ACOES[acao].rot}" para: ${repetidas.map((o) => o.os).join(', ')}. Tire essa OS do pedido ou cancele o outro.`; return; }
+      const ok = await gravarTrat(TR.pedidos(oss2, p, oss2.map(() => trat.novoId())), msg, [enviar, cancelar]);
+      if (!ok) return;
+      for (const o of oss2) marcadas.delete(o.k);
+      pintarMarcadas();
+      formTrat = false;
+      mostrarDetalhe(cabDetalhe(el('p', { class: 'det-id', text: 'Tratativa' }), 'Pedido enviado'),
+        el('p', { class: 'trat-ok', text: `${plural(oss2.length, 'pedido foi gravado', 'pedidos foram gravados')}: ${TR.ACOES[acao].rot.toLowerCase()} — ${oss2.map((o) => 'OS ' + o.os).join(', ')}. Quem atualiza o painel vê na aba Tratativas.` }),
+        el('div', { class: 'det-pe' }, el('button', { type: 'button', class: 'botao prim', text: 'Ver as tratativas', on: { click: () => { fecharPedido(); irPara('tratativas'); } } }),
+          el('button', { type: 'button', class: 'botao', text: 'Fechar', on: { click: () => fecharPedido() } })));
+      desenhar();
+    });
+    pintarOS();
+    mostrarDetalhe(cabDetalhe(el('p', { class: 'det-id', text: 'Tratativa de OS' }), 'Pedir tratativa'),
+      el('div', { class: 'det-bloco' }, el('h4', { text: 'OS' }), listaOS,
+        el('div', { class: 'trat-acresc' }, numero, el('button', { type: 'button', class: 'botao', text: 'Acrescentar', on: { click: acrescentar } })), msgOS),
+      el('div', { class: 'det-bloco' }, el('h4', { text: 'O que precisa' }), opcoes, campoData,
+        el('label', { class: 'trat-campo' }, el('span', { text: 'Detalhe' }), texto)),
+      msg, el('div', { class: 'det-pe' }, enviar, cancelar));
+    if (!sel.size) numero.focus();
+  }
+  const fecharPedido = () => fecharDetalhe();
+  /** Na ficha da OS: os pedidos de tratativa dela (o mais novo primeiro) — vazio sem as tratativas. */
+  function blocoTratativas(o) {
+    if (!trat) return null;
+    const l = tratDa(o.k);
+    if (!l.length) return null;
+    return el('div', { class: 'det-bloco' }, el('h4', { text: 'Tratativas' }), el('ul', { class: 'det-trat' }, ...l.map((t) => el('li', { class: 't-' + t.situacao },
+      el('b', { text: TR.ACOES[t.acao].rot }), ` · ${TR.SITUACOES[t.situacao]}` + (t.situacao === 'pendente' ? ` · pedida por ${t.pedidaPor} em ${dataHora(t.pedidaEm)}` : ` por ${t.por} em ${dataHora(t.em)}`),
+      t.texto || t.para ? el('small', { text: (t.para ? 'para ' + br(t.para) + (t.texto ? ': ' : '') : '') + t.texto }) : null,
+      t.resposta ? el('small', { text: (t.situacao === 'recusada' ? 'Justificativa: ' : '') + t.resposta }) : null))));
+  }
+  /** Um pedido na aba: a OS, o que foi pedido, o que o Protheus diz dela agora, a situação e o que dá para fazer. */
+  function cartaoTrat(t) {
+    const o = OS_POR_K.get(t.k) || null;
+    const np = TR.noProtheus(t, o, CANC_TRAT.has(t.k));
+    const msg = el('p', { class: 'trat-erro', 'aria-live': 'polite' });
+    const acoes = el('div', { class: 'trat-acoes' });
+    const li = el('li', { class: 'trat t-' + t.situacao, 'data-id': t.id });
+    const osBt = o ? el('button', { type: 'button', class: 'trat-os', text: 'OS ' + t.os, title: 'Abrir a ficha da OS', on: { click: () => abrirDetalhe(o) } })
+      : el('b', { class: 'trat-os', text: 'OS ' + t.os });
+    const sitTxt = t.situacao === 'pendente' ? 'Pendente' : `${TR.SITUACOES[t.situacao]} por ${t.por} em ${dataHora(t.em)}`;
+    // a resposta: um formulário no próprio cartão (confirmar com a nota, recusar com a justificativa, cancelar, reabrir)
+    const form = (tipo) => {
+      formTrat = true;
+      const obrig = tipo === 'trat_recusada', so = tipo === 'trat_cancelada' || tipo === 'trat_reaberta';
+      const ta = so ? null : el('textarea', { rows: '2', maxlength: String(TR.MAX_TEXTO), 'aria-label': obrig ? 'Justificativa' : 'Observação',
+        placeholder: obrig ? 'Por que não dá para fazer (obrigatório)' : 'O que foi feito, se quiser (opcional)' });
+      const rotOk = { trat_feita: 'Confirmar: feita', trat_recusada: 'Recusar o pedido', trat_cancelada: 'Sim, cancelar o pedido', trat_reaberta: 'Sim, reabrir' }[tipo];
+      const ok = el('button', { type: 'button', class: 'botao prim', text: rotOk });
+      const volta = el('button', { type: 'button', class: 'botao', text: 'Voltar', on: { click: () => { formTrat = false; msg.textContent = ''; pintarAcoes(); if (tratEsperando) { tratEsperando = false; desenhar(); } } } });
+      ok.addEventListener('click', async () => {
+        if (obrig && !ta.value.trim()) { msg.textContent = 'Escreva a justificativa da recusa.'; ta.focus(); return; }
+        const gravou = await gravarTrat([TR.resposta(t.id, tipo, ta ? ta.value : '')], msg, [ok, volta]);
+        if (gravou) { formTrat = false; tratEsperando = false; desenhar(); }
+      });
+      acoes.replaceChildren(el('div', { class: 'trat-form' }, so ? el('p', { text: tipo === 'trat_cancelada' ? 'Cancelar este pedido?' : 'Voltar este pedido para pendente?' }) : ta,
+        el('div', { class: 'trat-bts' }, ok, volta)));
+      (ta || ok).focus();
+    };
+    const bt = (rot, fn, cls = 'botao') => el('button', { type: 'button', class: cls, text: rot, on: { click: fn } });
+    const pintarAcoes = () => acoes.replaceChildren(...[
+      trat.podeTratar && t.situacao === 'pendente' ? bt('Confirmar: feita', () => form('trat_feita'), 'botao prim') : null,
+      trat.podeTratar && t.situacao === 'pendente' ? bt('Recusar', () => form('trat_recusada')) : null,
+      t.pedidaPor === trat.quem && t.situacao === 'pendente' ? bt('Cancelar o pedido', () => form('trat_cancelada')) : null,
+      trat.podeTratar && (t.situacao === 'feita' || t.situacao === 'recusada') ? bt('Reabrir', () => form('trat_reaberta')) : null].filter(Boolean));
+    pintarAcoes();
+    li.append(
+      el('div', { class: 'trat-cab' }, el('span', { class: 'trat-acao a-' + t.acao, text: TR.ACOES[t.acao].rot }), osBt,
+        el('span', { class: 'trat-frota', text: [t.frota, t.servico].filter(Boolean).join(' · ') })),
+      t.texto || t.para ? el('p', { class: 'trat-texto' }, t.para ? el('b', { text: 'Para ' + br(t.para) + (t.texto ? ': ' : '') }) : null, t.texto || null) : null,
+      el('p', { class: 'trat-linha' }, el('span', { text: `Pedida por ${t.pedidaPor} em ${dataHora(t.pedidaEm)}` }),
+        el('span', { class: 'trat-protheus' + (np.feito ? ' feito' : '') }, 'No Protheus: ' + np.txt)),
+      el('p', { class: 'trat-sit s-' + t.situacao }, el('b', { text: sitTxt }),
+        t.resposta ? el('span', { class: 'trat-resp', text: (t.situacao === 'recusada' ? ' · Justificativa: ' : ' · ') + t.resposta }) : null),
+      acoes, msg);
+    return li;
+  }
+  function desenharTratativas() {
+    const raizT = $('#tratativas');
+    if (!trat) { raizT.replaceChildren(); return; }
+    const todas = TR.ordenar([...TRATS.values()]);
+    const conta = { pendente: 0, feita: 0, recusada: 0, cancelada: 0 };
+    for (const t of todas) conta[t.situacao]++;
+    const est = V.trat;
+    const lista = todas.filter((t) => !est.sit || t.situacao === est.sit);
+    const sits = [['pendente', 'Pendentes'], ['feita', 'Feitas'], ['recusada', 'Recusadas'], ['cancelada', 'Canceladas'], ['', 'Todas']];
+    const segm = el('div', { class: 'segm', role: 'group', 'aria-label': 'Quais pedidos' }, ...sits.map(([k, rot]) =>
+      el('button', { type: 'button', 'aria-pressed': String(est.sit === k), on: { click: () => { est.sit = k; desenhar(); } } },
+        rot, el('span', { class: 'n', text: nf.format(k ? conta[k] : todas.length) }))));
+    const nota = trat.podeTratar ? 'O que o supervisor pediu. Faça no Protheus e confirme aqui, ou recuse com a justificativa.'
+      : 'Marque as OS que precisam de tratativa (a caixinha de cada OS nas listas, ou "Pedir tratativa" na ficha). Quem atualiza o painel faz no Protheus e responde aqui.';
+    const vazio = { pendente: 'Nenhum pedido esperando. Os pedidos novos chegam sozinhos, em alguns segundos.', feita: 'Nenhum pedido feito ainda.', recusada: 'Nenhum pedido recusado.', cancelada: 'Nenhum pedido cancelado.', '': 'Nenhum pedido ainda.' }[est.sit];
+    raizT.replaceChildren(el('div', { class: 'grade' }, el('article', { class: 'cartao c12', id: 'c-trat' },
+      el('div', { class: 'cab' }, el('div', {}, el('h2', { text: 'Tratativas de OS' }), el('p', { class: 'nota', text: nota })),
+        el('div', { class: 'acoes' }, trat.podePedir ? el('button', { type: 'button', class: 'botao prim', text: 'Nova tratativa', on: { click: () => abrirPedido([]) } }) : null)),
+      el('div', { class: 'cart-barra' }, segm),
+      lista.length ? el('ul', { class: 'trat-lista' }, ...lista.map(cartaoTrat)) : el('div', { class: 'vazio', text: vazio }))));
+  }
+  // o que chega da fita (o pedido do supervisor, a resposta): a conta e a aba se refazem — menos com um formulário aberto
+  const assinatura = (m) => [...m.values()].map((t) => t.id + ':' + t.situacao).join('|');
+  const sairTrat = trat ? trat.ouvir(() => {
+    const nova = trat.lista();
+    if (assinatura(nova) === assinatura(TRATS)) return;
+    TRATS = nova;
+    if (formTrat || !detalhe.hidden) { tratEsperando = true; pintarContaTrat(); return; }
+    desenhar();
+  }) : null;
+  function pintarContaTrat() {
+    const b = $('#aba-tratativas'), n = $('#n-tratativas');
+    if (!b) return;
+    b.hidden = !trat;
+    if (n) n.textContent = trat && nPendentes() ? nf.format(nPendentes()) : '';
+  }
+
   // ── o desenho ──
   const DESENHO = { geral: desenharGeral, indicadores: desenharIndicadores, programacao: desenharProg, avanco: desenharAvanco, pendentes: desenharPendentes, carteira: desenharCarteira, frotas: desenharFrotas, executantes: desenharExecutantes,
-    preventivas: desenharPreventivas, auditoria: desenharAuditoria };
+    preventivas: desenharPreventivas, auditoria: desenharAuditoria, tratativas: desenharTratativas };
   function desenhar() {
     cacheSemSit = null;
+    if (V.aba === 'tratativas' && !trat) V.aba = 'geral';
     esconderDica();
     sincronizarCampos();
     desenharPills();
@@ -4076,12 +4370,17 @@ export function iniciarPainel(D, { baixar, raiz = document, aba = '', aoTrocarAb
     const f1 = unicaFrota();
     $('#n-frotas').textContent = f1 || (F.frota.size ? (F.neg.has('frota') ? 'sem ' : '') + nf.format(F.frota.size) : '');
     $('#n-frotas').hidden = !F.frota.size;
+    // (26/11/2026) a aba das tratativas: a conta dos pendentes no botão; redesenhar fecha os formulários da aba
+    if (detalhe.hidden) { formTrat = false; tratEsperando = false; }
+    pintarContaTrat();
+    arrumarAbas();
     DESENHO[V.aba](R);
+    pintarMarcadas();
     fecharMenu();
     raiz.querySelectorAll('.cartao[data-imagem]').forEach(prepararImagem);
   }
   let redim;
   ouvir(window, 'resize', () => { clearTimeout(redim); redim = setTimeout(desenhar, 150); });
   desenhar();
-  return { parar: () => { fim.abort(); clearTimeout(redim); clearTimeout(espera); esconderDica(); } };
+  return { parar: () => { fim.abort(); clearTimeout(redim); clearTimeout(espera); esconderDica(); if (sairTrat) sairTrat(); barraMarcadas.remove(); } };
 }

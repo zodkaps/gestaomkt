@@ -179,6 +179,78 @@ co_rec=$(echo "$co" | grep -c "ERROR" || true)
 echo "   $co_ok de 9 conferências da consulta · $co_rec de 5 proibidas recusadas"
 [ "$co_ok" = "9" ] && [ "$co_rec" = "5" ] || { echo "FALHOU: a consulta não está fechada como devia"; exit 1; }
 
+# O 08 (26/11/2026): as tratativas de OS do painel. Pede quem é do PCM e vê o painel (Lucas); confirma, recusa (com
+# o motivo) e reabre quem atualiza o painel (Mateus). A operação, a consulta e o PCM sem a marca não lançam tratativa;
+# o resto da política continua igual. E rodar o 02 de novo tira as tratativas até rodar o 08 depois dele.
+echo "── 14. Tratativas de OS: o supervisor pede, quem atualiza o painel trata"
+for vez in 1 2; do psql -h "$D/sock" -U postgres -q -v ON_ERROR_STOP=1 -f "$AQUI/sql/08_tratativas.sql" 2>&1 | grep -v NOTICE || true; done
+psql -h "$D/sock" -U postgres -q -v ON_ERROR_STOP=1 -c \
+  "insert into public.pessoas (email, nome, papel) values ('joana@makroteste.com.br', 'Joana', 'pcm')"
+tr=$(psql -h "$D/sock" -U postgres -q 2>&1 <<'SQL'
+\set ON_ERROR_STOP off
+begin; set local role authenticated; set local request.jwt.claims = '{"email":"lucas@makroteste.com.br"}';
+  insert into eventos (id,autor,tipo,alvo_tipo,alvo,dados) values ('trat-t1','Lucas','trat_pedida','tratativa','T-1','{"os":"100001","acao":"finalizar"}');
+  select '   → trat: Lucas pediu'; commit;
+begin; set local role authenticated; set local request.jwt.claims = '{"email":"lucas@makroteste.com.br"}';
+  insert into eventos (id,autor,tipo,alvo_tipo,alvo) values ('trat-t2','Lucas','trat_cancelada','tratativa','T-1');
+  select '   → trat: Lucas cancelou'; rollback;
+begin; set local role authenticated; set local request.jwt.claims = '{"email":"mateus@makroteste.com.br"}';
+  insert into eventos (id,autor,tipo,alvo_tipo,alvo,motivo) values ('trat-t3','Mateus','trat_feita','tratativa','T-1','');
+  select '   → trat: Mateus confirmou'; rollback;
+begin; set local role authenticated; set local request.jwt.claims = '{"email":"mateus@makroteste.com.br"}';
+  insert into eventos (id,autor,tipo,alvo_tipo,alvo,motivo) values ('trat-t4','Mateus','trat_recusada','tratativa','T-1','Já está programada no Protheus');
+  select '   → trat: Mateus recusou com motivo'; rollback;
+begin; set local role authenticated; set local request.jwt.claims = '{"email":"mateus@makroteste.com.br"}';
+  insert into eventos (id,autor,tipo,alvo_tipo,alvo) values ('trat-t5','Mateus','trat_reaberta','tratativa','T-1');
+  select '   → trat: Mateus reabriu'; rollback;
+begin; set local role authenticated; set local request.jwt.claims = '{"email":"mateus@makroteste.com.br"}';
+  insert into eventos (id,autor,tipo,alvo_tipo,alvo) values ('trat-t6','Mateus','trat_pedida','tratativa','T-2');
+  select '   → trat: Mateus também pediu'; rollback;
+begin; set local role authenticated; set local request.jwt.claims = '{"email":"mateus@makroteste.com.br"}';
+  insert into eventos (id,autor,tipo,alvo_tipo,alvo) values ('trat-t7','Mateus','concluida','atividade','A-0001');
+  select '   → trat: Mateus ainda dá baixa em atividade'; rollback;
+begin; set local role authenticated; set local request.jwt.claims = '{"email":"pedro@makroteste.com.br"}';
+  insert into eventos (id,autor,tipo,alvo_tipo,alvo) values ('trat-t8','Pedro','mov_chegou','movimentacao','M-0001');
+  select '   → trat: Pedro ainda conclui movimentação'; rollback;
+begin; set local role authenticated; set local request.jwt.claims = '{"email":"lucas@makroteste.com.br"}';
+  insert into eventos (id,autor,tipo,alvo_tipo,alvo) values ('trat-x1','Lucas','trat_feita','tratativa','T-1'); rollback;
+begin; set local role authenticated; set local request.jwt.claims = '{"email":"lucas@makroteste.com.br"}';
+  insert into eventos (id,autor,tipo,alvo_tipo,alvo,motivo) values ('trat-x2','Lucas','trat_recusada','tratativa','T-1','não'); rollback;
+begin; set local role authenticated; set local request.jwt.claims = '{"email":"mateus@makroteste.com.br"}';
+  insert into eventos (id,autor,tipo,alvo_tipo,alvo,motivo) values ('trat-x3','Mateus','trat_recusada','tratativa','T-1','   '); rollback;
+begin; set local role authenticated; set local request.jwt.claims = '{"email":"pedro@makroteste.com.br"}';
+  insert into eventos (id,autor,tipo,alvo_tipo,alvo) values ('trat-x4','Pedro','trat_pedida','tratativa','T-3'); rollback;
+begin; set local role authenticated; set local request.jwt.claims = '{"email":"visitante@makroteste.com.br"}';
+  insert into eventos (id,autor,tipo,alvo_tipo,alvo) values ('trat-x5','Visitante','trat_pedida','tratativa','T-4'); rollback;
+begin; set local role authenticated; set local request.jwt.claims = '{"email":"joana@makroteste.com.br"}';
+  insert into eventos (id,autor,tipo,alvo_tipo,alvo) values ('trat-x6','Joana','trat_pedida','tratativa','T-5'); rollback;
+begin; set local role authenticated; set local request.jwt.claims = '{"email":"lucas@makroteste.com.br"}';
+  insert into eventos (id,autor,tipo,alvo_tipo,alvo) values ('trat-x7','Lucas','trat_pedida','outra','T-6'); rollback;
+begin; set local role authenticated; set local request.jwt.claims = '{"email":"lucas@makroteste.com.br"}';
+  insert into eventos (id,autor,tipo,alvo_tipo,alvo) values ('trat-x8','Mateus','trat_pedida','tratativa','T-7'); rollback;
+SQL
+)
+# o 02 de novo, sozinho, refaz a política sem as tratativas; o 08 depois dele as devolve
+psql -h "$D/sock" -U postgres -q -v ON_ERROR_STOP=1 -f "$AQUI/sql/02_acesso.sql" 2>&1 | grep -v NOTICE || true
+tr2=$(psql -h "$D/sock" -U postgres -q 2>&1 <<'SQL'
+\set ON_ERROR_STOP off
+begin; set local role authenticated; set local request.jwt.claims = '{"email":"lucas@makroteste.com.br"}';
+  insert into eventos (id,autor,tipo,alvo_tipo,alvo) values ('trat-y1','Lucas','trat_pedida','tratativa','T-8'); rollback;
+SQL
+)
+psql -h "$D/sock" -U postgres -q -v ON_ERROR_STOP=1 -f "$AQUI/sql/08_tratativas.sql" 2>&1 | grep -v NOTICE || true
+tr3=$(psql -h "$D/sock" -U postgres -q 2>&1 <<'SQL'
+begin; set local role authenticated; set local request.jwt.claims = '{"email":"lucas@makroteste.com.br"}';
+  insert into eventos (id,autor,tipo,alvo_tipo,alvo) values ('trat-y2','Lucas','trat_pedida','tratativa','T-9');
+  select '   → trat: com o 08 de novo, Lucas pede'; rollback;
+SQL
+)
+printf "%s\n%s\n%s\n" "$tr" "$tr2" "$tr3" | grep -E "→ trat:|ERROR" | sed -E 's/^(psql:.*)?ERROR:/   ✓ recusado:/'
+tr_ok=$(printf "%s\n%s\n" "$tr" "$tr3" | grep -c "→ trat:" || true)
+tr_rec=$(printf "%s\n%s\n" "$tr" "$tr2" | grep -c "ERROR" || true)
+echo "   $tr_ok de 9 permitidas das tratativas · $tr_rec de 9 proibidas recusadas"
+[ "$tr_ok" = "9" ] && [ "$tr_rec" = "9" ] || { echo "FALHOU: as tratativas não estão fechadas como deviam"; exit 1; }
+
 passou=$(echo "$saida" | grep -c "→ passou" || true)
 recusado=$(( $(echo "$saida" | grep -c "ERROR" || true) + $(echo "$fora_de_ordem" | grep -c "ERROR" || true) ))
 vazio=$(echo "$saida" | grep -c "→ não viu nada" || true)

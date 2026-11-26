@@ -140,9 +140,22 @@ nem a equipe, e no site o menu só tem a OS Makro. Regras:
 - Na ficha da OS o CPF de quem abriu vem mascarado (`***.456.789-**`); o
   "mostrar" revela só naquela caixa.
 - Não existe `sql/21_rastreio_programacao.sql` (conferido no repositório, na
-  história do Git e no banco em 12/11/2026): as migrações são de 00 a 07, e o
-  JavaScript só usa `eventos`, `pessoas`, `ve_os()`, `atualiza_os()` e o bucket
-  `painel-os`.
+  história do Git e no banco em 12/11/2026): as migrações são de 00 a 08 (o 08,
+  das tratativas, em 26/11/2026), e o JavaScript só usa `eventos`, `pessoas`,
+  `ve_os()`, `atualiza_os()` e o bucket `painel-os`.
+- As **tratativas de OS** (26/11/2026, pedido do Mateus; `js/os/tratativas.js`,
+  aba Tratativas): o supervisor (o PCM que vê o painel, como o Lucas) marca as
+  OS na lista (a caixinha de cada uma) ou pede pela ficha — reprogramar,
+  finalizar, trocar, excluir ou outra; quem atualiza o painel confirma, recusa
+  (a justificativa é obrigatória) ou reabre; quem pediu cancela. Moram na fita:
+  `alvo_tipo = 'tratativa'`, `alvo` = o id do pedido, os tipos `trat_pedida`,
+  `trat_feita`, `trat_recusada`, `trat_cancelada` e `trat_reaberta` — e o banco
+  confere quem pode o quê (`sql/08_tratativas.sql`; rodou o 02 de novo, rode o
+  08 depois). A tela grava direto no banco, fora da fila do aparelho: um pedido
+  recusado não prende os outros lançamentos da pessoa. Só aparece com
+  `BANCO_ACEITA_TRATATIVAS` no `js/config.js` (ligar só depois do 08 no
+  projeto); a consulta não vê. A fita é lida pelo PCM e pela operação, então o
+  pedido leva só a OS, a frota, o serviço e o que fazer — nunca CPF.
 - Se ele mandar a STJ e a STL no chat, a resposta é: solte em *Atualizar com o
   Protheus* no site. A base histórica (`historico-os.json.gz`) é feita fora do
   repositório e mandada a ele em arquivo; nunca vai para o Git.
@@ -184,6 +197,12 @@ Mudou arquivo em `js/`? Acrescentar em `sw.js` (lista e versão) — o
   uma barra acesa e as outras apagadas). No toque, o destaque do gráfico é o
   `.tocada`, que `mostrarDica` põe e `esconderDica` tira. O `testes/rodar.js`
   acusa `:hover` fora do `@media` e chave sobrando no CSS.
+- As abas do painel numa linha só (26/11/2026, pedido do Mateus: estava complexo
+  demais): na ordem do uso, sem os rótulos de grupo; o que não cabe na largura
+  vai para o "Mais" (`arrumarAbas`, refeito a cada desenho), e a aba aberta, se
+  estiver lá, dá o nome ao botão. Aba nova entra no molde (`index.html`) na
+  posição da prioridade; teste que clica numa aba usa o `irAba`. A barra de
+  filtros: o período, a busca e "Filtros" (todos, os quatro de todo dia primeiro).
 - A barra lateral recolhe (`#brecolher` em `js/app.js`, 24/11/2026): o `html`
   ganha `data-menu="recolhido"`, o `--menu` vai a 64 px e a escolha fica em
   `menu_recolhido`. Quem depende da largura do menu usa `var(--menu)`.

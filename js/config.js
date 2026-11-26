@@ -31,6 +31,13 @@ export const NUVEM = {
 // em 13/10/2026 e conferida no banco.
 export const BANCO_ACEITA_FECHAMENTO = true;
 
+// O banco já aceita as tratativas de OS do painel (os lançamentos de alvo
+// `tratativa`)? Só depois de rodar no projeto o `sql/08_tratativas.sql`. Antes
+// disso o banco recusaria o pedido; enquanto estiver `false`, a aba Tratativas,
+// o "Pedir tratativa" da ficha e a marcação na Carteira não aparecem. No projeto
+// de verdade a regra foi rodada em 26/11/2026 e conferida no banco.
+export const BANCO_ACEITA_TRATATIVAS = true;
+
 // Cada um entra com o PRÓPRIO e-mail.
 //
 // A primeira versão inventava um: "Pedro" virava pedro@makro.local. O Supabase
